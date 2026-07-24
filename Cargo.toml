@@ -1,0 +1,14 @@
+[package]
+name = "q2d"
+version = "0.0.1"
+edition = "2021"
+description = "Query-to-Data: a transport-neutral protocol for policy-bound, least-disclosure answers over protected data. Placeholder for the reference implementation."
+license = "Apache-2.0"
+repository = "https://github.com/q2d-protocol/q2d"
+homepage = "https://q2d.dev"
+documentation = "https://q2d.dev"
+readme = "README.md"
+keywords = ["protocol", "privacy", "agents", "mcp", "authorization"]
+categories = ["network-programming"]
+
+[dependencies]
