@@ -1,0 +1,276 @@
+# P-009 — Denial normalization
+
+| Field | Detail |
+|---|---|
+| PRD | P-009 |
+| Stage | 3 — closes it |
+| Status | **Ready for decomposition** |
+| Size | M |
+| Risk | medium |
+| Depends on | [P-007](P-007-policy-engine.md) |
+| Blocks | P-010, P-013, P-015 |
+| Pairs with | [P-007](P-007-policy-engine.md) — P-007 separates the audit reason from the external class; this PRD is what stops the reason reaching the wire |
+
+---
+
+## 1. Purpose
+
+Map internal outcomes to external classes, and guarantee that every outcome
+sharing a class is indistinguishable in the response.
+
+Neither this module nor [P-007](P-007-policy-engine.md) is sufficient alone. P-007
+keeps `audit.reason` and `external` in separate fields; this PRD ensures only one
+of them can reach a response. The corpus tests the seam rather than either side.
+
+**Claims served:** Q2D-C-08 (denial normalization) directly — and Q2D-NC-05 is
+equally load-bearing here, because it is what keeps the claim honest about
+timing.
+
+## 2. Spec citations
+
+| Source | What it constrains here |
+|---|---|
+| [`spec/core-model.md`](../../spec/core-model.md) §5.2 | The `deny` shape; what must be identical across causes; no cause-specific retry guidance |
+| [`spec/core-model.md`](../../spec/core-model.md) §5.3 | Explicit escalation is a deliberate disclosure and **must not** be described as normalized |
+| [`spec/core-model.md`](../../spec/core-model.md) §4 | The invariant that the external response must not reveal which step failed |
+| [`spec/claims.md`](../../spec/claims.md) Q2D-C-08 | What normalization achieves, and where it fails |
+| [`spec/claims.md`](../../spec/claims.md) Q2D-NC-05 | Wire-level indistinguishability is **not** claimed |
+| [`spec/terminology.md`](../../spec/terminology.md) §6 | Denial normalization; explicit and opaque escalation |
+| [`threat-model/trust-matrix.md`](../../threat-model/trust-matrix.md) §5 | Timing, size, and state channels named as residual |
+| [`registry/manifest.json`](../../registry/manifest.json) | `denial_normalization` — the reference registry's declared external class |
+
+## 3. Module boundary
+
+**Inside:** the tier model; the external-class vocabulary; response construction
+for a rejection; the uniformity guarantee; the explicit-escalation gate; the
+timing hook.
+
+**Explicitly outside:** deciding the outcome (**P-007**). The escalation
+lifecycle, pending tokens, and approval-scope digests (**P-015**) — this PRD only
+decides whether an escalation is *visible*. Audit writing (**P-011**). Transport
+(**P-013**).
+
+## 4. Design
+
+### 4.1 Three tiers, not two
+
+A single normalized class for everything would be simpler and wrong: a malformed
+envelope and a policy denial are not the same kind of event, and collapsing them
+makes a protocol undebuggable for no privacy gain.
+
+| Tier | Covers | Externally |
+|---|---|---|
+| **A — protocol** | Malformed or oversized envelope, unknown `q2d_version`, unregistered or unacceptable suite, `routing`/`signed` mismatch, request expired or future-dated | **Distinct errors** |
+| **B — authentication** | Unresolvable key, invalid signature, invalid or expired delegation | **One class** |
+| **C — everything from registry resolution onward** | Unknown predicate or version, revoked or deprecated entry, entry-digest mismatch, schema violation, constraint violation, contract not narrowable, unsupported assurance profile, policy denial, budget exhaustion, source freshness unmet, data absent, internal escalation | **One class** |
+
+The boundaries are drawn by **what each reveals about the custodian**:
+
+- **Tier A reveals nothing about the custodian.** It describes the request. A
+  requester learning its envelope was malformed learns about its own bytes.
+- **Tier B must be uniform internally**, because distinguishing "key unknown"
+  from "signature invalid" tells a requester whether its key is known to this
+  custodian — which is relationship existence. This is
+  [P-003](P-003-crypto-suites.md) §4.6's requirement, and this PRD is where it is
+  enforced.
+- **Tier C must be uniform internally**, because *any* distinction within it
+  reveals custodian-private state. Including schema violations: a precise schema
+  error confirms the predicate is supported by this custodian, and which entries
+  a custodian accepts is policy.
+
+A, B, and C are distinguishable **from each other**. A requester that
+authenticates successfully already knows its own key works, so learning it
+reached Tier C tells it nothing it did not have.
+
+### 4.2 Request expiry and source freshness are different tiers
+
+Easy to conflate, and they land on opposite sides.
+
+**Request expiry** — `expires_at` passed — is Tier A. It is a property of the
+request, evaluated at step 6, and reveals nothing.
+
+**Source freshness** — the custodian's data is older than
+`freshness.maximum_source_age` — is Tier C. It is a fact about the custodian's
+data, and a requester learning it learns when that data was last updated.
+
+[`core-model.md`](../../spec/core-model.md) §5.2's list says "failed freshness",
+meaning the second.
+
+### 4.3 Uniformity is structural, not enforced
+
+The `deny` response carries a request digest, a decision class, a decision time,
+and a signature. **None of these is variable-length**: SHA-256 is 32 bytes, the
+class is a fixed enum value, RFC 3339 second-precision is fixed width, Ed25519 is
+64 bytes.
+
+So byte-length uniformity falls out of the shape rather than needing to be
+policed — provided nothing variable-length is ever added. Adding an optional
+field to a denial is therefore an escalation, not a feature: one optional field
+present for some causes and absent for others reintroduces the distinction the
+tier exists to remove.
+
+### 4.4 No retry metadata
+
+MVP emits none.
+
+[`core-model.md`](../../spec/core-model.md) §5.2 permits retry metadata if its
+value and semantics are identical across every cause in the class. Meeting that
+is possible and is a standing invitation to get it wrong — a `Retry-After`
+computed from a rate limiter is cause-specific by construction, and it would take
+one plausible commit to introduce.
+
+Emitting none costs a requester a backoff hint it can supply itself.
+
+### 4.5 The wire builder cannot see the reason
+
+```
+build_denial(external: ExternalClass, request_digest, now) -> DenyResponse
+```
+
+It takes the external class, **not** the `Decision`. There is no parameter
+through which `audit.reason` could arrive, so the leak requires changing a
+signature rather than making a mistake.
+
+This is the seam [P-007](P-007-policy-engine.md) §4.3 sets up. P-007 populates
+two fields separately; this signature makes only one of them reachable.
+
+### 4.6 Explicit escalation is the one legitimate distinction
+
+An `escalate` outcome becomes a **visible** response only when the sensitivity
+class explicitly permits it. Otherwise it returns the Tier C class, and the
+authority is prompted out of band.
+
+[`core-model.md`](../../spec/core-model.md) §5.3 is emphatic that explicit
+escalation is a deliberate disclosure — it reveals that a relationship, record,
+or applicable policy path may exist — and **must never be described as
+denial-normalized**.
+
+So the gate is a policy input, defaulting to opaque. A deployment choosing
+explicit escalation is choosing to disclose, and should have to say so.
+
+### 4.7 Timing: not normalized, and named
+
+MVP does **not** normalize timing. Q2D-NC-05 already scopes the claim, and
+[`trust-matrix.md`](../../threat-model/trust-matrix.md) §5 names timing among the
+residual channels.
+
+Two things this PRD does anyway:
+
+**No gratuitous timing differences.** A Tier C rejection at step 10 completes far
+sooner than one at step 14. That difference is inherent to fail-fast ordering and
+is not worth surrendering — checking cheaply before expensively is the right
+design. But the module must not *add* to it: no cause-specific logging volume, no
+cause-specific retry sleep, no expensive formatting on one branch only.
+
+**A padding hook, default off.** A configurable minimum response time for Tier C,
+so fast rejections pad to the slowest. Default off, because enabling it costs
+latency on every rejection and the claim does not depend on it. Present so Stage
+8 can measure the difference rather than needing to build the mechanism first.
+
+Documentation must not describe MVP as timing-normalized. It is not.
+
+## 5. Interfaces
+
+```
+classify(internal: InternalReason) -> Tier
+external_class(tier: Tier, sensitivity: SensitivityClass) -> ExternalClass
+build_denial(external: ExternalClass, request_digest, now) -> DenyResponse
+escalation_visible(sensitivity: SensitivityClass, policy) -> bool
+```
+
+`classify` is total over a **closed** `InternalReason` enum. A new internal
+reason must be assigned a tier at the point it is added, and an unassigned reason
+is a compile error rather than a runtime default — a default would silently place
+a new failure mode in whichever tier the fallback names.
+
+## 6. Corpus sections
+
+`denial/` — authored under this PRD.
+
+| Group | Vectors |
+|---|---|
+| `denial/tiers/` | Every `InternalReason`, asserting its tier |
+| `denial/uniformity-b/` | Every Tier B cause produces a byte-identical response |
+| `denial/uniformity-c/` | Every Tier C cause produces a byte-identical response |
+| `denial/tier-a/` | Protocol errors are distinct and informative |
+| `denial/escalation/` | Opaque by default; visible only where the class permits |
+| `denial/no-retry/` | No retry metadata on any denial |
+
+`denial/uniformity-b/` and `denial/uniformity-c/` are the P-001 cross-vector
+denial-uniformity assertion applied to this module — the same check
+[`registry/validate.py`](../../registry/validate.py) already performs over
+registry rejections.
+
+## 7. Acceptance
+
+- [ ] Every Tier C cause produces a **byte-identical** response in both
+      implementations, differing only in `request_digest` and `decided_at`.
+- [ ] Every Tier B cause likewise.
+- [ ] Response length is constant within a tier, across all causes.
+- [ ] `classify` is total; adding an `InternalReason` without a tier fails to
+      compile.
+- [ ] Escalation is opaque unless the sensitivity class permits visibility.
+- [ ] No denial carries retry metadata.
+- [ ] Documentation and code comments describe MVP as **not** timing-normalized.
+
+## 8. Negative acceptance
+
+| Must fail | Observed as |
+|---|---|
+| Two Tier C causes producing different bytes | Cross-vector uniformity assertion fails |
+| Two Tier B causes distinguishable | Same, for Tier B |
+| Response length varying with cause | Length comparison across `denial/uniformity-*/` |
+| `audit.reason` reaching a response | `build_denial` has no parameter it could arrive through |
+| An optional field on a denial present for some causes | Length varies; uniformity fails |
+| Explicit escalation where the class forbids it | `denial/escalation/` returns a visible response |
+| A new `InternalReason` defaulting to a tier | Compile failure absent; a default branch exists |
+| Retry metadata appearing | `denial/no-retry/` fails |
+| A claim of timing normalization | Grep for the phrase in docs and comments |
+
+Row 4 is the one this module exists for, and it is enforced by a signature rather
+than a test — the leak requires someone to widen an interface deliberately.
+
+Row 7 matters more than it reads. A `_ => Tier::C` fallback looks safe and is
+not: a new failure mode that should have been Tier A becomes silently opaque, or
+one that should have been Tier C becomes silently distinct.
+
+## 9. Escalate-if-changed decisions
+
+1. **Three tiers, with the boundaries in §4.1.** Drawn by what each reveals about
+   the custodian, not by convenience.
+2. **Tier B is internally uniform** — key resolution and signature failure are
+   indistinguishable.
+3. **Tier C is internally uniform**, including schema violations.
+4. **`build_denial` takes only the external class.**
+5. **No variable-length field on a denial**, so uniformity stays structural.
+6. **No retry metadata.**
+7. **Explicit escalation is policy-gated, defaults to opaque, and is never
+   described as normalized.**
+8. **`classify` is total with no default branch.**
+
+## 10. Open questions
+
+| Question | Belongs to |
+|---|---|
+| Should Tier B and Tier C be merged? Merging removes a distinction a requester can already derive from its own key, at the cost of debuggability. Proposed: keep separate; revisit if a deployment shows the distinction is exploitable | This PRD |
+| Is one Tier C class enough, or should sensitivity classes have their own? Proposed: one. Per-class external values would themselves partition causes | This PRD |
+| Does the padding hook belong in this module or the binding? Proposed: here, since the tier is known here and the binding does not know it | [P-013](P-013-https-binding.md) |
+| Should `decided_at` be coarsened — minute rather than second — to blunt timing correlation? Proposed: no in MVP; it interacts with replay-window arithmetic | This PRD; revisit at Stage 8 |
+
+## 11. Issues
+
+| # | Issue | Done when |
+|---|---|---|
+| 1 | Closed `InternalReason` enum, both languages | Every reason from Stages 1–3 present |
+| 2 | `classify`, total, no default branch | Adding a reason without a tier fails to compile |
+| 3 | `external_class` and the class vocabulary | Matches `registry/manifest.json`'s `denial_normalization` |
+| 4 | `build_denial` with the constrained signature | No path from `Decision` to a response |
+| 5 | Tier B uniformity | `denial/uniformity-b/` passes under the cross-vector check |
+| 6 | Tier C uniformity | `denial/uniformity-c/` passes; length constant |
+| 7 | `escalation_visible` gate | `denial/escalation/` passes; opaque by default |
+| 8 | Timing padding hook, default off | Configurable; off by default; measured in Stage 8 |
+| 9 | Author `denial/` corpus section | Six groups; `harness lint` clean |
+| 10 | Documentation audit for timing claims | No artifact describes MVP as timing-normalized |
+
+Issue 1 blocks 2 and 3. Issues 5 and 6 are the ones that matter — they are the
+only place Q2D-C-08 is actually demonstrated rather than asserted.
