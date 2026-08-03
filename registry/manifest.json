@@ -30,7 +30,9 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "additionalProperties": false,
-        "required": ["menu"],
+        "required": [
+          "menu"
+        ],
         "properties": {
           "menu": {
             "type": "array",
@@ -39,18 +41,39 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["item_id", "contains"],
+              "required": [
+                "item_id",
+                "contains"
+              ],
               "properties": {
-                "item_id": { "type": "string", "maxLength": 64 },
+                "item_id": {
+                  "type": "string",
+                  "maxLength": 64
+                },
                 "contains": {
                   "type": "array",
                   "maxItems": 24,
                   "items": {
                     "type": "string",
                     "enum": [
-                      "alcohol", "celery", "crustacean", "egg", "fish", "gluten",
-                      "lupin", "meat", "milk", "mollusc", "mustard", "nut",
-                      "peanut", "pork", "sesame", "shellfish", "soy", "sulphite"
+                      "alcohol",
+                      "celery",
+                      "crustacean",
+                      "egg",
+                      "fish",
+                      "gluten",
+                      "lupin",
+                      "meat",
+                      "milk",
+                      "mollusc",
+                      "mustard",
+                      "nut",
+                      "peanut",
+                      "pork",
+                      "sesame",
+                      "shellfish",
+                      "soy",
+                      "sulphite"
                     ]
                   }
                 }
@@ -63,7 +86,9 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "additionalProperties": false,
-        "required": ["excludes"],
+        "required": [
+          "excludes"
+        ],
         "properties": {
           "excludes": {
             "type": "array",
@@ -71,9 +96,24 @@
             "items": {
               "type": "string",
               "enum": [
-                "alcohol", "celery", "crustacean", "egg", "fish", "gluten",
-                "lupin", "meat", "milk", "mollusc", "mustard", "nut",
-                "peanut", "pork", "sesame", "shellfish", "soy", "sulphite"
+                "alcohol",
+                "celery",
+                "crustacean",
+                "egg",
+                "fish",
+                "gluten",
+                "lupin",
+                "meat",
+                "milk",
+                "mollusc",
+                "mustard",
+                "nut",
+                "peanut",
+                "pork",
+                "sesame",
+                "shellfish",
+                "soy",
+                "sulphite"
               ]
             }
           }
@@ -85,23 +125,33 @@
       },
       "answer_domain": {
         "kind": "enumerated",
-        "values": [false, true],
+        "values": [
+          false,
+          true
+        ],
         "cardinality": 2
       },
       "capacity": {
-        "calculation": "log2(2)",
-        "bits": 1.0,
+        "calculation": "ceil(1000 * log2(2))",
+        "unit": "millibits",
+        "millibits": 1000,
+        "bits_display": 1.0,
         "bounded": true
       },
       "sensitivity": {
         "class": "high",
         "rationale": "Dietary exclusions are a documented proxy for religious observance and for medical conditions, both special categories under GDPR Article 9. The answer is one bit; the inference it supports is not proportionate to that. Deployments should require explicit approval rather than a standing rule for a new relationship, and should not treat low capacity as low sensitivity.",
-        "proxy_for": ["religion", "health"]
+        "proxy_for": [
+          "religion",
+          "health"
+        ]
       },
       "freshness": {
         "default_maximum_source_age": "P30D"
       },
-      "assurance_profiles": ["authenticated-answer"],
+      "assurance_profiles": [
+        "authenticated-answer"
+      ],
       "implementation_digest": null,
       "provenance": {
         "author": "Q2D Protocol Project",
@@ -112,43 +162,134 @@
       "test_vectors": [
         {
           "name": "compatible-single-safe-item",
-          "public_context": { "menu": [
-            { "item_id": "risotto", "contains": ["milk"] },
-            { "item_id": "salad", "contains": [] }
-          ] },
-          "private_input": { "excludes": ["milk", "gluten"] },
-          "expect": { "outcome": "answer", "result": true, "capacity_debit_bits": 1.0 }
+          "public_context": {
+            "menu": [
+              {
+                "item_id": "risotto",
+                "contains": [
+                  "milk"
+                ]
+              },
+              {
+                "item_id": "salad",
+                "contains": []
+              }
+            ]
+          },
+          "private_input": {
+            "excludes": [
+              "milk",
+              "gluten"
+            ]
+          },
+          "expect": {
+            "outcome": "answer",
+            "result": true,
+            "capacity_debit_millibits": 1000
+          }
         },
         {
           "name": "incompatible-every-item-conflicts",
-          "public_context": { "menu": [
-            { "item_id": "pasta", "contains": ["gluten", "egg"] },
-            { "item_id": "chowder", "contains": ["milk", "fish"] }
-          ] },
-          "private_input": { "excludes": ["gluten", "milk"] },
-          "expect": { "outcome": "answer", "result": false, "capacity_debit_bits": 1.0 }
+          "public_context": {
+            "menu": [
+              {
+                "item_id": "pasta",
+                "contains": [
+                  "gluten",
+                  "egg"
+                ]
+              },
+              {
+                "item_id": "chowder",
+                "contains": [
+                  "milk",
+                  "fish"
+                ]
+              }
+            ]
+          },
+          "private_input": {
+            "excludes": [
+              "gluten",
+              "milk"
+            ]
+          },
+          "expect": {
+            "outcome": "answer",
+            "result": false,
+            "capacity_debit_millibits": 1000
+          }
         },
         {
           "name": "no-constraints-is-always-compatible",
-          "public_context": { "menu": [ { "item_id": "steak", "contains": ["meat"] } ] },
-          "private_input": { "excludes": [] },
-          "expect": { "outcome": "answer", "result": true, "capacity_debit_bits": 1.0 }
+          "public_context": {
+            "menu": [
+              {
+                "item_id": "steak",
+                "contains": [
+                  "meat"
+                ]
+              }
+            ]
+          },
+          "private_input": {
+            "excludes": []
+          },
+          "expect": {
+            "outcome": "answer",
+            "result": true,
+            "capacity_debit_millibits": 1000
+          }
         },
         {
           "name": "reject-empty-menu",
-          "public_context": { "menu": [] },
-          "private_input": { "excludes": ["nut"] },
-          "expect": { "outcome": "reject", "reason": "public_context_schema_violation", "before_private_access": true }
+          "public_context": {
+            "menu": []
+          },
+          "private_input": {
+            "excludes": [
+              "nut"
+            ]
+          },
+          "expect": {
+            "outcome": "reject",
+            "before_private_access": true,
+            "internal_reason": "public_context_schema_violation",
+            "wire": {
+              "status": "deny",
+              "external_reason": "unavailable"
+            }
+          }
         },
         {
           "name": "reject-unknown-allergen-token",
-          "public_context": { "menu": [ { "item_id": "x", "contains": ["kryptonite"] } ] },
-          "private_input": { "excludes": ["nut"] },
-          "expect": { "outcome": "reject", "reason": "public_context_schema_violation", "before_private_access": true }
+          "public_context": {
+            "menu": [
+              {
+                "item_id": "x",
+                "contains": [
+                  "kryptonite"
+                ]
+              }
+            ]
+          },
+          "private_input": {
+            "excludes": [
+              "nut"
+            ]
+          },
+          "expect": {
+            "outcome": "reject",
+            "before_private_access": true,
+            "internal_reason": "public_context_schema_violation",
+            "wire": {
+              "status": "deny",
+              "external_reason": "unavailable"
+            }
+          }
         }
       ]
     },
-
     {
       "id": "https://q2d.dev/predicates/scheduling/availability-window",
       "version": "0.1",
@@ -164,7 +305,9 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "additionalProperties": false,
-        "required": ["candidates"],
+        "required": [
+          "candidates"
+        ],
         "properties": {
           "candidates": {
             "type": "array",
@@ -173,10 +316,19 @@
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["start", "end"],
+              "required": [
+                "start",
+                "end"
+              ],
               "properties": {
-                "start": { "type": "string", "format": "date-time" },
-                "end": { "type": "string", "format": "date-time" }
+                "start": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date-time"
+                }
               }
             }
           }
@@ -186,17 +338,28 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "additionalProperties": false,
-        "required": ["busy"],
+        "required": [
+          "busy"
+        ],
         "properties": {
           "busy": {
             "type": "array",
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["start", "end"],
+              "required": [
+                "start",
+                "end"
+              ],
               "properties": {
-                "start": { "type": "string", "format": "date-time" },
-                "end": { "type": "string", "format": "date-time" }
+                "start": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date-time"
+                }
               }
             }
           }
@@ -204,7 +367,10 @@
       },
       "output_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": ["integer", "null"],
+        "type": [
+          "integer",
+          "null"
+        ],
         "minimum": 0,
         "maximum": 7
       },
@@ -215,11 +381,21 @@
         "maximum_cardinality": 9
       },
       "capacity": {
-        "calculation": "log2(len(public_context.candidates) + 1)",
-        "bits": null,
-        "maximum_bits": 3.1699250014423126,
+        "calculation": "table lookup on len(public_context.candidates) + 1",
+        "unit": "millibits",
+        "table": {
+          "2": 1000,
+          "3": 1585,
+          "4": 2000,
+          "5": 2322,
+          "6": 2585,
+          "7": 2808,
+          "8": 3000,
+          "9": 3170
+        },
+        "maximum_millibits": 3170,
         "bounded": true,
-        "notes": "Not constant. The responder computes the debit from the effective domain after policy modifiers, never from anything the requester asserts. A policy that narrows the candidate set narrows the debit with it."
+        "notes": "Not constant. The responder looks the effective cardinality up in this table; it never computes log2 and never accepts a debit asserted by the requester."
       },
       "constraints": {
         "minimum_slot_duration": "PT30M",
@@ -229,12 +405,18 @@
       "sensitivity": {
         "class": "moderate",
         "rationale": "Availability patterns proxy for religious observance, caregiving, medical appointments, and employment. A recurring unavailability that survives many queries is more revealing than any single answer, which is what the disclosure-capacity budget is for.",
-        "proxy_for": ["religion", "health", "family-status"]
+        "proxy_for": [
+          "religion",
+          "health",
+          "family-status"
+        ]
       },
       "freshness": {
         "default_maximum_source_age": "PT1H"
       },
-      "assurance_profiles": ["authenticated-answer"],
+      "assurance_profiles": [
+        "authenticated-answer"
+      ],
       "implementation_digest": null,
       "provenance": {
         "author": "Q2D Protocol Project",
@@ -245,63 +427,164 @@
       "test_vectors": [
         {
           "name": "first-candidate-free",
-          "public_context": { "candidates": [
-            { "start": "2026-08-10T18:00:00Z", "end": "2026-08-10T20:00:00Z" },
-            { "start": "2026-08-11T18:00:00Z", "end": "2026-08-11T20:00:00Z" }
-          ] },
-          "private_input": { "busy": [
-            { "start": "2026-08-11T17:00:00Z", "end": "2026-08-11T21:00:00Z" }
-          ] },
-          "expect": { "outcome": "answer", "result": 0, "capacity_debit_bits": 1.584962500721156 }
+          "public_context": {
+            "candidates": [
+              {
+                "start": "2026-08-10T18:00:00Z",
+                "end": "2026-08-10T20:00:00Z"
+              },
+              {
+                "start": "2026-08-11T18:00:00Z",
+                "end": "2026-08-11T20:00:00Z"
+              }
+            ]
+          },
+          "private_input": {
+            "busy": [
+              {
+                "start": "2026-08-11T17:00:00Z",
+                "end": "2026-08-11T21:00:00Z"
+              }
+            ]
+          },
+          "expect": {
+            "outcome": "answer",
+            "result": 0,
+            "capacity_debit_millibits": 1585
+          }
         },
         {
           "name": "first-busy-second-free",
-          "public_context": { "candidates": [
-            { "start": "2026-08-10T18:00:00Z", "end": "2026-08-10T20:00:00Z" },
-            { "start": "2026-08-11T18:00:00Z", "end": "2026-08-11T20:00:00Z" }
-          ] },
-          "private_input": { "busy": [
-            { "start": "2026-08-10T19:00:00Z", "end": "2026-08-10T19:30:00Z" }
-          ] },
-          "expect": { "outcome": "answer", "result": 1, "capacity_debit_bits": 1.584962500721156 }
+          "public_context": {
+            "candidates": [
+              {
+                "start": "2026-08-10T18:00:00Z",
+                "end": "2026-08-10T20:00:00Z"
+              },
+              {
+                "start": "2026-08-11T18:00:00Z",
+                "end": "2026-08-11T20:00:00Z"
+              }
+            ]
+          },
+          "private_input": {
+            "busy": [
+              {
+                "start": "2026-08-10T19:00:00Z",
+                "end": "2026-08-10T19:30:00Z"
+              }
+            ]
+          },
+          "expect": {
+            "outcome": "answer",
+            "result": 1,
+            "capacity_debit_millibits": 1585
+          }
         },
         {
           "name": "none-free-returns-null",
-          "public_context": { "candidates": [
-            { "start": "2026-08-10T18:00:00Z", "end": "2026-08-10T20:00:00Z" }
-          ] },
-          "private_input": { "busy": [
-            { "start": "2026-08-10T17:00:00Z", "end": "2026-08-10T23:00:00Z" }
-          ] },
-          "expect": { "outcome": "answer", "result": null, "capacity_debit_bits": 1.0 }
+          "public_context": {
+            "candidates": [
+              {
+                "start": "2026-08-10T18:00:00Z",
+                "end": "2026-08-10T20:00:00Z"
+              }
+            ]
+          },
+          "private_input": {
+            "busy": [
+              {
+                "start": "2026-08-10T17:00:00Z",
+                "end": "2026-08-10T23:00:00Z"
+              }
+            ]
+          },
+          "expect": {
+            "outcome": "answer",
+            "result": null,
+            "capacity_debit_millibits": 1000
+          }
         },
         {
           "name": "reject-slot-below-granularity-floor",
-          "public_context": { "candidates": [
-            { "start": "2026-08-10T18:00:00Z", "end": "2026-08-10T18:05:00Z" }
-          ] },
-          "private_input": { "busy": [] },
-          "expect": { "outcome": "reject", "reason": "constraint_violation_minimum_slot_duration", "before_private_access": true }
+          "public_context": {
+            "candidates": [
+              {
+                "start": "2026-08-10T18:00:00Z",
+                "end": "2026-08-10T18:05:00Z"
+              }
+            ]
+          },
+          "private_input": {
+            "busy": []
+          },
+          "expect": {
+            "outcome": "reject",
+            "before_private_access": true,
+            "internal_reason": "constraint_violation_minimum_slot_duration",
+            "wire": {
+              "status": "deny",
+              "external_reason": "unavailable"
+            }
+          }
         },
         {
           "name": "reject-too-many-candidates",
-          "public_context": { "candidates": [
-            { "start": "2026-08-10T18:00:00Z", "end": "2026-08-10T19:00:00Z" },
-            { "start": "2026-08-11T18:00:00Z", "end": "2026-08-11T19:00:00Z" },
-            { "start": "2026-08-12T18:00:00Z", "end": "2026-08-12T19:00:00Z" },
-            { "start": "2026-08-13T18:00:00Z", "end": "2026-08-13T19:00:00Z" },
-            { "start": "2026-08-14T18:00:00Z", "end": "2026-08-14T19:00:00Z" },
-            { "start": "2026-08-15T18:00:00Z", "end": "2026-08-15T19:00:00Z" },
-            { "start": "2026-08-16T18:00:00Z", "end": "2026-08-16T19:00:00Z" },
-            { "start": "2026-08-17T18:00:00Z", "end": "2026-08-17T19:00:00Z" },
-            { "start": "2026-08-18T18:00:00Z", "end": "2026-08-18T19:00:00Z" }
-          ] },
-          "private_input": { "busy": [] },
-          "expect": { "outcome": "reject", "reason": "public_context_schema_violation", "before_private_access": true }
+          "public_context": {
+            "candidates": [
+              {
+                "start": "2026-08-10T18:00:00Z",
+                "end": "2026-08-10T19:00:00Z"
+              },
+              {
+                "start": "2026-08-11T18:00:00Z",
+                "end": "2026-08-11T19:00:00Z"
+              },
+              {
+                "start": "2026-08-12T18:00:00Z",
+                "end": "2026-08-12T19:00:00Z"
+              },
+              {
+                "start": "2026-08-13T18:00:00Z",
+                "end": "2026-08-13T19:00:00Z"
+              },
+              {
+                "start": "2026-08-14T18:00:00Z",
+                "end": "2026-08-14T19:00:00Z"
+              },
+              {
+                "start": "2026-08-15T18:00:00Z",
+                "end": "2026-08-15T19:00:00Z"
+              },
+              {
+                "start": "2026-08-16T18:00:00Z",
+                "end": "2026-08-16T19:00:00Z"
+              },
+              {
+                "start": "2026-08-17T18:00:00Z",
+                "end": "2026-08-17T19:00:00Z"
+              },
+              {
+                "start": "2026-08-18T18:00:00Z",
+                "end": "2026-08-18T19:00:00Z"
+              }
+            ]
+          },
+          "private_input": {
+            "busy": []
+          },
+          "expect": {
+            "outcome": "reject",
+            "before_private_access": true,
+            "internal_reason": "public_context_schema_violation",
+            "wire": {
+              "status": "deny",
+              "external_reason": "unavailable"
+            }
+          }
         }
       ]
     },
-
     {
       "id": "https://q2d.dev/predicates/contact/contactable-for",
       "version": "0.1",
@@ -317,7 +600,9 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "additionalProperties": false,
-        "required": ["purpose_code"],
+        "required": [
+          "purpose_code"
+        ],
         "properties": {
           "purpose_code": {
             "type": "string",
@@ -335,17 +620,31 @@
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
         "additionalProperties": false,
-        "required": ["rules"],
+        "required": [
+          "rules"
+        ],
         "properties": {
           "rules": {
             "type": "array",
             "items": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["purpose_code", "permits"],
+              "required": [
+                "purpose_code",
+                "permits"
+              ],
               "properties": {
-                "purpose_code": { "type": "string" },
-                "permits": { "type": "string", "enum": ["none", "async", "synchronous"] }
+                "purpose_code": {
+                  "type": "string"
+                },
+                "permits": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "async",
+                    "synchronous"
+                  ]
+                }
               }
             }
           }
@@ -354,16 +653,26 @@
       "output_schema": {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "string",
-        "enum": ["none", "async", "synchronous"]
+        "enum": [
+          "none",
+          "async",
+          "synchronous"
+        ]
       },
       "answer_domain": {
         "kind": "enumerated",
-        "values": ["none", "async", "synchronous"],
+        "values": [
+          "none",
+          "async",
+          "synchronous"
+        ],
         "cardinality": 3
       },
       "capacity": {
-        "calculation": "log2(3)",
-        "bits": 1.584962500721156,
+        "calculation": "ceil(1000 * log2(3))",
+        "unit": "millibits",
+        "millibits": 1585,
+        "bits_display": 1.585,
         "bounded": true,
         "notes": "Deliberately non-integral. An implementation that rounds, truncates, or stores this as an integer will disagree with a conforming one on every budget total. See registry/README.md on capacity arithmetic."
       },
@@ -371,12 +680,16 @@
       "sensitivity": {
         "class": "moderate",
         "rationale": "The answer itself is a preference. What it reveals is the existence and shape of a relationship: a 'synchronous' answer to an unfamiliar requester says more about standing than about contact preference. Denial normalization matters more here than the capacity debit.",
-        "proxy_for": ["relationship-existence"]
+        "proxy_for": [
+          "relationship-existence"
+        ]
       },
       "freshness": {
         "default_maximum_source_age": "P7D"
       },
-      "assurance_profiles": ["authenticated-answer"],
+      "assurance_profiles": [
+        "authenticated-answer"
+      ],
       "implementation_digest": null,
       "provenance": {
         "author": "Q2D Protocol Project",
@@ -387,36 +700,100 @@
       "test_vectors": [
         {
           "name": "matching-rule-permits-async",
-          "public_context": { "purpose_code": "social.event-planning" },
-          "private_input": { "rules": [
-            { "purpose_code": "social.event-planning", "permits": "async" },
-            { "purpose_code": "commercial.enquiry", "permits": "none" }
-          ] },
-          "expect": { "outcome": "answer", "result": "async", "capacity_debit_bits": 1.584962500721156 }
+          "public_context": {
+            "purpose_code": "social.event-planning"
+          },
+          "private_input": {
+            "rules": [
+              {
+                "purpose_code": "social.event-planning",
+                "permits": "async"
+              },
+              {
+                "purpose_code": "commercial.enquiry",
+                "permits": "none"
+              }
+            ]
+          },
+          "expect": {
+            "outcome": "answer",
+            "result": "async",
+            "capacity_debit_millibits": 1585
+          }
         },
         {
           "name": "matching-rule-denies",
-          "public_context": { "purpose_code": "commercial.enquiry" },
-          "private_input": { "rules": [
-            { "purpose_code": "commercial.enquiry", "permits": "none" }
-          ] },
-          "expect": { "outcome": "answer", "result": "none", "capacity_debit_bits": 1.584962500721156 }
+          "public_context": {
+            "purpose_code": "commercial.enquiry"
+          },
+          "private_input": {
+            "rules": [
+              {
+                "purpose_code": "commercial.enquiry",
+                "permits": "none"
+              }
+            ]
+          },
+          "expect": {
+            "outcome": "answer",
+            "result": "none",
+            "capacity_debit_millibits": 1585
+          }
         },
         {
           "name": "no-matching-rule-falls-closed",
-          "public_context": { "purpose_code": "urgent.safety" },
-          "private_input": { "rules": [
-            { "purpose_code": "social.introduction", "permits": "synchronous" }
-          ] },
-          "expect": { "outcome": "answer", "result": "none", "capacity_debit_bits": 1.584962500721156 }
+          "public_context": {
+            "purpose_code": "urgent.safety"
+          },
+          "private_input": {
+            "rules": [
+              {
+                "purpose_code": "social.introduction",
+                "permits": "synchronous"
+              }
+            ]
+          },
+          "expect": {
+            "outcome": "answer",
+            "result": "none",
+            "capacity_debit_millibits": 1585
+          }
         },
         {
           "name": "reject-unregistered-purpose-code",
-          "public_context": { "purpose_code": "marketing.bulk" },
-          "private_input": { "rules": [] },
-          "expect": { "outcome": "reject", "reason": "public_context_schema_violation", "before_private_access": true }
+          "public_context": {
+            "purpose_code": "marketing.bulk"
+          },
+          "private_input": {
+            "rules": []
+          },
+          "expect": {
+            "outcome": "reject",
+            "before_private_access": true,
+            "internal_reason": "public_context_schema_violation",
+            "wire": {
+              "status": "deny",
+              "external_reason": "unavailable"
+            }
+          }
         }
       ]
     }
-  ]
+  ],
+  "capacity_unit": {
+    "name": "millibits",
+    "definition": "One thousandth of one bit of answer-alphabet capacity.",
+    "derivation": "ceil(1000 * log2(cardinality)), computed once when a registry entry is authored.",
+    "rules": [
+      "A responder MUST take the capacity value from the registry entry. It MUST NOT compute log2 at runtime.",
+      "Budgets are accumulated by integer addition, so accumulation is exact and order-independent.",
+      "Rounding is ceiling, so the accounting can over-charge but never under-charge.",
+      "The unit is part of the registry contract. Changing it invalidates every stored budget."
+    ]
+  },
+  "denial_normalization": {
+    "external_reason": "unavailable",
+    "posture": "Every rejection in this manifest returns an identical external response regardless of cause. The internal reason is recorded in the local audit event and never reaches the wire.",
+    "rationale": "A precise external error tells a requester which check failed. Even a schema violation confirms the predicate is supported by this custodian, which is custodian-private policy. The safe default is one external class for every rejection; a deployment may report precisely only where its sensitivity class explicitly permits it."
+  }
 }
