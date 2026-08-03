@@ -1,0 +1,422 @@
+{
+  "registry_id": "https://q2d.dev/registry/reference",
+  "registry_version": "0.1.0",
+  "q2d_version": "0.1-draft",
+  "status": "draft",
+  "effective_from": "2026-08-03",
+  "publisher": {
+    "name": "Q2D Protocol Project",
+    "url": "https://q2d.dev",
+    "review_process": "https://github.com/q2d-protocol/q2d/issues"
+  },
+  "notes": [
+    "This manifest is UNSIGNED. A custodian pins a signing key and a manifest digest; neither exists yet, so no deployment may trust this file. See registry/README.md.",
+    "Predicate identifiers and versions are permanent. A change in meaning requires a new version; a change in wording does not.",
+    "A custodian is free not to trust any entry here. The registry proposes; the custodian decides."
+  ],
+  "predicates": [
+    {
+      "id": "https://q2d.dev/predicates/dietary/menu-compatible",
+      "version": "0.1",
+      "status": "active",
+      "title": "Menu compatibility",
+      "question": "Is at least one item on this menu compatible with every dietary constraint the subject holds?",
+      "question_notes": [
+        "The formulation is deliberate. 'Is any item compatible' returns one bit about the menu as a whole. The alternative phrasing, 'which items conflict', returns a per-item vector and leaks the shape of the constraint set. Registries should prefer the least-disclosing formulation that still answers the task.",
+        "A false answer does not reveal which constraint caused it, or how many exist."
+      ],
+      "release_shape": "boolean",
+      "public_context_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["menu"],
+        "properties": {
+          "menu": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 60,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["item_id", "contains"],
+              "properties": {
+                "item_id": { "type": "string", "maxLength": 64 },
+                "contains": {
+                  "type": "array",
+                  "maxItems": 24,
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "alcohol", "celery", "crustacean", "egg", "fish", "gluten",
+                      "lupin", "meat", "milk", "mollusc", "mustard", "nut",
+                      "peanut", "pork", "sesame", "shellfish", "soy", "sulphite"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "private_input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["excludes"],
+        "properties": {
+          "excludes": {
+            "type": "array",
+            "maxItems": 24,
+            "items": {
+              "type": "string",
+              "enum": [
+                "alcohol", "celery", "crustacean", "egg", "fish", "gluten",
+                "lupin", "meat", "milk", "mollusc", "mustard", "nut",
+                "peanut", "pork", "sesame", "shellfish", "soy", "sulphite"
+              ]
+            }
+          }
+        }
+      },
+      "output_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "boolean"
+      },
+      "answer_domain": {
+        "kind": "enumerated",
+        "values": [false, true],
+        "cardinality": 2
+      },
+      "capacity": {
+        "calculation": "log2(2)",
+        "bits": 1.0,
+        "bounded": true
+      },
+      "sensitivity": {
+        "class": "high",
+        "rationale": "Dietary exclusions are a documented proxy for religious observance and for medical conditions, both special categories under GDPR Article 9. The answer is one bit; the inference it supports is not proportionate to that. Deployments should require explicit approval rather than a standing rule for a new relationship, and should not treat low capacity as low sensitivity.",
+        "proxy_for": ["religion", "health"]
+      },
+      "freshness": {
+        "default_maximum_source_age": "P30D"
+      },
+      "assurance_profiles": ["authenticated-answer"],
+      "implementation_digest": null,
+      "provenance": {
+        "author": "Q2D Protocol Project",
+        "reviewed_by": [],
+        "effective_from": "2026-08-03",
+        "revoked_from": null
+      },
+      "test_vectors": [
+        {
+          "name": "compatible-single-safe-item",
+          "public_context": { "menu": [
+            { "item_id": "risotto", "contains": ["milk"] },
+            { "item_id": "salad", "contains": [] }
+          ] },
+          "private_input": { "excludes": ["milk", "gluten"] },
+          "expect": { "outcome": "answer", "result": true, "capacity_debit_bits": 1.0 }
+        },
+        {
+          "name": "incompatible-every-item-conflicts",
+          "public_context": { "menu": [
+            { "item_id": "pasta", "contains": ["gluten", "egg"] },
+            { "item_id": "chowder", "contains": ["milk", "fish"] }
+          ] },
+          "private_input": { "excludes": ["gluten", "milk"] },
+          "expect": { "outcome": "answer", "result": false, "capacity_debit_bits": 1.0 }
+        },
+        {
+          "name": "no-constraints-is-always-compatible",
+          "public_context": { "menu": [ { "item_id": "steak", "contains": ["meat"] } ] },
+          "private_input": { "excludes": [] },
+          "expect": { "outcome": "answer", "result": true, "capacity_debit_bits": 1.0 }
+        },
+        {
+          "name": "reject-empty-menu",
+          "public_context": { "menu": [] },
+          "private_input": { "excludes": ["nut"] },
+          "expect": { "outcome": "reject", "reason": "public_context_schema_violation", "before_private_access": true }
+        },
+        {
+          "name": "reject-unknown-allergen-token",
+          "public_context": { "menu": [ { "item_id": "x", "contains": ["kryptonite"] } ] },
+          "private_input": { "excludes": ["nut"] },
+          "expect": { "outcome": "reject", "reason": "public_context_schema_violation", "before_private_access": true }
+        }
+      ]
+    },
+
+    {
+      "id": "https://q2d.dev/predicates/scheduling/availability-window",
+      "version": "0.1",
+      "status": "active",
+      "title": "Availability window",
+      "question": "Which is the first of these candidate slots the subject is free for, if any?",
+      "question_notes": [
+        "The requester proposes the candidates, so the answer domain is bounded by the request and the capacity debit scales with it. Returning every free slot would leak the shape of a calendar; returning the first bounds disclosure to one choice.",
+        "A granularity floor prevents minute-level probing from reconstructing a schedule through repeated narrow candidates."
+      ],
+      "release_shape": "interval",
+      "public_context_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidates"],
+        "properties": {
+          "candidates": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["start", "end"],
+              "properties": {
+                "start": { "type": "string", "format": "date-time" },
+                "end": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        }
+      },
+      "private_input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["busy"],
+        "properties": {
+          "busy": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["start", "end"],
+              "properties": {
+                "start": { "type": "string", "format": "date-time" },
+                "end": { "type": "string", "format": "date-time" }
+              }
+            }
+          }
+        }
+      },
+      "output_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": ["integer", "null"],
+        "minimum": 0,
+        "maximum": 7
+      },
+      "answer_domain": {
+        "kind": "computed",
+        "expression": "{0 .. len(public_context.candidates) - 1} union {null}",
+        "cardinality_expression": "len(public_context.candidates) + 1",
+        "maximum_cardinality": 9
+      },
+      "capacity": {
+        "calculation": "log2(len(public_context.candidates) + 1)",
+        "bits": null,
+        "maximum_bits": 3.1699250014423126,
+        "bounded": true,
+        "notes": "Not constant. The responder computes the debit from the effective domain after policy modifiers, never from anything the requester asserts. A policy that narrows the candidate set narrows the debit with it."
+      },
+      "constraints": {
+        "minimum_slot_duration": "PT30M",
+        "maximum_horizon": "P14D",
+        "notes": "A candidate shorter than the floor, or further out than the horizon, is rejected before private access. Both are anti-probing controls, not usability limits."
+      },
+      "sensitivity": {
+        "class": "moderate",
+        "rationale": "Availability patterns proxy for religious observance, caregiving, medical appointments, and employment. A recurring unavailability that survives many queries is more revealing than any single answer, which is what the disclosure-capacity budget is for.",
+        "proxy_for": ["religion", "health", "family-status"]
+      },
+      "freshness": {
+        "default_maximum_source_age": "PT1H"
+      },
+      "assurance_profiles": ["authenticated-answer"],
+      "implementation_digest": null,
+      "provenance": {
+        "author": "Q2D Protocol Project",
+        "reviewed_by": [],
+        "effective_from": "2026-08-03",
+        "revoked_from": null
+      },
+      "test_vectors": [
+        {
+          "name": "first-candidate-free",
+          "public_context": { "candidates": [
+            { "start": "2026-08-10T18:00:00Z", "end": "2026-08-10T20:00:00Z" },
+            { "start": "2026-08-11T18:00:00Z", "end": "2026-08-11T20:00:00Z" }
+          ] },
+          "private_input": { "busy": [
+            { "start": "2026-08-11T17:00:00Z", "end": "2026-08-11T21:00:00Z" }
+          ] },
+          "expect": { "outcome": "answer", "result": 0, "capacity_debit_bits": 1.584962500721156 }
+        },
+        {
+          "name": "first-busy-second-free",
+          "public_context": { "candidates": [
+            { "start": "2026-08-10T18:00:00Z", "end": "2026-08-10T20:00:00Z" },
+            { "start": "2026-08-11T18:00:00Z", "end": "2026-08-11T20:00:00Z" }
+          ] },
+          "private_input": { "busy": [
+            { "start": "2026-08-10T19:00:00Z", "end": "2026-08-10T19:30:00Z" }
+          ] },
+          "expect": { "outcome": "answer", "result": 1, "capacity_debit_bits": 1.584962500721156 }
+        },
+        {
+          "name": "none-free-returns-null",
+          "public_context": { "candidates": [
+            { "start": "2026-08-10T18:00:00Z", "end": "2026-08-10T20:00:00Z" }
+          ] },
+          "private_input": { "busy": [
+            { "start": "2026-08-10T17:00:00Z", "end": "2026-08-10T23:00:00Z" }
+          ] },
+          "expect": { "outcome": "answer", "result": null, "capacity_debit_bits": 1.0 }
+        },
+        {
+          "name": "reject-slot-below-granularity-floor",
+          "public_context": { "candidates": [
+            { "start": "2026-08-10T18:00:00Z", "end": "2026-08-10T18:05:00Z" }
+          ] },
+          "private_input": { "busy": [] },
+          "expect": { "outcome": "reject", "reason": "constraint_violation_minimum_slot_duration", "before_private_access": true }
+        },
+        {
+          "name": "reject-too-many-candidates",
+          "public_context": { "candidates": [
+            { "start": "2026-08-10T18:00:00Z", "end": "2026-08-10T19:00:00Z" },
+            { "start": "2026-08-11T18:00:00Z", "end": "2026-08-11T19:00:00Z" },
+            { "start": "2026-08-12T18:00:00Z", "end": "2026-08-12T19:00:00Z" },
+            { "start": "2026-08-13T18:00:00Z", "end": "2026-08-13T19:00:00Z" },
+            { "start": "2026-08-14T18:00:00Z", "end": "2026-08-14T19:00:00Z" },
+            { "start": "2026-08-15T18:00:00Z", "end": "2026-08-15T19:00:00Z" },
+            { "start": "2026-08-16T18:00:00Z", "end": "2026-08-16T19:00:00Z" },
+            { "start": "2026-08-17T18:00:00Z", "end": "2026-08-17T19:00:00Z" },
+            { "start": "2026-08-18T18:00:00Z", "end": "2026-08-18T19:00:00Z" }
+          ] },
+          "private_input": { "busy": [] },
+          "expect": { "outcome": "reject", "reason": "public_context_schema_violation", "before_private_access": true }
+        }
+      ]
+    },
+
+    {
+      "id": "https://q2d.dev/predicates/contact/contactable-for",
+      "version": "0.1",
+      "status": "active",
+      "title": "Contactability for a stated purpose",
+      "question": "For this declared purpose, what class of contact does the subject's policy permit?",
+      "question_notes": [
+        "Returns a permission class, never a contact detail. A requester learns whether it may call; it does not learn a number.",
+        "The purpose code is a signed field of the request, so the answer is bound to the purpose it was asked for. Asking again with a different purpose is a distinct request and a distinct policy decision."
+      ],
+      "release_shape": "enum",
+      "public_context_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["purpose_code"],
+        "properties": {
+          "purpose_code": {
+            "type": "string",
+            "enum": [
+              "social.event-planning",
+              "social.introduction",
+              "commercial.enquiry",
+              "logistics.delivery",
+              "urgent.safety"
+            ]
+          }
+        }
+      },
+      "private_input_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rules"],
+        "properties": {
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["purpose_code", "permits"],
+              "properties": {
+                "purpose_code": { "type": "string" },
+                "permits": { "type": "string", "enum": ["none", "async", "synchronous"] }
+              }
+            }
+          }
+        }
+      },
+      "output_schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "string",
+        "enum": ["none", "async", "synchronous"]
+      },
+      "answer_domain": {
+        "kind": "enumerated",
+        "values": ["none", "async", "synchronous"],
+        "cardinality": 3
+      },
+      "capacity": {
+        "calculation": "log2(3)",
+        "bits": 1.584962500721156,
+        "bounded": true,
+        "notes": "Deliberately non-integral. An implementation that rounds, truncates, or stores this as an integer will disagree with a conforming one on every budget total. See registry/README.md on capacity arithmetic."
+      },
+      "default_when_no_rule_matches": "none",
+      "sensitivity": {
+        "class": "moderate",
+        "rationale": "The answer itself is a preference. What it reveals is the existence and shape of a relationship: a 'synchronous' answer to an unfamiliar requester says more about standing than about contact preference. Denial normalization matters more here than the capacity debit.",
+        "proxy_for": ["relationship-existence"]
+      },
+      "freshness": {
+        "default_maximum_source_age": "P7D"
+      },
+      "assurance_profiles": ["authenticated-answer"],
+      "implementation_digest": null,
+      "provenance": {
+        "author": "Q2D Protocol Project",
+        "reviewed_by": [],
+        "effective_from": "2026-08-03",
+        "revoked_from": null
+      },
+      "test_vectors": [
+        {
+          "name": "matching-rule-permits-async",
+          "public_context": { "purpose_code": "social.event-planning" },
+          "private_input": { "rules": [
+            { "purpose_code": "social.event-planning", "permits": "async" },
+            { "purpose_code": "commercial.enquiry", "permits": "none" }
+          ] },
+          "expect": { "outcome": "answer", "result": "async", "capacity_debit_bits": 1.584962500721156 }
+        },
+        {
+          "name": "matching-rule-denies",
+          "public_context": { "purpose_code": "commercial.enquiry" },
+          "private_input": { "rules": [
+            { "purpose_code": "commercial.enquiry", "permits": "none" }
+          ] },
+          "expect": { "outcome": "answer", "result": "none", "capacity_debit_bits": 1.584962500721156 }
+        },
+        {
+          "name": "no-matching-rule-falls-closed",
+          "public_context": { "purpose_code": "urgent.safety" },
+          "private_input": { "rules": [
+            { "purpose_code": "social.introduction", "permits": "synchronous" }
+          ] },
+          "expect": { "outcome": "answer", "result": "none", "capacity_debit_bits": 1.584962500721156 }
+        },
+        {
+          "name": "reject-unregistered-purpose-code",
+          "public_context": { "purpose_code": "marketing.bulk" },
+          "private_input": { "rules": [] },
+          "expect": { "outcome": "reject", "reason": "public_context_schema_violation", "before_private_access": true }
+        }
+      ]
+    }
+  ]
+}
