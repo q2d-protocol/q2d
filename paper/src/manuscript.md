@@ -22,6 +22,8 @@ link-citations: true
 reference-section-title: References
 ---
 
+Independent researcher · ORCID [0009-0005-0608-9792](https://orcid.org/0009-0005-0608-9792)
+
 **Q2D Protocol Project**  
 [q2d.dev](https://q2d.dev) · [github.com/q2d-protocol/q2d](https://github.com/q2d-protocol/q2d)
 

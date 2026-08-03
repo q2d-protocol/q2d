@@ -49,6 +49,12 @@ The manuscript front matter now carries `subject`, `description`, and
 `keywords`, so the source is self-sufficient. The keyword list matches the
 abstract's.
 
+The title page also carries the author's affiliation and ORCID iD. The
+affiliation is **independent researcher**: this work was not produced under the
+auspices of any institution, and naming one would imply backing that does not
+exist. The ORCID iD makes the author identity resolvable across this and any
+later deposit.
+
 ## 4. Packaging defects fixed
 
 Two defects in the 0.2.1 package are corrected:

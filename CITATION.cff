@@ -8,7 +8,7 @@ type: software
 authors:
   - family-names: Oram
     given-names: Peter
-    # orcid: "https://orcid.org/0000-0000-0000-0000"   # add once registered
+    orcid: "https://orcid.org/0009-0005-0608-9792"
 repository-code: "https://github.com/q2d-protocol/q2d"
 url: "https://q2d.dev"
 abstract: >-
@@ -39,7 +39,7 @@ preferred-citation:
   authors:
     - family-names: Oram
       given-names: Peter
-      # orcid: "https://orcid.org/0000-0000-0000-0000"
+      orcid: "https://orcid.org/0009-0005-0608-9792"
   year: 2026
   month: 8
   institution:
