@@ -4,7 +4,7 @@
 |---|---|
 | PRD | P-006 |
 | Stage | 2 — closes it |
-| Status | **Blocked on escalation** — see §4.4 |
+| Status | **Ready for decomposition** |
 | Size | M |
 | Risk | medium |
 | Depends on | [P-002](P-002-message-envelope.md), [P-005](P-005-registry-client.md) |
@@ -21,9 +21,12 @@ resolved, and compute the answer domain that bounds what may be released.
 a trusted entry, this PRD is where the entry actually constrains a request.
 Q2D-C-03 and Q2D-C-09 both consume its output.
 
-> **This PRD is blocked.** Authoring it surfaced a leak in a behaviour the
-> specification currently permits. §4.4 states it; it needs a decision before
-> implementation, and the decision is a spec change.
+> Authoring this PRD surfaced a leak in a behaviour the specification permitted.
+> It was escalated and **resolved as (A)**: coarsening only, subsetting
+> prohibited. [`core-model.md`](../../spec/core-model.md) §2.5,
+> [`terminology.md`](../../spec/terminology.md) §6, and
+> [`claims.md`](../../spec/claims.md) Q2D-C-09 were amended. §4.4 records the
+> reasoning.
 
 ## 2. Spec citations
 
@@ -145,12 +148,18 @@ Honest accounting, and it is exactly the shape `availability_window` already use
 [`core-model.md`](../../spec/core-model.md) §9's open item on whether denials
 debit the budget, and an uncharged denial reopens the same hole.
 
-**Recommendation: (A) for MVP, with (B) recorded as the shape a later profile
-would take.** (A) is a spec change to §2.5 and to `terminology.md`'s effective
-answer domain entry. It is not mine to make.
+**Resolved: (A).** Escalated and decided. Amended:
+[`core-model.md`](../../spec/core-model.md) §2.5 now permits coarsening and
+prohibits subsetting, and extends the same rule to policy modifiers so every
+result retains an image throughout the intersection;
+[`terminology.md`](../../spec/terminology.md) §6 matches on both the effective
+answer domain and decision modifier entries; and
+[`claims.md`](../../spec/claims.md) Q2D-C-09 now records that it holds only
+because subsetting is prohibited.
 
-**Nothing in this PRD is implementable until this is resolved**, because the
-narrowing check is the first thing built and its rule differs between the two.
+(B) is recorded as the shape a later profile would take, and remains coupled to
+[`core-model.md`](../../spec/core-model.md) §9's open item on whether denials
+debit.
 
 ### 4.5 What "no broader" means per shape
 
@@ -255,7 +264,7 @@ and the other does not.
 
 | Question | Belongs to |
 |---|---|
-| **§4.4 — subset narrowing is a free oracle.** Recommendation (A): permit coarsening only. Requires changing `core-model.md` §2.5 and `terminology.md` §6 | **Escalated. Blocks this PRD** |
+| ~~§4.4 — subset narrowing is a free oracle~~ | **Resolved as (A).** Spec amended; see §4.4 |
 | Does an empty intersection reject before or after policy? Proposed: before, since an inadmissible request should not consult authorities | This PRD |
 | Should the schema profile be stated in `spec/` rather than only here? Proposed: yes — it constrains what a registry may contain, which is protocol surface | This PRD; likely a `scope.md` addition |
 | Does a coarsening mapping need to be declared by the requester, or inferred? Proposed: declared, so the responder validates a stated mapping rather than guessing one | This PRD; blocks issue 4 |
@@ -264,7 +273,7 @@ and the other does not.
 
 | # | Issue | Done when |
 |---|---|---|
-| 1 | **Escalate §4.4 and record the outcome** | Decision written into §4.4 and §4.5; spec amended if (A) | 
+| 1 | ~~Escalate §4.4~~ — **done** | Resolved as (A); `core-model.md` §2.5, `terminology.md` §6, `claims.md` Q2D-C-09 amended |
 | 2 | JSON Schema profile validator | Forbidden keywords rejected as registry errors; `domain/schema/` passes |
 | 3 | Constraint evaluation, closed vocabulary | `domain/constraints/` passes; unknown key errors |
 | 4 | `check_narrowing` per shape | `domain/narrowing/` passes; open question 4 resolved first |
@@ -274,5 +283,5 @@ and the other does not.
 | 8 | Assert every registry entry validates under the profile | CI check over `registry/manifest.json` |
 | 9 | Author `domain/` corpus section | Five groups; `harness lint` clean |
 
-**Issue 1 blocks issues 4, 5, and 9.** Issues 2, 3, 6, 7, and 8 can proceed while
-§4.4 is open.
+Issue 1 is complete. Issue 4 now has a settled rule to implement, and §4.5's
+table is the specification of it.
