@@ -138,7 +138,24 @@ properties, not different disclosure sizes.
 A responder MUST NOT silently downgrade a requested profile, and the response
 identifies the profile actually used.
 
-### 5.1 Containment profile
+### 5.1 Signature suite
+
+A **signature suite** names the signature algorithm, the serialization method
+that produces the signed bytes, and the hash, as one identifier — because they
+fail together. Carried in `signature.profile`, registered and versioned in
+[`crypto-suites.md`](crypto-suites.md), and always a field of the *signed*
+object rather than the outer envelope, so that an intermediary cannot rewrite it.
+
+A suite is orthogonal to an assurance profile. The suite says how a signature was
+produced; the assurance profile says what the signature means. `authenticated-answer`
+under `eddsa-jws-2026` and under a future hybrid suite are the same assurance
+property with different cryptographic strength.
+
+Q2D is **algorithm-agile**: suites are added, deprecated, and withdrawn without a
+protocol revision. Q2D is **not** post-quantum ready, and no 0.1 suite offers any
+post-quantum property. See §9 for why that distinction is enforced.
+
+### 5.2 Containment profile
 
 The requester-side profile is versioned separately from assurance profiles and
 identified as `q2d-contained-runtime-0.1`. It is a property of the *requester*,
@@ -206,6 +223,7 @@ communication — each overstates a guarantee Q2D does not have.
 | bounded answer | one bit, therefore harmless | Capacity is not severity. |
 | predicate registry entry | schema | A registry entry carries domain, capacity, sensitivity, and provenance, not only a shape. |
 | participating custodian | data owner, data holder | Neither term distinguishes operation of a source from authority over its release. |
+| algorithm-agile; a suite registry that can carry post-quantum or hybrid suites | post-quantum ready, quantum-resistant | No registered 0.1 suite offers any post-quantum property. Agility is the ability to add one, not the presence of one. |
 | data subject *or* policy authority, chosen deliberately | the two used interchangeably | The conflation is the specific error the v0.1 role model exists to correct. |
 
 Claims that Q2D is "the first" anything require an exhaustive literature and
@@ -226,9 +244,15 @@ conformance mark · formal inference privacy · certification program.
 
 Open items carried from Appendix C of the technical report that bear on this
 vocabulary: the core-versus-profile boundary for identity and delegation; the
-canonical serialization and signature container; the exact approval-scope digest
-fields and grant lifetime; the capacity calculation for bounded structured
-outputs; and whether denied and escalated outcomes debit the budget.
+exact approval-scope digest fields and grant lifetime; the capacity calculation
+for bounded structured outputs; and whether denied and escalated outcomes debit
+the budget.
+
+Appendix C's *canonical serialization and signature container* is no longer
+open. Signed bytes are the exact transmitted bytes
+([`core-model.md`](core-model.md) §2.1) and algorithms are named by suite
+([`crypto-suites.md`](crypto-suites.md)), so canonicalization is not on the
+security path.
 
 ---
 

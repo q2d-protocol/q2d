@@ -36,26 +36,34 @@ There is no certification program and no conformance mark. See
 
 **Must.** Construct well-formed answer contracts; resolve principal and
 delegated agent identity; sign queries covering every field in
-[`core-model.md`](core-model.md) §2; handle all three response statuses; verify
-response signatures before exposing an answer; store receipts; honour
-idempotency on retry.
+[`core-model.md`](core-model.md) §2 under the mandatory-to-implement suite
+`eddsa-jws-2026`; emit a `routing` projection that is a strict subset of the
+signed object; handle all three response statuses; verify response signatures
+against its own minimum acceptable suite policy before exposing an answer; store
+receipts; honour idempotency on retry.
 
 **Must not.** Expand a registered answer domain; re-sign a modified contract as
-though it were the original; treat an `escalate` pending token as an answer.
+though it were the original; treat an `escalate` pending token as an answer;
+place a signature-covered field in `routing` only; accept a response whose suite
+falls below its minimum acceptable policy.
 
 **Supports.** Q2D-C-01, Q2D-C-05, Q2D-C-07.
 
 ### CC-2 — Core responder
 
 **Must.** Execute the processing order in [`core-model.md`](core-model.md) §4
-without reordering steps 1–12; authenticate and verify delegation; enforce
-replay and expiry; resolve the predicate against a pinned registry and fail
-closed on anything unknown; compute the effective answer domain itself; validate
-output against it; debit capacity once; construct a receipt; sign the response.
+without reordering steps 1–16; check the signature suite against its minimum
+acceptable policy before verifying; authenticate and verify delegation; reject
+any `routing` / `signed` disagreement; enforce replay and expiry; resolve the
+predicate against a pinned registry and fail closed on anything unknown; compute
+the effective answer domain itself; validate output against it; debit capacity
+once; record the suite in the receipt; sign the response.
 
-**Must not.** Read private input before step 12; accept a requester-asserted
-answer domain or capacity debit; silently downgrade a requested assurance
-profile; serialize private input into an error.
+**Must not.** Read private input before step 16; parse the core object before
+its signature verifies; use `routing` for any decision the signature covers;
+accept a requester-asserted answer domain or capacity debit; accept a suite
+below its policy floor or offer an alternative suite in a rejection; silently
+downgrade a requested assurance profile; serialize private input into an error.
 
 **Supports.** Q2D-C-02, Q2D-C-03, Q2D-C-04, Q2D-C-06, Q2D-C-07, Q2D-C-09, Q2D-C-10.
 
