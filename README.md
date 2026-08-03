@@ -2,8 +2,28 @@
 
 **A transport-neutral protocol for policy-bound, least-disclosure answers over protected data.**
 
-> ⚠️ **Placeholder.** This package name is reserved for the Q2D reference
-> implementation, which is not yet published. Nothing is installable or usable yet.
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21777305.svg)](https://doi.org/10.5281/zenodo.21777305)
+
+> ⚠️ **Pre-release.** The technical report is published; the specification spine
+> is in progress and the reference implementation is not written. Nothing is
+> installable or usable yet — the packages reserve the name.
+
+## Technical report
+
+**[Query-to-Data: Policy-Bound, Least-Disclosure Answers for AI Agents](https://doi.org/10.5281/zenodo.21777306)**
+— Technical Report Draft 0.2.2, describing Q2D protocol version 0.1.
+
+An experimental design report and defensive technical disclosure. Sections 12
+and 13 are written prospectively; no Phase 1 conformance or performance result
+is claimed.
+
+| | DOI |
+|---|---|
+| This draft (cite this) | [10.5281/zenodo.21777306](https://doi.org/10.5281/zenodo.21777306) |
+| All versions | [10.5281/zenodo.21777305](https://doi.org/10.5281/zenodo.21777305) |
+
+Cite a specific draft. The protocol is pre-release and its claims are
+version-sensitive.
 
 ## What it is
 
