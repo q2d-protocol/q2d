@@ -107,13 +107,39 @@ enterprise OIDC/OAuth, and DID/UCAN are profiles over those interfaces. See §9.
 |---|---|---|
 | `predicate.id` | yes | Stable identifier. |
 | `predicate.version` | yes | Registered version. |
-| `predicate.registry_digest` | yes | The manifest digest the requester believes is in force. |
+| `predicate.registry_digest` | yes | The digest of the **registry entry** the requester built against. See §2.4.1. |
 | `predicate.public_context` | one of | Public input inline. |
 | `predicate.public_context_digest` | one of | Or its digest, where the value travels separately. |
 | `predicate.requested_assurance` | no | Defaults to `authenticated-answer`. |
 
 A requester selects from registered predicates. Free-form expressions are out of
 scope ([`scope.md`](scope.md) §4).
+
+#### 2.4.1 The entry digest, and what a mismatch means
+
+`predicate.registry_digest` is the digest of the **registry entry**, computed
+over that entry's canonical bytes with its own digest field removed. It is not
+the digest of the manifest.
+
+The two are different objects doing different jobs:
+
+| Digest | Held by | Answers |
+|---|---|---|
+| Manifest digest | pinned by the custodian | *which registry content has this custodian accepted?* |
+| Entry digest | declared by the requester | *do both parties mean the same thing by this predicate?* |
+
+**A mismatch rejects.** Predicate identifiers and versions are meant to be
+immutable — a change of meaning requires a new version — but nothing detects a
+publisher that mutates an entry in place. Comparing entry digests turns that
+convention into a check.
+
+The failure it closes is **semantic mutation without shape change**: a predicate
+edited from *"is any item compatible"* to *"does any item conflict"* keeps the
+same release shape, domain, capacity, and schema. Every validation passes, the
+intersection is clean, the debit is correct — and the answer means the opposite
+of what the requester believes. A manifest-level digest cannot distinguish that
+from an unrelated entry being added elsewhere in the same file; an entry-level
+digest can.
 
 ### 2.5 Answer contract
 
