@@ -13,7 +13,7 @@ assigned; an abandoned PRD keeps its number and is marked withdrawn.
 | [P-006](P-006-request-validation.md) | Request validation and effective answer domain | 2 | **Ready for decomposition** |
 | [P-007](P-007-policy-engine.md) | Policy engine contract and fail-closed invariants | 3 | **Ready for decomposition** |
 | [P-008](P-008-capacity-accounting.md) | Disclosure-capacity accounting | 3 | **Ready for decomposition** |
-| P-009 | Denial normalization | 3 | Not authored |
+| [P-009](P-009-denial-normalization.md) | Denial normalization | 3 | **Ready for decomposition** |
 | P-010 | Responder pipeline, predicate execution, output validation | 4 | Not authored |
 | P-011 | Receipts and local audit | 4 | Not authored |
 | P-012 | Requester runtime | 5 | Not authored |
