@@ -1,0 +1,256 @@
+# Claude Code Context — Q2D
+
+You are the implementing agent on Q2D. This file is your standing brief. Read it
+before touching anything.
+
+## What Q2D is
+
+A transport-neutral protocol for policy-bound, least-disclosure answers over data
+held by a participating custodian. A requester signs an **answer contract** — the
+predicate, purpose, recipient, permitted sinks, maximum response domain — before
+any evaluation happens. The custodian verifies it against a pinned predicate
+registry, applies policy locally, evaluates over data that never crosses the
+interface, and returns a bounded authenticated answer with a disclosure receipt.
+
+Pre-release. The technical report is published
+([10.5281/zenodo.21777306](https://doi.org/10.5281/zenodo.21777306)); the
+specification spine exists; the reference implementations do not yet.
+
+**This is a protocol project, not a product.** Nobody is shipping a feature.
+Everything here exists to make a specification true, checkable, and honest.
+
+## Priorities, in order
+
+When two of these conflict, the earlier one wins.
+
+1. **Claim honesty.** The project's entire credibility rests on
+   [`spec/claims.md`](spec/claims.md) being exactly true. Code that quietly
+   delivers less than a claim states is worse than code that doesn't exist —
+   an implementer would rely on it.
+2. **Spec fidelity.** The code implements the specification. Where they disagree,
+   one of them is a bug and you must say which.
+3. **Cross-implementation agreement.** Rust and Go must behave identically. A
+   divergence is a finding, not a variation.
+4. **Security.** Ordering, fail-closed behaviour, absence of oracles.
+5. **Clarity.** This code is read by reviewers deciding whether to trust the
+   protocol. Legibility outranks cleverness everywhere.
+
+Performance is not on this list. It becomes relevant at Stage 8's measurements
+and not before.
+
+## Authoritative context hierarchy
+
+Higher wins. This is the single most important rule in the repository.
+
+```
+1. spec/ and threat-model/     what must be true
+2. registry/manifest.json      predicate definitions, domains, capacities
+3. docs/mvp-scope.md           stage order, gates, decomposition
+4. PRDs                        how a module is built and verified
+5. code                        the implementation
+```
+
+**A PRD cites the spec; it never paraphrases it.** A paraphrase is a second
+source of truth, and two sources of truth drift. If a PRD needs to explain a
+requirement, it quotes the identifier — `Q2D-C-03`, `core-model.md` §4 step 12 —
+and links.
+
+**If the spec is ambiguous, that is a spec bug.** Fix `spec/`, then cite the fix.
+Never resolve an ambiguity inside a PRD or in code. That is precisely how two
+implementations diverge while both pass their own documents.
+
+## Repo topology
+
+```
+spec/                normative definitions      — governs everything below
+threat-model/        trusted computing base per claim
+registry/            reference predicate manifest + validator
+docs/                mvp-scope.md, versioning.md, operator docs
+paper/               technical report + reproducible build pipeline
+website/             q2d.dev  (serves the go-import tag — load-bearing)
+private-docs/        gitignored: strategy, external review, decision record
+```
+
+`src/` and `go.mod` are placeholders holding the crate and module names. Real
+implementations land under the plan in `docs/mvp-scope.md`.
+
+## The workflow
+
+```
+plan → implement → self-review → commit locally → CODEX REVIEW → address → repeat until clean → push → PR → merge
+```
+
+**Codex reviews the local commit before it is pushed.** Never push, and never
+open a PR, until Codex returns clean. Its brief is [`AGENTS.md`](AGENTS.md) —
+read it so you know what it will catch, and pre-empt those findings in your own
+self-review rather than spending rounds on them.
+
+Merge with a merge commit, never squash. Individual commits carry the reasoning.
+
+## Self-review before Codex handoff
+
+Work through this list. Most of it exists because the failure already happened
+in this repository.
+
+### Spec fidelity
+
+- [ ] Every non-obvious behaviour cites the requirement it implements, by identifier.
+- [ ] Nothing paraphrases a spec requirement in a comment or doc where a citation would do.
+- [ ] If you found the spec ambiguous, you changed `spec/` — you did not decide locally.
+- [ ] If you changed `spec/`, you checked whether `claims.md`,
+      `conformance-classes.md`, and `trust-matrix.md` still agree with it.
+
+### Claim honesty
+
+- [ ] No code, comment, README, or commit message asserts something not in
+      [`spec/claims.md`](spec/claims.md).
+- [ ] Nothing uses a prohibited term from
+      [`spec/terminology.md`](spec/terminology.md) §9. "Cryptographically proven",
+      "wire-level indistinguishability", "post-quantum ready", "leakage budget",
+      and "compliance-by-construction" are the recurring ones.
+- [ ] A claim you cannot test is described as a design intention, not a property.
+
+### Cross-implementation agreement
+
+- [ ] The change is language-neutral in design. Anything language-specific is
+      idiom, and belongs in `CONVENTIONS-{rust,go}.md`, not in a PRD.
+- [ ] New behaviour has a shared corpus vector, and both implementations are
+      expected to produce identical output for it.
+- [ ] **No floating-point arithmetic in budget accounting.** Capacity is integer
+      millibits, read from the registry.
+- [ ] **No `log2` call at runtime.** IEEE-754 does not guarantee a correctly-rounded
+      `log2`; the registry carries the value precisely so implementations cannot
+      disagree. See [`core-model.md`](spec/core-model.md) §3.1.
+- [ ] No iteration order, map ordering, or hash seed can affect an output.
+
+### Protocol correctness
+
+- [ ] Signature verification precedes parsing of the object it covers.
+- [ ] Nothing reads private input before [`core-model.md`](spec/core-model.md) §4
+      step 16.
+- [ ] `routing` is never used for a decision the signature covers.
+- [ ] Effective answer domain is computed by the responder; no requester-asserted
+      domain or debit is trusted anywhere.
+- [ ] Every failure path is fail-closed. Unknown, missing, and indeterminate all
+      deny.
+- [ ] No private value can reach an error message, log line, or serialized
+      exception.
+
+### Denial normalization
+
+- [ ] The **internal reason** and the **external response** are separate values
+      and never the same variable.
+- [ ] Every rejection in a normalized class returns a byte-identical wire
+      response. Test this across causes, not per-cause — a per-case test cannot
+      catch the divergence.
+- [ ] Response size does not vary with cause.
+- [ ] No cause-specific retry guidance.
+
+### Version and metadata hygiene
+
+- [ ] Version numbers agree everywhere they appear. **This has failed three times
+      in this repository** — packaging metadata naming "Draft 0.2", release notes
+      naming the prior draft, and the manuscript's versioning note and
+      public-release sequence both naming 0.2.1 while everything else said 0.2.2.
+      Each read as correct prose. Each was wrong. Grep for the old number before
+      claiming a version bump is done.
+- [ ] `website/index.html` still carries the `go-import` and `go-source` meta
+      tags if you touched it. They are load-bearing for the Go module path.
+
+### Hygiene
+
+- [ ] Tests exist for the negative cases, not just the positive ones. For this
+      protocol the interesting behaviour is what it refuses.
+- [ ] Cross-document links resolve.
+- [ ] No secrets, no real personal data. Test fixtures are synthetic.
+
+## PRD scoping check
+
+Before implementing against a PRD, confirm it has all of: purpose and the claims
+it serves, spec citations by identifier, module boundary, language-neutral
+interfaces, corpus sections, acceptance stated as "both implementations pass X",
+**negative acceptance**, escalate-if-changed decisions, open questions, and an
+issue list.
+
+A PRD missing negative acceptance is not ready. Say so rather than filling the
+gap yourself.
+
+## When to escalate vs. decide
+
+**Decide yourself:** naming, file layout, test structure, error-message wording
+that carries no private data, refactors inside one module, anything the spec
+already determines.
+
+**Escalate to Peter:**
+
+- Any change to `spec/`, `threat-model/`, or `registry/manifest.json` semantics.
+  Editorial fixes are yours; meaning is not.
+- Anything that would alter, weaken, or add a claim in `claims.md`.
+- A discovered spec ambiguity where more than one resolution is defensible.
+- A change to the processing order in `core-model.md` §4.
+- Adding a cryptographic suite, or changing the capacity unit.
+- Anything that would make the two implementations diverge deliberately.
+- A predicate's answer domain, capacity, or sensitivity classification.
+- Anything touching the deposited report. It has a DOI and is immutable;
+  corrections take a new draft number.
+
+When escalating, state the options and your recommendation. Do not present a
+menu without a view.
+
+## What NOT to do
+
+- **Do not add a claim.** Claims are decided in `spec/claims.md`, deliberately,
+  with assumptions and failure modes. Code does not get to introduce one.
+- **Do not compute capacity.** Read it from the registry.
+- **Do not let an internal reason reach the wire.**
+- **Do not resolve a spec ambiguity in code or in a PRD.**
+- **Do not write a second PRD set for the second language.**
+- **Do not describe the two implementations as "independent".** Both are by the
+  same author. They demonstrate the spec is *implementable*; that is the real and
+  sufficient claim.
+- **Do not edit the published report package.** `paper/Q2D_..._v0.2.2_Source_Package/`
+  is deposited. Corrections go into a new draft.
+- **Do not commit `private-docs/`.** It is gitignored for cause — strategy,
+  external review, commercial material.
+- **Do not push before Codex is clean.**
+
+## Running locally
+
+```sh
+# Registry manifest: internal consistency + every test vector
+python3 registry/validate.py
+
+# Technical report: build and run the deposit checks
+cd paper && make DRAFT=0.2.2 PAGES=43 verify
+cd paper && make repro          # rebuild 0.2.1 and diff against the published DOCX
+
+# Once implementations exist
+cargo test                      # Rust
+go test ./...                   # Go
+# conformance harness across both — Stage 0 deliverable, not yet built
+```
+
+## Commit and PR conventions
+
+Commits explain **why**, not what — the diff shows what. Where a decision had a
+defensible alternative, say which and why it lost. Where a change fixes a class
+of bug rather than an instance, say so.
+
+PR bodies lead with the substance, not a file list. If the work surfaced a
+problem that is *not* fixed by the PR, the body says so plainly rather than
+leaving it for a reader to notice.
+
+Both end with:
+
+```
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
+Claude-Session: <session url>
+```
+
+## A note on tone in artifacts
+
+Everything in this repository is read by people deciding whether to trust a
+protocol. Overstatement is the failure mode that costs most, and it is
+frictionless — it happens in a comment, a README line, a commit message. The
+non-claims list in `claims.md` is longer than the claims list on purpose. Keep it
+that way.
