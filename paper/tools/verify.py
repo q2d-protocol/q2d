@@ -133,10 +133,19 @@ def verify_manuscript(manuscript: Path, draft: str) -> None:
     print("\nmanuscript source")
     if not check(manuscript.is_file(), f"{manuscript.name} exists"):
         return
-    head = manuscript.read_text(encoding="utf-8")[:1500]
+    text = manuscript.read_text(encoding="utf-8")
+    head = text[:1500]
     date = re.search(r'^date:\s*"(.*)"', head, re.M)
     check(bool(date) and draft in date.group(1),
           f"YAML date states Draft {draft}", date.group(1) if date else "no date field")
+
+    # The manuscript speaks only about itself, so every draft number in it must be
+    # the current one. Draft 0.2.2 shipped review copies naming 0.2.1 in the
+    # versioning note and the public-release sequence; both read as correct prose.
+    stale = sorted({v for v in re.findall(r"Draft\s+v?(\d+\.\d+(?:\.\d+)?)", text)
+                    if v != draft})
+    check(not stale, "no stale draft number anywhere in the manuscript",
+          ", ".join(f"Draft {v}" for v in stale))
 
 
 def verify_package_prose(package: Path, src: Path | None, draft: str) -> None:

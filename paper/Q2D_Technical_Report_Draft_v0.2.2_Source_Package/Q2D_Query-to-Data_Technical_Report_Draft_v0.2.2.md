@@ -33,7 +33,7 @@ Independent researcher · ORCID [0009-0005-0608-9792](https://orcid.org/0009-000
 
 **Scope of this release.** This is a design report. Sections 12 and 13 state implementation status and evaluation method prospectively; measured results are required before the manuscript can claim an evaluated systems or privacy contribution.
 
-**Versioning note.** Report drafts and protocol versions are numbered independently. Technical Report Draft 0.2.1 describes the pre-release Q2D protocol version 0.1.
+**Versioning note.** Report drafts and protocol versions are numbered independently. Technical Report Draft 0.2.2 describes the pre-release Q2D protocol version 0.1.
 
 ```{=openxml}
 <w:p><w:r><w:br w:type="page"/></w:r></w:p>
@@ -1442,7 +1442,7 @@ Because the project is not pursuing patents and defensive publication is the str
 
 The recommended release is:
 
-- technical report Draft 0.2.1, describing Q2D protocol version 0.1, deposited on Zenodo and, if suitable, arXiv;
+- technical report Draft 0.2.2, describing Q2D protocol version 0.1, deposited on Zenodo and, if suitable, arXiv;
 - minimal but coherent core-specification draft;
 - threat model and claims document;
 - public repository and issue process;
