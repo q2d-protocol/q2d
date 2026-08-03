@@ -6,7 +6,14 @@ directories:
 - `spec/` — normative protocol definitions (`MUST` / `SHOULD` / `MAY`).
 - `paper/` — the technical report and its source package.
 
-Planned contents, per the artifact split in the technical report (§ *Open-source
+Present:
+
+| File | Purpose |
+|---|---|
+| [`mvp-scope.md`](mvp-scope.md) | Phase 1 scope, stage order, PRD set, and gates. Parent of the PRD set. |
+| [`versioning.md`](versioning.md) | Tag scheme and independent version lines. |
+
+Planned, per the artifact split in the technical report (§ *Open-source
 and governance posture*):
 
 | File | Purpose |
