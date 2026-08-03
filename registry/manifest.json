@@ -135,7 +135,6 @@
         "calculation": "ceil(1000 * log2(2))",
         "unit": "millibits",
         "millibits": 1000,
-        "bits_display": 1.0,
         "bounded": true
       },
       "sensitivity": {
@@ -288,7 +287,8 @@
             }
           }
         }
-      ]
+      ],
+      "entry_digest": "sha256:bd08ff230de0d8ce34de99967f7a9097988b49058f0a21dd35b9444c24098e35"
     },
     {
       "id": "https://q2d.dev/predicates/scheduling/availability-window",
@@ -583,7 +583,8 @@
             }
           }
         }
-      ]
+      ],
+      "entry_digest": "sha256:6ca481a555da633ffbd1ecbd37c7897091e8d01af036fd2610c6460a271d3ffd"
     },
     {
       "id": "https://q2d.dev/predicates/contact/contactable-for",
@@ -672,7 +673,6 @@
         "calculation": "ceil(1000 * log2(3))",
         "unit": "millibits",
         "millibits": 1585,
-        "bits_display": 1.585,
         "bounded": true,
         "notes": "Deliberately non-integral. An implementation that rounds, truncates, or stores this as an integer will disagree with a conforming one on every budget total. See registry/README.md on capacity arithmetic."
       },
@@ -777,7 +777,8 @@
             }
           }
         }
-      ]
+      ],
+      "entry_digest": "sha256:ec62e8d808297121a316a0bbb5c04c13fd3dc3e69751edfa08d21d7ff4e8ca87"
     }
   ],
   "capacity_unit": {
@@ -795,5 +796,11 @@
     "external_reason": "unavailable",
     "posture": "Every rejection in this manifest returns an identical external response regardless of cause. The internal reason is recorded in the local audit event and never reaches the wire.",
     "rationale": "A precise external error tells a requester which check failed. Even a schema violation confirms the predicate is supported by this custodian, which is custodian-private policy. The safe default is one external class for every rejection; a deployment may report precisely only where its sensitivity class explicitly permits it."
+  },
+  "entry_digest_rule": {
+    "algorithm": "sha256",
+    "over": "the entry object with entry_digest removed, serialized under the deterministic production profile: UTF-8, no insignificant whitespace, object keys sorted ascending, no floating-point values",
+    "purpose": "A requester states the digest of the entry it built against. A mismatch means this predicate's definition differs between the two parties, which is a semantic disagreement and rejects.",
+    "note": "The manifest digest a custodian pins and the entry digest a requester declares are different things. The manifest digest is what this custodian accepted; the entry digest is what the two parties agree the predicate means."
   }
 }

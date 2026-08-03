@@ -102,26 +102,31 @@ matters most.
 This is work: [`registry/manifest.json`](../../registry/manifest.json) is
 currently unsigned by design, and signing it is issue 2 below.
 
-### 4.5 The requester's declared digest is advisory
+### 4.5 The requester's declared entry digest must match
 
-`predicate.registry_digest` states which manifest the requester built against. On
-mismatch with the custodian's pin, the exchange **proceeds under the custodian's
-entry** and the mismatch is recorded in the local audit event.
+`predicate.registry_digest` is the digest of the **registry entry** the requester
+built against ([`core-model.md`](../../spec/core-model.md) §2.4.1). It is not the
+manifest digest, and the two do different jobs: the manifest digest is what this
+custodian accepted, the entry digest is whether both parties mean the same thing
+by this predicate.
 
-Proceeding is safe because **predicate id and version are immutable**: a change of
-meaning requires a new version, so a differing manifest digest means the manifest
-changed *elsewhere* — another entry added, metadata updated — not that this entry
-changed. The requester and the custodian still agree on what question is being
-asked.
+**A mismatch rejects**, before private access, under the normalized class.
 
-Rejecting instead would make every registry update a flag day for every
-requester, for no disclosure benefit: the effective domain is an intersection, so
-a requester working from a stale entry can receive a narrower answer but never a
-broader one.
+This was originally specified as advisory — proceed under the custodian's entry
+and record the mismatch — on the reasoning that predicate id and version are
+immutable, so a differing digest meant the manifest changed elsewhere. That
+reasoning was sound and its premise was unenforceable: nothing detected a
+publisher mutating an entry in place.
 
-**The enforcement gap is real and named.** Nothing in this module can detect a
-publisher that mutates an entry without bumping its version. Open question 1
-proposes per-entry digests as the fix.
+The failure it left open is **semantic mutation without shape change**. A
+predicate edited from *"is any item compatible"* to *"does any item conflict"*
+keeps its release shape, domain, capacity, and schema. Every check passes, the
+intersection is clean, the debit is right — and the answer means the opposite of
+what the requester believes. Per-entry digests turn an unenforceable convention
+into a comparison.
+
+The custodian was always protected here, by reviewing the diff before changing
+its pin. The requester was not. This closes that asymmetry.
 
 ### 4.6 Status
 
@@ -162,14 +167,16 @@ custodian-private policy.
 ```
 load_manifest(path, pins: RegistryPins) -> Result<Registry, LoadError>
    // verifies signature against pinned keys, then digest against pinned digest
+   // also verifies every entry_digest against its entry's canonical bytes
    // LoadError is fatal to serving; there is no partial success
 
-resolve(registry, id: PredicateId, version: Version) -> Result<Entry, ResolveError>
-   // status-aware; effective-date aware
-
-digest_matches(registry, declared: DigestString) -> bool
-   // advisory only; result is recorded, never used to gate
+resolve(registry, id: PredicateId, version: Version, declared: DigestString)
+   -> Result<Entry, ResolveError>
+   // status-aware; effective-date aware; rejects on entry-digest mismatch
 ```
+
+`resolve` taking the declared digest is deliberate. A separate comparison call
+could be skipped; a parameter cannot.
 
 `RegistryPins` is constructed from local configuration and never from anything in
 a message — the same rule as `SuitePolicy` in
@@ -190,7 +197,7 @@ consumed by [P-010](P-010-responder-pipeline.md).
 | `registry/pin/` | Correct key and digest; unpinned key; wrong digest; unsigned manifest |
 | `registry/resolve/` | Known id and version; unknown id; unknown version of a known id |
 | `registry/status/` | Active resolves; deprecated rejects; revoked rejects; not-yet-effective rejects |
-| `registry/declared-digest/` | Mismatch proceeds and is recorded; match proceeds silently |
+| `registry/entry-digest/` | Match resolves; mismatch rejects; a manifest whose stored entry digest is wrong fails to load |
 | `registry/uniformity/` | All nine failure modes produce one wire response |
 
 ## 7. Acceptance
@@ -202,8 +209,10 @@ consumed by [P-010](P-010-responder-pipeline.md).
       a previous manifest.
 - [ ] All nine failure modes in §4.7 produce a **byte-identical** wire response —
       asserted by the P-001 cross-vector denial-uniformity check, not per-case.
-- [ ] A requester-declared digest mismatch appears in the audit event and does
-      **not** appear in the response.
+- [ ] A requester-declared entry-digest mismatch rejects, under the same wire
+      response as every other resolution failure.
+- [ ] `load_manifest` recomputes every `entry_digest` and refuses a manifest where
+      any is wrong — a stored digest is never trusted as authored.
 - [ ] `registry/manifest.json` is signed, and the committed signature verifies in
       both implementations.
 
@@ -218,7 +227,8 @@ consumed by [P-010](P-010-responder-pipeline.md).
 | Any network fetch of a manifest | No HTTP client is linked into this module — asserted by dependency check |
 | Resolving a revoked or deprecated entry | Rejected |
 | A rejection revealing which predicates are supported | Uniformity assertion fails |
-| A requester-declared digest gating the exchange | `digest_matches` result appears in a control-flow branch |
+| An entry-digest mismatch proceeding | `registry/entry-digest/` mismatch vector returns an answer |
+| A stored `entry_digest` trusted without recomputation | Manifest with a tampered entry and matching stored digest loads |
 
 Row 5 is checkable mechanically and worth doing: the registry client having no
 network dependency at all is stronger than a rule saying it must not fetch.
@@ -230,22 +240,22 @@ network dependency at all is stronger than a rule saying it must not fetch.
 3. **No unsigned-manifest bypass exists**, in any build configuration.
 4. **A load failure means the responder does not serve.** No fallback, no
    degraded mode.
-5. **The requester-declared digest is advisory** and never gates an exchange.
-6. **Predicate id and version are immutable.** §4.5's safety argument rests
-   entirely on this.
+5. **The requester-declared entry digest must match, and a mismatch rejects.**
+6. **Every `entry_digest` is recomputed at load.** A stored digest is data, not
+   evidence.
 7. **All resolution failures share one wire response.**
 
 ## 10. Open questions
 
 | Question | Belongs to |
 |---|---|
-| Nothing detects a publisher mutating an entry without a version bump. Proposed: each entry carries its own digest, and `predicate.registry_digest` refers to the **entry**, not the manifest — making §4.5's assumption enforceable rather than assumed | This PRD **and** a registry format change; escalate before issue 2 |
+| ~~Nothing detects a publisher mutating an entry without a version bump~~ | **Resolved.** Per-entry digests added to `registry/manifest.json`; `core-model.md` §2.4.1 written; §4.5 rewritten to fail closed |
 | Which key signs `registry/manifest.json` for MVP, and where does its private half live? | This PRD; blocks issue 2 |
 | Should a custodian be able to pin a *subset* of a manifest's entries? | Deferred; adds a second authorization surface with no MVP need |
 | How does a custodian learn a new digest exists? Proposed: out of band. Capability discovery advertising it would create the update channel §4.3 forbids | [P-013](P-013-https-binding.md) |
 
-Open question 1 is the most consequential in Stage 2. §4.5 is safe *given*
-immutability, and immutability is currently a convention rather than a mechanism.
+Open question 1 is resolved. §4.5 no longer rests on immutability being observed;
+it rests on a digest comparison.
 
 ## 11. Issues
 
@@ -257,11 +267,12 @@ immutability, and immutability is currently a convention rather than a mechanism
 | 4 | Manifest parsing into typed entries | Every field in `terminology.md` §3 is represented or explicitly unused |
 | 5 | `resolve` with status and effective-date handling | `registry/resolve/` and `registry/status/` pass |
 | 6 | Fail-to-serve state | Load failure leaves every query rejecting |
-| 7 | `digest_matches` plus audit recording | `registry/declared-digest/` passes; value never gates |
+| 7 | Entry-digest comparison inside `resolve` | `registry/entry-digest/` passes; mismatch rejects |
 | 8 | Uniformity across all nine failure modes | `registry/uniformity/` passes under the cross-vector check |
 | 9 | Dependency assertion: no network client in this module | CI check fails if one is linked |
 | 10 | Author `registry/` client corpus groups | Five groups; `harness lint` clean |
-| 11 | Escalate open question 1 and record the outcome | Decision written into §4.5, or a registry format change raised |
+| 11 | ~~Escalate open question 1~~ — **done** | Resolved; manifest, spec, and §4.5 updated |
+| 12 | Recompute every `entry_digest` at load | Tampered-entry manifest with a matching stored digest is refused |
 
-Issue 2 blocks 3. Issue 11 should be raised **before** issue 2, since a per-entry
-digest changes what gets signed.
+Issue 2 blocks 3. Issue 11 is complete, and it landed **before** issue 2 as
+required — the manifest gained its entry digests before anything signed it.

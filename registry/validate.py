@@ -11,6 +11,7 @@ wrong here is wrong in two places later.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import sys
@@ -37,6 +38,27 @@ def check(ok: bool, label: str, detail: str = "") -> bool:
     if not ok:
         FAILURES.append(label)
     return ok
+
+
+def canon(obj) -> bytes:
+    """The deterministic production profile the entry digest is computed over."""
+    return json.dumps(obj, sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=False, allow_nan=False).encode("utf-8")
+
+
+def entry_digest(entry: dict) -> str:
+    body = {k: v for k, v in entry.items() if k != "entry_digest"}
+    return "sha256:" + hashlib.sha256(canon(body)).hexdigest()
+
+
+def has_float(obj) -> bool:
+    if isinstance(obj, float):
+        return True
+    if isinstance(obj, dict):
+        return any(has_float(v) for v in obj.values())
+    if isinstance(obj, list):
+        return any(has_float(v) for v in obj)
+    return False
 
 
 def ts(s: str) -> datetime:
@@ -159,6 +181,14 @@ def main(argv: list[str]) -> int:
               "sensitivity class from the closed vocabulary", p["sensitivity"]["class"])
         check(bool(p["sensitivity"].get("rationale")), "sensitivity has a stated rationale")
         check(p["provenance"]["revoked_from"] is None, "not revoked")
+
+        want = entry_digest(p)
+        check(p.get("entry_digest") == want, "entry_digest matches the entry's canonical bytes",
+              f"{p.get('entry_digest','absent')[:24]}… vs {want[:24]}…")
+        check(not has_float(p), "entry contains no floating-point value",
+              "a float would make the signed bytes non-deterministic across implementations")
+        check(all(k.isascii() for k in p), "entry keys are ASCII",
+              "non-ASCII keys make code-point ordering differ from UTF-16 ordering")
 
         dom = p["answer_domain"]
         if dom["kind"] == "enumerated":
