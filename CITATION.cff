@@ -1,0 +1,53 @@
+cff-version: 1.2.0
+title: "Q2D — Query-to-Data"
+message: >-
+  If you reference Q2D, please cite the technical report rather than this
+  repository. Cite a specific draft: the protocol is pre-release and its
+  claims are version-sensitive.
+type: software
+authors:
+  - family-names: Oram
+    given-names: Peter
+    # orcid: "https://orcid.org/0000-0000-0000-0000"   # add once registered
+repository-code: "https://github.com/q2d-protocol/q2d"
+url: "https://q2d.dev"
+abstract: >-
+  A transport-neutral protocol for policy-bound, least-disclosure answers over
+  data held by a participating custodian. A requester submits a signed, typed
+  answer contract binding the question, purpose, recipient, permitted sinks,
+  and maximum response domain before evaluation. The custodian evaluates the
+  query locally under applicable policy and returns a bounded, authenticated
+  answer with a disclosure receipt.
+keywords:
+  - AI agents
+  - data minimization
+  - privacy engineering
+  - policy enforcement
+  - prompt injection
+  - information-flow control
+  - MCP
+  - A2A
+  - selective disclosure
+  - authenticated computation
+license: Apache-2.0
+version: 0.0.1
+
+preferred-citation:
+  type: report
+  title: >-
+    Query-to-Data: Policy-Bound, Least-Disclosure Answers for AI Agents
+  authors:
+    - family-names: Oram
+      given-names: Peter
+      # orcid: "https://orcid.org/0000-0000-0000-0000"
+  year: 2026
+  month: 8
+  institution:
+    name: Q2D Protocol Project
+  url: "https://q2d.dev"
+  # doi: "10.5281/zenodo.XXXXXXX"                      # add after deposit
+  notes: >-
+    Technical Report Draft 0.2.2, describing Q2D protocol version 0.1.
+    Experimental design report and protocol proposal; not an official MCP or
+    A2A specification. No completed Phase 1 implementation or empirical result
+    is claimed. Report drafts and protocol versions are numbered independently.
