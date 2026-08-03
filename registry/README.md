@@ -91,49 +91,75 @@ a calendar through repeated narrow candidates, and the capacity budget does not
 stop them — each query is individually cheap. **Granularity floors are a
 registry-level control that the budget cannot substitute for.**
 
-## Two problems this work surfaced
+## Two problems this work surfaced, and how they were resolved
 
-Both are real, neither is resolved, and both are recorded here rather than
-quietly decided.
+### 1. Capacity is a float — so it is no longer stored as one
 
-### 1. Capacity is a float, and floats disagree across languages
+`contactable_for` has a three-value domain, so its true debit is
+`log2(3) = 1.584962500721156`. An implementation that rounds or truncates that
+would disagree with a conforming one on **every** running budget total, and the
+disagreement would look like a policy bug rather than an arithmetic one.
 
-`contactable_for` has a three-value domain, so its debit is
-`log2(3) = 1.584962500721156` — deliberately non-integral, and deliberately
-included as a test vector.
+Capacity is therefore carried in **millibits** — integers, thousandths of a bit:
 
-An implementation that rounds, truncates, or stores this as an integer will
-disagree with a conforming one on **every** running budget total. Two
-implementations built against these vectors will disagree the moment they
-accumulate debits, and the disagreement will look like a policy bug rather than
-an arithmetic one.
+```
+capacity_millibits = ceil(1000 × log2(cardinality))
+```
 
-This needs a decision before the budget is implemented:
+| cardinality | millibits | over-charge |
+|---|---|---|
+| 2 | 1000 | 0 |
+| 3 | 1585 | +0.000037 bits |
+| 7 | 2808 | +0.000645 bits |
+| 9 | 3170 | +0.000075 bits |
 
-- fixed-point at a defined precision, or
-- IEEE-754 double with a specified accumulation order, or
-- store cardinalities and compute in log space only at comparison time.
+Integer addition is exact and order-independent, so accumulation cannot drift.
+Ceiling rounding means the accounting can over-charge and never under-charge —
+the conservative direction — and the worst case across every reachable
+cardinality is **0.000645 bits**.
 
-The third is the most robust and the least convenient. Not decided here —
-[`spec/core-model.md`](../spec/core-model.md) §9 is where it lands.
+The part that actually closes the hole: **a responder never computes `log2` at
+runtime.** IEEE-754 does not require a correctly-rounded `log2`, so two
+implementations could differ in the last place, and a rounding boundary would
+turn that into a different integer. The value is authored once into the registry
+entry; where cardinality varies with the request, the entry carries a lookup
+table over every reachable value. A locally computed capacity is non-conforming
+even when it happens to agree — the same principle as
+[`Q2D-C-02`](../spec/claims.md), applied to accounting.
 
-### 2. Rejection reasons are themselves an oracle
+Whole-bit rounding was considered and rejected: it over-charges 26% at
+cardinality 3, which is coarse enough to distort the budget as a tuning
+parameter. Millibits are precise enough to be honest and coarse enough not to
+imply precision the mechanism lacks.
 
-The vectors distinguish `public_context_schema_violation` from
-`constraint_violation_minimum_slot_duration`. That is correct for a *test*
-vector — an implementation must be able to prove it rejected for the right
-reason.
+Specified in [`spec/core-model.md`](../spec/core-model.md) §3.1.
 
-It is **wrong on the wire** wherever denial normalization applies
-([`Q2D-C-08`](../spec/claims.md)). A requester learning *which* validation failed
-learns about the registry entry, and in the granularity-floor case learns that
-probing is being actively resisted.
+### 2. Rejection reasons are an oracle — so the wire carries none
 
-The internal reason and the external class are different values. These vectors
-pin the internal one. A conforming responder maps them to a single normalized
-external class within a sensitivity class, and the conformance suite must test
-both halves — that the right internal reason is recorded, and that it does not
-reach the wire.
+Every rejection vector now records two things: the **internal reason**, which the
+local audit event holds, and the **wire response**, which is identical for all of
+them:
+
+```json
+"internal_reason": "constraint_violation_minimum_slot_duration",
+"wire": { "status": "deny", "external_reason": "unavailable" }
+```
+
+`validate.py` asserts the cross-vector invariant that per-vector checks cannot
+catch: **every rejection returns a byte-identical wire response, while distinct
+internal reasons exist behind it.** Five rejections, two internal reasons, one
+external response.
+
+The subtle part is why even a *schema* violation must be normalized. A schema is
+public — a requester could have predicted the failure — so reporting it appears
+to leak nothing. But answering precisely confirms *the predicate is supported by
+this custodian*, and which entries a custodian accepts is custodian-private
+policy. A custodian that supports a health predicate has said something by
+supporting it.
+
+So the safe default is one external class for every rejection. A deployment may
+report precisely only where its sensitivity class explicitly permits, and must
+then do so uniformly across that class ([`Q2D-C-08`](../spec/claims.md)).
 
 ## Adding a predicate
 

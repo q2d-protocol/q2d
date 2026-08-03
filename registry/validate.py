@@ -102,13 +102,15 @@ EVAL = {
 }
 
 
-def expected_capacity(p, public):
-    """Capacity from the effective domain -- never from requester assertion."""
+def expected_capacity_mb(p, public):
+    """Capacity in millibits, from the registry -- never from requester assertion.
+
+    Recomputed here only to confirm the authored table is right. A responder
+    reads the value; it never computes log2.
+    """
     dom = p["answer_domain"]
-    if dom["kind"] == "enumerated":
-        return math.log2(dom["cardinality"])
-    n = len(public["candidates"])
-    return math.log2(n + 1)
+    n = dom["cardinality"] if dom["kind"] == "enumerated" else len(public["candidates"]) + 1
+    return math.ceil(1000 * math.log2(n))
 
 
 def main(argv: list[str]) -> int:
@@ -121,7 +123,16 @@ def main(argv: list[str]) -> int:
         print(f"  FAIL  manifest is not valid JSON  [{exc}]")
         return 1
 
+    wire_seen: list[tuple[str, str]] = []
+
     print("manifest")
+    cu = manifest.get("capacity_unit", {})
+    check(cu.get("name") == "millibits", "capacity unit is millibits", str(cu.get("name")))
+    check(any("MUST NOT compute log2 at runtime" in r for r in cu.get("rules", [])),
+          "manifest forbids computing log2 at runtime")
+    check(bool(manifest.get("denial_normalization", {}).get("external_reason")),
+          "manifest declares a normalized external reason",
+          str(manifest.get("denial_normalization", {}).get("external_reason")))
     check(manifest.get("q2d_version") == "0.1-draft", "targets Q2D 0.1-draft",
           str(manifest.get("q2d_version")))
     preds = manifest.get("predicates", [])
@@ -154,11 +165,18 @@ def main(argv: list[str]) -> int:
             check(dom["cardinality"] == len(dom["values"]),
                   "declared cardinality matches enumerated values",
                   f"{dom['cardinality']} vs {len(dom['values'])}")
-            declared = p["capacity"]["bits"]
-            actual = math.log2(dom["cardinality"])
-            check(declared is not None and math.isclose(declared, actual, rel_tol=1e-12),
-                  "declared capacity equals log2(cardinality)",
+            declared = p["capacity"]["millibits"]
+            actual = math.ceil(1000 * math.log2(dom["cardinality"]))
+            check(declared == actual, "declared capacity equals ceil(1000*log2(cardinality))",
                   f"{declared} vs {actual}")
+            check(isinstance(declared, int), "capacity is an integer")
+        else:
+            tbl = p["capacity"]["table"]
+            bad = [k for k, v in tbl.items() if v != math.ceil(1000 * math.log2(int(k)))]
+            check(not bad, "every capacity-table entry is correct", ",".join(bad))
+            check(all(isinstance(v, int) for v in tbl.values()), "capacity table holds integers")
+            check(set(tbl) == {str(k) for k in range(2, dom["maximum_cardinality"] + 1)},
+                  "capacity table covers every reachable cardinality")
 
         fn = EVAL[short]
         for v in p["test_vectors"]:
@@ -167,10 +185,12 @@ def main(argv: list[str]) -> int:
             rej = reject_reason(p["id"], v["public_context"])
 
             if exp["outcome"] == "reject":
-                check(rej == exp["reason"], f"vector {name}: rejected as {exp['reason']}",
+                check(rej == exp["internal_reason"],
+                      f"vector {name}: internal reason {exp['internal_reason']}",
                       rej or "was accepted")
                 check(exp.get("before_private_access") is True,
                       f"vector {name}: rejection precedes private access")
+                wire_seen.append((f"{short}/{name}", json.dumps(exp["wire"], sort_keys=True)))
                 continue
 
             if not check(rej is None, f"vector {name}: passes pre-access validation", rej or ""):
@@ -178,10 +198,10 @@ def main(argv: list[str]) -> int:
             got = fn(v["public_context"], v["private_input"])
             check(got == exp["result"], f"vector {name}: result", f"got {got!r}, want {exp['result']!r}")
 
-            want_cap = expected_capacity(p, v["public_context"])
-            check(math.isclose(exp["capacity_debit_bits"], want_cap, rel_tol=1e-12),
-                  f"vector {name}: capacity debit",
-                  f"{exp['capacity_debit_bits']} vs {want_cap}")
+            want_cap = expected_capacity_mb(p, v["public_context"])
+            check(exp["capacity_debit_millibits"] == want_cap,
+                  f"vector {name}: capacity debit (millibits)",
+                  f"{exp['capacity_debit_millibits']} vs {want_cap}")
 
             if dom["kind"] == "enumerated":
                 check(got in dom["values"], f"vector {name}: result inside answer domain")
@@ -189,6 +209,27 @@ def main(argv: list[str]) -> int:
                 n = len(v["public_context"]["candidates"])
                 check(got is None or (isinstance(got, int) and 0 <= got < n),
                       f"vector {name}: result inside computed domain")
+
+    # The cross-vector invariant: no rejection may be distinguishable from any
+    # other on the wire. Per-vector checks cannot catch this; only comparing
+    # every rejection against every other one can.
+    print("\ndenial normalization")
+    if wire_seen:
+        distinct = {w for _, w in wire_seen}
+        check(len(distinct) == 1,
+              f"all {len(wire_seen)} rejections return an identical wire response",
+              f"{len(distinct)} distinct responses: {sorted(distinct)}" if len(distinct) > 1 else "")
+        expected = json.dumps(manifest["denial_normalization"] and
+                              {"status": "deny",
+                               "external_reason": manifest["denial_normalization"]["external_reason"]},
+                              sort_keys=True)
+        check(distinct == {expected}, "wire response matches the declared normalized class",
+              sorted(distinct)[0])
+        internal = {v["expect"]["internal_reason"] for p in preds for v in p["test_vectors"]
+                    if v["expect"]["outcome"] == "reject"}
+        check(len(internal) > 1,
+              "distinct internal reasons exist behind that single wire response",
+              f"{len(internal)}: {sorted(internal)}")
 
     total_vectors = sum(len(p["test_vectors"]) for p in preds)
     print(f"\n{CHECKS - len(FAILURES)}/{CHECKS} checks passed  ({total_vectors} vectors across {len(preds)} predicates)")

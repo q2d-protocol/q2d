@@ -176,6 +176,35 @@ effective_domain = registry_entry.canonical_domain
 If the intersection is empty, the request fails closed. The capacity debit
 (Q2D-C-09) is computed from this value, not from anything the requester asserted.
 
+### 3.1 Capacity arithmetic
+
+Capacity is carried in **millibits** — thousandths of a bit, as integers.
+
+```
+capacity_millibits = ceil(1000 × log2(cardinality))
+```
+
+Three rules, and the third is the one that matters:
+
+- **Budgets accumulate by integer addition.** Exact, associative, and
+  order-independent. Two conforming responders reach the same total.
+- **Rounding is ceiling**, so accounting may over-charge and can never
+  under-charge. The error is at most 0.000645 bits per exchange across every
+  cardinality the reference registry can produce.
+- **A responder reads the value from the registry entry. It never computes
+  `log2` at runtime.** IEEE-754 does not require a correctly-rounded `log2`, so
+  two implementations could differ in the last place, and a rounding boundary
+  would turn that into a different integer. Authoring the value once removes the
+  question. Where a domain's cardinality varies with the request, the entry
+  carries a lookup table over every reachable cardinality.
+
+This is the same principle as Q2D-C-02 applied to accounting: the registry is
+authoritative, and a locally computed value is non-conforming even when it
+happens to agree.
+
+Millibits are part of the registry contract. Changing the unit invalidates every
+stored budget, so a budget records the unit it was accumulated in.
+
 ## 4. Processing order
 
 Order is a security property, not an implementation detail. It determines what
