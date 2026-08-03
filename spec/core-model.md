@@ -7,13 +7,13 @@ The abstract exchange: what a query carries, what a response carries, and the
 order in which a responder processes them. Bindings map this onto MCP, A2A, or
 direct HTTPS without changing its meaning.
 
-This document defines the **model**. It does not yet define the wire format —
-canonical serialization and the signature container are parked in §9. Field
-names below are the canonical names a binding should preserve where its
-transport allows.
+This document defines the **model**. Field names below are the canonical names a
+binding should preserve where its transport allows. Signature algorithms and
+serialization are not fixed here — they are named by suite in
+[`crypto-suites.md`](crypto-suites.md).
 
 Terms: [`terminology.md`](terminology.md). Boundaries: [`scope.md`](scope.md).
-Properties: [`claims.md`](claims.md).
+Properties: [`claims.md`](claims.md). Suites: [`crypto-suites.md`](crypto-suites.md).
 
 Where this document and the technical report disagree, this document governs.
 
@@ -35,7 +35,45 @@ different query.
 
 ## 2. Query
 
-### 2.1 Protocol metadata
+### 2.1 Envelope
+
+A message has two parts. Only one of them is authoritative.
+
+```
+{
+  "signed":  "<opaque: the core object and its signature>",
+  "routing": { ... non-authoritative projection ... }
+}
+```
+
+**`signed`** carries the core object and its signature under a registered suite
+([`crypto-suites.md`](crypto-suites.md)). The signature covers the exact bytes
+transmitted. There is nothing to canonicalize, and a verifier parses the core
+object **only after** verifying those bytes.
+
+**`routing`** is a projection for intermediaries that must dispatch or
+capability-match without unwrapping. It is advisory:
+
+- a responder **must not** use `routing` for any decision the signature covers;
+- `routing` **must** be a strict subset of what `signed` contains — it may
+  never introduce a field;
+- if the two disagree on any field, the request is **rejected**, not
+  reconciled. Disagreement is a tampering signal;
+- an intermediary may read `routing`. It must not modify `signed`.
+
+`routing` is kept minimal, because it travels in the clear. It carries at most
+`q2d_version`, `type`, `target.custodian`, `predicate.id`, `predicate.version`,
+and `expires_at`. **Purpose, sinks, subjects, the answer contract, and public
+context are never projected** — a relay has no need for them, and exposing them
+would leak precisely what the protocol exists to bound.
+
+This structure is what makes Q2D-C-05 hold by construction rather than by every
+intermediary's JSON library behaving identically. It also matters for
+interoperability: canonicalization disagreements across language ecosystems are
+a classic source of cross-implementation failure, and Q2D targets two
+implementations from the start.
+
+### 2.2 Protocol metadata
 
 | Field | Required | Meaning |
 |---|---|---|
@@ -47,7 +85,7 @@ different query.
 | `nonce` | yes | High-entropy; replay context. |
 | `correlation_id` | no | For asynchronous escalation. |
 
-### 2.2 Principals and authority
+### 2.3 Principals and authority
 
 | Field | Required | Meaning |
 |---|---|---|
@@ -63,7 +101,7 @@ Q2D defines three interfaces here rather than one identity technology: principal
 identification, key resolution, and delegation verification. Local pairing,
 enterprise OIDC/OAuth, and DID/UCAN are profiles over those interfaces. See §9.
 
-### 2.3 Predicate
+### 2.4 Predicate
 
 | Field | Required | Meaning |
 |---|---|---|
@@ -77,7 +115,7 @@ enterprise OIDC/OAuth, and DID/UCAN are profiles over those interfaces. See §9.
 A requester selects from registered predicates. Free-form expressions are out of
 scope ([`scope.md`](scope.md) §4).
 
-### 2.4 Answer contract
+### 2.5 Answer contract
 
 The requester's pre-evaluation commitment (Q2D-C-01).
 
@@ -94,7 +132,7 @@ The requester's pre-evaluation commitment (Q2D-C-01).
 may never expand one.** The domain in the query is a request, not an assertion
 the responder honours (Q2D-C-02).
 
-### 2.5 Purpose and delivery
+### 2.6 Purpose and delivery
 
 | Field | Required | Meaning |
 |---|---|---|
@@ -111,14 +149,19 @@ The protocol separates **declared** purpose from **authorized** purpose. The
 query records what the requester claims; the receipt records what the responder
 permitted. Neither predicts human behaviour (Q2D-NC-02).
 
-### 2.6 Freshness and authentication
+### 2.7 Freshness and authentication
 
 | Field | Required | Meaning |
 |---|---|---|
 | `freshness.maximum_source_age` | no | Maximum acceptable age of source data or credential evidence. |
-| `signature.profile` | yes | Identifies algorithm and canonicalization. |
+| `signature.profile` | yes | The **signature suite** identifier — algorithm, serialization, and hash as one unit. See [`crypto-suites.md`](crypto-suites.md). |
 | `signature.key_id` | yes | Resolvable under the identity profile. |
 | `signature.value` | yes | Covers every field above. |
+
+`signature.profile` is a field of the **signed** core object, never of the outer
+envelope. An intermediary rewriting the envelope therefore cannot change which
+suite a verifier believes was used. A verifier applies its own minimum
+acceptable policy and rejects suites below it, whatever the sender selected.
 
 ## 3. Effective answer domain
 
@@ -143,31 +186,38 @@ A conforming responder processes in this order:
 
 | # | Step | Why here |
 |---|---|---|
-| 1 | Structural parse; reject oversized or malformed input | Before any allocation on attacker-controlled data. |
-| 2 | Expiry and clock-skew check | Cheap; discards stale traffic. |
-| 3 | Signature verification and key resolution | **Nothing below this line runs for an unauthenticated request.** |
-| 4 | Delegation verification | Establishes the agent acts for the principal. |
-| 5 | Replay-cache check | After signature, so unauthenticated traffic cannot pollute the cache. |
-| 6 | Registry: predicate known, version known, not revoked, digest pinned | Fails closed on anything unrecognized. |
-| 7 | Public context validated against the entry's input schema | Schema comes from the registry, not the request. |
-| 8 | Answer contract no broader than the registry entry | Q2D-C-02. |
-| 9 | Requested assurance profile supported | Refuse rather than downgrade. |
-| 10 | Policy evaluation → `allow` / `deny` / `escalate` + modifiers | First step that consults policy authorities. |
-| 11 | Budget: sufficient capacity for the computed debit | Before private access, so exhaustion never reads data. |
-| 12 | **Private input accessed; predicate evaluated** | Everything above gates this line. |
-| 13 | Output validated against the effective domain | Q2D-C-03. Fails closed. |
-| 14 | Budget debited | Once, idempotently. |
-| 15 | Receipt constructed; response signed | Q2D-C-10. |
+| 1 | Parse the **envelope**; reject oversized or malformed input | Before any allocation on attacker-controlled data. |
+| 2 | *Optional:* shed obviously stale traffic using `routing.expires_at` | Load shedding only. **Never a security decision** — `routing` is advisory. |
+| 3 | Read the suite identifier; reject if below the verifier's minimum acceptable policy | The sender's declared suite selects how to verify, so it is read before verification — but it is checked against local policy, never trusted. Prevents algorithm-confusion and downgrade. |
+| 4 | Resolve the key; **verify the signature over the exact signed bytes** | **Nothing below this line runs for an unauthenticated request.** |
+| 5 | Parse the verified core object | Parsing happens *after* verification, so parser behaviour is outside the security boundary. |
+| 6 | Expiry and clock-skew check — authoritative | The signed value governs; step 2 was advisory. |
+| 7 | Delegation verification | Establishes the agent acts for the principal. |
+| 8 | `routing` / `signed` consistency | Any disagreement is tampering. Reject; do not reconcile. |
+| 9 | Replay-cache check | After signature, so unauthenticated traffic cannot pollute the cache. |
+| 10 | Registry: predicate known, version known, not revoked, digest pinned | Fails closed on anything unrecognized. |
+| 11 | Public context validated against the entry's input schema | Schema comes from the registry, not the request. |
+| 12 | Answer contract no broader than the registry entry | Q2D-C-02. |
+| 13 | Requested assurance profile supported | Refuse rather than downgrade. |
+| 14 | Policy evaluation → `allow` / `deny` / `escalate` + modifiers | First step that consults policy authorities. |
+| 15 | Budget: sufficient capacity for the computed debit | Before private access, so exhaustion never reads data. |
+| 16 | **Private input accessed; predicate evaluated** | Everything above gates this line. |
+| 17 | Output validated against the effective domain | Q2D-C-03. Fails closed. |
+| 18 | Budget debited | Once, idempotently. |
+| 19 | Receipt constructed; response signed | Q2D-C-10. |
 
-Two invariants follow:
+Three invariants follow:
 
-- **Steps 1–11 complete before any private input is read.** A denial at any of
+- **Steps 1–15 complete before any private input is read.** A denial at any of
   them is reachable without touching protected data.
+- **The core object is parsed only after its signature verifies** (step 5). An
+  attacker cannot reach the JSON parser for the security-relevant object without
+  a valid signature.
 - **The external response must not reveal which step failed** where the
   sensitivity class requires normalization (Q2D-C-08). Internal audit records
   the true cause; the wire does not.
 
-Step 13 failing is an implementation or integrity error, not a policy outcome.
+Step 17 failing is an implementation or integrity error, not a policy outcome.
 It is logged as such, and the runtime must not serialize an exception carrying
 private input.
 
@@ -265,7 +315,6 @@ that no implementation quietly settles them by accident.
 
 | Open item | Current leaning | Blocked on |
 |---|---|---|
-| **Canonical serialization and signature container** | JCS (RFC 8785) with Ed25519 (RFC 8032) as the Phase 1 profile | Implementation experience; must be pinned before any test vector is published |
 | **Identity/delegation core-vs-profile boundary** | Core defines the three interfaces; profiles supply the technology | Which profile, if any, is mandatory to implement |
 | **Approval-scope digest field list** | The seven fields in §5.3 | Grant lifetime and revocation semantics |
 | **Capacity calculation for `object` outputs** | Registry supplies an upper bound from field domains, precision, and length | A formal calculation |
@@ -274,3 +323,10 @@ that no implementation quietly settles them by accident.
 
 An implementation may choose any of these. It must not describe its choice as
 the Q2D answer until this document records it.
+
+**Resolved since the first draft of this document.** Serialization and the
+signature container are no longer open. The envelope in §2.1 signs exact
+transmitted bytes, so canonicalization is not on the security path, and
+algorithms are named by suite rather than fixed —
+[`crypto-suites.md`](crypto-suites.md) carries the registry, the
+mandatory-to-implement suite, and the downgrade rules.

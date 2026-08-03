@@ -104,14 +104,19 @@ path echoes input; the executor is compromised. See Q2D-NC-06.
 **Claim.** An intermediary cannot alter the predicate, public context, purpose,
 recipient, sinks, answer contract, freshness, or nonce without invalidating the
 requester signature.
-**Holds when.** Canonical serialization is deterministic and the signature
-covers every listed field.
-**Enforced by.** Canonicalization before signing; signature verification before
-policy evaluation.
-**Fails if.** Canonicalization is ambiguous; a binding places a covered field
-outside the signed object; the requester key or runtime is compromised.
+**Holds when.** The signature suite in force is sound and is at or above the
+verifier's minimum acceptable policy; the signature covers every listed field.
+**Enforced by.** Signing the exact transmitted bytes of the core object
+([`core-model.md`](core-model.md) §2.1); verification before the object is
+parsed; rejection when the advisory `routing` projection disagrees with the
+signed object.
+**Fails if.** A binding places a covered field outside the signed object; the
+requester key or runtime is compromised; the suite is broken or the verifier
+accepts one below its floor. Under the optional `eddsa-jcs-2022` suite, also if
+canonicalization is ambiguous — which is why it is not the default.
 **Not.** Protection against a requester that signs a malicious contract itself.
-**Verified by.** `conformance/field-tampering`, `conformance/canonicalization` — planned.
+**Verified by.** `conformance/field-tampering`, `conformance/routing-mismatch`,
+`conformance/suite-downgrade` — planned.
 
 ### Q2D-C-06 — Response authentication
 
@@ -119,11 +124,15 @@ outside the signed object; the requester key or runtime is compromised.
 the effective answer contract, the receipt, and the request digest to the
 computation executor's identity.
 **Holds when.** The key-to-principal binding is sound under the selected
-identity profile.
-**Enforced by.** Signature over the canonical response; requester-side
-verification before the answer reaches the agent.
+identity profile, and the signature suite in force is sound and at or above the
+verifier's minimum acceptable policy.
+**Enforced by.** Signature over the exact response bytes under a registered
+suite; requester-side verification before the answer reaches the agent; the
+receipt records which suite was used, so the response remains assessable after
+that suite is deprecated.
 **Fails if.** Executor keys are compromised; the identity profile misbinds a key
-to a claimed principal.
+to a claimed principal; the suite is broken or accepted below the verifier's
+floor.
 **Not.** Proof that the predicate was executed faithfully, that the correct
 record was selected, that the data was current, or that the underlying fact is
 true. This is origin and integrity only. See Q2D-NC-01 and Q2D-NC-10.
