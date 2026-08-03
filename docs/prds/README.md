@@ -10,7 +10,7 @@ assigned; an abandoned PRD keeps its number and is marked withdrawn.
 | [P-003](P-003-crypto-suites.md) | Cryptographic suites, key handling, downgrade policy | 1 | **Ready for decomposition** |
 | [P-004](P-004-replay-idempotency.md) | Replay, expiry, idempotency | 1 | **Ready for decomposition** |
 | [P-005](P-005-registry-client.md) | Registry client: pinning, resolution, fail-closed | 2 | **Ready for decomposition** |
-| P-006 | Request validation and effective answer domain | 2 | Not authored |
+| [P-006](P-006-request-validation.md) | Request validation and effective answer domain | 2 | **Blocked on escalation** |
 | P-007 | Policy engine contract and fail-closed invariants | 3 | Not authored |
 | P-008 | Disclosure-capacity accounting | 3 | Not authored |
 | P-009 | Denial normalization | 3 | Not authored |
@@ -44,6 +44,7 @@ PRD, because it is trusted.
 | Not authored | Placeholder; the row reserves the number |
 | Draft | Being written; sections incomplete |
 | **Ready for decomposition** | Every section in [`../mvp-scope.md`](../mvp-scope.md) §5 is complete and the issue list is enumerated |
+| **Blocked on escalation** | Complete, but an open question must be decided before implementation begins |
 | In progress | Issues are being executed |
 | Done | Acceptance and negative acceptance pass in both implementations |
 
