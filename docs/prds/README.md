@@ -6,7 +6,7 @@ assigned; an abandoned PRD keeps its number and is marked withdrawn.
 | # | Title | Stage | Status |
 |---|---|---|---|
 | [P-001](P-001-conformance-corpus.md) | Conformance corpus format and harness contract | 0 | **Ready for decomposition** |
-| P-002 | Message envelope and canonical structures | 1 | Not authored |
+| [P-002](P-002-message-envelope.md) | Message envelope and canonical structures | 1 | **Ready for decomposition** |
 | P-003 | Cryptographic suites, key handling, downgrade policy | 1 | Not authored |
 | P-004 | Replay, expiry, idempotency | 1 | Not authored |
 | P-005 | Registry client: pinning, resolution, fail-closed | 2 | Not authored |
@@ -21,6 +21,21 @@ assigned; an abandoned PRD keeps its number and is marked withdrawn.
 | P-014 | Identity and the local pairing profile | 6 | Not authored |
 | P-015 | Escalation lifecycle | 7 | Not authored |
 | P-016 | Reference demonstration and adversarial suite | 8 | Not authored |
+
+## Authoring order
+
+**The full set is authored before any implementation code is written**, then kept
+in lockstep with the code as development proceeds.
+
+Authoring all sixteen first surfaces interface mismatches between modules while
+they are still paragraphs. It also front-loads the cheapest review of the
+specification available: a PRD that cannot state its acceptance without inventing
+a requirement has found a spec gap, and finding sixteen of those before Stage 1
+is worth more than finding them one stage at a time.
+
+Lockstep afterwards means a PRD is amended in the same change as the code that
+diverges from it. A PRD that describes what the code used to do is worse than no
+PRD, because it is trusted.
 
 ## Status vocabulary
 
