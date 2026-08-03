@@ -65,3 +65,11 @@ published Q2D specification. Note that CC BY 4.0 grants no patent rights of its
 own — this covenant is what closes that gap for the specification prose.
 
 **Name.** See [`TRADEMARKS.md`](TRADEMARKS.md) for how the Q2D name may be used.
+
+## Reporting a security issue
+
+See [`SECURITY.md`](SECURITY.md). At this stage the most valuable reports are
+**design** defects — a claim in [`spec/claims.md`](spec/claims.md) that does not
+hold under its own stated assumptions, an attack the threat model misses, or
+language that overstates what a mechanism delivers. There is no code to have a
+memory-safety bug; there are claims to be wrong.
