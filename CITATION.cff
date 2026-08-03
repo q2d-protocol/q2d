@@ -45,7 +45,7 @@ preferred-citation:
   institution:
     name: Q2D Protocol Project
   url: "https://q2d.dev"
-  # doi: "10.5281/zenodo.XXXXXXX"                      # add after deposit
+  doi: "10.5281/zenodo.21777306"
   notes: >-
     Technical Report Draft 0.2.2, describing Q2D protocol version 0.1.
     Experimental design report and protocol proposal; not an official MCP or
