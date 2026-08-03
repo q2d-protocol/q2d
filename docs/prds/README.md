@@ -10,8 +10,8 @@ assigned; an abandoned PRD keeps its number and is marked withdrawn.
 | [P-003](P-003-crypto-suites.md) | Cryptographic suites, key handling, downgrade policy | 1 | **Ready for decomposition** |
 | [P-004](P-004-replay-idempotency.md) | Replay, expiry, idempotency | 1 | **Ready for decomposition** |
 | [P-005](P-005-registry-client.md) | Registry client: pinning, resolution, fail-closed | 2 | **Ready for decomposition** |
-| [P-006](P-006-request-validation.md) | Request validation and effective answer domain | 2 | **Blocked on escalation** |
-| P-007 | Policy engine contract and fail-closed invariants | 3 | Not authored |
+| [P-006](P-006-request-validation.md) | Request validation and effective answer domain | 2 | **Ready for decomposition** |
+| [P-007](P-007-policy-engine.md) | Policy engine contract and fail-closed invariants | 3 | **Ready for decomposition** |
 | P-008 | Disclosure-capacity accounting | 3 | Not authored |
 | P-009 | Denial normalization | 3 | Not authored |
 | P-010 | Responder pipeline, predicate execution, output validation | 4 | Not authored |

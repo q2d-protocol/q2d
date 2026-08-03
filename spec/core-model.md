@@ -128,9 +128,28 @@ The requester's pre-evaluation commitment (Q2D-C-01).
 | `answer_contract.precision` | shape-dependent | Granularity for `scalar` and `interval`. |
 | `answer_contract.disclosure_class` | no | Requester's sensitivity assertion; advisory only. |
 
-**A requester may request a subset or a coarser form of the registered domain. It
-may never expand one.** The domain in the query is a request, not an assertion
-the responder honours (Q2D-C-02).
+**A requester may request a coarser form of the registered domain. It may never
+expand one, and it may never request a strict subset.** The domain in the query
+is a request, not an assertion the responder honours (Q2D-C-02).
+
+*Coarsening* maps every registered value onto a smaller set — exact time to a
+two-hour band, fifteen values to three. Every possible result has an image in
+the requested domain.
+
+*Subsetting* would select some registered values and discard the rest, and is
+prohibited because a result among the discarded values would fall outside the
+requested domain and fail closed. **That failure is informative.** A requester
+asking a boolean predicate with a requested domain of `[true]` receives `true`
+for a true result and a denial for a false one, learning the answer either way
+while debiting `log2(1)` — nothing. Denial normalization cannot help: the
+requester constructed a question whose only failure mode is the answer it
+wanted, and no uniformity of response erases what it knows about its own
+request. Permitting subsets would defeat Q2D-C-09 for every predicate whose
+domain can be subsetted.
+
+The same rule binds policy modifiers (§3, [`terminology.md`](terminology.md) §6):
+a modifier coarsens and never subsets, so every result retains an image
+throughout the intersection.
 
 ### 2.6 Purpose and delivery
 

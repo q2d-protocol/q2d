@@ -175,8 +175,11 @@ indistinguishability property in 0.1. See Q2D-NC-05.
 **Claim.** Each released finite-domain answer debits `log2(cardinality)` of the
 **effective** domain from a policy-defined budget, computed by the responder.
 Exhaustion escalates or denies.
-**Holds when.** The budget key is meaningful for the deployment and the
-relationship is costly enough to establish that recreation is not trivial.
+**Holds when.** The budget key is meaningful for the deployment; the relationship
+is costly enough to establish that recreation is not trivial; and the effective
+domain cannot be narrowed into one whose out-of-domain outcome is itself
+informative — which is why [`core-model.md`](core-model.md) §2.5 prohibits
+subsetting.
 **Enforced by.** Responder-side debit from the registry-verified effective
 domain; any debit or domain size asserted by a requester is ignored.
 **Fails if.** Requesters collude or recreate relationships; correlated
