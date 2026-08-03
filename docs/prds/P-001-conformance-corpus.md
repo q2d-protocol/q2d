@@ -1,0 +1,337 @@
+# P-001 — Conformance corpus format and harness contract
+
+| Field | Detail |
+|---|---|
+| PRD | P-001 |
+| Stage | 0 — precedes all implementation code |
+| Status | **Ready for decomposition** |
+| Size | M |
+| Risk | low |
+| Blocks | every other PRD |
+| Depends on | nothing |
+
+---
+
+## 1. Purpose
+
+Define the shared test corpus and the contract by which a language-agnostic
+harness runs it against any implementation. Every later PRD states its acceptance
+as *"both implementations pass corpus section X"*, so this PRD determines what
+that sentence means.
+
+Building the corpus first is not sequencing preference. It is the only order in
+which cross-implementation divergence is caught as it appears rather than
+accumulated. It is also the cheapest available review of the specification: a
+requirement that cannot generate a vector is not precise enough to implement, and
+we would rather learn that here than in two languages.
+
+**Claims served:** none directly. This PRD builds the instrument by which
+Q2D-C-01 through Q2D-C-13 are demonstrated, and by which
+[`spec/claims.md`](../../spec/claims.md)'s `Verified by: planned` entries are
+closed.
+
+## 2. Spec citations
+
+Requirements this PRD implements, by identifier. It restates none of them.
+
+| Source | What it constrains here |
+|---|---|
+| [`spec/conformance-classes.md`](../../spec/conformance-classes.md) § *What a conformance suite must provide* | The corpus's required contents |
+| [`spec/conformance-classes.md`](../../spec/conformance-classes.md) § *The honesty rule* | No class may be claimed until its checks pass |
+| [`spec/claims.md`](../../spec/claims.md) § *Traceability* | Every claim maps to at least one executable check |
+| [`spec/core-model.md`](../../spec/core-model.md) §2.1 | Envelope structure the message vectors exercise |
+| [`spec/core-model.md`](../../spec/core-model.md) §3.1 | Capacity arithmetic the budget vectors exercise |
+| [`spec/core-model.md`](../../spec/core-model.md) §4 | Processing order the ordering vectors exercise |
+| [`spec/core-model.md`](../../spec/core-model.md) §5.2 | Normalized denial the rejection vectors exercise |
+| [`spec/crypto-suites.md`](../../spec/crypto-suites.md) §3 | `eddsa-jws-2026`, the only suite vectors may use |
+| [`spec/crypto-suites.md`](../../spec/crypto-suites.md) §4 | Downgrade rejection the suite vectors exercise |
+| [`registry/manifest.json`](../../registry/manifest.json) | Existing predicate vectors, folded in as a corpus section |
+
+## 3. Module boundary
+
+**Inside:** the vector file format; the operation vocabulary; the runner CLI
+contract; the harness; the result format; cross-verification mode; coverage
+reporting; test key material.
+
+**Explicitly outside:** any protocol logic. The harness parses JSON, invokes a
+subprocess, and compares. It implements no Q2D behaviour, and a change that gives
+it protocol knowledge is out of scope and an escalation.
+
+**Also outside:** timing and side-channel measurement (Stage 8), performance
+benchmarking (Stage 8), and fuzzing corpora (owned by the PRD for the module
+being fuzzed).
+
+## 4. Design
+
+### 4.1 The runner contract
+
+An implementation exposes one executable:
+
+```
+q2d-conform <vector-file.json>        →  result JSON on stdout
+```
+
+Exit status reports whether the runner *functioned*, never whether the vector
+*passed*:
+
+| Exit | Meaning |
+|---|---|
+| 0 | A result was produced. The vector may still fail; the harness decides. |
+| 1 | The runner could not process the vector — unknown operation, malformed file. |
+| 2 | Internal error. |
+
+A vector expecting a rejection is a successful run that reports a rejection.
+Conflating "the implementation rejected the input" with "the runner failed" makes
+negative acceptance untestable, and negative acceptance is where this protocol
+lives.
+
+### 4.2 Implementations never see the expectation
+
+**The harness strips `expect` before writing the file the runner reads.**
+
+An implementation that can read the expected output can pass by reproducing it.
+This is not a hypothetical: a runner written to make a suite green will, given
+the answer, use it. The corpus is only evidence if the implementation is answering
+the question rather than copying the answer.
+
+Consequence: vectors are authored as one file containing both halves, and the
+harness produces the input-only projection at runtime. Implementations are never
+given a path to the authored corpus.
+
+### 4.3 Determinism is required, not hoped for
+
+Every input that would otherwise vary is supplied **by the vector**: keys,
+nonces, `issued_at`, `expires_at`, and any identifier. A runner that generates a
+nonce or reads a clock produces an unreproducible result and is non-conforming.
+
+Ed25519 signing is deterministic (RFC 8032), so two conforming implementations
+produce **byte-identical** signatures for the same key and message. That is what
+makes cross-implementation comparison a byte comparison rather than a
+both-verify check, and it is the property the Stage 1 gate rests on.
+
+### 4.4 Vector format
+
+```json
+{
+  "id": "message/sign/query-minimal",
+  "section": "message",
+  "requirement": ["Q2D-C-05", "core-model.md#2.1"],
+  "description": "A minimal signed query envelope with an advisory routing projection.",
+  "operation": "sign_query",
+  "input": { "key_id": "test-requester-1", "query": { } },
+  "expect": {
+    "outcome": "ok",
+    "output": { "signed": "…", "routing": { } },
+    "comparison": "bytes"
+  }
+}
+```
+
+- `requirement` is mandatory and is what makes the corpus a live traceability
+  matrix. A vector citing nothing is rejected by the linter.
+- `comparison` is `bytes` where the spec requires determinism and `semantic`
+  where it does not. A vector must state which; there is no default, because a
+  silent default is how a determinism requirement gets quietly dropped.
+
+### 4.5 Operation vocabulary
+
+Closed and versioned. An unknown operation is exit 1, never a skip — fail-closed
+applies to the harness too.
+
+| Operation | Stage | Purpose |
+|---|---|---|
+| `sign_query` / `sign_response` | 1 | Produce a signed envelope |
+| `verify_query` / `verify_response` | 1 | Verify, then report the parsed object |
+| `digest` | 1 | Digest a structure, for receipt binding |
+| `resolve_predicate` | 2 | Registry resolution and pinning |
+| `effective_domain` | 2 | Domain intersection |
+| `capacity_debit` | 3 | Millibit debit for an effective domain |
+| `policy_decide` | 3 | Policy contract input → decision + modifiers |
+| `evaluate_predicate` | 4 | Local evaluation and output validation |
+| `process_query` | 4 | The full §4 pipeline |
+
+Later stages extend the table; they do not redefine existing entries.
+
+### 4.6 Result format
+
+```json
+{
+  "vector_id": "message/sign/query-minimal",
+  "outcome": "ok",
+  "output": { },
+  "implementation": { "name": "q2d-rs", "version": "0.1.0" }
+}
+```
+
+A rejection reports **both halves**, because the harness checks both:
+
+```json
+{
+  "vector_id": "registry/reject/unknown-predicate-version",
+  "outcome": "rejected",
+  "rejection": {
+    "internal_reason": "unknown_predicate_version",
+    "wire": { "status": "deny", "external_reason": "unavailable" },
+    "step": 10
+  }
+}
+```
+
+`step` is the [`core-model.md`](../../spec/core-model.md) §4 step at which
+rejection occurred, and is how ordering is asserted without instrumenting the
+implementation.
+
+### 4.7 The harness
+
+Written in **Python**, and it imports neither implementation.
+
+Sharing code with an implementation would let the harness share a bug with it —
+a canonicalization or digest error present in both would cancel out and the suite
+would pass. A third language makes that impossible by construction, and Python is
+already in use for [`registry/validate.py`](../../registry/validate.py).
+
+Modes:
+
+```sh
+harness run      --impl ./target/debug/q2d-conform      # one implementation
+harness cross    --a <runner> --b <runner>              # A produces, B verifies
+harness coverage                                        # claims with no vector
+harness lint                                             # corpus self-checks
+```
+
+### 4.8 What the harness asserts
+
+**Per vector:** outcome matches; output matches under the declared comparison
+mode; for rejections, the internal reason, the wire response, and the step all
+match.
+
+**Cross-vector** — the assertions a per-vector test structurally cannot make:
+
+1. **Denial uniformity.** Every rejection in a normalized class produces a
+   byte-identical `wire` object, while distinct `internal_reason` values exist
+   behind it. This is the check `registry/validate.py` already performs over
+   registry vectors, generalized.
+2. **Budget accumulation is order-independent.** A debit sequence and its
+   permutations reach the same total.
+3. **Ordering monotonicity.** No vector rejecting at step *n* has a sibling that
+   reaches a later step on strictly less valid input.
+
+**Cross-implementation:** for every `comparison: bytes` vector, both runners
+produce identical bytes; and in `cross` mode, B verifies what A produced.
+
+**Coverage:** every claim in [`spec/claims.md`](../../spec/claims.md) is cited by
+at least one vector. Uncited claims are reported, not silently absent.
+
+### 4.9 Test key material
+
+Fixed Ed25519 keypairs, generated once, committed, and marked test-only in the
+filename and in a header comment. Seeds from RFC 8032's test vectors where they
+fit, so key handling is checkable against an independently published source
+before any Q2D structure is involved.
+
+## 5. Corpus sections at completion of Stage 0
+
+| Section | Vectors | New work |
+|---|---|---|
+| `message/` | envelope construction, signing, verification, routing projection, routing/signed disagreement | new |
+| `suite/` | suite resolution, downgrade rejection, unknown suite | new |
+| `replay/` | nonce reuse, expiry, clock skew, idempotent retry | new |
+| `registry/` | resolution, pinning, digest mismatch, schema validation | **folded in from [`registry/manifest.json`](../../registry/manifest.json)** |
+| `domain/` | intersection, understatement, expansion attempt | new |
+| `budget/` | debit sequences, permutation equality, exhaustion | new |
+| `receipt/` | field binding, digest computation | new |
+| `ordering/` | one vector per rejection step, 1–15 | new |
+
+Stage 0 authors the format, the harness, and `message/`, `suite/`, and
+`ordering/`. Remaining sections are authored by the PRD that owns the behaviour,
+against this format.
+
+## 6. Interfaces
+
+Language-neutral. Both implementations honour these; idiom is per-language.
+
+```
+run(vector: VectorInput) -> Result
+  VectorInput  = { id, operation, input }        // no expect field
+  Result       = { vector_id, outcome, output?, rejection?, implementation }
+  outcome      = "ok" | "rejected" | "error"
+  rejection    = { internal_reason, wire, step? }
+```
+
+## 7. Acceptance
+
+- [ ] The harness runs, and reports **fail for every vector**, because no
+      implementation exists. A harness that cannot fail is not a harness.
+- [ ] `harness lint` rejects a vector with no `requirement`, no `comparison`, or
+      an unknown `operation`.
+- [ ] `harness coverage` reports all 13 claims as uncovered.
+- [ ] The input projection given to a runner provably contains no `expect` field.
+- [ ] Existing registry vectors run through the harness with unchanged results.
+- [ ] The harness imports neither implementation — asserted by dependency check,
+      not by convention.
+
+## 8. Negative acceptance
+
+What must fail, and how the failure is observed.
+
+| Must fail | Observed as |
+|---|---|
+| A runner that reads a clock or generates a nonce | Two runs of the same vector produce different output; harness reports non-determinism |
+| A runner that emits exit 1 for a vector expecting rejection | Harness reports runner failure, distinct from vector failure |
+| A vector asserting an outcome it does not cite a requirement for | `harness lint` rejects it |
+| A vector with `comparison` unset | `harness lint` rejects it |
+| Two rejections in one normalized class with differing `wire` objects | Cross-vector denial-uniformity assertion fails |
+| A budget permutation reaching a different total | Cross-vector accumulation assertion fails |
+| A `bytes` vector where two implementations differ by one byte | Cross-implementation comparison fails, naming the offset |
+
+The last row is the one this PRD exists for.
+
+## 9. Escalate-if-changed decisions
+
+Each is architecture, not preference. A contributor encountering a reason to
+change one stops and escalates.
+
+1. **Implementations never receive the `expect` field.** Changing this makes the
+   corpus unfalsifiable.
+2. **The harness imports neither implementation.** Shared code means shared bugs
+   that cancel out.
+3. **All nondeterministic inputs come from the vector.** No clocks, no RNG, no
+   ambient state.
+4. **The implementation reports; the harness judges.** An implementation that
+   decides its own pass/fail can diverge in its reading of the expectation.
+5. **Byte comparison depends on Ed25519 determinism.** A future suite without it
+   requires a different comparison model, and that is a spec-level change.
+
+## 10. Open questions
+
+| Question | Belongs to |
+|---|---|
+| How are unsigned parts of a message compared when JSON key order is unconstrained? Candidate: `semantic` comparison mode is defined as parse-then-deep-equal | This PRD; resolve before authoring `message/` |
+| Does the corpus version independently of the spec, or track it? | [`docs/versioning.md`](../versioning.md) |
+| Should `process_query` vectors carry expected timing bands? | Deferred to Stage 8; `Q2D-NC-05` scopes the claim so nothing depends on it now |
+| Where do fuzzing seeds live — corpus or per-module? | Proposed: per-module. Confirm when the first fuzz target lands |
+
+## 11. Issues
+
+Decomposition into tracked work. Each names its acceptance.
+
+| # | Issue | Done when |
+|---|---|---|
+| 1 | Vector file schema and JSON Schema for it | `harness lint` validates a corpus directory against it |
+| 2 | Input-projection: strip `expect` | Property test proves no projection contains the key |
+| 3 | Runner CLI contract document + reference stub in Python | Stub runs, returns `error` for every operation, harness reports fail-all |
+| 4 | Harness `run` mode | Executes a corpus against a runner, reports per-vector pass/fail |
+| 5 | Harness `lint` mode | Rejects the four malformed-vector cases in §8 |
+| 6 | Harness `coverage` mode | Reports all 13 claims uncovered against an empty corpus |
+| 7 | Cross-vector assertions: denial uniformity | Generalizes `registry/validate.py`'s check to any corpus section |
+| 8 | Cross-vector assertions: budget order-independence | Permutation test over a debit sequence |
+| 9 | Harness `cross` mode | A produces, B verifies; reports first differing byte offset |
+| 10 | Test key material | Fixed keypairs committed, RFC 8032 seeds where applicable, marked test-only |
+| 11 | Fold `registry/` vectors into the corpus | Registry vectors run under the harness with unchanged results |
+| 12 | Author `message/` section | Envelope, signing, verification, routing disagreement |
+| 13 | Author `suite/` section | Resolution, downgrade rejection, unknown suite |
+| 14 | Author `ordering/` section | One vector per rejection step 1–15 |
+| 15 | Dependency assertion: harness imports no implementation | CI check fails if either is importable from the harness |
+| 16 | Resolve open question 1 and document the `semantic` comparison rule | Written into §4.4 before `message/` is authored |
+
+Issue 16 blocks 12. Issue 1 blocks everything else.
