@@ -112,8 +112,7 @@ parsed; rejection when the advisory `routing` projection disagrees with the
 signed object.
 **Fails if.** A binding places a covered field outside the signed object; the
 requester key or runtime is compromised; the suite is broken or the verifier
-accepts one below its floor. Under the optional `eddsa-jcs-2022` suite, also if
-canonicalization is ambiguous — which is why it is not the default.
+accepts one below its floor.
 **Not.** Protection against a requester that signs a malicious contract itself.
 **Verified by.** `conformance/field-tampering`, `conformance/routing-mismatch`,
 `conformance/suite-downgrade` — planned.

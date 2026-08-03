@@ -61,20 +61,30 @@ This is the default and the only suite an implementation must support to claim
 
 Signature size: 64 bytes. Public key: 32 bytes.
 
-### `eddsa-jcs-2022` — optional
+This is the only suite registered in 0.1.
 
-Ed25519 over JSON canonicalized per JCS (RFC 8785). Registered for bindings that
-must sign structured JSON in place because their transport cannot carry an
-opaque payload.
+### Why no canonicalization suite
 
-**Use only where required.** JCS re-derives signed bytes from a parsed value, so
-correctness depends on signer and verifier agreeing on parsing as well as
-serialization. Two known hazards: JCS inherits ECMAScript number semantics, so
-integers above 2^53 do not round-trip safely; and JSON permits duplicate keys,
-which parsers handle inconsistently, so an implementation using this suite must
-reject duplicates explicitly.
+A canonicalization-based suite — Ed25519 over JCS (RFC 8785), for instance — was
+considered and **deliberately not registered**.
 
-An implementation supporting only `eddsa-jws-2026` is fully conforming.
+Canonicalization re-derives signed bytes from a *parsed* value, which makes
+correctness depend on signer and verifier agreeing about parsing as well as
+serialization. That dependency carries known hazards: JCS inherits ECMAScript
+number semantics, so integers above 2^53 do not round-trip safely, and JSON
+permits duplicate keys, which parsers handle inconsistently. Both become
+security-relevant when a signature's validity rests on them.
+
+Signing exact transmitted bytes removes the dependency entirely, and lets a
+verifier check a signature *before* parsing the object it covers — so the JSON
+parser sits outside the security boundary rather than inside it. It also removes
+the most common source of cross-implementation failure, which matters for a
+protocol targeting a Rust and a Go implementation validated against shared test
+vectors.
+
+A future binding whose transport cannot carry an opaque payload would need a
+canonicalization suite. None does today. If one appears, it is registered here
+with its hazards documented — not assumed.
 
 ## 4. Downgrade resistance
 
