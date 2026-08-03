@@ -31,6 +31,17 @@ Pre-release. Specification and reference implementation in development.
 - Website: https://q2d.dev
 - Source and specification: https://github.com/q2d-protocol
 
-## License
+## Licensing
 
-Apache-2.0
+| What | License | File |
+|---|---|---|
+| Reference implementation, schemas, conformance test vectors | Apache-2.0 | [`LICENSE`](LICENSE) |
+| Technical report and specification prose | CC BY 4.0 | [`LICENSE-DOCS`](LICENSE-DOCS) |
+
+**Patents.** The Q2D project holds no patents and has filed no patent
+applications on the mechanisms described here. It covenants not to assert any
+patent it may later acquire against any implementation conforming to a
+published Q2D specification. Note that CC BY 4.0 grants no patent rights of its
+own — this covenant is what closes that gap for the specification prose.
+
+**Name.** See [`TRADEMARKS.md`](TRADEMARKS.md) for how the Q2D name may be used.

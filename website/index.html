@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Q2D — Query-to-Data</title>
+<meta name="description" content="A transport-neutral protocol for policy-bound, least-disclosure answers over protected data. Pre-release.">
+<meta name="theme-color" content="#070B10">
+<meta property="og:title" content="Q2D — Query-to-Data">
+<meta property="og:description" content="The question travels to the data. Only a bounded, authenticated answer comes back.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://q2d.dev">
+<meta name="go-import" content="q2d.dev git https://github.com/q2d-protocol/q2d">
+<meta name="go-source" content="q2d.dev https://github.com/q2d-protocol/q2d https://github.com/q2d-protocol/q2d/tree/main{/dir} https://github.com/q2d-protocol/q2d/blob/main{/dir}/{file}#L{line}">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23070B10'/%3E%3Cpath d='M16 3v26' stroke='%233A4E5F' stroke-width='2' stroke-dasharray='2 4'/%3E%3Crect x='12' y='12' width='8' height='8' fill='%23FFB454'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --void:    #070B10;
+    --panel:   #0D151E;
+    --panel-2: #121C27;
+    --rule:    #22303D;
+    --rule-hi: #35485A;
+ 
+    --text:    #E6EDF4;   /* primary reading colour */
+    --text-2:  #C2D0DC;   /* secondary prose */
+    --label:   #93A6B6;   /* labels, captions */
+    --faint:   #6C808F;   /* smallest metadata only */
+    --signal:  #FFB454;
+ 
+    --display: "Space Grotesk", system-ui, sans-serif;
+    --body:    "IBM Plex Sans", system-ui, sans-serif;
+    --mono:    "IBM Plex Mono", ui-monospace, monospace;
+    --gutter:  clamp(1.1rem, 4.5vw, 4rem);
+  }
+ 
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+ 
+  body {
+    margin: 0;
+    background-color: var(--void);
+    background-image:
+      linear-gradient(var(--rule) 1px, transparent 1px),
+      linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+    background-size: 34px 34px;
+    background-position: -1px -1px;
+    color: var(--text);
+    font-family: var(--body);
+    font-size: 17.5px;
+    line-height: 1.68;
+    -webkit-font-smoothing: antialiased;
+  }
+ 
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(120% 80% at 50% -10%, rgba(255,180,84,.06), transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+ 
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 68rem;
+    margin: 0 auto;
+    padding: 0 var(--gutter);
+  }
+ 
+  a { color: inherit; }
+ 
+  /* ---------- status bar ---------- */
+ 
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--rule-hi);
+    padding: 0.95rem 0;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--label);
+  }
+ 
+  .bar .id { color: var(--text); font-weight: 600; letter-spacing: 0.2em; }
+  .bar .live { color: var(--signal); }
+ 
+  .bar .live::before {
+    content: "";
+    display: inline-block;
+    width: 6px; height: 6px;
+    margin-right: 0.55rem;
+    background: var(--signal);
+    box-shadow: 0 0 8px rgba(255,180,84,.8);
+    animation: pulse 2.6s ease-in-out infinite;
+  }
+ 
+  /* ---------- hero ---------- */
+ 
+  .hero { padding: clamp(3.5rem, 10vw, 7rem) 0 clamp(2.5rem, 6vw, 4rem); }
+ 
+  .kicker {
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--label);
+    margin: 0 0 1.5rem;
+  }
+ 
+  .hero h1 {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: clamp(2.5rem, 7.6vw, 5.4rem);
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+    margin: 0 0 1.6rem;
+    max-width: 15ch;
+    color: var(--text);
+  }
+ 
+  .hero h1 span { color: var(--label); }
+ 
+  .lede {
+    font-size: clamp(1.08rem, 2vw, 1.3rem);
+    line-height: 1.55;
+    max-width: 48ch;
+    margin: 0;
+    color: var(--text-2);
+  }
+ 
+  /* ---------- instrument panel ---------- */
+ 
+  .scope {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--rule-hi);
+    margin: clamp(2rem, 6vw, 3.5rem) 0;
+  }
+ 
+  .scope-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--rule);
+    padding: 0.7rem clamp(0.9rem, 2.5vw, 1.5rem);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--label);
+  }
+ 
+  .scope-body { display: grid; grid-template-columns: 1fr 1px 1fr; }
+ 
+  .divider {
+    background: repeating-linear-gradient(
+      180deg, var(--rule-hi) 0 6px, transparent 6px 12px
+    );
+  }
+ 
+  .zone { padding: clamp(1.1rem, 3vw, 1.9rem); }
+ 
+  .zone-tag {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--label);
+    margin: 0 0 1.1rem;
+  }
+ 
+  .msg {
+    background: var(--panel-2);
+    border: 1px solid var(--rule);
+    border-left: 2px solid var(--signal);
+    padding: 0.85rem 1rem;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    line-height: 1.9;
+    color: var(--text);
+    animation: enter 800ms 150ms both cubic-bezier(.2,.7,.3,1);
+  }
+ 
+  .msg .k { color: var(--label); }
+ 
+  .ret {
+    margin-top: 1.15rem;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text-2);
+    animation: enter 700ms 1400ms both;
+  }
+ 
+  .ret .arrow { color: var(--label); }
+ 
+  .chip {
+    background: var(--signal);
+    color: var(--void);
+    font-weight: 600;
+    padding: 0.12rem 0.5rem;
+    box-shadow: 0 0 14px rgba(255,180,84,.35);
+  }
+ 
+  .rows { list-style: none; margin: 0; padding: 0; }
+ 
+  .rows li {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--text-2);
+    padding: 0.52rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+ 
+  .rows li:last-child { border-bottom: 0; }
+ 
+  .rows .redact {
+    flex: 1;
+    color: var(--rule-hi);
+    letter-spacing: -0.05em;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+ 
+  .rows .sz { color: var(--label); font-size: 0.75rem; }
+ 
+  .held {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--label);
+    margin: 1.1rem 0 0;
+  }
+ 
+  .readout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 2rem;
+    border-top: 1px solid var(--rule-hi);
+    background: var(--panel-2);
+    padding: 0.8rem clamp(0.9rem, 2.5vw, 1.5rem);
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text-2);
+  }
+ 
+  .readout b { color: var(--signal); font-weight: 500; }
+ 
+  /* ---------- prose ---------- */
+ 
+  .cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+    gap: clamp(1.75rem, 5vw, 3.5rem);
+    padding: clamp(2.25rem, 6vw, 4rem) 0;
+    border-top: 1px solid var(--rule-hi);
+  }
+ 
+  .cols h2 {
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin: 0 0 1.1rem;
+  }
+ 
+  .cols p {
+    margin: 0 0 1rem;
+    max-width: 44ch;
+    color: var(--text-2);
+  }
+ 
+  .cols p:last-child { margin-bottom: 0; }
+ 
+  .cols strong { color: var(--text); font-weight: 600; }
+ 
+  /* ---------- links ---------- */
+ 
+  .links {
+    border-top: 1px solid var(--rule-hi);
+    padding: clamp(2.25rem, 6vw, 3.5rem) 0 1rem;
+  }
+ 
+  .links h2 {
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--label);
+    margin: 0 0 1.35rem;
+  }
+ 
+  .rail a {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.95rem 0.75rem 0.95rem 0;
+    border-bottom: 1px solid var(--rule);
+    text-decoration: none;
+    transition: background-color 150ms ease, padding-left 150ms ease;
+  }
+ 
+  .rail a:hover,
+  .rail a:focus-visible {
+    background: var(--panel);
+    padding-left: 0.75rem;
+  }
+ 
+  .rail a:hover .to, .rail a:focus-visible .to { color: var(--signal); }
+ 
+  .rail .what {
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: 1.05rem;
+    letter-spacing: -0.015em;
+    color: var(--text);
+  }
+ 
+  .rail .to {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--label);
+    text-align: right;
+    transition: color 150ms ease;
+  }
+ 
+  footer {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 2.5rem 0 3.5rem;
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    letter-spacing: 0.06em;
+    color: var(--faint);
+  }
+ 
+  :focus-visible { outline: 1px solid var(--signal); outline-offset: 3px; }
+ 
+  @keyframes enter {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+ 
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.4; }
+  }
+ 
+  @media (max-width: 46rem) {
+    .scope-body { grid-template-columns: 1fr; }
+    .divider {
+      height: 1px;
+      background: repeating-linear-gradient(
+        90deg, var(--rule-hi) 0 6px, transparent 6px 12px
+      );
+    }
+  }
+ 
+  @media (prefers-reduced-motion: reduce) {
+    .msg, .ret { animation: none; }
+    .bar .live::before { animation: none; }
+    .rail a { transition: none; }
+  }
+</style>
+</head>
+<body>
+ 
+<div class="wrap">
+ 
+  <header class="bar">
+    <span class="id">Q2D</span>
+    <span class="live">pre-release · spec in progress</span>
+  </header>
+ 
+  <section class="hero">
+    <p class="kicker">Query-to-Data protocol</p>
+    <h1>The question travels. <span>The record stays.</span></h1>
+    <p class="lede">A transport-neutral protocol for policy-bound, least-disclosure answers over protected data.</p>
+  </section>
+ 
+  <section class="scope" aria-label="How a query crosses the custody boundary">
+    <div class="scope-head">
+      <span>exchange trace</span>
+      <span>custody boundary</span>
+    </div>
+ 
+    <div class="scope-body">
+      <div class="zone">
+        <p class="zone-tag">Requester</p>
+        <div class="msg">
+          <span class="k">ask</span> satisfiable(menu, dietary)<br>
+          <span class="k">purpose</span> social.event.planning<br>
+          <span class="k">sinks</span> [booking.svc]<br>
+          <span class="k">answer_domain</span> {yes, no}
+        </div>
+        <div class="ret">
+          <span class="arrow">&#8592;</span>
+          <span class="chip">yes</span>
+          <span>+ signed receipt</span>
+        </div>
+      </div>
+ 
+      <div class="divider" aria-hidden="true"></div>
+ 
+      <div class="zone">
+        <p class="zone-tag">Custodian</p>
+        <ul class="rows">
+          <li><span>dietary.constraints</span><span class="redact">▚▚▚▚▚▚▚▚▚▚▚▚</span><span class="sz">412 B</span></li>
+          <li><span>contact.phone</span><span class="redact">▚▚▚▚▚▚▚▚▚▚▚▚</span><span class="sz">14 B</span></li>
+          <li><span>health.notes</span><span class="redact">▚▚▚▚▚▚▚▚▚▚▚▚</span><span class="sz">2.1 kB</span></li>
+          <li><span>calendar.entries</span><span class="redact">▚▚▚▚▚▚▚▚▚▚▚▚</span><span class="sz">8.7 kB</span></li>
+        </ul>
+        <p class="held">Evaluated locally · never transmitted</p>
+      </div>
+    </div>
+ 
+    <div class="readout">
+      <span>crossed <b>1 bit</b></span>
+      <span>fields disclosed <b>0 / 4</b></span>
+      <span>assurance <b>authenticated answer</b></span>
+      <span>receipt <b>bilateral</b></span>
+    </div>
+  </section>
+ 
+  <section class="cols">
+    <div>
+      <h2>What it does</h2>
+      <p>Agents are routinely given record- or document-level access to answer questions whose legitimate output is a boolean, an enum, or a small bounded result. Everything else in that record becomes reachable — by the model, by its tools, and by anything that can inject a prompt into it.</p>
+      <p>Q2D moves the question instead. A requester submits a <strong>signed, typed answer contract</strong> — the question, its purpose, the intended recipient, the permitted sinks, and the maximum response domain — before any evaluation happens. A participating custodian evaluates it locally under the applicable policy and returns a bounded, authenticated answer with a disclosure receipt.</p>
+    </div>
+    <div>
+      <h2>What it does not claim</h2>
+      <p>Q2D does not make a released answer retractable. It does not prove the truth of self-asserted inputs. It does not prevent all inference from repeated answers — disclosure accounting bounds the channel, not the adversary's posterior. It does not independently establish legal compliance.</p>
+      <p>Bindings for MCP and A2A are planned, as is an optional contained-runtime profile that keeps verification evidence out of model context and mediates where an answer may flow next. <strong>Neither has shipped.</strong></p>
+    </div>
+  </section>
+ 
+  <section class="links">
+    <h2>Where it lives</h2>
+    <div class="rail">
+      <a href="https://github.com/q2d-protocol">
+        <span class="what">Specification and reference implementation</span>
+        <span class="to">github.com/q2d-protocol</span>
+      </a>
+      <a href="https://www.npmjs.com/org/q2d">
+        <span class="what">TypeScript packages</span>
+        <span class="to">npmjs.com/org/q2d</span>
+      </a>
+      <a href="https://crates.io/crates/q2d">
+        <span class="what">Rust crate</span>
+        <span class="to">crates.io/crates/q2d</span>
+      </a>
+      <a href="https://pkg.go.dev/q2d.dev">
+        <span class="what">Go module</span>
+        <span class="to">q2d.dev</span>
+      </a>
+    </div>
+  </section>
+ 
+  <footer>
+    <span>Apache-2.0 · experimental proposal</span>
+    <span>Not an official MCP or A2A specification</span>
+  </footer>
+ 
+</div>
+ 
+</body>
+</html>
+ 
