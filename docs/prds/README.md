@@ -9,7 +9,7 @@ assigned; an abandoned PRD keeps its number and is marked withdrawn.
 | [P-002](P-002-message-envelope.md) | Message envelope and canonical structures | 1 | **Ready for decomposition** |
 | [P-003](P-003-crypto-suites.md) | Cryptographic suites, key handling, downgrade policy | 1 | **Ready for decomposition** |
 | [P-004](P-004-replay-idempotency.md) | Replay, expiry, idempotency | 1 | **Ready for decomposition** |
-| P-005 | Registry client: pinning, resolution, fail-closed | 2 | Not authored |
+| [P-005](P-005-registry-client.md) | Registry client: pinning, resolution, fail-closed | 2 | **Ready for decomposition** |
 | P-006 | Request validation and effective answer domain | 2 | Not authored |
 | P-007 | Policy engine contract and fail-closed invariants | 3 | Not authored |
 | P-008 | Disclosure-capacity accounting | 3 | Not authored |
