@@ -7,7 +7,7 @@
 | Status | **Blocked on escalation** — open questions 1, 2, and 3 |
 | Size | M |
 | Risk | **high** — the most intricate semantics in the protocol, and three of its questions are open in the specification rather than in this PRD |
-| Depends on | [P-004](P-004-replay-idempotency.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-009](P-009-denial-normalization.md), [P-010](P-010-responder-pipeline.md), [P-013](P-013-https-binding.md) |
+| Depends on | [P-004](P-004-replay-idempotency.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-009](P-009-denial-normalization.md), [P-010](P-010-responder-pipeline.md), [P-012](P-012-requester-runtime.md), [P-013](P-013-https-binding.md) |
 | Blocks | P-016 |
 
 ---

@@ -152,6 +152,28 @@ applies to the harness too.
 
 Later stages extend the table; they do not redefine existing entries.
 
+**Stages 5–8 need operations this table does not have, and the extension must be
+one coordinated change rather than four.** Each later PRD arrived at its own
+needs independently, and an operation named `http_exchange` in one
+implementation and `binding_exchange` in the other is a divergence the corpus
+exists to prevent — with the added hazard that it would surface as a runner
+error rather than as a failing vector.
+
+| Anticipated operation | Stage | Needed by |
+|---|---|---|
+| `build_contract` | 5 | [P-012](P-012-requester-runtime.md) `requester/contract/` |
+| `project_outcome` | 5 | [P-012](P-012-requester-runtime.md) `requester/outcome/`, `requester/projection/` |
+| `retry_bytes` | 5 | [P-012](P-012-requester-runtime.md) `requester/retry/` |
+| `http_exchange` | 6 | [P-013](P-013-https-binding.md) `binding/`, open question 5 there |
+| `fingerprint` | 6 | [P-014](P-014-identity-pairing.md) `identity/fingerprint/` |
+| `resolve_identity`, `verify_delegation` | 6 | [P-014](P-014-identity-pairing.md) `identity/` |
+| `escalate_poll`, `approve` | 7 | [P-015](P-015-escalation-lifecycle.md) `escalation/` |
+
+Names are proposals, not decisions — the point of listing them together is that
+they are settled once, here, before either implementation writes a runner.
+[P-015](P-015-escalation-lifecycle.md) additionally needs the timing capability
+open question 3 defers, at Stage 7 rather than Stage 8.
+
 ### 4.6 Result format
 
 ```json
@@ -309,6 +331,7 @@ change one stops and escalates.
 | How are unsigned parts of a message compared when JSON key order is unconstrained? Candidate: `semantic` comparison mode is defined as parse-then-deep-equal | This PRD; resolve before authoring `message/` |
 | Does the corpus version independently of the spec, or track it? | [`docs/versioning.md`](../versioning.md) |
 | Should `process_query` vectors carry expected timing bands? | Deferred to Stage 8 — **but [P-015](P-015-escalation-lifecycle.md) issue 4 needs a minimal timing assertion at Stage 7**, so a capability must be pulled forward. [P-016](P-016-demonstration-adversarial.md) open question 2 |
+| **The §4.5 operation-vocabulary extension for Stages 5–8.** Seven-plus operations across four PRDs, none nameable independently without risking a runner-level divergence | This PRD. Proposed: settle the names before Stage 5 begins, as one issue; blocks the corpus sections of [P-012](P-012-requester-runtime.md) … [P-015](P-015-escalation-lifecycle.md) |
 | Where do fuzzing seeds live — corpus or per-module? | Proposed: per-module. Confirm when the first fuzz target lands |
 
 ## 11. Issues

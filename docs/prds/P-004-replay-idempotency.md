@@ -8,7 +8,7 @@
 | Size | S |
 | Risk | medium |
 | Depends on | [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md) |
-| Blocks | P-010, P-015 |
+| Blocks | P-008, P-010, P-015 |
 
 ---
 

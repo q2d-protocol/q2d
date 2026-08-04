@@ -8,7 +8,7 @@
 | Size | M |
 | Risk | medium |
 | Depends on | [P-001](P-001-conformance-corpus.md) — corpus format |
-| Blocks | P-003, P-004, P-006, P-010, P-011, P-012 |
+| Blocks | P-003, P-004, P-005, P-006, P-010, P-011, P-012 |
 | Pairs with | [P-003](P-003-crypto-suites.md) — this PRD produces the bytes P-003 signs |
 
 ---
@@ -267,7 +267,7 @@ what `AGENTS.md`'s architectural-pivot rule exists for.
 | Does `routing` need `type`, or is dispatch determined by endpoint? Proposed: keep it; an A2A binding has no endpoint to dispatch on | This PRD; resolve before `message/routing/` |
 | Does the envelope carry its own version distinct from `q2d_version`? Proposed: no — one version, in the signed object, so it cannot be rewritten | This PRD |
 | Are the §4.8 limits right? They are proposed, not derived from measurement | This PRD; revisit at Stage 8 with real payloads |
-| Second-precision timestamps sufficient, or is sub-second needed for replay windows? | [P-004](P-004-replay-idempotency.md) |
+| ~~Second-precision timestamps sufficient, or is sub-second needed for replay windows?~~ | **Answered: sufficient.** Uniqueness comes from the nonce, not the clock. [P-004](P-004-replay-idempotency.md) §4.3 |
 | Does `semantic` comparison from P-001 apply to `routing`, given it is unsigned? | [P-001](P-001-conformance-corpus.md) open question 1 |
 
 ## 11. Issues

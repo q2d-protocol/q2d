@@ -8,7 +8,7 @@
 | Size | M |
 | Risk | medium |
 | Depends on | [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md) |
-| Blocks | P-010, P-011 |
+| Blocks | P-010, P-011, P-015 |
 
 ---
 
@@ -152,6 +152,30 @@ approve spending beyond a threshold, and another may want a hard stop.
 
 The module reporting a verdict rather than an outcome is what keeps that
 choosable.
+
+**But policy cannot be consulted here, and saying it decides "when exhaustion
+occurs" would describe an ordering the protocol does not have.**
+[`core-model.md`](../../spec/core-model.md) §4 runs policy once, at step 14, and
+checks the budget at step 15 — because the debit cannot be computed until step
+14's modifiers have produced the effective domain. By the time this module
+reports `Exhausted`, policy has already run and will not run again.
+
+So the disposition is decided **in advance, at step 14**, from the
+`disclosure_history` [P-007](P-007-policy-engine.md) §4.2 already carries into
+`PolicyInput`. Its `Decision` names what to do if step 15 finds exhaustion, and
+step 15 applies it without a second consultation.
+
+The distinction is not pedantic. Re-consulting policy at step 15 would be a
+reordering of [`core-model.md`](../../spec/core-model.md) §4 — the kind that
+arrives as a plausible convenience and has to be escalated, not implemented.
+
+**`on_exhaustion` is an internal outcome and gets no special path to the wire.**
+An exhaustion-triggered `escalate` passes through
+[P-009](P-009-denial-normalization.md) §4.6's visibility gate like any other,
+and is opaque unless the sensitivity class permits otherwise. Letting it bypass
+that gate would make budget state externally observable, which
+[P-011](P-011-receipts-audit.md) §4.3 keeps out of receipts precisely because it
+reveals other requesters' activity.
 
 ### 4.7 Escalation: do `deny` and `escalate` debit?
 

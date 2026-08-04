@@ -8,7 +8,7 @@
 | Size | M |
 | Risk | **high** — the only module where a subtle error is silently exploitable |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md) |
-| Blocks | P-004, P-010, P-011, P-012 |
+| Blocks | P-004, P-005, P-010, P-011, P-012, P-014 |
 | Pairs with | [P-002](P-002-message-envelope.md) — P-002 produces the bytes this PRD signs |
 
 ---
@@ -251,7 +251,7 @@ registry entry.
 | Does `registry/suites.json` need its own signature and pinned digest while it holds one entry? Proposed: yes, same mechanism as the predicate manifest, so the path is exercised | This PRD; resolve before issue 3 |
 | Where does `SuitePolicy` come from — config file, environment, compiled default? Proposed: config with a compiled-in floor that config may raise and never lower | This PRD |
 | ~~Key rotation and revocation semantics~~ | **Answered for this profile:** rotation is re-pairing, revocation is local and does not propagate. [P-014](P-014-identity-pairing.md) §4.5 |
-| Does an unresolvable key debit anything, or leave state? | [P-008](P-008-capacity-accounting.md) — pre-authentication, so proposed: no |
+| ~~Does an unresolvable key debit anything, or leave state?~~ | **Answered: no.** The budget is first touched at step 15 ([P-008](P-008-capacity-accounting.md) §4.2) and key resolution fails at step 4, so nothing reachable holds state |
 | ~~Should capability discovery advertise suites at all in MVP, given §4.5~~ | **Answered:** yes, from configuration, defaulting to the MTI alone. [P-013](P-013-https-binding.md) §4.4 |
 
 ## 11. Issues
