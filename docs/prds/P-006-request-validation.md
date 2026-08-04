@@ -33,7 +33,7 @@ Q2D-C-03 and Q2D-C-09 both consume its output.
 | Source | What it constrains here |
 |---|---|
 | [`spec/core-model.md`](../../spec/core-model.md) §3 | `effective_domain` as an intersection; empty intersection fails closed |
-| [`spec/core-model.md`](../../spec/core-model.md) §2.5 | The answer contract; subset-or-coarser, never expansion |
+| [`spec/core-model.md`](../../spec/core-model.md) §2.5 | The answer contract; **coarsening only** — never an expansion and never a strict subset |
 | [`spec/core-model.md`](../../spec/core-model.md) §4 steps 11–13 | Schema validation, contract narrowing, assurance profile support |
 | [`spec/claims.md`](../../spec/claims.md) Q2D-C-02 | The domain is resolved by the responder, never accepted from the requester |
 | [`spec/terminology.md`](../../spec/terminology.md) §4 | The eight release shapes |
@@ -107,9 +107,13 @@ means.
 
 ### 4.4 Escalation: narrowing an enumerated domain is a free oracle
 
-[`core-model.md`](../../spec/core-model.md) §2.5 permits a requester to request
-*"a subset or a coarser form"* of the registered domain. **Subset and coarser are
-not equally safe, and the specification currently treats them as one allowance.**
+*Recorded as it was found. §2.5 has since been amended — see the resolution at
+the end of this section.*
+
+At the time, [`core-model.md`](../../spec/core-model.md) §2.5 permitted a
+requester to request *"a subset or a coarser form"* of the registered domain.
+**Subset and coarser are not equally safe, and the specification treated them as
+one allowance.**
 
 **Coarsening** maps every registered value onto a smaller set — exact time to a
 two-hour band, fifteen values to three. Every possible result has an image. No
@@ -209,7 +213,7 @@ validated value is the only one it gets.
 |---|---|
 | `domain/schema/` | Valid context; each profile keyword; a schema using a forbidden keyword rejects |
 | `domain/constraints/` | Slot below floor; horizon beyond limit; both boundaries exact |
-| `domain/narrowing/` | Per shape in §4.5: valid coarsening, attempted expansion, and — pending §4.4 — attempted subset |
+| `domain/narrowing/` | Per shape in §4.5: valid coarsening, attempted expansion, and attempted strict subset — the last two both reject |
 | `domain/intersection/` | Admissible from registry ∩ requested; effective from admissible ∩ modifiers; empty at either phase |
 | `domain/profile/` | Supported profile passes; unsupported rejects without downgrade |
 

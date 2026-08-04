@@ -216,12 +216,29 @@ escalation existed to close, while passing every other document.
 The failure was propagating file by file. Two of the four documents carrying the
 rule were amended by hand, and nothing checked the other two.
 
+**Then it failed a second time, in the fix.** Grepping the exact phrase
+`"subset or a coarser"` found those two and missed a third — P-006's own citation
+table, which had paraphrased the rule as `subset-or-coarser`. The PRD that raised
+the escalation was still describing the superseded rule four PRDs later. A phrase
+search finds the documents that copied the old wording verbatim and misses every
+one that put it in its own words, which is most of them.
+
 Work this list when a decision comes back:
 
-- [ ] **Grep for the rule, not the file.** Search the *old* wording across
-      `spec/`, `threat-model/`, `registry/`, `docs/`, and `docs/prds/`. Distinctive
-      phrases from the superseded text, not the identifier — an identifier appears
-      where the rule is cited correctly as well as where it is stated wrongly.
+- [ ] **Grep for the concept, not the phrase, and read every hit.** One
+      distinctive *word* — `subset`, `log2`, `millibit` — across `spec/`,
+      `threat-model/`, `registry/`, `docs/`, and `docs/prds/`. It will return
+      correct uses too; that is the cost, and it is much lower than the cost of
+      missing one. Do not grep the identifier: `§2.5` appears wherever the rule is
+      cited correctly as well as wherever it is stated wrongly, so it buries the
+      dangerous hits among the safe ones.
+- [ ] **Include the PRD that raised the escalation.** It is the document most
+      likely to be assumed clean and, having argued the case at length, the one
+      most likely to state the old rule somewhere other than where it recorded the
+      resolution.
+- [ ] Where a PRD narrates the discovery, put the superseded text in the **past
+      tense** and mark it as historical. A live-sounding sentence describing what
+      the spec used to say reads as what it says now.
 - [ ] Amend every hit, or say in the commit why one is deliberately unchanged.
 - [ ] Re-check the three documents that describe the spec to itself:
       `claims.md`, `conformance-classes.md`, `trust-matrix.md`. A resolution that
