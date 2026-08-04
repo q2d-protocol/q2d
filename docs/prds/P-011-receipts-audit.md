@@ -256,7 +256,7 @@ error, because the caller acts on it.
 |---|---|
 | Does a rejected exchange write an audit event at all, or only one that reached policy? Proposed: every exchange at or after step 9, matching [P-004](P-004-replay-idempotency.md)'s caching boundary | This PRD |
 | Is `policy_version` a version string or a digest of the effective rule set? Proposed: a digest — a version string can be reused across changed rules | This PRD; blocks issue 2 |
-| Does the requester store its own audit event, or only the receipt? | [P-012](P-012-requester-runtime.md) |
+| ~~Does the requester store its own audit event, or only the receipt?~~ | **Answered:** only the receipt. [P-012](P-012-requester-runtime.md) §4.7 |
 | What is the default retention period? Proposed: none — the deployment must choose, and a missing choice fails at startup rather than defaulting to forever | This PRD |
 | Should `decided_at` be coarsened in the receipt to blunt timing correlation? | [P-009](P-009-denial-normalization.md) open question 4 — same question, one answer |
 

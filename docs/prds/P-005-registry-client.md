@@ -8,7 +8,7 @@
 | Size | M |
 | Risk | **high** — a registry compromise defines what "bounded" means |
 | Depends on | [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md) |
-| Blocks | P-006, P-008, P-010 |
+| Blocks | P-006, P-008, P-010, P-012 |
 | Pairs with | [P-006](P-006-request-validation.md) — this PRD obtains a trusted entry; P-006 validates a request against it |
 
 ---
@@ -252,7 +252,7 @@ network dependency at all is stronger than a rule saying it must not fetch.
 | ~~Nothing detects a publisher mutating an entry without a version bump~~ | **Resolved.** Per-entry digests added to `registry/manifest.json`; `core-model.md` §2.4.1 written; §4.5 rewritten to fail closed |
 | Which key signs `registry/manifest.json` for MVP, and where does its private half live? | This PRD; blocks issue 2 |
 | Should a custodian be able to pin a *subset* of a manifest's entries? | Deferred; adds a second authorization surface with no MVP need |
-| How does a custodian learn a new digest exists? Proposed: out of band. Capability discovery advertising it would create the update channel §4.3 forbids | [P-013](P-013-https-binding.md) |
+| ~~How does a custodian learn a new digest exists?~~ | **Answered:** out of band; the capability document carries no manifest digest, for the update-channel reason in §4.3. [P-013](P-013-https-binding.md) §4.4 |
 
 Open question 1 is resolved. §4.5 no longer rests on immutability being observed;
 it rests on a digest comparison.

@@ -8,7 +8,7 @@
 | Size | M |
 | Risk | medium |
 | Depends on | [P-002](P-002-message-envelope.md), [P-005](P-005-registry-client.md) |
-| Blocks | P-008, P-010 |
+| Blocks | P-008, P-010, P-012 |
 
 ---
 
