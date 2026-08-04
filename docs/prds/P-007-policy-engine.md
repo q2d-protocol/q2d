@@ -8,7 +8,7 @@
 | Size | L |
 | Risk | medium |
 | Depends on | [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md) |
-| Blocks | P-008, P-009, P-010, P-015 |
+| Blocks | P-008, P-009, P-010, P-011, P-015 |
 
 ---
 
@@ -101,12 +101,22 @@ is non-deterministic and therefore not testable against a vector.
 
 ```
 Decision {
-  outcome    : allow | deny | escalate
-  modifiers  : [Modifier]         // allow only
-  audit      : { reason, authorities_consulted, policy_version }
-  external   : ExternalClass      // what P-009 may put on the wire
+  outcome       : allow | deny | escalate
+  modifiers     : [Modifier]      // allow only
+  on_exhaustion : deny | escalate // applied at step 15; policy does not run again
+  audit         : { reason, authorities_consulted, policy_version }
+  external      : ExternalClass   // what P-009 may put on the wire
 }
 ```
+
+`on_exhaustion` exists because of an ordering constraint rather than a
+preference. [`core-model.md`](../../spec/core-model.md) §4 runs policy once at
+step 14 and checks the budget at step 15 — the debit cannot be computed before
+step 14's modifiers exist — so a policy engine cannot be asked what to do about
+exhaustion *after* exhaustion is discovered. It decides in advance, from the
+`disclosure_history` §4.2 already gives it, and step 15 applies the answer.
+[P-008](P-008-capacity-accounting.md) §4.6 carries the same reasoning from the
+other side.
 
 `audit` and `external` are **separate fields, populated separately**. The
 temptation is to derive `external` from `reason` at the end; that is how an
@@ -257,7 +267,7 @@ the value it would need.
 | Question | Belongs to |
 |---|---|
 | Which authorities are *mandatory* versus advisory, and who declares that? Proposed: custodian configuration, and the set is fixed at load | This PRD |
-| Does `escalate` consult the budget before or after? Proposed: after — an escalation that a human approves should still respect exhaustion | [P-008](P-008-capacity-accounting.md) |
+| ~~Does `escalate` consult the budget before or after?~~ | **Answered: neither — it cannot.** Policy runs once at step 14, the budget is checked at step 15, so the disposition is decided in advance as `on_exhaustion` (§4.3). [P-008](P-008-capacity-accounting.md) §4.6 |
 | Is a rule language shipped at all in MVP, or is the engine a code interface with a fixture rule set? Proposed: code interface. A rule language is scope Q2D declined | This PRD |
 | How are modifiers from two authorities coarsening the same dimension combined — coarser wins, or intersect? Proposed: coarser wins, since both are narrowings and the union of narrowings is the strictest | This PRD; blocks issue 4 |
 | **`PolicyInput` needs a grant field.** [P-015](P-015-escalation-lifecycle.md) §4.4 makes an escalation grant an *input* to policy rather than a stored decision, so §4.2's contract gains one. It is policy state, not private-derived data, so §4.1's invariant is untouched. Shape waits on [P-015](P-015-escalation-lifecycle.md) open question 1 — a single-use grant must also be consumable, a multi-use one need not be | [P-015](P-015-escalation-lifecycle.md); amend §4.2 when that resolves |

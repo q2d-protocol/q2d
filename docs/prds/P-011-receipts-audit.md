@@ -259,6 +259,7 @@ error, because the caller acts on it.
 | ~~Does the requester store its own audit event, or only the receipt?~~ | **Answered:** only the receipt. [P-012](P-012-requester-runtime.md) §4.7 |
 | What is the default retention period? Proposed: none — the deployment must choose, and a missing choice fails at startup rather than defaulting to forever | This PRD |
 | Should `decided_at` be coarsened in the receipt to blunt timing correlation? | [P-009](P-009-denial-normalization.md) open question 4 — same question, one answer |
+| **Does an `escalate` response carry a receipt?** §4.1's table has answer and deny columns only, so an escalated exchange currently produces no evidence it happened — against Q2D-C-10's "one exchange". Recommended: the reduced deny-shaped receipt with `decision_class: escalate` | **Escalation**, raised by [P-015](P-015-escalation-lifecycle.md) open question 2; §4.1 gains a column when it resolves |
 
 ## 11. Issues
 

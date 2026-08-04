@@ -8,7 +8,7 @@
 | Size | M |
 | Risk | **high** — the key-to-principal binding is Q2D-C-06's trusted base, and in this profile a human establishes it by comparing a string |
 | Depends on | [P-003](P-003-crypto-suites.md), [P-009](P-009-denial-normalization.md) |
-| Blocks | P-013's walkthrough, P-016 |
+| Blocks | P-013, P-016 |
 | Pairs with | [P-013](P-013-https-binding.md) — the daemon cannot authenticate anyone without this, and this PRD owns no transport |
 
 ---

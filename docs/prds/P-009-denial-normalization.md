@@ -8,7 +8,7 @@
 | Size | M |
 | Risk | medium |
 | Depends on | [P-007](P-007-policy-engine.md) |
-| Blocks | P-010, P-013, P-015 |
+| Blocks | P-010, P-013, P-014, P-015 |
 | Pairs with | [P-007](P-007-policy-engine.md) — P-007 separates the audit reason from the external class; this PRD is what stops the reason reaching the wire |
 
 ---

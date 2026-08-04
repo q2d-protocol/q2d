@@ -7,7 +7,7 @@
 | Status | **Blocked on escalation** — open questions 1 and 2 |
 | Size | L |
 | Risk | medium |
-| Depends on | [P-010](P-010-responder-pipeline.md), [P-011](P-011-receipts-audit.md), [P-012](P-012-requester-runtime.md) |
+| Depends on | [P-009](P-009-denial-normalization.md), [P-010](P-010-responder-pipeline.md), [P-011](P-011-receipts-audit.md), [P-012](P-012-requester-runtime.md), [P-014](P-014-identity-pairing.md) |
 | Blocks | P-015, P-016 |
 | Pairs with | [P-014](P-014-identity-pairing.md) — the daemon cannot complete the walkthrough without a key resolver, and owns none of it |
 
@@ -431,7 +431,7 @@ is written as such, and it is the artifact an outsider reads first.
 | Question | Belongs to |
 |---|---|
 | **1.** `GET /predicates/{id}/{version}` (§4.3) is an existence oracle against [P-005](P-005-registry-client.md) §4.7 and makes [`core-model.md`](../../spec/core-model.md) §2.4.1's entry-digest check vacuous. **Recommended: drop it from Stage 6.** Registry distribution stays out of band; an authenticated, policy-gated variant is the shape if discovery is ever needed | **Escalation.** A [`mvp-scope.md`](../mvp-scope.md) §4 change, and it changes what gets built |
-| **2.** No conformance class covers a direct HTTPS binding. [`conformance-classes.md`](../../spec/conformance-classes.md) defines CC-8 for MCP and CC-9 for A2A, and Q2D-C-11's coverage table names only those two — so the reference binding, the one every other module is validated through, cannot state what it conforms to. **Recommended: add CC-12 for the direct HTTPS binding**, with §4.1–4.5's rules as its must and must-not lists, and add it to Q2D-C-11's owning classes | **Escalation.** A `spec/` addition; Peter's call |
+| **2.** No conformance class covers a direct HTTPS binding. [`conformance-classes.md`](../../spec/conformance-classes.md) defines CC-8 for MCP and CC-9 for A2A, and Q2D-C-11's coverage table names only those two — so the reference binding, the one every other module is validated through, cannot state what it conforms to. **Recommended: add CC-12 for the direct HTTPS binding**, with §4.1–4.5's rules as its must and must-not lists, and add it to Q2D-C-11's owning classes. [P-014](P-014-identity-pairing.md) open question 2 raises the same shape for identity profiles and recommends deferring; decide the two together, since either answer sets the precedent for the other | **Escalation.** A `spec/` addition; Peter's call |
 | **2a.** Relatedly, [`mvp-scope.md`](../mvp-scope.md) §4 lists "Claims: Q2D-C-11" for Stage 6. Its parenthetical concedes equivalence needs a second binding, but listing the claim at all attributes to this stage something it cannot demonstrate. Proposed: Stage 6 claims none, matching §1 here | **Escalation**, with 2 |
 | **3.** ~~Should capability discovery advertise suites?~~ | **Answered:** yes, from configuration, defaulting to the MTI alone. §4.4. Resolves [P-003](P-003-crypto-suites.md) open question 5 |
 | **4.** ~~How does a custodian learn a new manifest digest exists?~~ | **Answered:** out of band; the capability document does not carry it. §4.4. Resolves [P-005](P-005-registry-client.md) open question 4 |

@@ -8,7 +8,7 @@
 | Size | M |
 | Risk | **high** — a registry compromise defines what "bounded" means |
 | Depends on | [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md) |
-| Blocks | P-006, P-008, P-010, P-012 |
+| Blocks | P-006, P-007, P-008, P-010, P-011, P-012 |
 | Pairs with | [P-006](P-006-request-validation.md) — this PRD obtains a trusted entry; P-006 validates a request against it |
 
 ---
