@@ -230,7 +230,7 @@ failure this PRD is most likely to actually have.
 | Question | Belongs to |
 |---|---|
 | What happens when the cache cannot accept an entry — memory pressure, store failure? Proposed: **reject the request**. A responder that cannot guarantee idempotency must not answer | This PRD; resolve before issue 2 |
-| Multi-instance responders sharing a cache | Out of MVP scope — single instance. Revisit with [P-013](P-013-https-binding.md) |
+| ~~Multi-instance responders sharing a cache~~ | **Answered:** single instance. Atomic debit-and-cache does not survive horizontal scaling without a distributed transaction. [P-013](P-013-https-binding.md) §4.6 |
 | Does an expired-but-cached entry still suppress a duplicate debit after eviction? | This PRD; interacts with retention. Proposed: no, and the window bound is what makes that safe |
 | Should the 5-minute window be configurable downward? Proposed: yes, never upward | This PRD |
 

@@ -308,7 +308,7 @@ change one stops and escalates.
 |---|---|
 | How are unsigned parts of a message compared when JSON key order is unconstrained? Candidate: `semantic` comparison mode is defined as parse-then-deep-equal | This PRD; resolve before authoring `message/` |
 | Does the corpus version independently of the spec, or track it? | [`docs/versioning.md`](../versioning.md) |
-| Should `process_query` vectors carry expected timing bands? | Deferred to Stage 8; `Q2D-NC-05` scopes the claim so nothing depends on it now |
+| Should `process_query` vectors carry expected timing bands? | Deferred to Stage 8 — **but [P-015](P-015-escalation-lifecycle.md) issue 4 needs a minimal timing assertion at Stage 7**, so a capability must be pulled forward. [P-016](P-016-demonstration-adversarial.md) open question 2 |
 | Where do fuzzing seeds live — corpus or per-module? | Proposed: per-module. Confirm when the first fuzz target lands |
 
 ## 11. Issues

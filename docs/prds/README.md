@@ -16,11 +16,11 @@ assigned; an abandoned PRD keeps its number and is marked withdrawn.
 | [P-009](P-009-denial-normalization.md) | Denial normalization | 3 | **Ready for decomposition** |
 | [P-010](P-010-responder-pipeline.md) | Responder pipeline, predicate execution, output validation | 4 | **Ready for decomposition** |
 | [P-011](P-011-receipts-audit.md) | Receipts and local audit | 4 | **Ready for decomposition** |
-| P-012 | Requester runtime | 5 | Not authored |
-| P-013 | Direct HTTPS binding and custodian daemon | 6 | Not authored |
-| P-014 | Identity and the local pairing profile | 6 | Not authored |
-| P-015 | Escalation lifecycle | 7 | Not authored |
-| P-016 | Reference demonstration and adversarial suite | 8 | Not authored |
+| [P-012](P-012-requester-runtime.md) | Requester runtime | 5 | **Blocked on escalation** |
+| [P-013](P-013-https-binding.md) | Direct HTTPS binding and custodian daemon | 6 | **Blocked on escalation** |
+| [P-014](P-014-identity-pairing.md) | Identity and the local pairing profile | 6 | **Blocked on escalation** |
+| [P-015](P-015-escalation-lifecycle.md) | Escalation lifecycle | 7 | **Blocked on escalation** |
+| [P-016](P-016-demonstration-adversarial.md) | Reference demonstration and adversarial suite | 8 | **Blocked on escalation** |
 
 ## Authoring order
 

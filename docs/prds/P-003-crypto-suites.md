@@ -250,9 +250,9 @@ registry entry.
 |---|---|
 | Does `registry/suites.json` need its own signature and pinned digest while it holds one entry? Proposed: yes, same mechanism as the predicate manifest, so the path is exercised | This PRD; resolve before issue 3 |
 | Where does `SuitePolicy` come from — config file, environment, compiled default? Proposed: config with a compiled-in floor that config may raise and never lower | This PRD |
-| Key rotation and revocation semantics | [P-014](P-014-identity-pairing.md) |
+| ~~Key rotation and revocation semantics~~ | **Answered for this profile:** rotation is re-pairing, revocation is local and does not propagate. [P-014](P-014-identity-pairing.md) §4.5 |
 | Does an unresolvable key debit anything, or leave state? | [P-008](P-008-capacity-accounting.md) — pre-authentication, so proposed: no |
-| Should capability discovery advertise suites at all in MVP, given §4.5 | [P-013](P-013-https-binding.md) |
+| ~~Should capability discovery advertise suites at all in MVP, given §4.5~~ | **Answered:** yes, from configuration, defaulting to the MTI alone. [P-013](P-013-https-binding.md) §4.4 |
 
 ## 11. Issues
 

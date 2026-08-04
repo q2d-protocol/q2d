@@ -254,7 +254,7 @@ one that should have been Tier C becomes silently distinct.
 |---|---|
 | Should Tier B and Tier C be merged? Merging removes a distinction a requester can already derive from its own key, at the cost of debuggability. Proposed: keep separate; revisit if a deployment shows the distinction is exploitable | This PRD |
 | Is one Tier C class enough, or should sensitivity classes have their own? Proposed: one. Per-class external values would themselves partition causes | This PRD |
-| Does the padding hook belong in this module or the binding? Proposed: here, since the tier is known here and the binding does not know it | [P-013](P-013-https-binding.md) |
+| ~~Does the padding hook belong in this module or the binding?~~ | **Answered:** here. [P-013](P-013-https-binding.md) §3 confirms the binding adds none of its own |
 | Should `decided_at` be coarsened — minute rather than second — to blunt timing correlation? Proposed: no in MVP; it interacts with replay-window arithmetic | This PRD; revisit at Stage 8 |
 
 ## 11. Issues

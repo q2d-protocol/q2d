@@ -151,8 +151,9 @@ two-implementation claim becomes real.
 - Manifest loading, signing-key pinning, digest pinning, fail-closed on
   unknown predicate, unknown version, or unpinned digest.
 - Public-context schema validation against the registry entry's schema.
-- Answer-contract narrowing check: requester may request a subset, never an
-  expansion.
+- Answer-contract narrowing check: requester may request a coarser form, never
+  an expansion and never a strict subset
+  ([`core-model.md`](../spec/core-model.md) §2.5).
 - Effective answer domain as the intersection of registry, contract, and policy
   modifiers ([`core-model.md`](../spec/core-model.md) §3).
 - Capacity lookup — **read from the entry, never computed**
@@ -274,7 +275,7 @@ artifacts.
 
 ## 5. PRD set
 
-Twelve PRDs. Numbers are permanent once assigned; a PRD that is abandoned keeps
+Sixteen PRDs. Numbers are permanent once assigned; a PRD that is abandoned keeps
 its number and is marked withdrawn.
 
 | # | PRD | Stage | Size |
@@ -296,8 +297,9 @@ its number and is marked withdrawn.
 | P-015 | Escalation lifecycle | 7 | M |
 | P-016 | Reference demonstration and adversarial suite | 8 | M |
 
-Sixteen, not twelve — the count grew while enumerating gates, which is itself
-information: Stages 1, 3, and 4 each carry more than one separable concern.
+Sixteen, where the first cut of this plan said twelve — the count grew while
+enumerating gates, which is itself information: Stages 1, 3, and 4 each carry
+more than one separable concern.
 
 ### What every PRD must contain
 
