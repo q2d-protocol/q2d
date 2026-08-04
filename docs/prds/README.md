@@ -20,7 +20,7 @@ assigned; an abandoned PRD keeps its number and is marked withdrawn.
 | [P-013](P-013-https-binding.md) | Direct HTTPS binding and custodian daemon | 6 | **Blocked on escalation** |
 | [P-014](P-014-identity-pairing.md) | Identity and the local pairing profile | 6 | **Blocked on escalation** |
 | [P-015](P-015-escalation-lifecycle.md) | Escalation lifecycle | 7 | **Blocked on escalation** |
-| [P-016](P-016-demonstration-adversarial.md) | Reference demonstration and adversarial suite | 8 | **Ready for decomposition** |
+| [P-016](P-016-demonstration-adversarial.md) | Reference demonstration and adversarial suite | 8 | **Blocked on escalation** |
 
 ## Authoring order
 

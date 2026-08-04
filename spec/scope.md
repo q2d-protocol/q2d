@@ -76,8 +76,9 @@ custodian pins.
 
 Out of scope for 0.1: free-form natural-language questions, requester-supplied
 expressions, and arbitrary code. A requester selects from what the custodian's
-registry offers. It may request a subset or a coarser form of a registered
-domain; it may never expand one.
+registry offers. It may request a **coarser form** of a registered domain; it
+may never expand one, and it may never request a strict subset. See
+[`core-model.md`](core-model.md) §2.5 for why subsetting is prohibited.
 
 The Phase 1 registry is deliberately minimal — a signed manifest distributed
 with the application, whose signing key and digest the custodian pins locally.

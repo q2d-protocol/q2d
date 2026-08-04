@@ -151,8 +151,9 @@ two-implementation claim becomes real.
 - Manifest loading, signing-key pinning, digest pinning, fail-closed on
   unknown predicate, unknown version, or unpinned digest.
 - Public-context schema validation against the registry entry's schema.
-- Answer-contract narrowing check: requester may request a subset, never an
-  expansion.
+- Answer-contract narrowing check: requester may request a coarser form, never
+  an expansion and never a strict subset
+  ([`core-model.md`](../spec/core-model.md) §2.5).
 - Effective answer domain as the intersection of registry, contract, and policy
   modifiers ([`core-model.md`](../spec/core-model.md) §3).
 - Capacity lookup — **read from the entry, never computed**

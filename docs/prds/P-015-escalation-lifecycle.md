@@ -184,8 +184,12 @@ Two properties fall out of this shape rather than needing enforcement:
 **Cross-PRD amendment.** [P-007](P-007-policy-engine.md) §4.2's `PolicyInput`
 carries no grant field and needs one. It is policy state rather than
 private-derived data, so §4.1's invariant is untouched — but the contract
-changes, and P-007 is amended in the same change as this module rather than
-after it.
+changes, and the change belongs to P-007.
+
+It is recorded there as an open question rather than applied, because the
+field's shape depends on open question 1: a single-use grant must also be
+consumable and a multi-use one need not be. P-007 §4.2 is amended in the same
+change as the implementation, once that resolves.
 
 ### 4.5 How many answers is one approval?
 

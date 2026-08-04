@@ -260,6 +260,7 @@ the value it would need.
 | Does `escalate` consult the budget before or after? Proposed: after — an escalation that a human approves should still respect exhaustion | [P-008](P-008-capacity-accounting.md) |
 | Is a rule language shipped at all in MVP, or is the engine a code interface with a fixture rule set? Proposed: code interface. A rule language is scope Q2D declined | This PRD |
 | How are modifiers from two authorities coarsening the same dimension combined — coarser wins, or intersect? Proposed: coarser wins, since both are narrowings and the union of narrowings is the strictest | This PRD; blocks issue 4 |
+| **`PolicyInput` needs a grant field.** [P-015](P-015-escalation-lifecycle.md) §4.4 makes an escalation grant an *input* to policy rather than a stored decision, so §4.2's contract gains one. It is policy state, not private-derived data, so §4.1's invariant is untouched. Shape waits on [P-015](P-015-escalation-lifecycle.md) open question 1 — a single-use grant must also be consumable, a multi-use one need not be | [P-015](P-015-escalation-lifecycle.md); amend §4.2 when that resolves |
 
 ## 11. Issues
 

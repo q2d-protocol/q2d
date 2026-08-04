@@ -4,7 +4,7 @@
 |---|---|
 | PRD | P-016 |
 | Stage | 8 — closes MVP |
-| Status | **Ready for decomposition** |
+| Status | **Blocked on escalation** — open question 1 |
 | Size | M |
 | Risk | low to build; **the publication surface is the project's largest overstatement risk** |
 | Depends on | P-001 … P-015 — everything |
