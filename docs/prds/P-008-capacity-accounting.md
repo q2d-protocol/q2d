@@ -169,6 +169,14 @@ The distinction is not pedantic. Re-consulting policy at step 15 would be a
 reordering of [`core-model.md`](../../spec/core-model.md) §4 — the kind that
 arrives as a plausible convenience and has to be escalated, not implemented.
 
+**`on_exhaustion` is an internal outcome and gets no special path to the wire.**
+An exhaustion-triggered `escalate` passes through
+[P-009](P-009-denial-normalization.md) §4.6's visibility gate like any other,
+and is opaque unless the sensitivity class permits otherwise. Letting it bypass
+that gate would make budget state externally observable, which
+[P-011](P-011-receipts-audit.md) §4.3 keeps out of receipts precisely because it
+reveals other requesters' activity.
+
 ### 4.7 Escalation: do `deny` and `escalate` debit?
 
 [`core-model.md`](../../spec/core-model.md) §9 records this as undecided, and the
