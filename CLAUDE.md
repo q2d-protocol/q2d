@@ -99,6 +99,9 @@ in this repository.
 - [ ] If you found the spec ambiguous, you changed `spec/` — you did not decide locally.
 - [ ] If you changed `spec/`, you checked whether `claims.md`,
       `conformance-classes.md`, and `trust-matrix.md` still agree with it.
+- [ ] If the change closes an escalation, you worked
+      [Closing an escalation](#closing-an-escalation) — the decision is the easy
+      half.
 
 ### Claim honesty
 
@@ -196,6 +199,46 @@ already determines.
 
 When escalating, state the options and your recommendation. Do not present a
 menu without a view.
+
+## Closing an escalation
+
+An escalation is not closed when the decision is made. It is closed when every
+document that carried the old rule carries the new one.
+
+**This has already failed.** The subsetting resolution — P-006 escalated it, it
+was decided as coarsening-only — amended `core-model.md` §2.5,
+`terminology.md` §6, and `claims.md` Q2D-C-09, and missed `scope.md` §4 and
+`mvp-scope.md` §4. Both still told a requester it *"may request a subset"* for
+four PRDs afterwards. `scope.md` is in `spec/` and therefore governs, so an
+implementer working from it would have built the zero-debit oracle the
+escalation existed to close, while passing every other document.
+
+The failure was propagating file by file. Two of the four documents carrying the
+rule were amended by hand, and nothing checked the other two.
+
+Work this list when a decision comes back:
+
+- [ ] **Grep for the rule, not the file.** Search the *old* wording across
+      `spec/`, `threat-model/`, `registry/`, `docs/`, and `docs/prds/`. Distinctive
+      phrases from the superseded text, not the identifier — an identifier appears
+      where the rule is cited correctly as well as where it is stated wrongly.
+- [ ] Amend every hit, or say in the commit why one is deliberately unchanged.
+- [ ] Re-check the three documents that describe the spec to itself:
+      `claims.md`, `conformance-classes.md`, `trust-matrix.md`. A resolution that
+      changes a mechanism usually changes what a claim rests on.
+- [ ] Mark the open question resolved **in the PRD that raised it**, naming the
+      section that now carries the answer — not only in the commit message. A
+      commit is not where the next reader looks.
+- [ ] Update every PRD that delegated a question to it, and every PRD that
+      recorded the same escalation from its own side.
+- [ ] If the resolution changes what gets built, change the PRD's status and its
+      affected issues. A PRD that leaves **Blocked on escalation** with its issue
+      list unchanged has recorded the decision without absorbing it.
+- [ ] Re-run the mechanical checks: cross-document links resolve, and the PRD
+      dependency graph is still symmetric.
+
+This is the same failure class as the version-number drift above. Both are a rule
+living in more places than the person changing it remembered.
 
 ## What NOT to do
 
