@@ -102,7 +102,10 @@ artifact in this module may do so.
 
 | Property | Value |
 |---|---|
-| Content | None. High-entropy random; encodes no `query_id`, principal, or predicate |
+| Content | None. Encodes no `query_id`, principal, or predicate |
+| Entropy | **Minimum 128 bits**, from a cryptographic source — the same floor [P-004](P-004-replay-idempotency.md) §4.3 sets for the nonce, and for the same reason: it is the only thing standing between a guesser and the outcome |
+| Encoding | base64url, unpadded, fixed length |
+| Under the corpus | **Supplied by the vector**, never generated. [P-001](P-001-conformance-corpus.md) §4.3 — a token the runtime invents appears inside a signed response, so two implementations would produce different bytes for one vector and the comparison would fail on entropy rather than on behaviour |
 | Lifetime | The `expires_at` on the escalate response |
 | Polling | Does not extend the token, does not re-evaluate, does not debit |
 | Retry of the original query | Returns the cached escalate response verbatim, same token ([P-004](P-004-replay-idempotency.md) §4.7) |

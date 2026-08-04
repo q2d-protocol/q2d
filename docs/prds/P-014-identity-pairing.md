@@ -131,10 +131,18 @@ for one key make the ceremony worthless:
 
 | Rule | Value |
 |---|---|
-| Input | The raw 32-byte Ed25519 public key, with a domain-separation prefix |
-| Hash | SHA-256 |
-| Encoding | Lowercase hex, grouped for reading |
+| Input | `"q2d-pairing-fingerprint-v1:"` as ASCII bytes, immediately followed by the raw 32-byte Ed25519 public key. No separator, no encoding of the key before hashing |
+| Hash | SHA-256 over those exact 59 bytes |
+| Truncation | The first 16 bytes of the digest |
+| Encoding | Lowercase hex, grouped in fours by a single `-` for reading |
 | Locale, normalization, case folding | None — the output is ASCII by construction |
+
+The prefix is written out because "a domain-separation prefix" is not a
+specification. Two implementations agreeing on SHA-256 and disagreeing on what
+they hash produce different fingerprints for the same key, and the corpus would
+catch it only for the keys someone thought to pin. The version suffix means a
+future change is a new prefix rather than a silent reinterpretation of an
+existing ceremony.
 
 The grouping is presentation; the comparison is over the ungrouped string, so a
 display change can never alter what verifies. A corpus vector pins the exact

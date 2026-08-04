@@ -71,8 +71,9 @@ from this stage inform a future draft; they do not edit that one.
 
 Stated first because every artifact this PRD produces has to respect it.
 
-> The suite demonstrates that **ten named attacks, written by the people who
-> wrote the implementation, fail against that implementation.**
+> The suite runs **ten named attacks, written by the people who wrote the
+> implementation. Nine fail against it. The tenth — timing analysis of denial
+> paths — succeeds, and its result is a measurement rather than a pass.**
 
 It does not demonstrate that the protocol is secure, that no other attack
 succeeds, or that the implementation is free of defects. It cannot, and no
@@ -87,8 +88,10 @@ determinism, not soundness.
 
 Three rules follow, and they bind every artifact:
 
-- The suite is described as **"ten attacks that fail"**, never as a security
-  evaluation, an audit, or evidence of absence.
+- The suite is described as **"nine attacks that fail and one open channel we
+  measured"**, never as a security evaluation, an audit, or evidence of absence.
+  "Ten attacks that fail" is the phrasing to watch for: it is shorter, it will
+  suggest itself, and it is false — Q2D-NC-05 says the tenth succeeds.
 - **Reproduction and review are named separately** wherever the gate is
   described.
 - The suite's value is that it makes attack **cheap for someone else** — the
@@ -372,7 +375,7 @@ without using a listed phrase.
 
 Row 1 is this PRD's entire risk. It will not arrive as a false statement; it will
 arrive as a confident summary sentence at the top of a README, written by someone
-pleased that ten attacks failed.
+pleased that the suite came back clean.
 
 Row 13 matters because the temptation is specific and plausible: a measurement
 that needs a hook, an endpoint, or a flag to work, added at the stage where
@@ -380,7 +383,8 @@ nothing is reviewed against a claim.
 
 ## 9. Escalate-if-changed decisions
 
-1. **The suite is ten attacks that fail, never a security evaluation.**
+1. **The suite is nine attacks that fail and one measured open channel, never a
+   security evaluation.**
 2. **Reproduction and independent review are named separately.**
 3. **Attack 10 is expected to succeed**, and the suite reports it as such.
 4. **Timing is published for both configurations**, default first. Withholding
