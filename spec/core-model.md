@@ -99,7 +99,29 @@ implementations from the start.
 
 Q2D defines three interfaces here rather than one identity technology: principal
 identification, key resolution, and delegation verification. Local pairing,
-enterprise OIDC/OAuth, and DID/UCAN are profiles over those interfaces. See §9.
+enterprise OIDC/OAuth, and DID/UCAN are profiles over those interfaces.
+
+```
+resolve_key(key_id)                              -> PublicKey
+identify_principal(key_id)                       -> PrincipalId
+verify_delegation(principal, agent, evidence, at) -> ok | fail
+```
+
+The signatures are **technology-free**: no key format, no transport, no
+enrolment ceremony. A profile supplies those. Two properties of the shape carry
+security meaning and are therefore fixed here rather than left to a profile:
+
+- **`identify_principal` is separate from `resolve_key`.** They answer different
+  questions — *what key is this?* and *whose is it?* A single lookup returning
+  both lets a caller hold a principal it never checked was bound, because the
+  operation that produced the key also produced the name.
+- **`verify_delegation` returns success or failure, not the evidence.** There is
+  nothing a caller should learn from a delegation check beyond that it passed.
+  Returning the evidence invites something downstream to read a field out of it
+  and treat identity as policy input.
+
+Defining these interfaces does **not** decide which profile, if any, is mandatory
+to implement. That remains parked — see §9.
 
 ### 2.4 Predicate
 
@@ -136,7 +158,7 @@ convention into a check.
 The failure it closes is **semantic mutation without shape change**: a predicate
 edited from *"is any item compatible"* to *"does any item conflict"* keeps the
 same release shape, domain, capacity, and schema. Every validation passes, the
-intersection is clean, the debit is correct — and the answer means the opposite
+narrowing is clean, the debit is correct — and the answer means the opposite
 of what the requester believes. A manifest-level digest cannot distinguish that
 from an unrelated entry being added elsewhere in the same file; an entry-level
 digest can.
@@ -175,7 +197,7 @@ domain can be subsetted.
 
 The same rule binds policy modifiers (§3, [`terminology.md`](terminology.md) §6):
 a modifier coarsens and never subsets, so every result retains an image
-throughout the intersection.
+throughout the narrowing composition §3 defines.
 
 ### 2.6 Purpose and delivery
 
@@ -213,13 +235,32 @@ acceptable policy and rejects suites below it, whatever the sender selected.
 The responder computes, and never accepts:
 
 ```
-effective_domain = registry_entry.canonical_domain
-                 ∩ answer_contract.domain
-                 ∩ policy_modifiers
+effective_domain = narrow( registry_entry.canonical_domain,
+                           answer_contract.domain,
+                           policy_modifiers )
 ```
 
-If the intersection is empty, the request fails closed. The capacity debit
-(Q2D-C-09) is computed from this value, not from anything the requester asserted.
+The operation is **narrowing composition**, not set intersection. Both the
+requester (§2.5) and a policy modifier narrow by *coarsening* — mapping every
+registered value onto a smaller set — and two coarsenings of different
+granularity are not sets that intersect. Exact times, two-hour bands, and
+four-hour bands are three granularities of one domain; composing them yields the
+coarsest, not the empty set a literal intersection of their values would give.
+
+Composition is defined per release shape, because what "coarser" means differs
+between a scalar, an interval, a set, and an object. The rules are in §3.2. Two
+properties hold across every shape:
+
+- **Composition never widens.** Each operand narrows the one before it, so the
+  result is no broader than `registry_entry.canonical_domain` (Q2D-C-02).
+- **Every possible result retains an image throughout.** This is what §2.5's
+  prohibition on subsetting buys, and it is why composition cannot produce an
+  empty domain by narrowing alone.
+
+A domain that is nevertheless empty — an unsatisfiable contract, or a modifier
+that cannot apply to the requested shape — **fails closed**. The capacity debit
+(Q2D-C-09) is computed from the composed value, not from anything the requester
+asserted.
 
 ### 3.1 Capacity arithmetic
 
@@ -250,6 +291,41 @@ happens to agree.
 Millibits are part of the registry contract. Changing the unit invalidates every
 stored budget, so a budget records the unit it was accumulated in.
 
+### 3.2 Narrowing per release shape
+
+Each rule is a total function from a registered domain and a requested domain to
+either an admissible domain or a rejection. A responder applies the same rules to
+a policy modifier (§2.5).
+
+| Shape | Narrowing permitted |
+|---|---|
+| `boolean` | none — the requested domain must equal the registered one |
+| `enum` | coarsening only: a **total** mapping of registered values onto a smaller label set — **open, see below** |
+| `scalar` | reduced precision; a range no wider than registered |
+| `interval` | coarser granularity, at or above any registered `minimum_slot_duration`; horizon no longer than registered |
+| `set` | `maximum_cardinality` at or below registered |
+| `object` | `allowed_detail_fields` a subset of registered, each remaining field narrowed by its own shape's rule, applied **recursively** |
+| `attribute` | none |
+| `ciphertext` | not reachable in 0.1 |
+
+`object` is the one to watch: a field-level rule must not be skipped because the
+object-level check passed.
+
+Two shapes deserve their exception stated. `boolean` and `attribute` permit no
+narrowing because a two-valued or single-valued domain has no coarser form that
+is not the empty request — and a "narrowed" boolean is the subsetting §2.5
+prohibits, wearing different words.
+
+> **`enum` is not yet settled.** Coarsening an enum requires a mapping from
+> registered values onto requested labels, and this document does not yet say
+> whether the requester declares that mapping or the responder infers it.
+> Inference is a semantic judgement, and two responders inferring differently
+> would return different answers to one query while both stayed inside the
+> requested domain. **Until this is decided, a conforming responder rejects an
+> `enum` request whose domain is not equal to the registered one** — the
+> `boolean` rule, applied conservatively, so that no implementation settles the
+> question by accident.
+
 ## 4. Processing order
 
 Order is a security property, not an implementation detail. It determines what
@@ -269,6 +345,7 @@ A conforming responder processes in this order:
 | 7 | Delegation verification | Establishes the agent acts for the principal. |
 | 8 | `routing` / `signed` consistency | Any disagreement is tampering. Reject; do not reconcile. |
 | 9 | Replay-cache check | After signature, so unauthenticated traffic cannot pollute the cache. |
+| 9a | **Rate-limit check** (§9.1) | After the replay check, so an idempotent retry returns its cached outcome without consuming rate budget. Before registry resolution, so **every** authenticated request counts identically — see below. |
 | 10 | Registry: predicate known, version known, not revoked, digest pinned | Fails closed on anything unrecognized. |
 | 11 | Public context validated against the entry's input schema | Schema comes from the registry, not the request. |
 | 12 | Answer contract no broader than the registry entry | Q2D-C-02. |
@@ -280,10 +357,31 @@ A conforming responder processes in this order:
 | 18 | Budget debited | Once, idempotently. |
 | 19 | Receipt constructed; response signed | Q2D-C-10. |
 
-Three invariants follow:
+Step 9a is lettered rather than numbered because the step numbers are cited
+throughout this repository and renumbering them silently would be worse than an
+irregular label.
+
+**Its position is a security property, not a convenience.** The rate limit is
+keyed on the **relationship** the budget is keyed on — requester relationship and
+subject — and on nothing else. It deliberately does *not* use the full budget key
+(§9.1, [`terminology.md`](terminology.md) §6), because sensitivity class comes
+from the registry entry and is not known until step 10. A limiter placed after
+registry resolution would count only requests that resolved a predicate, leaving
+requests for unknown predicates unlimited — and *that difference is itself an
+oracle*: a requester that finds one predicate rate-limited and another unlimited
+has learned which one this custodian carries, which is the disclosure step 10's
+uniform failure exists to prevent.
+
+Counting every authenticated request identically is what keeps the limiter from
+becoming the thing it was introduced to close.
+
+Four invariants follow:
 
 - **Steps 1–15 complete before any private input is read.** A denial at any of
   them is reachable without touching protected data.
+- **Rate limiting counts authenticated requests, not outcomes.** It runs before
+  the responder knows what was asked, so its state cannot vary with the answer,
+  the predicate, or the policy decision.
 - **The core object is parsed only after its signature verifies** (step 5). An
   attacker cannot reach the JSON parser for the security-relevant object without
   a valid signature.
@@ -294,6 +392,50 @@ Three invariants follow:
 Step 17 failing is an implementation or integrity error, not a policy outcome.
 It is logged as such, and the runtime must not serialize an exception carrying
 private input.
+
+### 4.1 The requester's order
+
+The steps above bind a responder. A requester processing a **response** is bound
+by the orderings below. They are normative for the same reason: two requesters
+ordering these differently would both satisfy CC-1's obligations while one of
+them parses attacker-controlled bytes before authenticating them, and a
+conformance vector cannot assert an order the model does not state.
+
+This is deliberately shorter than the responder's list. It names the orderings
+whose violation is a vulnerability, not every action a runtime performs.
+
+| # | Step | Why here |
+|---|---|---|
+| 1 | Parse the **envelope**; reject oversized or malformed input | Before any allocation on attacker-controlled data. |
+| 2 | Read the suite identifier; reject if below the requester's minimum acceptable policy | Symmetric to responder step 3. A requester that accepts any suite the responder chose has no floor. |
+| 3 | Resolve the responder key; **verify the signature over the exact signed bytes** | **Nothing below this line runs for an unauthenticated response.** |
+| 4 | Parse the verified response object | After verification, so parser behaviour is outside the security boundary. |
+| 5 | Check the response binds the query that was sent | Q2D-C-05. A valid signature over *some* exchange is not evidence about *this* one. |
+| 6 | Read `status`, and branch on it as a closed set | An `escalate` or a `deny` is never coerced into an answer. See §5.3. |
+| 7 | Verify the receipt | Q2D-C-10. Every outcome carries one (§6); a signed response with no receipt is rejected, not accepted with a check skipped. |
+| 8 | Check the result lies within the domain that was requested | Directional check. The requester cannot verify the *effective* domain — see below. |
+| 9 | Release the semantic answer to the caller | Nothing above may be skipped to reach this line. |
+
+Three invariants follow:
+
+- **The response object is parsed only after its signature verifies** (step 4),
+  the same boundary step 5 sets on the responder side.
+- **No part of a response reaches a caller before step 9.** A runtime that
+  streams, logs, or previews a result while verification is still running has
+  released an unauthenticated answer, whatever it does afterwards.
+- **The three statuses are exhaustive and non-coercible.** A requester that maps
+  an unrecognized status onto a default has built a path by which a future status
+  is read as an answer.
+
+Step 8 is a check against the **requested** domain, not the effective one: §5.1
+carries `effective_contract_digest` rather than the effective domain itself, so a
+requester can detect that its contract was narrowed but cannot independently
+validate the result against what was authorized. That is a deliberate boundary.
+Bounded output (Q2D-C-03) is a responder-side claim resting on a trusted
+computation executor ([`../threat-model/trust-matrix.md`](../threat-model/trust-matrix.md)
+§4), and echoing the effective domain would not defend against the adversary that
+defeats it while disclosing to every requester exactly which modifier policy
+applied.
 
 ## 5. Response
 
@@ -316,14 +458,15 @@ private input.
 |---|---|
 | `status` | `deny` |
 | `external_reason` | The **normalized class**, not the true cause. |
-| `receipt` | Reduced: request digest, decision class, decision time. |
+| `receipt` | The **reduced shape** — §6 is the authoritative field list. |
 | `signature` | |
 
 Within a sensitivity class configured for normalization, `external_reason`,
 response size, and retry semantics are identical for absent data, policy
-refusal, budget exhaustion, unsupported predicate, failed freshness, and
-internal escalation. **No cause-specific retry guidance.** If retry metadata is
-present, its value is identical across every cause mapped to that class.
+refusal, budget exhaustion, rate-limit rejection (§9.1), unsupported predicate,
+failed freshness, and internal escalation. **No cause-specific retry guidance.**
+If retry metadata is present, its value is identical across every cause mapped to
+that class — including any value a rate limiter could otherwise supply.
 
 ### 5.3 escalate
 
@@ -335,8 +478,21 @@ and the choice is itself a policy decision.
 applicable policy path may exist. Use only where that disclosure is acceptable.
 It is **not** denial-normalized and must never be described as such.
 
-**Opaque escalation** returns the same normalized envelope as §5.2. The
-authority is prompted out of band. Then:
+An explicit escalation **carries a receipt**: the reduced shape §5.2 defines,
+with `decision_class: escalate`. Q2D-C-10 binds every exchange, and an escalated
+exchange that produced no evidence it happened would be an unstated exception to
+it. There is no uniformity cost, because explicit escalation is not in a
+normalized class.
+
+**Opaque escalation** returns the same normalized envelope as §5.2 — **including
+its receipt**, which is the ordinary deny receipt and carries the ordinary deny
+`decision_class`. An opaque escalation must not be distinguishable from any other
+outcome in that class by its receipt any more than by its response. This is the
+boundary to get right: a receipt that recorded `escalate` for an outcome the wire
+made uniform would defeat Q2D-C-08 through the evidence attached to it, in the
+one place nobody looks for a normalization leak.
+
+The authority is prompted out of band. Then:
 
 1. The original query stays idempotent — identical retries keep returning the
    cached normalized outcome, and **never** become an answer after approval.
@@ -350,17 +506,86 @@ authority is prompted out of band. Then:
 4. The responder revalidates registry state, delegation, policy, freshness,
    budget, and current data before answering, and issues a new receipt.
 
+**A grant is single-use.** It is consumed by the first release made under it, and
+a second fresh query in the same window escalates again. One approval authorizes
+one answer.
+
+The reason is what an approval interface can honestly convey. A prompt can say
+*"tell them whether you are free on Thursday."* No prompt can convey *"and every
+repetition of this question until the window closes"* to a person deciding in a
+moment. Under a multi-use reading, the disclosure a single approval authorizes
+would be bounded by the capacity budget rather than by the consent, and Q2D-C-09
+was never intended to be that bound. A deployment wanting standing permission
+expresses it as a policy rule, where it is evaluated at step 14, recorded in the
+audit, and visible as a rule rather than as the residue of a prompt somebody
+answered once.
+
+The cost is real and is the safe direction to fail in: a transient failure
+between approval and the fresh query costs another approval.
+
 The resulting unavailable-to-answer transition is a **residual timing and state
 oracle**. It is named, not hidden. A binding may define authenticated push
 delivery instead, but must not mutate the cached result of an identical retry.
 
 ## 6. Receipt
 
-Binds one exchange (Q2D-C-10): request digest, response digest, predicate
-identifier and version, effective answer-contract digest, policy version or
-decision-policy digest, release shape, assurance profile, disclosure-capacity
-debit, decision time, responder identity, and optionally a requester
-acknowledgment.
+Binds one exchange (Q2D-C-10), in one of two shapes. **This is the authoritative
+field list**; where any other document disagrees, this one governs.
+
+**Full**, on an `answer`:
+
+| Field | |
+|---|---|
+| `request_digest` | over the exact `signed` bytes received |
+| `response_digest` | over the response's **semantic content** — result, effective contract digest, assurance profile — **excluding the receipt and the signature**. See below |
+| `predicate` | identifier and version |
+| `entry_digest` | the resolved registry entry (§2.4.1) — *which definition* was used, not only which version |
+| `effective_contract_digest` | what was actually authorized |
+| `policy_version` | a digest of the effective rule set |
+| `release_shape` | the effective domain's shape |
+| `assurance_profile` | the profile actually used |
+| `signature_suite` | so the receipt stays assessable after that suite is deprecated |
+| `disclosure_capacity_debit_millibits` | integer |
+| `decided_at` | RFC 3339, second precision |
+| `responder` | the computation executor's identity |
+
+**Reduced**, on a `deny` and on an explicit `escalate` — exactly five fields, and
+no others:
+
+`request_digest` · `decision_class` · `decided_at` · `responder` ·
+`signature_suite`
+
+The reduced shape is short by design, and its length is load-bearing: none of its
+fields is variable-length, so byte-length uniformity across every cause in a
+normalized class follows from the shape rather than from a check (Q2D-C-08).
+**Adding a field to it — even an optional one — is a specification change**, since
+a field present for some causes and absent for others reintroduces the
+distinction normalization removes. In particular it never names the predicate.
+
+`response_digest` cannot be taken over the exact response bytes, and the reason
+is structural rather than a choice: the receipt travels **inside** the response
+and carries this digest, so a digest over the whole response would have to include
+itself. Excluding the receipt and the signature makes it well-defined,
+non-circular, and computable before the receipt exists. It is the one digest in
+the protocol taken over a sub-object rather than over received bytes, so it needs
+a canonical production profile where `request_digest` does not.
+
+Its purpose is standalone verification: when a receipt travels with its response
+the signature already binds the two, and this digest earns its place only when an
+auditor holds a receipt separately and needs to confirm which response it
+corresponds to.
+
+A requester acknowledgment field is **reserved and not implemented** in 0.1.
+
+Every response to a query therefore carries evidence that the exchange occurred,
+which is what Q2D-C-10 claims.
+
+**"Every response" means every response to a query.** A binding may define
+auxiliary operations that are not exchanges — polling an escalation is the one
+0.1 anticipates (§5.3) — and those are not responses in this sense: they answer
+*has the outcome changed?* rather than *what is the answer?*, and there is no
+exchange for them to bind. A binding defining one must say so explicitly, and
+must not attach a receipt that binds nothing.
 
 The receipt is deliberately **smaller than the local audit event**. Diagnostic
 and policy detail stays local and is not disclosed to the requester by default.
@@ -374,6 +599,15 @@ a normalized outcome to an answer.
 A changed purpose, sink set, public context, predicate version, or answer
 contract is a **different request** requiring a new signature and a new policy
 decision, even when the approval-scope digest matches.
+
+That last clause is a **floor, not a description of the current digest.** Under
+§5.3's field list every item it names is already covered by the approval-scope
+digest, so changing one necessarily changes the digest and it cannot match —
+the clause is inert today. It is stated anyway because the field list is parked
+(§9) and may yet be narrowed, and these five must remain request-distinguishing
+whatever that list settles on. **Do not infer a narrower digest from it.** A
+digest that omitted, say, the sink set would let an approval granted for one
+delivery path satisfy a fresh query naming another.
 
 ## 8. Versioning
 
@@ -389,18 +623,61 @@ that no implementation quietly settles them by accident.
 
 | Open item | Current leaning | Blocked on |
 |---|---|---|
-| **Identity/delegation core-vs-profile boundary** | Core defines the three interfaces; profiles supply the technology | Which profile, if any, is mandatory to implement |
+| **Which identity profile, if any, is mandatory to implement** | None mandatory in 0.1 | A second profile existing to compare against |
 | **Approval-scope digest field list** | The seven fields in §5.3 | Grant lifetime and revocation semantics |
+| **Grant lifetime** | Required configuration, no default | Operating experience |
 | **Capacity calculation for `object` outputs** | Registry supplies an upper bound from field domains, precision, and length | A formal calculation |
-| **Whether `deny` and `escalate` debit the budget** | Undecided. Debiting leaks; not debiting permits free probing | Analysis of which leaks more |
 | **Timing and padding requirements** | None normative in 0.1 | A defined indistinguishability property and its tests |
 
 An implementation may choose any of these. It must not describe its choice as
 the Q2D answer until this document records it.
 
-**Resolved since the first draft of this document.** Serialization and the
-signature container are no longer open. The envelope in §2.1 signs exact
-transmitted bytes, so canonicalization is not on the security path, and
-algorithms are named by suite rather than fixed —
-[`crypto-suites.md`](crypto-suites.md) carries the registry, the
-mandatory-to-implement suite, and the downgrade rules.
+**Resolved since the first draft of this document.**
+
+- **Serialization and the signature container.** The envelope in §2.1 signs exact
+  transmitted bytes, so canonicalization is not on the security path, and
+  algorithms are named by suite rather than fixed —
+  [`crypto-suites.md`](crypto-suites.md) carries the registry, the
+  mandatory-to-implement suite, and the downgrade rules.
+- **The identity/delegation core-vs-profile boundary.** §2.3 defines the three
+  interfaces; profiles supply the technology. Only the mandatory-profile question
+  above remains.
+- **Whether `deny` and `escalate` debit the budget.** They do not — see below.
+- **Grant multiplicity.** Single-use, §5.3.
+
+### 9.1 `deny` and `escalate` do not debit
+
+Neither a denial nor an escalation debits the disclosure-capacity budget. The
+probing they would otherwise permit is bounded by a **rate limit** — a separate
+mechanism, with its own units, checked at step 9a, and carrying no claim.
+
+**It is keyed on the relationship, and on nothing finer.** The budget key
+additionally carries sensitivity class and sink set; the rate limit deliberately
+does not, because those are known only after registry resolution and a limiter
+that counted only resolved requests would leave unknown predicates unlimited —
+a difference a requester can measure, and therefore an existence oracle. See §4.
+
+The reason is that the two mechanisms measure different things. Q2D-C-09 accounts
+for *disclosure*, in millibits of answer alphabet. A denial discloses nothing
+from the answer alphabet; what it can leak is policy structure, which has no
+bit-count in this model. Debiting it would make
+`disclosure_capacity_debit_millibits` a number that no longer means what
+Q2D-C-09 says it means. Debiting would also let any party that can reach a
+custodian spend a subject's budget without ever receiving an answer, so that
+legitimate requesters are refused — a harm to a third party that no claim covers.
+
+Two requirements come with this, and without them the decision is unsafe:
+
+1. **The rate limit is required configuration with no default.** A responder
+   whose rate limit is unset does not conform. Not debiting denials while also
+   not limiting them is unbounded free probing.
+2. **A rate-limit rejection is normalized**, indistinguishable from every other
+   outcome in its class, and carries no cause-specific retry metadata (§5.2,
+   Q2D-C-08). A distinguishable rate-limit response is the oracle the limit was
+   introduced to prevent; it would move the leak rather than close it.
+
+   A rejection at step 9a precedes registry resolution, so the responder does not
+   yet know the predicate's sensitivity class and cannot select a per-class
+   external value. It uses the deployment's **default normalized class**, which
+   is the same value an unknown predicate produces at step 10 — the two must not
+   be distinguishable, or the limiter reveals that resolution was never reached.

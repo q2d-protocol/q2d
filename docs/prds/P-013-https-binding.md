@@ -4,10 +4,10 @@
 |---|---|
 | PRD | P-013 |
 | Stage | 6 |
-| Status | **Blocked on escalation** — open questions 1 and 2 |
+| Status | **Ready for decomposition** |
 | Size | L |
 | Risk | medium |
-| Depends on | [P-009](P-009-denial-normalization.md), [P-010](P-010-responder-pipeline.md), [P-011](P-011-receipts-audit.md), [P-012](P-012-requester-runtime.md), [P-014](P-014-identity-pairing.md) |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-009](P-009-denial-normalization.md), [P-010](P-010-responder-pipeline.md), [P-011](P-011-receipts-audit.md), [P-012](P-012-requester-runtime.md), [P-014](P-014-identity-pairing.md) |
 | Blocks | P-015, P-016 |
 | Pairs with | [P-014](P-014-identity-pairing.md) — the daemon cannot complete the walkthrough without a key resolver, and owns none of it |
 
@@ -24,11 +24,15 @@ exchanging answers by following a published quickstart and nothing else. This
 PRD is the difference between a specification that is implementable and one that
 has been implemented.
 
-**Claims served.** None directly, and that is the honest position. Q2D-C-11 is
-about *two* bindings preserving identical semantics; with one binding there is
-nothing to compare, and [`mvp-scope.md`](../mvp-scope.md) §4 already says so.
-§4.8 describes what can be tested with one binding, and what may not be said
-about it.
+**Claims served.** None, and that is the honest position. Q2D-C-11 is about *two*
+bindings preserving identical semantics; with one binding there is nothing to
+compare, and [`mvp-scope.md`](../mvp-scope.md) §4 Stage 6 now states a claim of
+none for that reason.
+
+**Conformance:** CC-12
+([`conformance-classes.md`](../../spec/conformance-classes.md)), added for this
+binding. Class conformance and claim coverage are different things, and §4.8
+keeps them apart — CC-12 passing does not establish Q2D-C-11.
 
 The binding's job is negative: preserve every semantic the ten modules beneath
 it establish, and add nothing. Most of this PRD is about what the transport must
@@ -48,10 +52,12 @@ refuse to do.
 | [`spec/claims.md`](../../spec/claims.md) Q2D-C-11 | Equivalence is a property of two bindings |
 | [`spec/claims.md`](../../spec/claims.md) Q2D-NC-05 | Timing, size, notification, and rate-limit channels remain |
 | [`spec/crypto-suites.md`](../../spec/crypto-suites.md) §4 | Rejection is not negotiation; suites are advertised through capability discovery |
-| [`spec/conformance-classes.md`](../../spec/conformance-classes.md) CC-8, CC-9 | The two binding classes that exist — neither is this one (open question 2) |
+| [`spec/conformance-classes.md`](../../spec/conformance-classes.md) CC-12 | The class this binding implements; §4.1–4.5 are its must and must-not lists |
+| [`spec/conformance-classes.md`](../../spec/conformance-classes.md) CC-8, CC-9 | The MCP and A2A binding classes — neither is this one, and neither may be claimed here |
 | [`threat-model/trust-matrix.md`](../../threat-model/trust-matrix.md) §5 | Network metadata, size, and timing are named residual channels |
 | [`docs/mvp-scope.md`](../mvp-scope.md) §1 | The two-machine walkthrough that is this stage's gate |
-| [`docs/mvp-scope.md`](../mvp-scope.md) §4 | The Stage 6 endpoint list, one entry of which is open question 1 |
+| [`docs/mvp-scope.md`](../mvp-scope.md) §4 | The Stage 6 endpoint list — three endpoints; the registry-entry endpoint was dropped (§4.3) |
+| [`spec/core-model.md`](../../spec/core-model.md) §9.1 | A rate limit is required, and its rejection is a normalized Q2D outcome rather than a transport status — §4.2 |
 
 ## 3. Module boundary
 
@@ -122,9 +128,22 @@ Two consequences follow, and both are load-bearing:
   [P-009](P-009-denial-normalization.md) §4.4 emits no retry metadata precisely
   because a value computed from a rate limiter is cause-specific by
   construction. A `Retry-After` header is retry metadata wearing a different
-  hat. If a deployment rate-limits, it does so before the exchange, at a layer
-  that never saw a Q2D message, and it must not do so per predicate or per
-  outcome.
+  hat.
+
+  **The rate limiter is inside the exchange, not in front of it.**
+  [`core-model.md`](../../spec/core-model.md) §9.1 makes a rate limit required —
+  it is what bounds the probing that denials no longer debit for — and
+  it is checked at [`core-model.md`](../../spec/core-model.md) §4 step 9a and
+  keyed on the requester relationship ([P-008](P-008-capacity-accounting.md)
+  §4.7). So it cannot sit at a layer that never saw a Q2D message: that layer
+  does not know the principal, because §4.1 keeps it out of the path and the
+  headers and inside the signed body.
+
+  A rate-limit rejection is therefore a **Q2D outcome** — HTTP 200, signed body,
+  Tier C class, indistinguishable from a policy denial. A transport-layer
+  limiter returning 429 would restore at the framing layer exactly the
+  distinction the signed body was built to erase, and would do it for the one
+  cause whose whole purpose is to close an oracle.
 - **No response headers vary with outcome.** Not `Content-Length` beyond what
   the body already determines, not cache directives, not `Vary`. The body's
   uniformity is [P-009](P-009-denial-normalization.md) §4.3's structural
@@ -139,19 +158,19 @@ leaks because there is nothing further to record.
 Access logs must not record the body, and must not be configured to record
 request or response headers.
 
-### 4.3 The endpoint set, and the one that must go
+### 4.3 The endpoint set, and the one that was dropped
 
-[`mvp-scope.md`](../mvp-scope.md) §4 lists four endpoints for Stage 6. Three
-survive scrutiny.
+[`mvp-scope.md`](../mvp-scope.md) §4 listed four endpoints for Stage 6. Three
+survived scrutiny, and §4 has been amended to list only those three.
 
 | Endpoint | Purpose | Status |
 |---|---|---|
 | `POST /.well-known/q2d/query` | The exchange | Keep |
 | `GET /.well-known/q2d/capabilities` | Version and suite discovery (§4.4) | Keep, narrowed |
 | `GET /.well-known/q2d/pending/{token}` | Explicit-escalation polling (§4.5) | Keep |
-| `GET /.well-known/q2d/predicates/{id}/{version}` | Serve a registry entry | **Open question 1** |
+| ~~`GET /.well-known/q2d/predicates/{id}/{version}`~~ | Serve a registry entry | **Dropped** — resolved, see below |
 
-The last one is two problems.
+The dropped one was two problems.
 
 **It is the existence oracle [P-005](P-005-registry-client.md) §4.7 closes.**
 That PRD makes all nine resolution failures produce one wire response, stating
@@ -170,14 +189,21 @@ is about to query will always declare a matching digest, and the check that
 [P-005](P-005-registry-client.md) §4.5 was rewritten to make fail-closed detects
 nothing at all.
 
-Recommendation: **drop it.** Registry distribution stays out of band, which is
-also [P-005](P-005-registry-client.md) open question 4's resolution. If
-discovery is later needed, the shape is authenticated and policy-gated —
-returning only entries the requesting principal is already permitted to use — not
-an open `GET`.
+**Resolved: dropped.** Registry distribution stays out of band, which is also
+[P-005](P-005-registry-client.md) open question 4's resolution. If discovery is
+later needed, the shape is authenticated and policy-gated — returning only
+entries the requesting principal is already permitted to use — not an open `GET`.
+Note that the gated variant fixes only the first problem: a requester permitted
+to fetch an entry still declares a digest matching the one it was handed, so the
+§2.4.1 check stays vacuous for exactly those entries.
 
-This changes [`mvp-scope.md`](../mvp-scope.md) §4, which sits above PRDs in the
-context hierarchy, so it is escalated rather than decided here.
+[`mvp-scope.md`](../mvp-scope.md) §4 is amended. One consequence is deliberate
+and recorded rather than left to be discovered: the deposited technical report
+lists this endpoint, and the deposit is immutable. The divergence is tracked in
+[`versioning.md`](../versioning.md) § *Known divergences from the deposited
+report*, and `paper/src/manuscript.md` is **not** edited — it is the input the
+`make repro` gate rebuilds Draft 0.2.1 from, and changing it would break the
+check that makes the deposit verifiable.
 
 ### 4.4 Capabilities: what may be advertised, and what must not
 
@@ -221,8 +247,54 @@ Transport-level rules, with the semantics belonging to
   A decided outcome differs, which is the endpoint's entire purpose and is the
   residual oracle [`core-model.md`](../../spec/core-model.md) §5.3 already
   names.
-- The response body is a signed Q2D response, the same shape `POST /query`
-  returns. Status 200 throughout, per §4.2.
+- Status 200 throughout, per §4.2 — including for an unknown token, which must
+  not be a 404.
+
+**A poll is not an exchange, and its response has two shapes.** This matters
+because the obvious reading — "the poll returns a Q2D response" — cannot be
+implemented for an unknown token: there is no originating query, so there is no
+`request_digest` to bind and no receipt that would mean anything. Fabricating one
+would put a signed attestation to a nonexistent exchange on the wire.
+
+| Token state | Response |
+|---|---|
+| Unknown, expired, or still pending | A **poll status object**: signed, fixed-length, carrying no receipt and no request digest. **Byte-identical across all three states, signature included** |
+| Decided | A **poll outcome object**: signed, stating *approved* or *refused*, bound to the original request digest. Carries no receipt, and **is not an answer** |
+
+**A decided poll does not return the answer, and it does not return the original
+exchange's cached response either.** The cached response for that exchange is the
+`status: escalate` with its token ([P-004](P-004-replay-idempotency.md) §4.7),
+which is what an identical retry returns and is not the outcome the poller is
+waiting for.
+
+What an approval produces is a **grant**, not a release. The requester submits a
+**fresh signed query**, which is revalidated end to end
+([`core-model.md`](../../spec/core-model.md) §5.3,
+[P-015](P-015-escalation-lifecycle.md) §4.4) and produces the answer with its own
+receipt. The poll only reports that the wait is over.
+
+This keeps the two escalation modes aligned on the property that matters: **no
+path exists from an approval to an answer that skips revalidation.** A poll that
+returned the answer would be that path, and would also hand a bearer token the
+disclosure rather than the news that it may now be requested.
+
+No receipt is constructed for a poll in either state.
+[`core-model.md`](../../spec/core-model.md) §6 says why: a poll answers *has the
+outcome changed?*, not *what is the answer?*, so it is not a response to a query
+and has no exchange to bind.
+
+The poll status object carries no field that varies with token state — no
+`expires_at`, no retry hint, no reason, no token echo. Three states, one set of
+bytes, **signature included**: Ed25519 is deterministic
+([P-003](P-003-crypto-suites.md) §7 asserts byte-identical signatures for the
+same key and payload), so identical content under the same key signs to identical
+bytes. A differing signature would therefore mean the content
+differed, which is the leak this row exists to prevent — so uniformity is asserted
+over the whole response and not over the body with the signature exempted.
+
+A consequence worth stating: the object cannot carry a timestamp. One would vary
+per response and make every poll distinguishable from every other, which defeats
+nothing on its own but removes the property that makes this checkable at all.
 
 ### 4.6 The daemon refuses to start rather than start degraded
 
@@ -239,6 +311,7 @@ it will accept.
 | The suite policy floor is unset, or configuration lowers the compiled floor | [P-003](P-003-crypto-suites.md) open question 2 |
 | No signing key resolves, or the policy engine has no authority configuration | [P-007](P-007-policy-engine.md) |
 | The replay cache or budget store cannot be opened | [P-004](P-004-replay-idempotency.md) §4.6 |
+| **No rate limit is configured** | [`core-model.md`](../../spec/core-model.md) §9.1 — it is required, with no default, because it is what bounds the probing denials no longer debit for |
 
 A daemon that starts and then cannot serve what it advertises is worse than one
 that refuses to start, because the failure surfaces as a denial the requester
@@ -290,9 +363,21 @@ against the core cannot be the reason two bindings later disagree. The corpus
 group in §6 builds the instrument; a second binding is what would let it be
 pointed at the claim.
 
-Describe it as **binding transparency**. Not equivalence, not conformance to
-CC-8 or CC-9 — which are the MCP and A2A classes and do not apply here (open
-question 2).
+Describe it as **binding transparency**. Not equivalence, and not conformance to
+CC-8 or CC-9, which are the MCP and A2A classes and do not apply here.
+
+**This binding now has its own class: CC-12**
+([`conformance-classes.md`](../../spec/conformance-classes.md)), whose must and
+must-not lists are §4.1–§4.5 restated as conformance requirements. That is what
+this stage may state about itself.
+
+CC-12 does **not** let Stage 6 claim Q2D-C-11. A class for one binding supplies a
+binding to compare and demonstrates nothing on its own; the claim holds once two
+of CC-8, CC-9, and CC-12 pass the same vector set.
+[`conformance-classes.md`](../../spec/conformance-classes.md)'s coverage table
+says so directly, so the distinction survives being read out of context.
+[`mvp-scope.md`](../mvp-scope.md) §4 Stage 6 is amended accordingly: **claims
+none, conformance CC-12**, in two separate fields.
 
 ### 4.9 Partial failure
 
@@ -430,15 +515,15 @@ is written as such, and it is the artifact an outsider reads first.
 
 | Question | Belongs to |
 |---|---|
-| **1.** `GET /predicates/{id}/{version}` (§4.3) is an existence oracle against [P-005](P-005-registry-client.md) §4.7 and makes [`core-model.md`](../../spec/core-model.md) §2.4.1's entry-digest check vacuous. **Recommended: drop it from Stage 6.** Registry distribution stays out of band; an authenticated, policy-gated variant is the shape if discovery is ever needed | **Escalation.** A [`mvp-scope.md`](../mvp-scope.md) §4 change, and it changes what gets built |
-| **2.** No conformance class covers a direct HTTPS binding. [`conformance-classes.md`](../../spec/conformance-classes.md) defines CC-8 for MCP and CC-9 for A2A, and Q2D-C-11's coverage table names only those two — so the reference binding, the one every other module is validated through, cannot state what it conforms to. **Recommended: add CC-12 for the direct HTTPS binding**, with §4.1–4.5's rules as its must and must-not lists, and add it to Q2D-C-11's owning classes. [P-014](P-014-identity-pairing.md) open question 2 raises the same shape for identity profiles and recommends deferring; decide the two together, since either answer sets the precedent for the other | **Escalation.** A `spec/` addition; Peter's call |
-| **2a.** Relatedly, [`mvp-scope.md`](../mvp-scope.md) §4 lists "Claims: Q2D-C-11" for Stage 6. Its parenthetical concedes equivalence needs a second binding, but listing the claim at all attributes to this stage something it cannot demonstrate. Proposed: Stage 6 claims none, matching §1 here | **Escalation**, with 2 |
+| **1.** ~~`GET /predicates/{id}/{version}` (§4.3) is an existence oracle and makes the §2.4.1 entry-digest check vacuous~~ | **Resolved: dropped.** [`mvp-scope.md`](../mvp-scope.md) §4 amended; §4.3 rewritten. The deposited report still lists it — divergence recorded in [`versioning.md`](../versioning.md), and `paper/src/manuscript.md` deliberately left alone so `make repro` keeps working |
+| **2.** ~~No conformance class covers a direct HTTPS binding~~ | **Resolved: CC-12 added**, with §4.1–4.5 as its must and must-not lists, and added to Q2D-C-11's owning classes with an explicit note that one class does not establish the claim. [P-014](P-014-identity-pairing.md) open question 2 was decided the other way, and the reason is written down in both PRDs: a class can be written for a boundary that is settled, and this one is — P-014's is the open question |
+| **2a.** ~~[`mvp-scope.md`](../mvp-scope.md) §4 lists "Claims: Q2D-C-11" for Stage 6~~ | **Resolved.** Stage 6 claims **none**, and states **conformance: CC-12** in a separate field. A parenthetical qualifier does not survive transcription into a coverage table; an empty claims cell with a stated reason does |
 | **3.** ~~Should capability discovery advertise suites?~~ | **Answered:** yes, from configuration, defaulting to the MTI alone. §4.4. Resolves [P-003](P-003-crypto-suites.md) open question 5 |
 | **4.** ~~How does a custodian learn a new manifest digest exists?~~ | **Answered:** out of band; the capability document does not carry it. §4.4. Resolves [P-005](P-005-registry-client.md) open question 4 |
-| **5.** The corpus has no vector shape for an HTTP exchange — [P-001](P-001-conformance-corpus.md) §4.5's operations all take structures. Proposed: one new operation, `http_exchange`, whose input is a method, path, headers, and body and whose output is status, headers, and body; the harness still never speaks Q2D | [P-001](P-001-conformance-corpus.md); blocks issue 9 |
-| **6.** `.well-known/q2d` is not an IANA-registered well-known URI (RFC 8615 §3). Proposed: the base path is configuration with that default, registration is tracked separately, and no artifact describes the path as allocated | This PRD |
-| **7.** ~~Does polling `/pending/{token}` require an authenticated request?~~ | **Answered:** a bearer token in MVP, named as a weakening; a signed poll needs a core message type. [P-015](P-015-escalation-lifecycle.md) §4.2 |
-| **8.** Does the daemon need a health endpoint, and what may it reveal? Proposed: yes, on a separate listener bound to localhost, returning liveness only — a public health endpoint that reports registry or policy state is an oracle | This PRD |
+| **5.** ~~The corpus has no vector shape for an HTTP exchange~~ | **Resolved: one new operation, `http_exchange`** — input is a method, path, headers, and body; output is status, headers, and body. The harness still never speaks Q2D: it moves opaque bytes and compares them. Named in [P-001](P-001-conformance-corpus.md) §4.5 and settled under its issue 17 with the rest of the Stage 5–8 vocabulary, so this PRD does not name it unilaterally |
+| **6.** ~~`.well-known/q2d` is not an IANA-registered well-known URI (RFC 8615 §3)~~ | **Resolved: the base path is configuration, defaulting to `/.well-known/q2d`.** Registration is tracked separately and is not an MVP deliverable. **No artifact may describe the path as registered, allocated, or reserved** — it is a default, and saying otherwise would be a claim about an IANA registry this project has not entered. Configurability is also what lets a deployment avoid a collision if the name is ever taken by someone else |
+| **7.** ~~Does polling `/pending/{token}` require an authenticated request?~~ | **Answered:** a bearer token in MVP, named as a weakening; a signed poll needs a core message type. [P-015](P-015-escalation-lifecycle.md) §4.2. The weakness is now recorded in [`trust-matrix.md`](../../threat-model/trust-matrix.md) §5 rather than only in a PRD |
+| **8.** ~~Does the daemon need a health endpoint, and what may it reveal?~~ | **Resolved: yes — a separate listener bound to loopback, returning liveness only.** Not on the public listener, and not carrying registry state, policy state, predicate names, budget state, or counts. A health endpoint reporting which predicates loaded is the existence oracle §4.3 just removed, rebuilt on a different port; one reporting budget or denial counts leaks other requesters' activity, which [P-011](P-011-receipts-audit.md) §4.3 keeps out of receipts for the same reason. Liveness is a boolean and needs no detail to be useful |
 
 Questions 3 and 4 arrived from other PRDs and are closed here. Questions 1 and 2
 are the ones this PRD found, and both change documents above it.
@@ -447,12 +532,13 @@ are the ones this PRD found, and both change documents above it.
 
 | # | Issue | Done when |
 |---|---|---|
-| 1 | Escalate open questions 1 and 2 | Resolved; [`mvp-scope.md`](../mvp-scope.md) §4 and [`conformance-classes.md`](../../spec/conformance-classes.md) amended or the recommendations declined, with §4.3 and §4.8 citing the outcome |
+| 1 | ~~Escalate open questions 1 and 2~~ — **done** | Resolved; endpoint dropped, CC-12 added; §4.3 and §4.8 cite the outcome |
+| 1a | CC-12 conformance suite: a positive and a negative test for every must and must-not | `binding/` groups cover each; no must is asserted only by review |
 | 2 | `DaemonConfig` and `load_config` | No constructor accepts message-derived input |
 | 3 | Startup validation for every §4.6 row | `binding/startup/` passes; each row observable |
 | 4 | TLS 1.3 listener, no plaintext path | No bypass reachable from configuration, environment, or build features |
 | 5 | `POST /query` handler over `process` | `binding/transparency/` byte-matches the direct call |
-| 6 | Status and header policy | `binding/status/` and `binding/headers/` pass; header set constant across outcomes |
+| 6 | Status and header policy | `binding/status/` and `binding/headers/` pass; header set constant across outcomes, **including for a rate-limit rejection**, which returns 200 with a signed Tier C body and never a 429 |
 | 7 | Socket-level size limits | Oversized body rejected before buffering |
 | 8 | `GET /capabilities` from configuration | `binding/capabilities/` passes; no predicate list |
 | 9 | `GET /pending/{token}` transport shape | `binding/pending/` passes; open question 5 resolved first |
@@ -461,9 +547,9 @@ are the ones this PRD found, and both change documents above it.
 | 12 | Author `binding/` corpus section | Eight groups; `harness lint` clean |
 | 13 | Quickstart, configuration reference, and operational-security notes | An outsider completes [`mvp-scope.md`](../mvp-scope.md) §1 from them alone |
 | 14 | Two-machine walkthrough, executed by someone who did not write it | The Stage 6 gate |
-| 15 | Claim-language audit across quickstart and operator docs | No text claims Q2D-C-11, CC-8, CC-9, or that TLS closes a residual channel |
+| 15 | Claim-language audit across quickstart and operator docs | No text claims Q2D-C-11, CC-8, or CC-9, describes CC-12 as establishing Q2D-C-11, or says TLS closes a residual channel |
 
-Issue 1 blocks 5 and 8 — both depend on which endpoints exist. Issue 9 blocks
+Issue 9 blocks
 on [P-001](P-001-conformance-corpus.md)'s operation vocabulary, which is the
 first time a later stage has needed to extend it; [P-001](P-001-conformance-corpus.md)
 §4.5 anticipated that and requires extension rather than redefinition.

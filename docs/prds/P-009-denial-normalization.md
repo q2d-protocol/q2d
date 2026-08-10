@@ -7,8 +7,8 @@
 | Status | **Ready for decomposition** |
 | Size | M |
 | Risk | medium |
-| Depends on | [P-007](P-007-policy-engine.md) |
-| Blocks | P-010, P-013, P-014, P-015 |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-007](P-007-policy-engine.md) |
+| Blocks | P-010, P-013, P-014, P-015, P-016 |
 | Pairs with | [P-007](P-007-policy-engine.md) — P-007 separates the audit reason from the external class; this PRD is what stops the reason reaching the wire |
 
 ---
@@ -63,6 +63,7 @@ makes a protocol undebuggable for no privacy gain.
 | **A — protocol** | Malformed or oversized envelope, unknown `q2d_version`, unregistered or unacceptable suite, `routing`/`signed` mismatch, request expired or future-dated | **Distinct errors** |
 | **B — authentication** | Unresolvable key, invalid signature, invalid or expired delegation | **One class** |
 | **C — everything from registry resolution onward** | Unknown predicate or version, revoked or deprecated entry, entry-digest mismatch, schema violation, constraint violation, contract not narrowable, unsupported assurance profile, policy denial, budget exhaustion, source freshness unmet, data absent, internal escalation | **One class** |
+| **C, reached earlier** | **Rate-limit rejection** ([`core-model.md`](../../spec/core-model.md) §9.1), at step 9a — before resolution, so the sensitivity class is unknown and the deployment's **default** normalized value is used. It must be the same value an unknown predicate produces at step 10, or the limiter reveals that resolution was never reached | **Same class** |
 
 The boundaries are drawn by **what each reveals about the custodian**:
 
@@ -109,6 +110,19 @@ field to a denial is therefore an escalation, not a feature: one optional field
 present for some causes and absent for others reintroduces the distinction the
 tier exists to remove.
 
+**The receipt is inside this guarantee, not beside it.** A `deny` carries the
+reduced receipt ([P-011](P-011-receipts-audit.md) §4.1), and so does an *opaque*
+escalation — the same fields, the same `decision_class`, the same bytes. Only an
+**explicit** escalation carries `decision_class: escalate`, and explicit
+escalation is not in a normalized class
+([`core-model.md`](../../spec/core-model.md) §5.3).
+
+This is the boundary worth stating twice. A receipt that recorded `escalate` for
+an opaque escalation would defeat this whole PRD through the evidence attached to
+the response, in the one place nobody thinks to look for a normalization leak —
+the uniformity assertion would still pass on the response body while the
+exchange was fully distinguishable.
+
 ### 4.4 No retry metadata
 
 MVP emits none.
@@ -120,6 +134,18 @@ computed from a rate limiter is cause-specific by construction, and it would tak
 one plausible commit to introduce.
 
 Emitting none costs a requester a backoff hint it can supply itself.
+
+**This stopped being hypothetical.** [`core-model.md`](../../spec/core-model.md)
+§9.1 makes a rate limiter a required part of a conforming responder — it is what
+bounds the probing that denials no longer debit for. So the module most likely to
+produce cause-specific retry metadata is now one every deployment runs, and its
+rejection is a Tier C cause like any other. A rate limiter that answers "try
+again in 40 seconds" has partitioned the class by cause, and the fact that it was
+introduced to close an oracle makes it no less of one.
+
+The rule is unchanged and now load-bearing: **no retry metadata, from any source,
+for any cause.** [P-013](P-013-https-binding.md) §4.2 carries the transport half —
+no `429`, no `503`, no `Retry-After` header.
 
 ### 4.5 The wire builder cannot see the reason
 
@@ -194,7 +220,8 @@ a new failure mode in whichever tier the fallback names.
 | `denial/uniformity-c/` | Every Tier C cause produces a byte-identical response |
 | `denial/tier-a/` | Protocol errors are distinct and informative |
 | `denial/escalation/` | Opaque by default; visible only where the class permits |
-| `denial/no-retry/` | No retry metadata on any denial |
+| `denial/no-retry/` | No retry metadata on any denial, including a rate-limit rejection |
+| `denial/receipt-uniformity/` | The reduced receipt is byte-identical across every Tier C cause, and an **opaque** escalation's receipt is indistinguishable from a plain denial's — only an explicit escalation carries `decision_class: escalate` |
 
 `denial/uniformity-b/` and `denial/uniformity-c/` are the P-001 cross-vector
 denial-uniformity assertion applied to this module — the same check
@@ -210,6 +237,11 @@ registry rejections.
 - [ ] `classify` is total; adding an `InternalReason` without a tier fails to
       compile.
 - [ ] Escalation is opaque unless the sensitivity class permits visibility.
+- [ ] **The receipt attached to a Tier C denial is byte-identical across causes**,
+      and an opaque escalation's receipt is indistinguishable from a plain
+      denial's.
+- [ ] A rate-limit rejection is one Tier C cause among the others, with no
+      distinguishing field, header, or timing treatment.
 - [ ] No denial carries retry metadata.
 - [ ] Documentation and code comments describe MVP as **not** timing-normalized.
 
@@ -225,6 +257,8 @@ registry rejections.
 | Explicit escalation where the class forbids it | `denial/escalation/` returns a visible response |
 | A new `InternalReason` defaulting to a tier | Compile failure absent; a default branch exists |
 | Retry metadata appearing | `denial/no-retry/` fails |
+| A rate-limit rejection distinguishable from any other Tier C cause | `denial/uniformity-c/` fails once the rate-limit cause is in its input set |
+| **An opaque escalation's receipt carrying `decision_class: escalate`** | `denial/receipt-uniformity/` fails; the response bodies still match, which is why the receipt needs its own vector |
 | A claim of timing normalization | Grep for the phrase in docs and comments |
 
 Row 4 is the one this module exists for, and it is enforced by a signature rather
@@ -243,19 +277,23 @@ one that should have been Tier C becomes silently distinct.
 3. **Tier C is internally uniform**, including schema violations.
 4. **`build_denial` takes only the external class.**
 5. **No variable-length field on a denial**, so uniformity stays structural.
-6. **No retry metadata.**
+6. **No retry metadata**, from any source, including the required rate limiter
+   ([`core-model.md`](../../spec/core-model.md) §9.1).
 7. **Explicit escalation is policy-gated, defaults to opaque, and is never
    described as normalized.**
-8. **`classify` is total with no default branch.**
+8. **The reduced receipt is inside the uniformity guarantee.** Only an explicit
+   escalation carries `decision_class: escalate`; an opaque one carries the
+   ordinary deny receipt.
+9. **`classify` is total with no default branch.**
 
 ## 10. Open questions
 
 | Question | Belongs to |
 |---|---|
-| Should Tier B and Tier C be merged? Merging removes a distinction a requester can already derive from its own key, at the cost of debuggability. Proposed: keep separate; revisit if a deployment shows the distinction is exploitable | This PRD |
-| Is one Tier C class enough, or should sensitivity classes have their own? Proposed: one. Per-class external values would themselves partition causes | This PRD |
+| ~~Should Tier B and Tier C be merged?~~ | **Resolved: keep them separate.** Tier B is authentication failure, which a requester can already determine from its own key material without asking the custodian anything — merging it into Tier C would hide nothing it does not already know while making every signature bug indistinguishable from a policy denial in the operator's own logs. The tiers are internally uniform, which is the property that matters; the boundary between them discloses nothing |
+| ~~Is one Tier C class enough, or should sensitivity classes have their own?~~ | **Resolved: one.** A per-sensitivity-class external value would partition causes by sensitivity class, which is a property of the *predicate* — so the external value would tell a requester which class its predicate falls in, reintroducing at the class level exactly the oracle uniformity closes at the cause level |
 | ~~Does the padding hook belong in this module or the binding?~~ | **Answered:** here. [P-013](P-013-https-binding.md) §3 confirms the binding adds none of its own |
-| Should `decided_at` be coarsened — minute rather than second — to blunt timing correlation? Proposed: no in MVP; it interacts with replay-window arithmetic | This PRD; revisit at Stage 8 |
+| ~~Should `decided_at` be coarsened — minute rather than second — to blunt timing correlation?~~ | **Resolved: no in MVP**, at second precision. Coarsening it would blunt nothing an observer cannot measure directly from arrival time, while interacting badly with the replay window and clock-skew arithmetic in [P-004](P-004-replay-idempotency.md) §4.2 — a minute-coarsened field near a five-minute boundary makes two implementations disagree about whether a retry is inside the window. Timing is a named residual channel ([`trust-matrix.md`](../../threat-model/trust-matrix.md) §5) and [P-016](P-016-demonstration-adversarial.md) measures it at Stage 8; the same answer covers [P-011](P-011-receipts-audit.md)'s receipt field |
 
 ## 11. Issues
 
@@ -269,8 +307,11 @@ one that should have been Tier C becomes silently distinct.
 | 6 | Tier C uniformity | `denial/uniformity-c/` passes; length constant |
 | 7 | `escalation_visible` gate | `denial/escalation/` passes; opaque by default |
 | 8 | Timing padding hook, default off | Configurable; off by default; measured in Stage 8 |
-| 9 | Author `denial/` corpus section | Six groups; `harness lint` clean |
+| 8a | Rate-limit rejection wired in as a Tier C `InternalReason` | Present in `classify`; `denial/uniformity-c/` includes it; no header, field, or retry value distinguishes it |
+| 8b | Receipt uniformity across Tier C, and the explicit/opaque receipt split | `denial/receipt-uniformity/` passes |
+| 9 | Author `denial/` corpus section | Seven groups; `harness lint` clean |
 | 10 | Documentation audit for timing claims | No artifact describes MVP as timing-normalized |
 
-Issue 1 blocks 2 and 3. Issues 5 and 6 are the ones that matter — they are the
-only place Q2D-C-08 is actually demonstrated rather than asserted.
+Issue 1 blocks 2 and 3. Issues 5, 6, and 8b are the ones that matter — they are
+the only place Q2D-C-08 is actually demonstrated rather than asserted, and 8b
+covers the half of the response that is not the response body.

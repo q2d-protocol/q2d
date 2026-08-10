@@ -7,8 +7,8 @@
 | Status | **Ready for decomposition** |
 | Size | S |
 | Risk | medium |
-| Depends on | [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md) |
-| Blocks | P-008, P-010, P-015 |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md) |
+| Blocks | P-008, P-010, P-015, P-016 |
 
 ---
 
@@ -229,10 +229,10 @@ failure this PRD is most likely to actually have.
 
 | Question | Belongs to |
 |---|---|
-| What happens when the cache cannot accept an entry — memory pressure, store failure? Proposed: **reject the request**. A responder that cannot guarantee idempotency must not answer | This PRD; resolve before issue 2 |
+| ~~What happens when the cache cannot accept an entry — memory pressure, store failure?~~ | **Resolved: reject the request**, as a Tier C denial. A responder that cannot guarantee idempotency must not answer: the alternative is answering while unable to recognise the retry, which double-debits and can turn a normalized outcome into an answer. The rejection happens **before** the debit, so a cache failure costs the requester its request and the custodian nothing. It is a Tier C cause like any other — a distinguishable "cache unavailable" response would report custodian internal state |
 | ~~Multi-instance responders sharing a cache~~ | **Answered:** single instance. Atomic debit-and-cache does not survive horizontal scaling without a distributed transaction. [P-013](P-013-https-binding.md) §4.6 |
-| Does an expired-but-cached entry still suppress a duplicate debit after eviction? | This PRD; interacts with retention. Proposed: no, and the window bound is what makes that safe |
-| Should the 5-minute window be configurable downward? Proposed: yes, never upward | This PRD |
+| ~~Does an expired-but-cached entry still suppress a duplicate debit after eviction?~~ | **Resolved: no.** Once evicted, the entry is gone and a resubmission is a new request. This is safe only because §4.2 bounds the window: retention is `window + 2×skew`, and a query whose `expires_at` has passed is rejected at step 6 before the cache is consulted at step 9 — so a resubmission after eviction cannot reach the debit, because it cannot get past expiry. The two bounds are one mechanism and neither may be relaxed alone |
+| ~~Should the 5-minute window be configurable downward?~~ | **Resolved: downward only.** Five minutes is the ceiling, configuration may lower it, and startup fails on a configured value above it rather than clamping. A longer window widens the interval in which a captured envelope is still replayable; a shorter one only costs a requester the ability to retry late, which is a local inconvenience rather than a protocol weakening |
 
 ## 11. Issues
 
@@ -246,7 +246,8 @@ failure this PRD is most likely to actually have.
 | 6 | Verbatim response storage and return | Two retries byte-identical |
 | 7 | Ordering assertion: cache unreachable before step 9 | `replay/ordering/` passes |
 | 8 | Author `replay/` corpus section | Five groups; `harness lint` clean |
-| 9 | Resolve open questions 1, 3, 4 | Written into §4.4 and §4.7 before issue 2 |
+| 9 | Cache-failure rejection, eviction semantics, and the window bound | A store failure produces a Tier C denial with no debit; an evicted entry does not suppress a debit; a configured window above five minutes fails at startup |
 
-Issue 9 blocks 2. Issue 5 is the one to schedule time for — the fault-injection
-harness is more work than the logic it tests.
+Issue 5 is the one to schedule time for — the fault-injection harness is more
+work than the logic it tests, and issue 9's cache-failure path is tested through
+the same harness.

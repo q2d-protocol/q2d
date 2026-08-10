@@ -7,8 +7,8 @@
 | Status | **Ready for decomposition** |
 | Size | L |
 | Risk | medium |
-| Depends on | [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-009](P-009-denial-normalization.md) — every prior module |
-| Blocks | P-011, P-013, P-015 |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-009](P-009-denial-normalization.md) — every prior module |
+| Blocks | P-011, P-013, P-015, P-016 |
 
 ---
 
@@ -161,6 +161,16 @@ digest, the assurance profile actually used, the receipt from
 [P-011](P-011-receipts-audit.md), and the response signature from
 [P-003](P-003-crypto-suites.md).
 
+**Every outcome carries a receipt, not only an answer.** A `deny` and an
+explicit `escalate` carry the reduced shape
+([`core-model.md`](../../spec/core-model.md) §5.2, §5.3), so step 19 runs on
+every path that reached a decision rather than only on the success path. An
+*opaque* escalation's receipt is the ordinary deny receipt — the pipeline passes
+[P-009](P-009-denial-normalization.md)'s visibility verdict to the receipt
+builder, never the internal reason, so there is no path by which an opaque
+escalation reaches `decision_class: escalate`
+([P-011](P-011-receipts-audit.md) §4.1).
+
 **No field of the answer is derived from private input except the validated
 result itself.** Not a timestamp taken from a record, not a count, not an
 identifier. Q2D-C-04 is exactly this, and the answer builder is where it is kept
@@ -174,7 +184,7 @@ here rather than discovered later.
 | Interrupted after | State | Resolution |
 |---|---|---|
 | Budget reserved, evaluation faults | Reservation held | Released at §4.5; expires anyway at `expires_at + skew` |
-| Evaluated, validation fails | Nothing debited | Reservation released; no receipt |
+| Evaluated, validation fails | Nothing debited | Reservation released; the request becomes a Tier C denial and **carries the reduced receipt like any other denial** ([P-011](P-011-receipts-audit.md) §4.1) — the exchange happened and Q2D-C-10 binds it, whatever the internal cause |
 | Validated, signing fails | Nothing debited, nothing cached | Reservation released; request fails; a retry is a fresh exchange |
 | Signed, cache write fails | Debit and cache commit atomically ([P-004](P-004-replay-idempotency.md) §4.6) | Both or neither |
 
@@ -192,9 +202,37 @@ step_01_parse_envelope   … step_09_replay_check
 step_10_resolve          … step_15_budget_check  -> PrivateAccessAuthorized
 step_16_evaluate(auth)   -> Result<Output, EvaluationError>
 step_17_validate_output  -> Result<Validated, ValidationError>
-step_18_debit
-step_19_receipt_and_sign
+step_18_debit                     // staged in the transaction, not yet durable
+step_19_receipt_and_sign          // runs for answer, deny, and escalate alike
+// the transaction opened at 18 commits once 19 has produced the signed bytes
 ```
+
+**The transaction spans steps 18 and 19, and this is easy to get wrong.**
+[P-004](P-004-replay-idempotency.md) §4.6 requires the debit and the replay-cache
+entry to commit atomically, and the cache entry stores the **verbatim response
+bytes** — which do not exist until step 19 has signed them. So step 18 does not
+write through: it opens the transaction and stages the debit, step 19 produces
+the bytes, and the commit is the last act of the exchange.
+
+Three things commit together or none do: the **debit**, the **consumption of a
+single-use escalation grant** ([`core-model.md`](../../spec/core-model.md) §5.3),
+and the **cache entry with its response bytes**. Committing the debit at step 18
+and the cache at step 19 is the "debit, then cache" row of
+[P-004](P-004-replay-idempotency.md) §4.6's table — a crash between them
+over-charges — and committing in the other order under-charges, which is worse.
+
+The reservation taken at step 15 is what holds capacity across that span, and it
+is released rather than settled on any failure before the commit (§4.5).
+
+Consuming the grant earlier — at step 14, where policy *reads* it — would spend a
+person's approval on an exchange that then failed output validation.
+
+The rate limit ([`core-model.md`](../../spec/core-model.md) §9.1) is **not** part
+of this. It is checked much earlier, at **step 9a**, before registry resolution:
+it is keyed on the relationship alone, and a limiter that ran at step 15 would
+count only requests that had resolved a predicate, leaving unknown predicates
+unlimited — a difference a requester can measure, and therefore the existence
+oracle step 10's uniform failure exists to prevent.
 
 `Responder` carries the dependencies each step needs — registry, policy engine,
 budget store, replay cache, keys. It is constructed once at startup, so a step
@@ -208,7 +246,8 @@ the design does not have.
 | `ordering/` | this PRD | One vector per rejection step, 1–15 |
 | `evaluate/` | this PRD | The three predicates against `registry/manifest.json`'s vectors, run through the full pipeline |
 | `validate/` | this PRD | Out-of-domain output; oversized output; cardinality and precision violations |
-| `pipeline/` | this PRD | End-to-end answer; end-to-end denial; partial-failure cases from §4.7 |
+| `pipeline/` | this PRD | End-to-end answer; end-to-end denial; end-to-end escalation in both modes; partial-failure cases from §4.7 |
+| `pipeline/receipt/` | this PRD | Step 19 runs for every outcome — an answer, a denial, and an explicit escalation each carry a receipt; an opaque escalation's is indistinguishable from a denial's |
 
 `evaluate/` is the fold-in [P-001](P-001-conformance-corpus.md) §5 anticipated:
 the registry's fourteen vectors already pin predicate behaviour, and here they
@@ -227,6 +266,10 @@ run through the whole responder rather than against a reference function.
 - [ ] A predicate panic returns `EvaluationError::Internal` with no payload
       retained, in both languages.
 - [ ] Every §4.7 partial-failure row leaves the system no more permissive.
+- [ ] **Every outcome carries a receipt**, and an opaque escalation's is
+      byte-identical to a plain Tier C denial's.
+- [ ] A single-use grant is consumed at step 18 and not before: an exchange that
+      fails output validation leaves the grant unconsumed and available.
 - [ ] A registry entry without an implementation, or an implementation without an
       entry, fails at **startup**.
 
@@ -268,10 +311,10 @@ should be a small, readable function rather than a convenient one.
 
 | Question | Belongs to |
 |---|---|
-| Do predicates run in-process, or in a constrained subprocess? Proposed: in-process for MVP. A subprocess bounds a faulting predicate but adds an IPC surface that would itself need to not leak | This PRD; revisit if a predicate ever executes untrusted input |
-| Should evaluation carry a timeout, and does a timeout debit? Proposed: yes to the timeout, no to the debit — same reasoning as validation failure | This PRD; blocks issue 6 |
-| Does the step recorder appear in the external response? **No** — it is audit-only. Confirming here because it would be a per-step oracle | [P-009](P-009-denial-normalization.md) — already Tier C |
-| Where do a predicate's private inputs come from — a fixture store in MVP, or a real adapter? Proposed: fixture store, with the adapter interface defined so a real source is a swap | This PRD; blocks issue 5 |
+| ~~Do predicates run in-process, or in a constrained subprocess?~~ | **Resolved: in-process for MVP.** The three registered predicates are code in this repository operating on fixture data; they execute nothing a requester supplies. A subprocess would bound a faulting predicate, but the IPC boundary would carry private input across it and would itself have to be shown not to leak — a new surface bought to contain a fault that panic-catching already contains (§4.4). **Revisit the moment a predicate evaluates anything untrusted**, which is a change of kind rather than of scale |
+| ~~Should evaluation carry a timeout, and does a timeout debit?~~ | **Resolved: yes to the timeout, no to the debit.** A predicate that does not return holds a budget reservation and a replay-cache slot indefinitely, so the timeout is what bounds a hang into a denial. It does not debit for §4.5's reason — the debit is at step 18, after validation, and a result that was never produced was never released. A timeout is a Tier C denial like every other post-resolution failure, and its duration is configuration, not per-predicate, so the elapsed time discloses nothing about which predicate ran |
+| ~~Does the step recorder appear in the external response?~~ | **Resolved: no** — audit-only, confirmed. A per-step record on the wire would tell a requester exactly which of §4's nineteen steps rejected, which is the oracle [P-009](P-009-denial-normalization.md)'s tiers exist to close, stated in the most granular form available |
+| ~~Where do a predicate's private inputs come from — a fixture store in MVP, or a real adapter?~~ | **Resolved: a fixture store, behind the adapter interface a real source would implement.** The interface is defined now so that a real source is a substitution rather than a redesign, and so the corpus can pin predicate behaviour against known inputs ([`registry/validate.py`](../../registry/validate.py)'s vectors fold in here). Fixtures are synthetic and obviously fictional ([P-016](P-016-demonstration-adversarial.md) issue 1); no real personal data enters this repository |
 
 ## 11. Issues
 

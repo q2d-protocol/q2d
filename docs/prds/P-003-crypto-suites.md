@@ -8,7 +8,7 @@
 | Size | M |
 | Risk | **high** — the only module where a subtle error is silently exploitable |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md) |
-| Blocks | P-004, P-005, P-010, P-011, P-012, P-014 |
+| Blocks | P-004, P-005, P-010, P-011, P-012, P-014, P-016 |
 | Pairs with | [P-002](P-002-message-envelope.md) — P-002 produces the bytes this PRD signs |
 
 ---
@@ -248,8 +248,8 @@ registry entry.
 
 | Question | Belongs to |
 |---|---|
-| Does `registry/suites.json` need its own signature and pinned digest while it holds one entry? Proposed: yes, same mechanism as the predicate manifest, so the path is exercised | This PRD; resolve before issue 3 |
-| Where does `SuitePolicy` come from — config file, environment, compiled default? Proposed: config with a compiled-in floor that config may raise and never lower | This PRD |
+| ~~Does `registry/suites.json` need its own signature and pinned digest while it holds one entry?~~ | **Resolved: yes**, the same mechanism as the predicate manifest ([`core-model.md`](../../spec/core-model.md) §2.4.1, [P-005](P-005-registry-client.md) §4.2). One entry today is exactly why: the verification path is cheap to build now and becomes load-bearing the moment a second suite exists, and a file that decides which algorithms a verifier accepts is the last one that should be unauthenticated. The daemon refuses to start on a digest mismatch, like the predicate manifest |
+| ~~Where does `SuitePolicy` come from — config file, environment, compiled default?~~ | **Resolved: a config file, over a compiled-in floor that configuration may raise and may never lower.** Environment variables are rejected as a source: they are invisible in review, trivially altered by anything sharing the process, and a downgrade that lands via an environment variable leaves no artifact anyone would think to check. Startup fails if configuration attempts to lower the floor — it is not silently clamped, because a clamped misconfiguration reads as success ([P-013](P-013-https-binding.md) §4.6) |
 | ~~Key rotation and revocation semantics~~ | **Answered for this profile:** rotation is re-pairing, revocation is local and does not propagate. [P-014](P-014-identity-pairing.md) §4.5 |
 | ~~Does an unresolvable key debit anything, or leave state?~~ | **Answered: no.** The budget is first touched at step 15 ([P-008](P-008-capacity-accounting.md) §4.2) and key resolution fails at step 4, so nothing reachable holds state |
 | ~~Should capability discovery advertise suites at all in MVP, given §4.5~~ | **Answered:** yes, from configuration, defaulting to the MTI alone. [P-013](P-013-https-binding.md) §4.4 |
@@ -272,4 +272,5 @@ registry entry.
 | 12 | Header-parameter attack vector | A header carrying weakening parameters is ignored, not honoured |
 | 13 | Suite value exposed for receipt construction | [P-011](P-011-receipts-audit.md) can record it without reaching into this module |
 
-Issue 1 blocks everything. Issue 3 blocks 4, 6, and 8.
+Issue 1 blocks everything. Issue 3 blocks 4, 6, and 8, and now includes signing
+`registry/suites.json` and pinning its digest.

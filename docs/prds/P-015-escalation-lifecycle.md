@@ -4,10 +4,10 @@
 |---|---|
 | PRD | P-015 |
 | Stage | 7 — the last MVP item |
-| Status | **Blocked on escalation** — open questions 1, 2, and 3 |
+| Status | **Ready for decomposition** |
 | Size | M |
-| Risk | **high** — the most intricate semantics in the protocol, and three of its questions are open in the specification rather than in this PRD |
-| Depends on | [P-004](P-004-replay-idempotency.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-009](P-009-denial-normalization.md), [P-010](P-010-responder-pipeline.md), [P-012](P-012-requester-runtime.md), [P-013](P-013-https-binding.md) |
+| Risk | **high** — the most intricate semantics in the protocol; the timing property in §4.1 fails a stopwatch rather than a test |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-004](P-004-replay-idempotency.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-009](P-009-denial-normalization.md), [P-010](P-010-responder-pipeline.md), [P-012](P-012-requester-runtime.md), [P-013](P-013-https-binding.md) |
 | Blocks | P-016 |
 
 ---
@@ -31,10 +31,14 @@ depends on this module too: opaque escalation is only normalized if it is
 indistinguishable from every other Tier C outcome, **including in latency**
 (§4.1).
 
-**Three of this PRD's questions are open in `spec/`, not here.** Grant
-multiplicity, whether an `escalate` carries a receipt, and the approval-scope
-field list are all either unspecified or parked. §4 marks each where it arises
-rather than choosing quietly.
+**Four of this PRD's questions were open in `spec/` rather than here, and are
+now decided.** Grant multiplicity is single-use (§4.5), an explicit `escalate`
+carries a receipt while an opaque one does not distinguish itself (§4.1), §7's
+distinctness clause is a floor rather than a description (§4.6), and the poll
+stays a bearer token with the weakness recorded in the threat model (§4.2). The
+approval-scope **field list** and **grant lifetime** remain parked in
+[`core-model.md`](../../spec/core-model.md) §9; §4.6 explains how this module
+builds against a parked value without settling it.
 
 ## 2. Spec citations
 
@@ -42,8 +46,8 @@ rather than choosing quietly.
 |---|---|
 | [`spec/core-model.md`](../../spec/core-model.md) §5.3 | Both modes; the four-step opaque sequence; the residual oracle, named |
 | [`spec/core-model.md`](../../spec/core-model.md) §7 | Idempotency; what makes a request distinct even when the approval scope matches (§4.6) |
-| [`spec/core-model.md`](../../spec/core-model.md) §9 | **Parked:** the approval-scope field list, blocked on grant lifetime and revocation |
-| [`spec/core-model.md`](../../spec/core-model.md) §9 | **Parked:** whether `deny` and `escalate` debit — escalated by [P-008](P-008-capacity-accounting.md) §4.7 |
+| [`spec/core-model.md`](../../spec/core-model.md) §9 | **Still parked:** the approval-scope digest field list, and grant lifetime |
+| [`spec/core-model.md`](../../spec/core-model.md) §9.1 | `deny` and `escalate` do not debit; a required rate limit bounds probing. [P-008](P-008-capacity-accounting.md) §4.7 |
 | [`spec/core-model.md`](../../spec/core-model.md) §4 step 14 | Escalation is a policy outcome, produced where policy is evaluated |
 | [`spec/claims.md`](../../spec/claims.md) Q2D-C-07 | The retry guarantee this module must not break |
 | [`spec/claims.md`](../../spec/claims.md) Q2D-C-08 | Normalization, and the channels it does not close |
@@ -98,6 +102,23 @@ a deliberate disclosure. [`core-model.md`](../../spec/core-model.md) §5.3 is
 emphatic that it **must never be described as denial-normalized**, and no
 artifact in this module may do so.
 
+**Both modes now carry a receipt, and the difference between them is the trap.**
+Q2D-C-10 binds every exchange, so an escalated exchange that produced no evidence
+it happened was an unstated exception to the claim
+([P-011](P-011-receipts-audit.md) §4.1, amended).
+
+| Mode | Response | Receipt |
+|---|---|---|
+| **Explicit** | `status: escalate`, token, `expires_at` | Reduced shape, `decision_class: escalate` |
+| **Opaque** | The §5.2 normalized envelope | The **ordinary deny receipt** — same fields, same class, same bytes |
+
+An opaque escalation carrying `decision_class: escalate` would defeat Q2D-C-08
+through the evidence attached to a response the wire had made uniform, and
+[P-009](P-009-denial-normalization.md)'s response-body uniformity check would
+still pass. The value comes from the visibility verdict this module receives, not
+from the internal reason — so there is no code path by which an opaque
+escalation can reach it.
+
 ### 4.2 Explicit escalation: the token and its lifecycle
 
 | Property | Value |
@@ -108,19 +129,46 @@ artifact in this module may do so.
 | Under the corpus | **Supplied by the vector**, never generated. [P-001](P-001-conformance-corpus.md) §4.3 — a token the runtime invents appears inside a signed response, so two implementations would produce different bytes for one vector and the comparison would fail on entropy rather than on behaviour |
 | Lifetime | The `expires_at` on the escalate response |
 | Polling | Does not extend the token, does not re-evaluate, does not debit |
+| Poll response | Undecided, expired, or unknown → a **poll status object**, identical across all three. Decided → a **poll outcome object** stating approved or refused. Neither carries a receipt, and **neither is an answer** — an approval is a grant, and the answer comes from a fresh revalidated query ([P-013](P-013-https-binding.md) §4.5, §4.4 here) |
 | Retry of the original query | Returns the cached escalate response verbatim, same token ([P-004](P-004-replay-idempotency.md) §4.7) |
 
 **The token is a bearer capability in MVP, and that is a real weakening worth
-naming.** Anyone holding it can learn the outcome, because the poll response is
-a signed Q2D response bound to the original request digest and the endpoint
-authenticates nobody. Mitigations are entropy, a short lifetime, and TLS —
-which reduce exposure without changing the shape.
+naming.** The endpoint authenticates nobody, so anyone holding the token learns
+**whether an authority approved or refused** — which reveals that a relationship
+exists, that a human was asked, and how they decided.
+
+It does **not** hand over the answer. A poll returns a decision, never a release
+(§4.4): the answer requires a fresh query signed by the requester's key, which a
+token holder does not have. That bounds the disclosure without excusing it —
+"this person agreed to tell them" is often the sensitive part, and it is exactly
+what explicit escalation is meant to disclose *to the requester* and to nobody
+else.
+
+Mitigations are entropy, a short lifetime, and TLS, which reduce exposure without
+changing the shape.
 
 The right long-term answer is a **signed poll**: a small message type carrying
 the token under the requester's signature, so the outcome is released only to
 the principal that asked. That is a core-model addition rather than a binding
-detail, which is why MVP does not improvise one. Open question 4, and it
-resolves [P-013](P-013-https-binding.md) open question 7.
+detail, which is why MVP does not improvise one. **Resolved: bearer token in
+MVP**, and it resolves [P-013](P-013-https-binding.md) open question 7.
+
+The weakness is now recorded in
+[`trust-matrix.md`](../../threat-model/trust-matrix.md) §5 as a residual channel,
+not only here. A bearer capability on the consent path disclosed solely in an
+implementation document is disclosed in the wrong place: the threat model is
+where someone deciding whether to trust the protocol looks, and a named
+limitation is worth more than one a reader finds for themselves.
+
+**A poll never constructs a receipt**, and the reason is worth stating because
+the alternative looks reasonable. Q2D-C-10 binds every exchange to a receipt, so
+attaching one to a poll seems consistent — until an *unknown* token arrives,
+which has no originating query, no request digest, and therefore nothing a
+receipt could truthfully bind. Signing one anyway would attest to an exchange
+that never happened. So a decided poll returns evidence that already exists, an
+undecided one returns an object that binds nothing, and
+[`core-model.md`](../../spec/core-model.md) §6 says a poll is not a response to a
+query.
 
 Token expiry does not destroy a grant. The two have different clocks and
 different jobs: the token addresses *this exchange*, the grant addresses *this
@@ -189,43 +237,48 @@ carries no grant field and needs one. It is policy state rather than
 private-derived data, so §4.1's invariant is untouched — but the contract
 changes, and the change belongs to P-007.
 
-It is recorded there as an open question rather than applied, because the
-field's shape depends on open question 1: a single-use grant must also be
-consumable and a multi-use one need not be. P-007 §4.2 is amended in the same
-change as the implementation, once that resolves.
+**Applied.** [P-007](P-007-policy-engine.md) §4.2 now carries the field. Because
+grants are single-use (§4.5), it reports an *unconsumed, unexpired* match, and
+consumption is a release-time act rather than a policy-time one — policy reads
+it, and nothing in [P-007](P-007-policy-engine.md) may consume it.
 
-### 4.5 How many answers is one approval?
+### 4.5 One approval is one answer
 
-**Unspecified, and it decides what a human is agreeing to.**
+**Resolved: a grant is single-use.**
+[`core-model.md`](../../spec/core-model.md) §5.3 now says so — it is consumed by
+the first release made under it, and a second fresh query in the same window
+escalates again.
 
-[`core-model.md`](../../spec/core-model.md) §5.3 says a grant is *time-bounded*
-and says nothing about how many times it may be used. Both readings are
-implementable and they are very different products:
+The reading that lost was multi-use-within-the-window, and it is worth recording
+why, because it is the more convenient one:
 
 | Reading | One approval authorizes |
 |---|---|
-| **Single-use** | One answer. The grant is consumed by the first successful release |
-| **Multi-use within the window** | Any number of answers until the window closes, throttled only by the budget |
+| **Single-use** — adopted | One answer |
+| Multi-use within the window | Any number of answers until the window closes, throttled only by the budget |
 
-**Recommended: single-use.** A person approving *"tell them whether the room is
-free on Thursday"* has agreed to one disclosure. No approval interface can
-honestly convey *"and to every repetition of this question for the next hour"*,
-and a deployment that genuinely wants standing permission should express it as a
-policy rule — where [P-007](P-007-policy-engine.md) evaluates it, the audit
-records it, and it is visible as a rule rather than as the residue of a
-prompt somebody answered once.
+The test is what an approval interface can truthfully say. A prompt can say
+*"tell them whether the room is free on Thursday."* No prompt can convey *"and
+every repetition of this question for the next hour"* to a person deciding in a
+moment. Under multi-use, the disclosure one approval authorizes would be bounded
+by Q2D-C-09's capacity accounting rather than by the consent — and that
+accounting was never intended to be the thing bounding how much a single
+approval discloses.
 
-The counter-argument is real and should be recorded: single-use means a
-transient failure after approval — a network drop between the grant and the
-fresh query — costs the requester another human approval. That is friction, and
-it is the safer direction to fail in.
+A deployment that genuinely wants standing permission expresses it as a **policy
+rule**, where [P-007](P-007-policy-engine.md) evaluates it, the audit records it,
+and it is visible as a rule rather than as the residue of a prompt somebody
+answered once.
 
-The multi-use reading also interacts badly with the budget. Under it, one
-approval plus a large window converts a consent decision into a capacity
-question, and Q2D-C-09's accounting was never intended to be the thing bounding
-how much a single approval discloses.
+The cost is real and is the safe direction to fail in: a transient failure
+between approval and the fresh query — a dropped connection — costs the requester
+another human approval.
 
-**Escalated, not decided here** — open question 1.
+**Consumption happens at release, not at policy.** The grant is read at step 14
+as a [P-007](P-007-policy-engine.md) §4.2 input and consumed alongside the budget
+debit at step 18, inside [P-004](P-004-replay-idempotency.md) §4.6's atomic
+commit. Consuming it earlier would spend a person's approval on an exchange that
+then failed output validation or found the budget exhausted.
 
 ### 4.6 The approval-scope digest, provisional
 
@@ -242,17 +295,22 @@ is that lifetime is **required configuration with no default**, the way retentio
 is in [P-011](P-011-receipts-audit.md) §4.7 — MVP does not choose a number on
 Q2D's behalf, and the operating experience is the input §9 was waiting for.
 
-**One thing to flag rather than fix.**
+**The §7 clause, resolved.**
 [`core-model.md`](../../spec/core-model.md) §7 says a changed purpose, sink set,
 public context, predicate version, or answer contract is a distinct request
-*"even when the approval-scope digest matches"*. Under §5.3's leaning that clause
-is vacuous — every field it names is covered by the digest, so changing one
-necessarily changes the digest and it cannot match.
+*"even when the approval-scope digest matches"*. Under §5.3's field list that
+clause is vacuous — every field it names is covered by the digest, so changing
+one necessarily changes the digest and it cannot match.
 
-The charitable reading, and probably the intended one, is that §7 constrains
-whatever narrower list §9 eventually settles on. That is worth saying out loud,
-because as written a reader may reasonably infer the digest is narrower than
-§5.3 states, and implement a narrower one. Open question 3.
+§7 now states that the clause is a **floor, not a description**: those five must
+remain request-distinguishing whatever narrower list §9 eventually settles on,
+and a reader must not infer a narrower digest from it. The inference was the
+danger — a digest omitting, say, the sink set would let an approval granted for
+one delivery path satisfy a fresh query naming another, and every other document
+would still read as correct.
+
+The alternative of deleting the clause was declined: if §9 does narrow the field
+list, the clause becomes load-bearing, and it would be gone.
 
 ### 4.7 The retry guarantee is structural, and briefly held
 
@@ -358,7 +416,8 @@ receipt.
 | `escalation/poll/` | Pending, decided, unknown, and expired outcomes; polling mutates nothing |
 | `escalation/retry/` | Identical retry after an approval returns the cached outcome; after expiry rejects as expired |
 | `escalation/fresh/` | Fresh query with a matching scope is revalidated end to end — registry, delegation, policy, freshness, budget, data |
-| `escalation/grant/` | Revoked authority overrides a grant; expired grant does not apply; mismatched scope does not match |
+| `escalation/grant/` | Revoked authority overrides a grant; expired grant does not apply; mismatched scope does not match; **a consumed grant does not apply — a second fresh query in the same window escalates again** |
+| `escalation/receipt/` | Explicit escalation carries the reduced receipt with `decision_class: escalate`; an opaque escalation's receipt is byte-identical to a plain Tier C denial's. The pair is the vector |
 | `escalation/scope/` | Digest stable across `query_id`, `nonce`, `issued_at`, `expires_at`; changes with each of the seven covered fields |
 
 `escalation/opaque/`'s first vector runs under
@@ -383,6 +442,11 @@ show that.
 - [ ] `poll` mutates nothing — asserted by running a vector twice and comparing
       full store state.
 - [ ] Grant lifetime is required configuration; startup fails without it.
+- [ ] **A grant authorizes exactly one answer.** A second fresh query with the
+      same scope, inside the same window, escalates rather than answering.
+- [ ] An explicit `escalate` carries a receipt; an **opaque** escalation's
+      receipt is byte-identical to a plain Tier C denial's — asserted over the
+      pair, not over either alone.
 
 ## 8. Negative acceptance
 
@@ -396,6 +460,9 @@ show that.
 | A token encoding the query, principal, or predicate | Token content is decodable |
 | Polling extending a token, debiting, or re-evaluating | Store state differs across two polls |
 | A grant surviving past its configured lifetime | `escalation/grant/` expiry vector answers |
+| **A grant answering twice** | `escalation/grant/` second-use vector returns an answer. This is the multi-use reading arriving by omission rather than by decision |
+| A grant consumed at policy time rather than at release | An exchange that fails output validation or the budget check still burns the approval |
+| **An opaque escalation's receipt carrying `decision_class: escalate`** | `escalation/receipt/` fails. The response bodies match, so no other check catches it |
 | The approval prompt showing an evaluation result | Policy runs at step 14; a result at prompt time means evaluation moved |
 | Replay-cache retention extended to cover a grant | Retention beyond window + 2×skew |
 | An approval API, notification transport, or web surface | Present at all — §4.8 |
@@ -422,43 +489,46 @@ right.
 3. **Every fresh query revalidates end to end**, regardless of a matching scope.
 4. **The token encodes nothing and polling has no side effects.**
 5. **Grant lifetime is required configuration with no default.**
-6. **The approval prompt never shows an evaluation result.**
-7. **Replay-cache retention is not extended for grants.**
-8. **No approval API, notification transport, or push delivery in MVP.**
-9. **Explicit escalation is never described as normalized.**
+6. **A grant is single-use**, consumed at release and not at policy time
+   ([`core-model.md`](../../spec/core-model.md) §5.3).
+7. **The approval prompt never shows an evaluation result.**
+8. **Replay-cache retention is not extended for grants.**
+9. **No approval API, notification transport, or push delivery in MVP.**
+10. **Explicit escalation is never described as normalized**, and only explicit
+    escalation carries `decision_class: escalate` in its receipt.
 
 ## 10. Open questions
 
 | Question | Belongs to |
 |---|---|
-| **1.** Is a grant single-use or multi-use within its window? [`core-model.md`](../../spec/core-model.md) §5.3 does not say, and it decides what a human is agreeing to. **Recommended: single-use** (§4.5) | **Escalation.** A `core-model.md` §5.3 addition; blocks issues 6 and 7 |
-| **2.** Does an `escalate` response carry a receipt? §5.3 does not say, and [P-011](P-011-receipts-audit.md) §4.1's table has answer and deny columns only — so an escalated exchange currently produces no evidence it happened, against Q2D-C-10's "one exchange". **Recommended: yes, the reduced deny-shaped receipt with `decision_class: escalate`**, leaving [P-009](P-009-denial-normalization.md)'s uniformity untouched since explicit escalation is not in a normalized class | **Escalation.** `core-model.md` §5.3 and P-011 §4.1 in lockstep |
-| **3.** [`core-model.md`](../../spec/core-model.md) §7's "even when the approval-scope digest matches" is vacuous under §9's current leaning (§4.6). Recommended: state that it constrains whatever list §9 settles on, so nobody infers a narrower digest from it | **Escalation.** A `core-model.md` clarification that carries meaning |
-| **4.** Should the poll be a signed request rather than a bearer token? Recommended: yes eventually, no in MVP — it needs a core message type, and improvising one here is worse than naming the weakness. Resolves [P-013](P-013-https-binding.md) open question 7 | Escalation if adopted; `core-model.md` addition |
-| **5.** ~~Do `deny` and `escalate` debit?~~ | Already escalated by [P-008](P-008-capacity-accounting.md) §4.7. This module inherits the answer and must not pre-empt it; issue 5 blocks on it |
-| **6.** Who may approve — any configured authority, or the specific one policy named? Proposed: the specific one, since an approval by an authority that was not consulted is not the decision policy asked for | This PRD; blocks issue 6 |
-| **7.** Does a refusal record anything that suppresses re-asking? Proposed: no. A stored refusal that shortened later evaluation would be a decision cache, which §4.4 rejects for the same reason grants are not one | This PRD |
+| **1.** ~~Is a grant single-use or multi-use within its window?~~ | **Resolved: single-use.** [`core-model.md`](../../spec/core-model.md) §5.3; see §4.5. Consumption is a release-time act, so [P-007](P-007-policy-engine.md) §4.2's new `grant` field reports an *unconsumed* match and policy never consumes it |
+| **2.** ~~Does an `escalate` response carry a receipt?~~ | **Resolved: yes**, the reduced shape with `decision_class: escalate` — **for explicit escalation only.** An opaque escalation carries the ordinary deny receipt, byte-identical to any other Tier C denial. §5.3 and [P-011](P-011-receipts-audit.md) §4.1 amended together; §4.1 here carries the table |
+| **3.** ~~[`core-model.md`](../../spec/core-model.md) §7's "even when the approval-scope digest matches" is vacuous~~ | **Resolved.** §7 now states the clause as a **floor** on whatever list §9 settles, with an explicit instruction not to infer a narrower digest from it. Deleting the clause was declined — it becomes load-bearing precisely if §9 narrows the list. See §4.6 |
+| **4.** ~~Should the poll be a signed request rather than a bearer token?~~ | **Resolved: bearer token in MVP**, no improvised message type. The weakness is recorded in [`trust-matrix.md`](../../threat-model/trust-matrix.md) §5 as a residual channel rather than only in this PRD. Resolves [P-013](P-013-https-binding.md) open question 7 |
+| **5.** ~~Do `deny` and `escalate` debit?~~ | **Resolved: neither does.** [`core-model.md`](../../spec/core-model.md) §9.1; a required rate limit bounds probing instead. [P-008](P-008-capacity-accounting.md) §4.7 |
+| **6.** ~~Who may approve — any configured authority, or the specific one policy named?~~ | **Resolved: the specific authority policy named**, recorded on the pending record at step 14. An approval from an authority that was not consulted is not the decision policy asked for, and accepting one would make the set of people who can release a disclosure larger than the set the policy identified — silently, and without anything in the audit showing the substitution. An approval from any other authority is refused and audited as such |
+| **7.** ~~Does a refusal record anything that suppresses re-asking?~~ | **Resolved: no.** A stored refusal that shortened a later evaluation would be a decision cache — the same thing §4.4 refuses to let a grant become, in the direction that looks harmless. It would also be a *negative* oracle: a second identical request returning faster than the first tells the requester a human said no. The refusal is audited, and it changes nothing about how the next request is evaluated. Repeated prompting is a policy problem, solved by a policy rule that denies without escalating |
 
 ## 11. Issues
 
 | # | Issue | Done when |
 |---|---|---|
-| 1 | Escalate open questions 1, 2, 3, and 4 | Resolved; `core-model.md` §5.3/§7 and P-011 §4.1 amended or the recommendations declined, with §4.5, §4.6, and §4.2 citing the outcome |
+| 1 | ~~Escalate open questions 1, 2, 3, and 4~~ — **done** | Resolved; `core-model.md` §5.3 and §7, `trust-matrix.md` §5, and P-011 §4.1 amended; §4.1, §4.2, §4.5, and §4.6 cite the outcome |
 | 2 | `ApprovalScope` and `approval_scope_digest` | `escalation/scope/` passes; digest stable across the four excluded fields |
 | 3 | Pending record and store | Survives restart; no state reachable from an unauthenticated path |
 | 4 | Asynchronous prompt dispatch | `escalation/opaque/` timing assertion passes; response unchanged when approval never arrives |
-| 5 | Opaque mode end to end | Tier C uniformity check passes with escalation among the causes; open question 5 resolved |
-| 6 | `approve` / `refuse` with authority recording | `escalation/grant/` passes; open questions 1 and 6 resolved first |
-| 7 | Grant store, lifetime, and consumption | Startup fails without a configured lifetime; multiplicity per open question 1 |
-| 8 | `grant_lookup` and the `PolicyInput` amendment | [P-007](P-007-policy-engine.md) §4.2 amended in the same change; no call converts a grant to a response |
+| 5 | Opaque mode end to end | Tier C uniformity check passes with escalation among the causes, **for the receipt as well as the response** |
+| 6 | `approve` / `refuse` with authority recording | `escalation/grant/` passes; open question 6 resolved first |
+| 7 | Grant store, lifetime, and **single-use consumption** | Startup fails without a configured lifetime; consumption commits atomically with the debit at step 18 ([P-004](P-004-replay-idempotency.md) §4.6); a second fresh query under a consumed grant escalates again |
+| 7a | Escalate receipts, both modes | `escalation/receipt/` passes; no code path lets an opaque escalation reach `decision_class: escalate` |
+| 8 | `grant_lookup` | [P-007](P-007-policy-engine.md) §4.2 already carries the field; `grant_lookup` reports and no call converts a grant to a response |
 | 9 | Fresh-query revalidation path | `escalation/fresh/` shows every step running |
 | 10 | `issue_token` and `poll` | `escalation/explicit/` and `escalation/poll/` pass; two polls leave identical state |
 | 11 | Approval CLI | An operator approves and refuses locally; no network surface added |
 | 12 | Author `escalation/` corpus section | Seven groups; `harness lint` clean |
 | 13 | Claim-language audit | Nothing calls explicit escalation normalized, or claims a §4.9 channel is closed |
 
-Issue 1 blocks 5, 6, and 7 — three of the four open escalations change what gets
-built rather than what gets written. Issue 4 is the one to schedule properly: a
+Issue 4 is the one to schedule properly: a
 timing assertion needs a harness capability the corpus does not have yet, and
 [P-001](P-001-conformance-corpus.md) §10 deferred timing bands to Stage 8 on the
 assumption nothing before then would need them. This does.

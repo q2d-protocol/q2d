@@ -7,8 +7,8 @@
 | Status | **Ready for decomposition** |
 | Size | L |
 | Risk | medium |
-| Depends on | [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md) |
-| Blocks | P-008, P-009, P-010, P-011, P-015 |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md) |
+| Blocks | P-008, P-009, P-010, P-011, P-015, P-016 |
 
 ---
 
@@ -87,12 +87,33 @@ PolicyInput {
   admissible_domain
   requested_assurance
   disclosure_history  { relationship, window, spent_millibits, limit_millibits }
+  grant          Option<{ scope_digest, granted_at, expires_at }>
   environment    { now, deployment_context }
 }
 ```
 
 Every field is either signature-covered, registry-derived, or local state. None
 is derived from private input (§4.1), and none is taken from `routing`.
+
+`grant` reports an **unconsumed, unexpired** grant whose approval-scope digest
+matches this request, and nothing else. It is policy state, not private-derived
+data, so §4.1's invariant is untouched.
+
+Two properties of the shape carry the weight:
+
+- **It is an input, not a decision.** A grant that short-circuited the pipeline
+  would be an answer cached under another name.
+  [P-015](P-015-escalation-lifecycle.md) §4.4 has the same shape as
+  [P-008](P-008-capacity-accounting.md) §4.6's `Exhausted` verdict — the module
+  reports, this one decides. A revoked authority therefore overrides a grant with
+  no special case, because §4.4's most-restrictive composition denies regardless
+  of what `grant` says.
+- **Policy reads it; policy never consumes it.** A grant is **single-use**
+  ([`core-model.md`](../../spec/core-model.md) §5.3), and consumption happens on
+  release, alongside the budget debit at step 18, inside the same atomic commit
+  ([P-004](P-004-replay-idempotency.md) §4.6). Consuming at step 14 would burn a
+  human's approval on an exchange that then failed output validation or found the
+  budget exhausted — a person's decision spent on nothing released.
 
 `environment.now` is **passed in**, not read. A policy engine that reads a clock
 is non-deterministic and therefore not testable against a vector.
@@ -144,6 +165,11 @@ prevents. Any `escalate` from an authority that has not denied produces
 Modifiers from all permitting authorities are **unioned**, not merged — every
 narrowing applies. Two authorities coarsening the same dimension differently both
 take effect, and the result is the coarser of the two.
+
+That is the same rule [`core-model.md`](../../spec/core-model.md) §3 states for
+the effective domain as a whole: composition of narrowings, taking the coarsest,
+rather than a set intersection. Two-hour bands composed with four-hour bands
+yield four-hour bands; as sets of values they would intersect to nothing.
 
 An authority that cannot be reached, times out, or returns something
 unparseable counts as a **mandatory deny**, not as absent.
@@ -218,6 +244,7 @@ discover the problem on a live request.
 | `policy/determinism/` | Same input twice; permuted authority order; permuted rule-set map order |
 | `policy/separation/` | An audit reason never appears in `external` |
 | `policy/rules/` | A rule set overriding an invariant fails at load |
+| `policy/grant/` | A matching grant is an input, not an outcome: a revoked authority still denies, an expired grant does not appear, and an already-consumed one does not appear |
 
 ## 7. Acceptance
 
@@ -266,11 +293,11 @@ the value it would need.
 
 | Question | Belongs to |
 |---|---|
-| Which authorities are *mandatory* versus advisory, and who declares that? Proposed: custodian configuration, and the set is fixed at load | This PRD |
+| ~~Which authorities are *mandatory* versus advisory, and who declares that?~~ | **Resolved: custodian configuration, fixed at load.** It cannot come from the request — a requester that could mark an authority advisory would have demoted the authority that was about to deny it. Fixed at load rather than per-request means the composition in §4.4 is a property of the deployment and is reproducible against a vector. An authority that fails to load is a **startup failure**, not a silently advisory one |
 | ~~Does `escalate` consult the budget before or after?~~ | **Answered: neither — it cannot.** Policy runs once at step 14, the budget is checked at step 15, so the disposition is decided in advance as `on_exhaustion` (§4.3). [P-008](P-008-capacity-accounting.md) §4.6 |
-| Is a rule language shipped at all in MVP, or is the engine a code interface with a fixture rule set? Proposed: code interface. A rule language is scope Q2D declined | This PRD |
-| How are modifiers from two authorities coarsening the same dimension combined — coarser wins, or intersect? Proposed: coarser wins, since both are narrowings and the union of narrowings is the strictest | This PRD; blocks issue 4 |
-| **`PolicyInput` needs a grant field.** [P-015](P-015-escalation-lifecycle.md) §4.4 makes an escalation grant an *input* to policy rather than a stored decision, so §4.2's contract gains one. It is policy state, not private-derived data, so §4.1's invariant is untouched. Shape waits on [P-015](P-015-escalation-lifecycle.md) open question 1 — a single-use grant must also be consumable, a multi-use one need not be | [P-015](P-015-escalation-lifecycle.md); amend §4.2 when that resolves |
+| ~~Is a rule language shipped at all in MVP, or is the engine a code interface with a fixture rule set?~~ | **Resolved: a code interface with a fixture rule set.** [`scope.md`](../../spec/scope.md) and CC-3 both say Q2D specifies the policy input and output contract and not a language, so shipping one would make the reference implementation's language read as part of the protocol. The fixture set exists to exercise §4.4 composition and the §4.5 invariants, and is explicitly not a starting point for a deployment's rules |
+| ~~How are modifiers from two authorities coarsening the same dimension combined — coarser wins, or intersect?~~ | **Answered: coarser wins.** [`core-model.md`](../../spec/core-model.md) §3 now states the whole effective-domain computation as narrowing composition rather than intersection, and §4.4 here is that rule applied to two modifiers |
+| ~~**`PolicyInput` needs a grant field.**~~ | **Resolved and applied.** Grants are single-use ([`core-model.md`](../../spec/core-model.md) §5.3), so the field reports an *unconsumed* match and consumption happens at release rather than at step 14. §4.2 amended |
 
 ## 11. Issues
 
@@ -279,13 +306,19 @@ the value it would need.
 | 1 | `PolicyInput` and `Decision` types, both languages | No private-derived field; `audit` and `external` separate |
 | 2 | `decide` over a fixture rule set | `policy/outcome/` passes |
 | 3 | F1–F6 as property tests | `policy/failclosed/` passes; generators cover each class |
-| 4 | `compose` with most-restrictive ordering and modifier union | `policy/compose/` passes; open question 4 resolved |
+| 4 | `compose` with most-restrictive ordering and modifier union | `policy/compose/` passes; coarser-wins per [`core-model.md`](../../spec/core-model.md) §3 |
+| 4a | `grant` field on `PolicyInput`, read-only | `policy/grant/` passes; no code path in this module consumes a grant |
 | 5 | `validate_rules` at load | `policy/rules/` passes; invariant override refuses to start |
 | 6 | Determinism: explicit rule ordering, no clock, no map iteration | `policy/determinism/` passes; dependency check clean |
 | 7 | Audit/external separation | `policy/separation/` passes |
 | 8 | Modifier emission constrained to coarsening | Subset attempt errors as an implementation fault |
 | 9 | Author `policy/` corpus section | Seven groups; `harness lint` clean |
-| 10 | Resolve open questions 1, 3, 4 | Written into §4.4 and §5 before issues 4 and 5 |
+| 10 | Resolve open questions 1 and 3 | Written into §4.4 and §5 before issues 4 and 5 |
 
 Issue 1 blocks everything. Issue 3 is the largest — property generators for six
 invariant classes in two languages is most of this PRD's weight.
+
+Issue 4a is small but easy to get wrong in a way nothing catches: the grant must
+be read here and consumed at release ([P-015](P-015-escalation-lifecycle.md)
+§4.4). A module that consumes what it reads spends a human's approval on an
+exchange that may still fail.

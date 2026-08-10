@@ -4,10 +4,10 @@
 |---|---|
 | PRD | P-016 |
 | Stage | 8 — closes MVP |
-| Status | **Blocked on escalation** — open question 1 |
+| Status | **Ready for decomposition** |
 | Size | M |
 | Risk | low to build; **the publication surface is the project's largest overstatement risk** |
-| Depends on | P-001 … P-015 — everything |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-009](P-009-denial-normalization.md), [P-010](P-010-responder-pipeline.md), [P-011](P-011-receipts-audit.md), [P-012](P-012-requester-runtime.md), [P-013](P-013-https-binding.md), [P-014](P-014-identity-pairing.md), [P-015](P-015-escalation-lifecycle.md) — everything |
 | Blocks | nothing |
 
 ---
@@ -237,17 +237,25 @@ table as the ten that pass, rather than omitting them or footnoting them. A
 coverage report that lists only what passed is a marketing document.
 
 The direct consequence: **MVP completion is not Phase 1 completion in
-`claims.md`'s own terms**, and no artifact may say it is. Open question 1 asks
-whether [`mvp-scope.md`](../mvp-scope.md) §1 should say so explicitly, since
-"definition of done" currently reads as though finishing the walkthrough
-finishes the phase.
+`claims.md`'s own terms**, and no artifact may say it is.
+[`mvp-scope.md`](../mvp-scope.md) §1 now states this where it is read, and names
+the three claims explicitly rather than gesturing at "some claims" — a specific
+list is checkable, and self-maintaining in a way a vague caveat is not. When
+Q2D-C-11 gains a second binding, someone deletes a row. Open question 1,
+resolved.
 
 Conformance classes get the same treatment.
 [`conformance-classes.md`](../../spec/conformance-classes.md)'s honesty rule
 means MVP may state the classes whose checks all pass and must state that CC-8,
-CC-9, and CC-10 are not implemented — with CC-12, if it is added
-([P-013](P-013-https-binding.md) open question 2), reporting whatever its checks
-show.
+CC-9, and CC-10 are not implemented. **CC-12 now exists** — the direct HTTPS
+binding class ([P-013](P-013-https-binding.md) §4.8) — and reports whatever its
+checks show.
+
+CC-12 passing does **not** move Q2D-C-11 out of the table above. Equivalence is a
+statement between two bindings, and a class covering one of them supplies a
+binding to compare rather than the comparison. Reporting "CC-12: pass" beside
+"Q2D-C-11: no passing test" is the honest pair, and the report must not let the
+first be read as establishing the second.
 
 ### 4.7 The demonstration scenario
 
@@ -399,12 +407,12 @@ nothing is reviewed against a claim.
 
 | Question | Belongs to |
 |---|---|
-| **1.** [`mvp-scope.md`](../mvp-scope.md) §1's "definition of done" reads as though completing the walkthrough completes the phase, but three claims will have no passing test (§4.6). Proposed: state in §1 that MVP completion is not Phase 1 completion in [`claims.md`](../../spec/claims.md)'s terms, and name the three | Escalation — a `mvp-scope.md` wording change with public consequences |
-| **2.** [P-015](P-015-escalation-lifecycle.md) issue 4 needs a timing assertion at **Stage 7**, but [P-001](P-001-conformance-corpus.md) §10 deferred timing to Stage 8 on the assumption nothing earlier would need it. Proposed: pull a minimal timing capability forward into the harness; this PRD still owns measurement and reporting | [P-001](P-001-conformance-corpus.md); a sequencing correction |
-| **3.** Does attack 9 have a defined stopping condition, or does it run until the budget is exhausted? Proposed: budget exhaustion, with the reconstruction achieved reported as a fraction — an open-ended probe produces a result nobody can reproduce | This PRD; blocks issue 4 |
-| **4.** Where do measurements live — a repository document, or a future draft of the report? Proposed: the repository, versioned with the code that produced them; the deposited report is immutable and a future draft cites the repository | This PRD |
-| **5.** Should the adversarial suite ship with a template for contributing a **new** attack? Proposed: yes. Making a stranger's attack cheap is §4.1's real deliverable, and a template is most of that | This PRD |
-| **6.** Does the demo need a failure mode where an attack **succeeds** against a deliberately misconfigured deployment — no fingerprint check, TOFU pairing enabled? Proposed: yes, as the clearest way to show what the manual steps are actually for | This PRD |
+| **1.** ~~[`mvp-scope.md`](../mvp-scope.md) §1's "definition of done" reads as though completing the walkthrough completes the phase~~ | **Resolved.** §1 now carries a *MVP completion is not Phase 1 completion* subsection naming Q2D-C-11, Q2D-C-12, and Q2D-C-13 explicitly, and stating that no artifact may describe the walkthrough as completing the phase. §4.6 is the matching report |
+| **2.** ~~[P-015](P-015-escalation-lifecycle.md) issue 4 needs a timing assertion at **Stage 7**, but [P-001](P-001-conformance-corpus.md) §10 deferred timing to Stage 8~~ | **Resolved: pulled forward**, minimally — an assertion that two response paths fall within a band, not a measurement framework. [P-001](P-001-conformance-corpus.md) §10 amended; this PRD keeps measurement and reporting |
+| **3.** ~~Does attack 9 have a defined stopping condition?~~ | **Resolved: it stops at budget exhaustion**, and reports the reconstruction achieved as a fraction of the constraint set. An open-ended probe produces a number nobody can reproduce, and a number nobody can reproduce is worse than no number in an adversarial suite whose point is that a stranger can re-run it. Budget exhaustion is also the honest boundary: Q2D-C-09 claims the budget throttles reconstruction, so *what was reconstructed before the throttle stopped it* is exactly the quantity the claim is about |
+| **4.** ~~Where do measurements live?~~ | **Resolved: in the repository**, versioned with the code that produced them and regenerated by `repro`. The deposited report has a DOI and cannot be updated ([`versioning.md`](../versioning.md)), so a measurement published only there would be frozen against code that keeps moving. A future draft **cites** the repository rather than restating the numbers, which also lets a reader tell which commit produced them |
+| **5.** ~~Should the adversarial suite ship with a template for contributing a new attack?~~ | **Resolved: yes.** §4.1's real deliverable is that someone who does not trust this project can attack it without our help, and the gap between *the code is public* and *an attack is cheap to write* is most of what stops that happening. The template carries the harness wiring, the claim-citation field, and the expected-versus-actual reporting shape, so a contributor writes only the attack |
+| **6.** ~~Does the demo need a failure mode where an attack succeeds against a deliberately misconfigured deployment?~~ | **Resolved: yes.** Skipping the fingerprint comparison and enabling trust-on-first-use are the two manual steps a hurried operator will drop, and a documented warning is weaker than a demonstration that an impersonation succeeds once they are dropped. It also keeps the suite honest: a demonstration where every attack fails invites the reading that the protocol is unbreakable, and [`claims.md`](../../spec/claims.md)'s non-claims list exists to prevent exactly that |
 
 ## 11. Issues
 

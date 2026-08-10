@@ -7,8 +7,8 @@
 | Status | **Ready for decomposition** |
 | Size | M |
 | Risk | medium |
-| Depends on | [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-005](P-005-registry-client.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-010](P-010-responder-pipeline.md) |
-| Blocks | P-012, P-013 |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-005](P-005-registry-client.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-010](P-010-responder-pipeline.md) |
+| Blocks | P-012, P-013, P-016 |
 
 ---
 
@@ -51,7 +51,7 @@ interface CC-11 needs.
 
 | Field | Source | Present on |
 |---|---|---|
-| `request_digest` | the exact `signed` bytes received | answer, deny |
+| `request_digest` | the exact `signed` bytes received | answer, deny, escalate |
 | `response_digest` | §4.2 | answer |
 | `predicate` | id and version | answer |
 | `entry_digest` | the resolved registry entry ([`core-model.md`](../../spec/core-model.md) §2.4.1) | answer |
@@ -59,15 +59,34 @@ interface CC-11 needs.
 | `policy_version` | the decision-policy digest | answer |
 | `release_shape` | the effective domain's shape | answer |
 | `assurance_profile` | the profile actually used | answer |
-| `signature_suite` | the suite the response was signed under | answer, deny |
+| `signature_suite` | the suite the response was signed under | answer, deny, escalate |
 | `disclosure_capacity_debit_millibits` | integer ([P-008](P-008-capacity-accounting.md)) | answer |
-| `decided_at` | RFC 3339, second precision | answer, deny |
-| `responder` | the computation executor's identity | answer, deny |
-| `decision_class` | the normalized external class | deny |
+| `decided_at` | RFC 3339, second precision | answer, deny, escalate |
+| `responder` | the computation executor's identity | answer, deny, escalate |
+| `decision_class` | the normalized external class, or `escalate` — see below | deny, escalate |
 | `requester_acknowledgment` | **reserved, not implemented** — §4.6 | — |
 
 The deny receipt carries five fields and no variable-length value, which is what
 makes [P-009](P-009-denial-normalization.md) §4.3's uniformity structural.
+
+**The escalate column is the same five fields.** An explicit `escalate` carries
+the reduced receipt with `decision_class: escalate`
+([`core-model.md`](../../spec/core-model.md) §5.3). Q2D-C-10 binds every
+exchange, and without this an escalated exchange produced no evidence it had
+happened — an unstated exception to the claim rather than a gap someone had
+decided on.
+
+**One boundary, and it is the whole reason this is safe.** `decision_class:
+escalate` belongs only to an **explicit** escalation. An *opaque* escalation
+returns the §5.2 normalized envelope and carries the **ordinary deny receipt**,
+with the ordinary deny `decision_class` — indistinguishable from every other
+Tier C cause. A receipt recording `escalate` for an outcome the wire had made
+uniform would defeat Q2D-C-08 through the evidence attached to the response,
+while [P-009](P-009-denial-normalization.md)'s response-body uniformity check
+still passed. `denial/receipt-uniformity/` exists to catch exactly that.
+
+Explicit escalation costs nothing in uniformity because it is not in a
+normalized class to begin with.
 
 `entry_digest` is new since the option-2 change. Without it a receipt records
 *which predicate and version* were used but not *which definition of them*, which
@@ -85,7 +104,10 @@ response. Taken literally that is circular.
 `response_digest` is therefore computed over the response's **semantic content**
 — result, effective contract digest, assurance profile — **excluding the receipt
 and the signature**. Well-defined, non-circular, and computable before the
-receipt exists.
+receipt exists. [`core-model.md`](../../spec/core-model.md) §6 carries this
+normatively; [P-002](P-002-message-envelope.md) §4.2 supplies the canonical
+production profile it needs and §4.7 the digest construction, since unlike `request_digest` it is taken over a
+sub-object rather than over received bytes.
 
 Its purpose is standalone verification. When a receipt travels with its response
 the signature already binds them, and the digest is redundant. It earns its place
@@ -198,7 +220,8 @@ less.
 
 | Group | Vectors |
 |---|---|
-| `receipt/fields/` | Every field present and correctly sourced, for answer and deny |
+| `receipt/fields/` | Every field present and correctly sourced, for answer, deny, and explicit escalate |
+| `receipt/escalate/` | An explicit `escalate` carries the reduced receipt with `decision_class: escalate`; an **opaque** escalation's receipt is byte-identical to a plain Tier C denial's — the pair is the vector, not either alone |
 | `receipt/digests/` | `request_digest`, `response_digest`, `effective_contract_digest`, `entry_digest` against known bytes |
 | `receipt/verify/` | With response; without response; tampered response; wrong key |
 | `receipt/exclusion/` | Internal reason, step, policy reasoning, and budget state absent from every receipt |
@@ -216,6 +239,10 @@ less.
 - [ ] No audit event contains the answer plaintext or any private input.
 - [ ] A deny receipt has five fields, no variable-length value, and constant
       length across causes.
+- [ ] An explicit `escalate` carries a receipt; **no outcome is returned without
+      one**.
+- [ ] An opaque escalation's receipt is byte-identical to a plain Tier C denial's,
+      asserted across the two together rather than per case.
 - [ ] Audit events are deleted at retention expiry, observably.
 
 ## 8. Negative acceptance
@@ -229,6 +256,8 @@ less.
 | The answer plaintext in an audit event | `receipt/audit/` finds it |
 | Private input anywhere in either | Review plus `receipt/audit/` |
 | A deny receipt with a variable-length field | Length varies across causes; P-009 uniformity fails |
+| **An opaque escalation's receipt carrying `decision_class: escalate`** | `receipt/escalate/` fails. The response bodies still match, so nothing else catches it |
+| An `escalate` response returned with no receipt | `receipt/fields/` has no escalate case to check |
 | `verify_receipt` silently checking less without a response | Result does not report the skipped check |
 | An acknowledgment field populated | It is reserved; populating it asserts semantics that do not exist |
 | Documentation calling a receipt proof of truth or proof of disclosure | Grep across artifacts |
@@ -254,12 +283,12 @@ error, because the caller acts on it.
 
 | Question | Belongs to |
 |---|---|
-| Does a rejected exchange write an audit event at all, or only one that reached policy? Proposed: every exchange at or after step 9, matching [P-004](P-004-replay-idempotency.md)'s caching boundary | This PRD |
-| Is `policy_version` a version string or a digest of the effective rule set? Proposed: a digest — a version string can be reused across changed rules | This PRD; blocks issue 2 |
+| ~~Does a rejected exchange write an audit event at all, or only one that reached policy?~~ | **Resolved: every exchange at or after step 9**, the same boundary [P-004](P-004-replay-idempotency.md) uses for caching. Before step 9 a request is unauthenticated or expired, and writing an audit event for it would let anyone fill a custodian's audit store from the network. From step 9 the requester is authenticated and the exchange is one the custodian chose to process, so it is one the operator needs a record of |
+| ~~Is `policy_version` a version string or a digest of the effective rule set?~~ | **Resolved: a digest** of the effective rule set, computed at load. A version string is set by hand and can be left unchanged across a rule edit, which would make a receipt attest to a policy that no longer exists — and a receipt's value is precisely that it binds what was in force. The digest covers the composed rule set including which authorities are mandatory ([P-007](P-007-policy-engine.md) §4.4), because that determines the decision as much as the rules do |
 | ~~Does the requester store its own audit event, or only the receipt?~~ | **Answered:** only the receipt. [P-012](P-012-requester-runtime.md) §4.7 |
-| What is the default retention period? Proposed: none — the deployment must choose, and a missing choice fails at startup rather than defaulting to forever | This PRD |
-| Should `decided_at` be coarsened in the receipt to blunt timing correlation? | [P-009](P-009-denial-normalization.md) open question 4 — same question, one answer |
-| **Does an `escalate` response carry a receipt?** §4.1's table has answer and deny columns only, so an escalated exchange currently produces no evidence it happened — against Q2D-C-10's "one exchange". Recommended: the reduced deny-shaped receipt with `decision_class: escalate` | **Escalation**, raised by [P-015](P-015-escalation-lifecycle.md) open question 2; §4.1 gains a column when it resolves |
+| ~~What is the default retention period?~~ | **Resolved: none — it is required configuration**, and the daemon refuses to start without it ([P-013](P-013-https-binding.md) §4.6). Any default is wrong: a short one silently destroys evidence an operator needed, a long one silently accumulates a record of who asked what about whom, which [`claims.md`](../../spec/claims.md) already warns may itself be personal data. A deployment that has not chosen has not thought about it, and startup is where that is cheapest to discover |
+| ~~Should `decided_at` be coarsened in the receipt to blunt timing correlation?~~ | **Resolved: no in MVP**, second precision, for the replay-window arithmetic reason. One answer, both places — [P-009](P-009-denial-normalization.md) §10 carries it |
+| ~~**Does an `escalate` response carry a receipt?**~~ | **Resolved: yes**, the reduced shape with `decision_class: escalate` — but only for *explicit* escalation; an opaque one carries the ordinary deny receipt. [`core-model.md`](../../spec/core-model.md) §5.3; §4.1 amended |
 
 ## 11. Issues
 
@@ -268,7 +297,8 @@ error, because the caller acts on it.
 | 1 | `Receipt` and `DenyReceipt` types | Deny type cannot hold an answer-side field |
 | 2 | `build_receipt` from `ExchangeFacts` | `receipt/fields/` passes; open question 2 resolved |
 | 3 | `response_digest` definition and computation | `receipt/digests/` passes; computable pre-receipt |
-| 4 | `build_deny_receipt` | Five fields; constant length; feeds P-009 uniformity |
+| 4 | `build_deny_receipt`, serving deny and both escalation modes | Five fields; constant length; feeds P-009 uniformity. One builder, with `decision_class` supplied by the caller — an opaque escalation must not be able to reach the `escalate` value, so the caller is [P-015](P-015-escalation-lifecycle.md)'s visibility verdict, never the internal reason |
+| 4a | `receipt/escalate/` uniformity pair | Explicit carries `escalate`; opaque is byte-identical to a Tier C denial |
 | 5 | `AuditEvent` type and the §4.3 delta | `receipt/audit/` passes; no answer plaintext |
 | 6 | Audit store: append-only, encrypted at rest | Encryption verified; append-only enforced |
 | 7 | Retention and deletion | Deletion observable; startup fails with no retention configured |

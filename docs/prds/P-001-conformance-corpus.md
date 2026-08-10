@@ -7,7 +7,7 @@
 | Status | **Ready for decomposition** |
 | Size | M |
 | Risk | low |
-| Blocks | every other PRD |
+| Blocks | P-002, P-003, P-004, P-005, P-006, P-007, P-008, P-009, P-010, P-011, P-012, P-013, P-014, P-015, P-016 — every other PRD |
 | Depends on | nothing |
 
 ---
@@ -133,6 +133,30 @@ both-verify check, and it is the property the Stage 1 gate rests on.
   where it does not. A vector must state which; there is no default, because a
   silent default is how a determinism requirement gets quietly dropped.
 
+**`semantic` is defined as parse-then-deep-equal**, and only that:
+
+- both sides are parsed as JSON and compared as trees — object key order is
+  irrelevant, array order is **significant**, and numbers compare by parsed
+  value rather than by lexical form;
+- **absent and null are different.** A field missing from one side and null on
+  the other is a mismatch, because the two mean different things in every
+  structure this protocol defines;
+- no coercion of any kind: no string-to-number, no case folding, no whitespace
+  normalization inside string values.
+
+Array order is significant because every ordered thing in Q2D is
+security-relevant — `permitted_sinks` and `authorities_consulted` are sets whose
+serialized order must still be reproducible across two implementations, and a
+comparison that ignored order would hide exactly the iteration-order divergence
+[CLAUDE.md](../../CLAUDE.md) forbids.
+
+`semantic` applies to **unsigned** material only — `routing`, and harness-level
+structures. Anything inside `signed` compares as `bytes`, because the signature
+covers exact transmitted bytes ([`core-model.md`](../../spec/core-model.md)
+§2.1) and a semantic comparison there would accept two byte strings that cannot
+both verify. That answers [P-002](P-002-message-envelope.md)'s question about
+`routing`: yes, `semantic`, and only because it is outside the signature.
+
 ### 4.5 Operation vocabulary
 
 Closed and versioned. An unknown operation is exit 1, never a skip — fail-closed
@@ -144,7 +168,7 @@ applies to the harness too.
 | `verify_query` / `verify_response` | 1 | Verify, then report the parsed object |
 | `digest` | 1 | Digest a structure, for receipt binding |
 | `resolve_predicate` | 2 | Registry resolution and pinning |
-| `effective_domain` | 2 | Domain intersection |
+| `effective_domain` | 2 | Domain narrowing composition |
 | `capacity_debit` | 3 | Millibit debit for an effective domain |
 | `policy_decide` | 3 | Policy contract input → decision + modifiers |
 | `evaluate_predicate` | 4 | Local evaluation and output validation |
@@ -171,8 +195,26 @@ error rather than as a failing vector.
 
 Names are proposals, not decisions — the point of listing them together is that
 they are settled once, here, before either implementation writes a runner.
-[P-015](P-015-escalation-lifecycle.md) additionally needs the timing capability
-open question 3 defers, at Stage 7 rather than Stage 8.
+
+Two entries have moved since this table was written, and settling the vocabulary
+must account for both:
+
+- **`http_exchange` no longer needs a registry-entry path.**
+  `GET /predicates/{id}/{version}` was dropped from Stage 6
+  ([P-013](P-013-https-binding.md) §4.3), so no vector exercises it.
+- **A sequence-asserting operation is needed at Stage 5.**
+  [`core-model.md`](../../spec/core-model.md) §4.1 makes the requester's response
+  processing order normative, and [P-012](P-012-requester-runtime.md)'s
+  `requester/order/` has to assert *which step rejected*, not merely that the
+  response was rejected. `ordering/` does this responder-side today; the same
+  shape is needed on the requester side.
+
+[P-015](P-015-escalation-lifecycle.md) needs a **minimal timing capability at
+Stage 7** — an assertion that two response paths fall within a band, so that an
+opaque escalation can be shown not to be distinguishable by latency. Open
+question 3 is resolved that way: the capability moves to Stage 7, full timing
+bands and measurement stay at Stage 8 with
+[P-016](P-016-demonstration-adversarial.md).
 
 ### 4.6 Result format
 
@@ -259,7 +301,7 @@ before any Q2D structure is involved.
 | `suite/` | suite resolution, downgrade rejection, unknown suite | new |
 | `replay/` | nonce reuse, expiry, clock skew, idempotent retry | new |
 | `registry/` | resolution, pinning, digest mismatch, schema validation | **folded in from [`registry/manifest.json`](../../registry/manifest.json)** |
-| `domain/` | intersection, understatement, expansion attempt | new |
+| `domain/` | narrowing, understatement, expansion attempt | new |
 | `budget/` | debit sequences, permutation equality, exhaustion | new |
 | `receipt/` | field binding, digest computation | new |
 | `ordering/` | one vector per rejection step, 1–15 | new |
@@ -328,11 +370,11 @@ change one stops and escalates.
 
 | Question | Belongs to |
 |---|---|
-| How are unsigned parts of a message compared when JSON key order is unconstrained? Candidate: `semantic` comparison mode is defined as parse-then-deep-equal | This PRD; resolve before authoring `message/` |
-| Does the corpus version independently of the spec, or track it? | [`docs/versioning.md`](../versioning.md) |
-| Should `process_query` vectors carry expected timing bands? | Deferred to Stage 8 — **but [P-015](P-015-escalation-lifecycle.md) issue 4 needs a minimal timing assertion at Stage 7**, so a capability must be pulled forward. [P-016](P-016-demonstration-adversarial.md) open question 2 |
-| **The §4.5 operation-vocabulary extension for Stages 5–8.** Seven-plus operations across four PRDs, none nameable independently without risking a runner-level divergence | This PRD. Proposed: settle the names before Stage 5 begins, as one issue; blocks the corpus sections of [P-012](P-012-requester-runtime.md) … [P-015](P-015-escalation-lifecycle.md) |
-| Where do fuzzing seeds live — corpus or per-module? | Proposed: per-module. Confirm when the first fuzz target lands |
+| ~~How are unsigned parts of a message compared when JSON key order is unconstrained?~~ | **Resolved: `semantic` is parse-then-deep-equal**, with array order significant, absent ≠ null, and no coercion. It applies to unsigned material only; anything inside `signed` compares as `bytes`. §4.4 carries the definition |
+| ~~Does the corpus version independently of the spec, or track it?~~ | **Resolved: it tracks the spec.** The corpus exists to demonstrate that a spec version is implementable, so a vector set that could drift from the version it tests would let two implementations agree with each other and with neither spec. A corpus release is identified by the `spec/vX.Y` it was authored against ([`versioning.md`](../versioning.md)) |
+| ~~Should `process_query` vectors carry expected timing bands?~~ | **Resolved: a minimal timing capability is pulled forward to Stage 7.** Not a measurement framework — an assertion that two response paths fall within a band, which is what [P-015](P-015-escalation-lifecycle.md) issue 4 needs to show an opaque escalation is not distinguishable by latency. Full timing bands stay at Stage 8, where [P-016](P-016-demonstration-adversarial.md) owns measurement and reporting |
+| ~~**The §4.5 operation-vocabulary extension for Stages 5–8.**~~ | **Resolved: settled as one change, before Stage 5** — issue 17, not an open question. §4.5 now lists every anticipated operation with its owning PRD, and no later PRD names one unilaterally: four PRDs choosing separately would diverge at the *runner* level, where it surfaces as an unknown-operation error rather than a failing vector. The list already reflects the two decisions that changed it — the registry-entry endpoint is gone, and `requester/order/` needs an operation that can assert *which step* rejected |
+| ~~Where do fuzzing seeds live — corpus or per-module?~~ | **Resolved: per-module.** The corpus is the cross-implementation contract and every file in it must mean the same thing to both runners; a seed corpus is a local artifact of one fuzzer's coverage history and would make the shared corpus non-reproducible between languages. Seeds live beside the fuzz target that produced them |
 
 ## 11. Issues
 
@@ -355,6 +397,14 @@ Decomposition into tracked work. Each names its acceptance.
 | 13 | Author `suite/` section | Resolution, downgrade rejection, unknown suite |
 | 14 | Author `ordering/` section | One vector per rejection step 1–15 |
 | 15 | Dependency assertion: harness imports no implementation | CI check fails if either is importable from the harness |
-| 16 | Resolve open question 1 and document the `semantic` comparison rule | Written into §4.4 before `message/` is authored |
+| 16 | `semantic` comparison implemented per §4.4 | Array order significant; absent ≠ null; no coercion; both runners agree on a differing-tree report |
+| 17 | **Settle the §4.5 operation vocabulary for Stages 5–8, as one change** | Every operation named, with its owning PRD; no later PRD introduces one unilaterally. Closes after the endpoint drop and the requester-order addition, both already reflected in §4.5 |
+| 18 | Minimal timing capability, available at Stage 7 | A vector can assert two response paths fall within a band; [P-015](P-015-escalation-lifecycle.md) issue 4 can be written against it |
 
-Issue 16 blocks 12. Issue 1 blocks everything else.
+Issue 16 blocks 12 — `message/` cannot be authored until `semantic` behaves
+identically in both runners. Issue 17 blocks the corpus sections of
+[P-012](P-012-requester-runtime.md) … [P-015](P-015-escalation-lifecycle.md) —
+four PRDs naming their own operations would diverge at the *runner* level, which
+surfaces as an unknown-operation error rather than a failing vector: the one
+failure the corpus cannot catch, because the corpus is what is broken. Issue 1
+blocks everything else.

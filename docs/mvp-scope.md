@@ -29,6 +29,29 @@ artifacts alone:
 Item 7 is the one that matters. Anything less than cross-implementation
 interoperability is one implementation with a spare copy.
 
+### MVP completion is not Phase 1 completion
+
+The list above is the walkthrough. It is **not** the condition
+[`spec/claims.md`](../spec/claims.md) sets for describing Phase 1 as complete,
+which is that every claim maps to at least one passing executable check.
+
+At the end of MVP, three of the thirteen claims will still have no passing test:
+
+| Claim | Why |
+|---|---|
+| Q2D-C-11 binding equivalence | Equivalence is a statement between two bindings. MVP builds one |
+| Q2D-C-12 evidence segregation | Conditional on `q2d-contained-runtime-0.1`; CC-10 is not built |
+| Q2D-C-13 conditional flow confinement | Same |
+
+They are design intentions with no passing test, and
+[P-016](prds/P-016-demonstration-adversarial.md) §4.6's traceability matrix
+reports them that way — in the same table as the ten that pass, rather than
+omitted or footnoted.
+
+**No artifact may describe finishing this walkthrough as completing Phase 1.**
+The two documents use "done" for different things, and only one of them is read
+by people deciding whether to trust the protocol.
+
 ### What "attackable" means concretely
 
 The published artifacts must let someone attempt, without our help: answer-domain
@@ -154,8 +177,9 @@ two-implementation claim becomes real.
 - Answer-contract narrowing check: requester may request a coarser form, never
   an expansion and never a strict subset
   ([`core-model.md`](../spec/core-model.md) §2.5).
-- Effective answer domain as the intersection of registry, contract, and policy
-  modifiers ([`core-model.md`](../spec/core-model.md) §3).
+- Effective answer domain as the narrowing composition of registry, contract, and
+  policy modifiers — not a set intersection
+  ([`core-model.md`](../spec/core-model.md) §3).
 - Capacity lookup — **read from the entry, never computed**
   ([`core-model.md`](../spec/core-model.md) §3.1).
 
@@ -174,7 +198,15 @@ refused before any private access.
   missing mandatory authority, conflicting authorities, unresolvable context.
 - Restrictive composition across multiple authorities.
 - Budget store keyed by a policy-defined tuple; integer millibit accumulation;
-  debit-once idempotency.
+  debit-once idempotency. **Only a released answer debits** — a denial, an
+  escalation, and a rate-limit rejection do not
+  ([`core-model.md`](../spec/core-model.md) §9.1).
+- Rate limiting at [`core-model.md`](../spec/core-model.md) §4 **step 9a**, keyed
+  on the **relationship only** — not the full budget key, because sensitivity
+  class is not known until step 10, and a limiter that skipped unresolved
+  predicates would leave unknown ones unlimited and become an existence oracle.
+  **Required configuration with no default**; the responder refuses to start
+  without it, and a rate-limit rejection is normalized like any other cause.
 - Denial normalization: one external class per sensitivity class, identical
   payload, identical size, identical retry semantics.
 
@@ -210,22 +242,34 @@ digests match Stage 0 vectors.
 ### Stage 5 — Requester runtime
 
 - Query construction and signing; answer-contract derivation.
-- Response verification **before** the answer is exposed to a caller.
+- Response verification **before** the answer is exposed to a caller, in the
+  order [`core-model.md`](../spec/core-model.md) §4.1 makes normative.
 - Receipt storage and verification.
 - Semantic-answer projection: the caller receives the answer, not the evidence.
 
 **Gate:** a requester rejects a response whose suite is below its floor, whose
 signature fails, or whose receipt does not bind the request it sent.
 
-**Claims:** Q2D-C-01, Q2D-C-12 (partial — evidence segregation without full sink
-mediation) · **Size:** M · **Risk:** low
+**Claims:** Q2D-C-01. **Not Q2D-C-12** — it is conditional on
+`q2d-contained-runtime-0.1`, CC-10's honesty rule forbids claiming containment
+for a path that is not mediated, and this stage mediates no sinks. The
+verification boundary it does build is a design intention with no passing test
+([P-012](prds/P-012-requester-runtime.md) §4.8). "Partial" is not a state
+[`spec/claims.md`](../spec/claims.md) defines.
+· **Size:** M · **Risk:** low
 
 ---
 
 ### Stage 6 — Direct HTTPS binding and runnable daemon
 
-- `POST /.well-known/q2d/query`, `GET /capabilities`,
-  `GET /predicates/{id}/{version}`, `GET /pending/{token}`.
+- `POST /.well-known/q2d/query`, `GET /capabilities`, `GET /pending/{token}`.
+  **No `GET /predicates/{id}/{version}`** — it answers "does this custodian
+  support this predicate?" with a status code, which is the existence oracle
+  [P-005](prds/P-005-registry-client.md) §4.7 spends nine uniform failure paths
+  closing, and it makes [`../spec/core-model.md`](../spec/core-model.md) §2.4.1's
+  entry-digest check vacuous by handing the requester the entry it is meant to
+  have obtained independently. Registry distribution stays out of band. If
+  discovery is ever needed, the shape is authenticated and policy-gated.
 - A custodian daemon someone can actually run, with configuration for pinned
   registry, keys, and policy.
 - Identity: **local pairing profile only** — the smallest of the three profiles.
@@ -233,7 +277,13 @@ mediation) · **Size:** M · **Risk:** low
 **Gate:** the definition-of-done walkthrough in §1 completes on two machines,
 executed by following the published quickstart and nothing else.
 
-**Claims:** Q2D-C-11 (single binding; equivalence is provable only with a second)
+**Claims:** none. Q2D-C-11 is a statement *between* bindings and this stage
+builds one, so it is not attributable here — a qualifier in this cell would not
+survive being copied into a coverage table.
+**Conformance:** CC-12, the direct HTTPS binding class
+([`../spec/conformance-classes.md`](../spec/conformance-classes.md)). Class
+conformance and claim coverage are different things and are stated in different
+fields for that reason.
 · **Size:** L · **Risk:** medium
 
 ---
@@ -243,18 +293,22 @@ executed by following the published quickstart and nothing else.
 Last MVP item. The consent path is central to the value proposition but not to
 standing the system up.
 
-- Explicit escalation: pending token, status polling.
-- Opaque escalation: normalized outcome, out-of-band prompt, approval-scope
-  digest, time-bounded grant, fresh-query revalidation.
+- Explicit escalation: pending token, status polling, and a receipt on the
+  `escalate` response ([`core-model.md`](../spec/core-model.md) §5.3).
+- Opaque escalation: normalized outcome — response *and* receipt — out-of-band
+  prompt, approval-scope digest, time-bounded **single-use** grant, fresh-query
+  revalidation.
 - Idempotency: an identical retry never becomes an answer after approval.
 
 **Gate:** a test asserts that replaying the original query after approval returns
-the cached normalized outcome, and that a fresh query with a matching
-approval-scope digest is revalidated end to end rather than served from the
-grant.
+the cached normalized outcome; that a fresh query with a matching approval-scope
+digest is revalidated end to end rather than served from the grant; and that a
+*second* fresh query under the same grant escalates again rather than answering.
 
 **Claims:** Q2D-C-07 (extended) · **Size:** M · **Risk:** **high** — this is the
-most intricate semantics in the protocol and its Appendix C items are still open
+most intricate semantics in the protocol, and while several of its Appendix C
+items are now decided ([`core-model.md`](../spec/core-model.md) §9), the
+approval-scope field list and grant lifetime remain open
 
 ---
 

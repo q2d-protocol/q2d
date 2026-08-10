@@ -93,7 +93,7 @@ Three readings worth stating explicitly:
 | **Compromised computation executor** | **C-03, C-04, C-06 — everything Phase 1 rests on** | Nothing recovers this in 0.1 |
 | Compromised registry signing key | C-02, and therefore C-03 and C-09 | C-05, C-06 |
 | Compromised policy engine | C-08, C-09 | C-03, C-04 |
-| Compromised requester or executor key | C-05 or C-06 respectively, until revocation | Claims not resting on that key |
+| Compromised requester or executor key | C-05 or C-06 respectively, until revocation — **which under the local pairing profile is per-deployment and manual; see below** | Claims not resting on that key |
 | Curious model provider / observability platform | C-13 for that path | Source-side claims |
 | Repeated-query adversary | Reconstructs beyond what C-09 throttles | Per-exchange bounded output |
 
@@ -110,6 +110,19 @@ locally and failing closed on anything unpinned — which converts registry
 compromise into an availability problem rather than a disclosure one, provided
 the custodian never auto-accepts a new digest.
 
+**"Until revocation" is weaker than it reads.** Under the local pairing profile —
+the only identity profile 0.1 supplies — revocation is unpairing: local,
+immediate, and with no propagation whatsoever. There is no revocation list, no
+status endpoint, and nothing that tells a third party anything. A compromised
+requester key therefore remains valid at every custodian that has not been told,
+by hand, and the set of such custodians may not be enumerable by whoever holds
+the compromised key. The exposure is bounded by who gets told, not by a window
+that closes.
+
+A reader budgeting for a revocation window should budget instead for manual,
+per-deployment, possibly incomplete withdrawal. A later identity profile with
+real revocation infrastructure moves this row; none exists in 0.1.
+
 ## 5. Residual channels
 
 Not closed by any 0.1 mechanism. Named so that no claim is read as covering them.
@@ -121,6 +134,18 @@ Not closed by any 0.1 mechanism. Named so that no claim is read as covering them
 - Budget-exhaustion state transitions
 - The opaque-escalation unavailable-to-answer transition
   ([`../spec/core-model.md`](../spec/core-model.md) §5.3)
+- **The explicit-escalation pending token is a bearer capability.** Anyone
+  holding it can poll and learn **whether an authority approved or refused**; the
+  endpoint authenticates nobody. It does not yield the answer — that needs a
+  fresh query under the requester's signature — but it does reveal that a
+  relationship exists and how a person decided.
+  Tokens travel in URLs, so they reach proxy logs, browser history, referrer
+  headers, and screenshots. Entropy, a short lifetime, and TLS reduce exposure
+  without changing the shape. This sits on the consent path, which is the most
+  sensitive path in the protocol. The intended closure is a signed poll — a
+  message type carrying the token under the requester's signature, so the outcome
+  is released only to the principal that asked — and 0.1 does not define one
+  rather than improvise it
 - Source-freshness observability
 - Identity and network metadata; receipt correlation
 - Implementation fingerprints

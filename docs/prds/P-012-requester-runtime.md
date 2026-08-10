@@ -4,10 +4,10 @@
 |---|---|
 | PRD | P-012 |
 | Stage | 5 — the whole stage |
-| Status | **Blocked on escalation** — open question 1 |
+| Status | **Ready for decomposition** |
 | Size | M |
 | Risk | low |
-| Depends on | [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-011](P-011-receipts-audit.md) |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-011](P-011-receipts-audit.md) |
 | Blocks | P-013, P-015, P-016 |
 
 ---
@@ -30,10 +30,10 @@ Q2D-C-06's "enforced by" line names requester-side verification before the
 answer reaches the agent, and this PRD is where that happens. Q2D-C-07's
 requester half — an identical retry — is honoured here.
 
-**Q2D-C-12 is not claimed.** [`mvp-scope.md`](../mvp-scope.md) §4 lists it as
-partial for this stage. §4.8 explains why the module builds its mechanism and
-still cannot claim it, and open question 1 escalates the discrepancy rather
-than settling it here.
+**Q2D-C-12 is not claimed.** [`mvp-scope.md`](../mvp-scope.md) §4 previously
+listed it as partial for this stage; that attribution has been removed and Stage
+5 now claims Q2D-C-01 alone. §4.8 explains why the module builds the mechanism
+and still cannot claim the property.
 
 ## 2. Spec citations
 
@@ -67,7 +67,9 @@ idempotent retry; the requester's partial-failure behaviour.
 
 **Explicitly outside:** serialization and the routing projection (**P-002**),
 signing and verification primitives (**P-003**), manifest loading and pinning
-(**P-005**), the narrowing rules themselves (**P-006**), receipt field
+(**P-005**), the per-shape narrowing rules — normative in
+[`core-model.md`](../../spec/core-model.md) §3.2 and implemented by
+(**P-006**) — receipt field
 definitions and `verify_receipt` (**P-011**). This module composes those; it
 reimplements none of them, and a second copy of any of them here is the
 divergence this repository exists to prevent.
@@ -126,9 +128,15 @@ construction rather than calls inside it.
 ### 4.3 The response processing order
 
 [`core-model.md`](../../spec/core-model.md) §4 is the responder's order. The
-requester has its own, smaller one, and it is derived from CC-1 and
-[`crypto-suites.md`](../../spec/crypto-suites.md) §4 rather than stated in the
-specification — see open question 4.
+requester has its own, smaller one, and it is now **normative**:
+[`core-model.md`](../../spec/core-model.md) §4.1 states it, and CC-1 requires it.
+This section implements that order and adds the two steps §4.1 leaves to a
+runtime — the assurance-profile check and projection.
+
+The reason it became normative rather than staying derived here: CC-1's
+obligations are a set, not a sequence, so two requesters could satisfy every one
+of them while one parsed attacker-controlled bytes before authenticating them.
+A corpus vector cannot assert an order the model does not state.
 
 | # | Step | Why here |
 |---|---|---|
@@ -172,11 +180,16 @@ How the no-accessor property is enforced is language idiom and belongs in
 Less than it looks, and the reason is structural.
 
 [`core-model.md`](../../spec/core-model.md) §5.1 returns
-`effective_contract_digest` — a digest, not the contract. The effective domain
-is the intersection of the registry entry, the requester's contract, and policy
-modifiers, and **the requester never sees the modifiers.** So it cannot
+`effective_contract_digest` — a digest, not the contract. The effective domain is
+the narrowing composition of the registry entry, the requester's contract, and
+policy modifiers, and **the requester never sees the modifiers.** So it cannot
 reconstruct the effective domain, cannot recompute the digest, and cannot check
 membership of the result in the domain that actually bounded it.
+
+This is a deliberate boundary, not an oversight —
+[`core-model.md`](../../spec/core-model.md) §4.1 now says so in the specification
+rather than leaving it to be inferred here. Open question 2 records why the
+response does not carry the effective domain.
 
 Worse, membership in the *requested* domain is not implied either. A modifier
 coarsens ([`terminology.md`](../../spec/terminology.md) §6), and a value
@@ -202,12 +215,13 @@ identity for that release shape, and stays there until
 [P-006](P-006-request-validation.md)'s open question 4 settles whether a
 coarsening mapping is declared.
 
-**"Finer than requested" is a comparison the intersection formula does not
-model.** [`core-model.md`](../../spec/core-model.md) §3 writes the effective
-domain as `registry ∩ contract ∩ modifiers`, but coarsening is not set
-intersection — two-hour bands intersected with four-hour bands has no set-
-theoretic reading, which is why this check has to be defined directionally
-instead of as membership. Open question 2 carries it.
+**"Finer than requested" is a directional comparison, and that is now what the
+model describes.** [`core-model.md`](../../spec/core-model.md) §3 previously
+wrote the effective domain as `registry ∩ contract ∩ modifiers`, which has no
+set-theoretic reading across granularities — two-hour bands do not intersect
+four-hour bands. §3 now states **narrowing composition** and §3.2 carries the
+per-shape rules normatively, so this check being directional is consistent with
+the model rather than a workaround for it.
 
 **This is an integrity check, not a security control.**
 [`trust-matrix.md`](../../threat-model/trust-matrix.md) §2 makes the computation
@@ -290,10 +304,19 @@ a class is claimed only when every check passes — so this module implements th
 segregation *mechanism* (§4.4) and claims the *property* not at all. In
 `claims.md`'s own vocabulary it is a design intention.
 
-[`mvp-scope.md`](../mvp-scope.md) §4 nevertheless attributes "Q2D-C-12
-(partial)" to this stage. One of the two documents is wrong; open question 1
-escalates which, and it is why this PRD is **Blocked on escalation** rather than
-ready.
+[`mvp-scope.md`](../mvp-scope.md) §4 previously attributed *"Q2D-C-12 (partial —
+evidence segregation without full sink mediation)"* to this stage. **That
+attribution has been removed.** "Partial" is not a state
+[`claims.md`](../../spec/claims.md) defines: a claim holds under its conditions
+or it is a design intention, and a qualifier in a stage table does not survive
+being copied into a coverage summary.
+
+Stage 5 claims **Q2D-C-01** — pre-evaluation commitment, requester-side,
+unconditional, owned by CC-1, and genuinely demonstrated here. It claims nothing
+else. The alternative considered and declined was splitting Q2D-C-12 into an
+unconditional and a conditional half; the value of that claim is the
+sink-mediation half, and a claim carrying the easy half under a name a reader
+takes for the whole is worse than no claim.
 
 ### 4.9 Partial failure
 
@@ -353,6 +376,7 @@ must never be derived from.
 | `requester/outcome/` | All three statuses; `escalate` unreadable as an answer; a denial carrying no cause |
 | `requester/profile/` | Requested profile returned passes; a lower profile rejects |
 | `requester/retry/` | Retry bytes identical to the original; expiry produces a local outcome, not a new query |
+| `requester/order/` | The [`core-model.md`](../../spec/core-model.md) §4.1 order: a response failing at each step is rejected without the later steps having run, and nothing reaches the caller before step 9 |
 
 `requester/sign/` is the Stage 5 cross-implementation gate. It is a byte
 comparison for the reason [P-001](P-001-conformance-corpus.md) §4.3 gives, which
@@ -389,6 +413,8 @@ is also why §4.2 injects the nonce and the clock.
 | A receipt binding a different request accepted | `requester/receipt/` mismatch vector returns an answer |
 | A silently accepted profile downgrade | `requester/profile/` returns a profile the query did not request |
 | A result finer than requested accepted | `requester/verify/` over-precise vector |
+| **Any §4.1 step running before the signature verifies** | `requester/order/` — a response with a malformed body and a bad signature is rejected on the signature, not the parse |
+| An unrecognized status mapped onto a default | `requester/outcome/` unknown-status vector produces an answer or a denial instead of a hard rejection |
 | **Re-signing on retry** | Two retries of one query differ in any byte |
 | **Automatic reissue with a fresh nonce** | Responder budget total rises across what the caller saw as one question |
 | Inferring a denial cause | Any code path on the denial branch that reads elapsed time, response size, or arrival latency |
@@ -427,40 +453,40 @@ channels.
    audit store.**
 9. **Sinks are declared and unenforced, and Q2D-C-12 is not claimed** until
    CC-10 exists.
+10. **The response processing order is [`core-model.md`](../../spec/core-model.md)
+    §4.1's**, not this module's. Reordering it is a spec change.
 
 ## 10. Open questions
 
 | Question | Belongs to |
 |---|---|
-| **1.** [`mvp-scope.md`](../mvp-scope.md) §4 attributes "Q2D-C-12 (partial)" to Stage 5; [`claims.md`](../../spec/claims.md) makes C-12 conditional on `q2d-contained-runtime-0.1` and CC-10's honesty rule forbids claiming a class whose checks do not all pass. **Recommended: amend `mvp-scope.md` to claim nothing requester-side at Stage 5**, and describe §4.4's boundary as a design intention. The alternative — splitting C-12 into an unconditional and a conditional half — is a change to `claims.md` and needs its own assumptions, failure modes, and test | **Escalation.** Blocks this PRD's status and issue 9 |
-| **2.** A requester cannot validate a result against the effective domain, because §5.1 carries only its digest (§4.5). Closing it means the `answer` response also carrying the effective answer domain, which is a `core-model.md` §5.1 change. Proposed: **do not**, in 0.1 — Q2D-C-03 is a responder claim with the executor trusted, and §4.5's directional check catches divergence without a spec change. Recorded so a later profile has the shape | Escalation if adopted; otherwise closed |
-| **2a.** Underneath it: [`core-model.md`](../../spec/core-model.md) §3 states the effective domain as a set intersection, but §2.5 permits coarsening, and coarsening two-hour bands against four-hour bands is not an intersection. The formula and the narrowing rule describe different operations. Nothing is currently wrong — [P-006](P-006-request-validation.md) implements the per-shape rules in its §4.5, not the formula — but the two readings should not both stand. Proposed: `core-model.md` §3 says *narrowing composition* and points at the per-shape rules | **Escalation.** A `core-model.md` change; editorial in effect, but §3 is load-bearing for Q2D-C-02 and Q2D-C-09 |
-| **3.** Does the requester pin its own manifest independently, and how does it learn a custodian's differs? An entry-digest mismatch rejects under Tier C ([P-005](P-005-registry-client.md) §4.5), so the requester sees an opaque denial and cannot tell it apart from a policy refusal. Proposed: accept the operability cost; naming it is better than a discovery channel that is also a probe | This PRD; interacts with [P-013](P-013-https-binding.md) capability discovery |
-| **4.** Should §4.3's response processing order be normative in `core-model.md` rather than derived here from CC-1? Proposed: yes — it is protocol surface, and two requesters ordering it differently is exactly the divergence the corpus is meant to prevent | Likely a `core-model.md` addition; escalate with 1 |
+| **1.** ~~[`mvp-scope.md`](../mvp-scope.md) §4 attributes "Q2D-C-12 (partial)" to Stage 5, against `claims.md` and CC-10's honesty rule~~ | **Resolved.** `mvp-scope.md` §4 Stage 5 now claims **Q2D-C-01 only**; the C-12 attribution is removed and §4.4's boundary is a design intention with no passing test. Splitting C-12 was considered and declined — see §4.8. Note the resolution is narrower than this question proposed: Q2D-C-01 *is* requester-side and unconditional, so "claim nothing requester-side" would have overshot |
+| **2.** ~~A requester cannot validate a result against the effective domain, because §5.1 carries only its digest (§4.5)~~ | **Resolved: do not add it in 0.1.** Q2D-C-03 is a responder claim resting on a trusted executor, so an echoed domain is as forgeable as the result and buys nothing against the adversary that matters. It would also disclose *which* modifier policy applied — a policy map assembled from successful answers rather than from probing denials, which is the channel Q2D-C-08 exists to keep closed. [`core-model.md`](../../spec/core-model.md) §4.1 now records the boundary; the shape is kept for a later profile with an attested executor |
+| **2a.** ~~[`core-model.md`](../../spec/core-model.md) §3 states the effective domain as a set intersection, but §2.5 permits coarsening~~ | **Resolved.** §3 states **narrowing composition**, and §3.2 carries the per-shape rules **normatively in `spec/`** — they were briefly delegated to [P-006](P-006-request-validation.md) §4.5, which put protocol surface in a PRD and was corrected. P-006 now implements §3.2 and defines nothing |
+| **3.** ~~Does the requester pin its own manifest independently, and how does it learn a custodian's differs?~~ | **Resolved: it pins independently, and it does not learn.** The entry-digest check only means anything because the two copies were obtained independently ([`core-model.md`](../../spec/core-model.md) §2.4.1) — a channel telling the requester which digest the custodian holds would collapse that, and would be a probe for what a custodian has accepted. So a mismatch surfaces as an opaque Tier C denial, indistinguishable from a policy refusal, and the operator resolves it out of band. **The operability cost is real and is documented in the quickstart** rather than mitigated: a requester and custodian on different manifest versions fail in a way neither can diagnose from the wire, and that is the price of the check not being a discovery endpoint |
+| **4.** ~~Should §4.3's response processing order be normative in `core-model.md` rather than derived here from CC-1?~~ | **Resolved: yes.** [`core-model.md`](../../spec/core-model.md) §4.1 states it, kept minimal — the orderings whose violation is a vulnerability, not every action a runtime performs. CC-1's must and must-not lists now reference it, so a corpus vector can assert it |
 | **5.** ~~Where does the requester's signing key live, and how is delegation evidence assembled?~~ | **Answered:** a permission-checked key file, and a self-issued delegation signed by the principal key. [P-014](P-014-identity-pairing.md) §4.4, §4.6 |
-| **6.** Does the caller see the capacity the answer will cost, from the registry entry, before asking? Proposed: yes as read-only registry data, never as an asserted debit | This PRD |
+| **6.** ~~Does the caller see the capacity the answer will cost, before asking?~~ | **Resolved: yes, as read-only registry data.** The runtime exposes the entry's `disclosure_capacity_millibits` so a caller can decide whether a question is worth asking. It is a **lookup, not a prediction** — the responder computes the real debit from the effective domain after modifiers it never shows ([P-006](P-006-request-validation.md) §4.1), so the displayed value is an upper bound on an unmodified request and nothing more. It never travels in a query: Q2D-C-02 makes any requester-asserted debit non-conforming, and the type carrying it is not the type `build_query` accepts |
 
 ## 11. Issues
 
 | # | Issue | Done when |
 |---|---|---|
-| 1 | Escalate open question 1 | Resolved; `mvp-scope.md` or `claims.md` amended, and §4.8 cites the outcome |
+| 1 | ~~Escalate open question 1~~ — **done** | Resolved; `mvp-scope.md` §4 Stage 5 amended to claim Q2D-C-01 only; §4.8 cites the outcome |
 | 2 | `IssuedQuery` and the stored-bytes model | No path produces a second signature for one query |
 | 3 | `build_contract` over a resolved entry, with the local narrowing check | `requester/contract/` passes; comments describe it as convenience |
 | 4 | `build_query` with injected nonce and clock | Two runs of a vector are identical; no ambient call exists |
 | 5 | `issue` over [P-003](P-003-crypto-suites.md)'s `sign` | `requester/sign/` byte-matches across implementations |
-| 6 | `verify_response`, steps 1–7 of §4.3 | `requester/verify/`, `requester/receipt/`, `requester/profile/` pass |
+| 6 | `verify_response`, steps 1–7 of §4.3 | `requester/verify/`, `requester/receipt/`, `requester/profile/` pass; **the order matches [`core-model.md`](../../spec/core-model.md) §4.1**, asserted by an ordering vector rather than by review |
 | 7 | The §4.5 directional conformance check | Finer-than-requested rejects; coarser passes; both implementations agree |
 | 8 | `Outcome`, `Answer`, and the no-accessor property | No accessor exists in either language; recorded in `CONVENTIONS-{rust,go}.md` |
-| 9 | `project` and the caller-facing surface | `requester/outcome/` passes; wording settled by issue 1 |
+| 9 | `project` and the caller-facing surface | `requester/outcome/` passes; nothing reaches a caller before §4.1 step 9 |
 | 10 | Receipt store with retention, response retention off by default | Startup fails with no retention configured; skipped-check report surfaces |
 | 11 | `retry_bytes` and the no-reissue rule | `requester/retry/` passes; responder budget unchanged across a retry |
 | 12 | Author `requester/` corpus section | Seven groups; `harness lint` clean |
 | 13 | Cross-implementation exchange | Rust requester ↔ Go custodian and the reverse, under `harness cross` |
 | 14 | Claim-language audit | No artifact claims containment, sink enforcement, or Q2D-C-12 |
 
-Issue 1 blocks 9 and 12 — the corpus cites requirements, and a vector citing
-Q2D-C-12 would report coverage of a claim this stage does not establish. Issue 2
-blocks 5 and 11. Issue 13 is the first time
+Issue 2 blocks 5 and 11. Issue 13 is the first time
 [`mvp-scope.md`](../mvp-scope.md) §1 item 7 is testable, and it is the reason
 this stage exists.
