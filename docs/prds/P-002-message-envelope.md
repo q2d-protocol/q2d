@@ -8,7 +8,7 @@
 | Size | M |
 | Risk | medium |
 | Depends on | [P-001](P-001-conformance-corpus.md) — corpus format |
-| Blocks | P-003, P-004, P-005, P-006, P-010, P-011, P-012 |
+| Blocks | P-003, P-004, P-005, P-006, P-010, P-011, P-012, P-016 |
 | Pairs with | [P-003](P-003-crypto-suites.md) — this PRD produces the bytes P-003 signs |
 
 ---
@@ -163,13 +163,20 @@ algorithm is additive rather than ambiguous.
 | Digest | Over |
 |---|---|
 | `request_digest` | The exact `signed` bytes of the query |
-| `response_digest` | The exact `signed` bytes of the response |
+| `response_digest` | The response's **semantic content**, excluding the receipt and the signature — §4.2 profile. [`core-model.md`](../../spec/core-model.md) §6 is authoritative |
 | `effective_contract_digest` | The effective answer contract, §4.2 profile |
 | `public_context_digest` | The public context, §4.2 profile |
 
-The first two digest received bytes — no re-serialization. The last two digest a
-sub-object and therefore need the production profile, which is why §4.2 applies
-beyond the payload.
+Only `request_digest` digests received bytes, with no re-serialization. The other
+three digest a sub-object and therefore need the production profile, which is why
+§4.2 applies beyond the payload.
+
+**`response_digest` is the one to watch.** The obvious definition — the exact
+`signed` bytes of the response, symmetric with `request_digest` — is not
+implementable: the receipt travels inside the response and carries this digest,
+so digesting the whole response would include the digest itself
+([P-011](P-011-receipts-audit.md) §4.2). The symmetry is real and it is broken on
+purpose.
 
 ### 4.8 Size limits
 
@@ -264,11 +271,11 @@ what `AGENTS.md`'s architectural-pivot rule exists for.
 
 | Question | Belongs to |
 |---|---|
-| Does `routing` need `type`, or is dispatch determined by endpoint? Proposed: keep it; an A2A binding has no endpoint to dispatch on | This PRD; resolve before `message/routing/` |
-| Does the envelope carry its own version distinct from `q2d_version`? Proposed: no — one version, in the signed object, so it cannot be rewritten | This PRD |
-| Are the §4.8 limits right? They are proposed, not derived from measurement | This PRD; revisit at Stage 8 with real payloads |
+| ~~Does `routing` need `type`, or is dispatch determined by endpoint?~~ | **Resolved: keep it.** Dispatch-by-endpoint is an HTTPS assumption, and `routing` exists for transports that have no endpoint to dispatch on — an A2A intermediary is the case. Dropping it would make the projection useful only where it is least needed. It stays advisory: §4.5's consistency check rejects any disagreement with `signed`, so carrying `type` adds a field an attacker can lie about only by being caught |
+| ~~Does the envelope carry its own version distinct from `q2d_version`?~~ | **Resolved: no.** One version, inside the signed object. A separate envelope version would be unsigned and therefore rewritable by any intermediary, and two version numbers for one message is a negotiation surface Q2D does not have (`core-model.md` §1: no negotiation round trip) |
+| ~~Are the §4.8 limits right?~~ | **Resolved for MVP: adopted as stated, and they are normative rather than advisory** — a limit an implementation may choose is not a limit, and the two implementations must reject the same payload. They are engineering estimates, not measurements, and §4.8 says so; Stage 8 measures real payloads and may lower them. Raising one is an escalation, because a limit that grows to fit a payload is not bounding anything |
 | ~~Second-precision timestamps sufficient, or is sub-second needed for replay windows?~~ | **Answered: sufficient.** Uniqueness comes from the nonce, not the clock. [P-004](P-004-replay-idempotency.md) §4.3 |
-| Does `semantic` comparison from P-001 apply to `routing`, given it is unsigned? | [P-001](P-001-conformance-corpus.md) open question 1 |
+| ~~Does `semantic` comparison from P-001 apply to `routing`, given it is unsigned?~~ | **Answered: yes**, and only because it is outside the signature. Anything inside `signed` compares as `bytes`. [P-001](P-001-conformance-corpus.md) §4.4 |
 
 ## 11. Issues
 
@@ -285,6 +292,6 @@ what `AGENTS.md`'s architectural-pivot rule exists for.
 | 9 | Version field handling | Unknown version rejects without interpreting other fields |
 | 10 | Author `message/` corpus section | All five groups present; `harness lint` clean |
 | 11 | Non-conformant-but-valid payload vector | Proves verification does not re-serialize |
-| 12 | Resolve open questions 1–3 | Written into §4.5 and §4.8 before issue 10 |
+| 12 | `routing` carries `type`; §4.8 limits enforced as normative | `message/routing/` covers a `type` disagreement; an over-limit payload rejects identically in both implementations |
 
-Issue 12 blocks 10. Issue 1 blocks the rest.
+Issue 1 blocks the rest.

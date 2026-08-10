@@ -185,5 +185,5 @@ see [`claims.md`](claims.md) and the claim-language rules in
 |---|---|
 | Whether any suite beyond the MTI is mandatory for a binding | Binding implementation experience |
 | Payload-encryption suites for HPKE through relays | The relay profile, which 0.1 does not specify |
-| Key rotation and revocation semantics per identity profile | The identity/delegation profile boundary |
+| Key rotation and revocation semantics per identity profile | Answered for the local pairing profile — rotation is re-pairing, revocation is local and does not propagate ([`core-model.md`](core-model.md) §2.3 defines the interfaces; the profile supplies the semantics). Open for every other profile |
 | Whether hybrid signatures are required before any long-lived-receipt profile | Anchoring design |

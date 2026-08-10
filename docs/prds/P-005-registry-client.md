@@ -7,8 +7,8 @@
 | Status | **Ready for decomposition** |
 | Size | M |
 | Risk | **high** — a registry compromise defines what "bounded" means |
-| Depends on | [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md) |
-| Blocks | P-006, P-007, P-008, P-010, P-011, P-012 |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md) |
+| Blocks | P-006, P-007, P-008, P-010, P-011, P-012, P-016 |
 | Pairs with | [P-006](P-006-request-validation.md) — this PRD obtains a trusted entry; P-006 validates a request against it |
 
 ---
@@ -121,7 +121,7 @@ publisher mutating an entry in place.
 The failure it left open is **semantic mutation without shape change**. A
 predicate edited from *"is any item compatible"* to *"does any item conflict"*
 keeps its release shape, domain, capacity, and schema. Every check passes, the
-intersection is clean, the debit is right — and the answer means the opposite of
+narrowing is clean, the debit is right — and the answer means the opposite of
 what the requester believes. Per-entry digests turn an unenforceable convention
 into a comparison.
 
@@ -250,9 +250,9 @@ network dependency at all is stronger than a rule saying it must not fetch.
 | Question | Belongs to |
 |---|---|
 | ~~Nothing detects a publisher mutating an entry without a version bump~~ | **Resolved.** Per-entry digests added to `registry/manifest.json`; `core-model.md` §2.4.1 written; §4.5 rewritten to fail closed |
-| Which key signs `registry/manifest.json` for MVP, and where does its private half live? | This PRD; blocks issue 2 |
-| Should a custodian be able to pin a *subset* of a manifest's entries? | Deferred; adds a second authorization surface with no MVP need |
-| ~~How does a custodian learn a new digest exists?~~ | **Answered:** out of band; the capability document carries no manifest digest, for the update-channel reason in §4.3. [P-013](P-013-https-binding.md) §4.4 |
+| ~~Which key signs `registry/manifest.json` for MVP, and where does its private half live?~~ | **Resolved: a test-only key, committed with its RFC 8032 seed**, exactly as [P-001](P-001-conformance-corpus.md) §4.9 and [P-003](P-003-crypto-suites.md) issue 10 treat every other key in this repository. The reference manifest describes three synthetic predicates over fictional fixtures; a secret key protecting it would protect nothing while making the verification path untestable. The key, the manifest, and the README all say **test-only**. **Publishing a registry anyone else pins is out of MVP scope** and needs its own key-custody decision — it is an escalation when it arrives, not an extension of this one |
+| ~~Should a custodian be able to pin a *subset* of a manifest's entries?~~ | **Resolved: no, deferred out of MVP.** A custodian already controls which predicates it implements ([P-010](P-010-responder-pipeline.md) §4.3 refuses to start on a mismatch), so subset pinning would add a second authorization surface answering a question the first one already answers. Revisit only if a manifest ever carries entries a custodian must hold but must not serve |
+| ~~How does a custodian learn a new digest exists?~~ | **Answered:** out of band; the capability document carries no manifest digest, for the update-channel reason in §4.3. [P-013](P-013-https-binding.md) §4.4. Reinforced by dropping `GET /predicates/{id}/{version}` — the binding now serves no registry content at all, so out of band is the only channel ([P-013](P-013-https-binding.md) §4.3) |
 
 Open question 1 is resolved. §4.5 no longer rests on immutability being observed;
 it rests on a digest comparison.

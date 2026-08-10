@@ -58,12 +58,13 @@ to be supplied out of band; the requester key is compromised.
 ### Q2D-C-02 — Responder-owned domain validation
 
 **Claim.** The effective answer domain is resolved by the responder from a
-registry entry it trusts, intersected with the requester's contract and policy
-modifiers. A requester-asserted domain is never trusted.
+registry entry it trusts, narrowed by the requester's contract and policy
+modifiers under [`core-model.md`](core-model.md) §3. A requester-asserted domain
+is never trusted.
 **Holds when.** The registry entry is authentic, unrevoked, and pinned; the
 responder rejects unknown predicate versions and registry digests.
 **Enforced by.** Registry pinning; signature over the manifest; fail-closed on
-unknown version or digest; domain intersection computed responder-side.
+unknown version or digest; narrowing composition computed responder-side.
 **Fails if.** The registry signing key is compromised; an entry is wrong; the
 responder accepts a requester-supplied domain as authoritative.
 **Not.** A guarantee that the registered domain is *appropriate*. A registry can
@@ -156,9 +157,9 @@ is Q2D-C-09's problem, and it is a throttle, not a bar.
 ### Q2D-C-08 — Denial normalization
 
 **Claim.** Within a configured sensitivity class, a responder can map absent
-data, policy refusal, budget exhaustion, unsupported predicate, failed
-freshness, and internal escalation onto one external class, reducing explicit
-existence and policy oracles.
+data, policy refusal, budget exhaustion, rate-limit rejection, unsupported
+predicate, failed freshness, and internal escalation onto one external class,
+reducing explicit existence and policy oracles.
 **Holds when.** The external envelope, its size, and its retry semantics are
 identical for every internal cause in the class.
 **Enforced by.** Common external schema; bounded response size; no
@@ -182,9 +183,15 @@ informative — which is why [`core-model.md`](core-model.md) §2.5 prohibits
 subsetting.
 **Enforced by.** Responder-side debit from the registry-verified effective
 domain; any debit or domain size asserted by a requester is ignored.
+**Scope.** Only a released answer debits. A denial or an escalation discloses
+nothing from the answer alphabet and debits nothing
+([`core-model.md`](core-model.md) §9.1); the probing they would permit is bounded
+by a separate rate limit, which carries no claim and is not measured in these
+units.
 **Fails if.** Requesters collude or recreate relationships; correlated
 predicates or auxiliary knowledge defeat the accounting; queries are spread
-across custodians.
+across custodians; **the required rate limit is unconfigured**, leaving denials
+unbounded.
 **Not.** A differential-privacy, inference, or posterior-risk guarantee. It
 measures the capacity of an answer alphabet, not what an adversary learned. See
 Q2D-NC-04.
@@ -193,14 +200,30 @@ Q2D-NC-04.
 
 ### Q2D-C-10 — Exchange-bound accountability
 
-**Claim.** A receipt binds the request digest, response digest, predicate and
-version, effective answer-contract digest, policy version, release shape,
-assurance profile, capacity debit, decision time, and responder identity to one
-exchange.
-**Holds when.** The responder issues receipts and retains detailed audit
-locally.
+**Claim.** Every outcome carries a receipt binding it to one exchange, and the
+receipt's contents depend on the outcome:
+
+- an **`answer`** binds the request digest, response digest, predicate and
+  version, registry-entry digest, effective answer-contract digest, policy
+  version, release shape, assurance profile, capacity debit, decision time, and
+  responder identity;
+- a **`deny`**, and an **explicit `escalate`**, bind the request digest, decision
+  class, decision time, responder identity, and signature suite — and nothing
+  else.
+
+**The reduced shape binds less on purpose, and the claim is not making a larger
+statement about it.** Its fields are exactly those that carry no information
+about the request beyond the fact that it occurred: a denial receipt that named
+the predicate would partition denials by predicate, defeating Q2D-C-08 through
+the evidence attached to the response. What a reduced receipt attests is *this
+exchange happened, at this time, and produced this external class* — which is the
+accountability a denial can honestly support.
+**Holds when.** The responder issues a receipt for every outcome and retains
+detailed audit locally ([`core-model.md`](core-model.md) §5.2, §5.3, §6).
 **Enforced by.** Receipt construction under the response signature.
-**Fails if.** A binding omits receipt fields; audit and receipt diverge.
+**Fails if.** A binding omits receipt fields; audit and receipt diverge; an
+outcome is returned with no receipt at all; a reduced receipt is read as
+attesting to anything an answer receipt attests to.
 **Not.** Evidence that the underlying facts are true, that a legal basis was
 valid, or that a recipient honoured a retention promise. A receipt records that
 a runtime processed an exchange.

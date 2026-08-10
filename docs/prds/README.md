@@ -3,6 +3,14 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
+All sixteen are ready. Two escalations are open — **E-16** and **E-17**, both
+raised by P-006 — and neither blocks decomposition:
+[`core-model.md`](../../spec/core-model.md) §3.2 carries a conservative `enum`
+rule until E-17 widens it, and E-16 decides where the registry schema profile
+lives rather than what it says. See
+[`../open-escalations.md`](../open-escalations.md), which is where every
+escalation is recorded and where a new one goes.
+
 | # | Title | Stage | Status |
 |---|---|---|---|
 | [P-001](P-001-conformance-corpus.md) | Conformance corpus format and harness contract | 0 | **Ready for decomposition** |
@@ -16,11 +24,11 @@ assigned; an abandoned PRD keeps its number and is marked withdrawn.
 | [P-009](P-009-denial-normalization.md) | Denial normalization | 3 | **Ready for decomposition** |
 | [P-010](P-010-responder-pipeline.md) | Responder pipeline, predicate execution, output validation | 4 | **Ready for decomposition** |
 | [P-011](P-011-receipts-audit.md) | Receipts and local audit | 4 | **Ready for decomposition** |
-| [P-012](P-012-requester-runtime.md) | Requester runtime | 5 | **Blocked on escalation** |
-| [P-013](P-013-https-binding.md) | Direct HTTPS binding and custodian daemon | 6 | **Blocked on escalation** |
-| [P-014](P-014-identity-pairing.md) | Identity and the local pairing profile | 6 | **Blocked on escalation** |
-| [P-015](P-015-escalation-lifecycle.md) | Escalation lifecycle | 7 | **Blocked on escalation** |
-| [P-016](P-016-demonstration-adversarial.md) | Reference demonstration and adversarial suite | 8 | **Blocked on escalation** |
+| [P-012](P-012-requester-runtime.md) | Requester runtime | 5 | **Ready for decomposition** |
+| [P-013](P-013-https-binding.md) | Direct HTTPS binding and custodian daemon | 6 | **Ready for decomposition** |
+| [P-014](P-014-identity-pairing.md) | Identity and the local pairing profile | 6 | **Ready for decomposition** |
+| [P-015](P-015-escalation-lifecycle.md) | Escalation lifecycle | 7 | **Ready for decomposition** |
+| [P-016](P-016-demonstration-adversarial.md) | Reference demonstration and adversarial suite | 8 | **Ready for decomposition** |
 
 ## Authoring order
 
@@ -44,7 +52,7 @@ PRD, because it is trusted.
 | Not authored | Placeholder; the row reserves the number |
 | Draft | Being written; sections incomplete |
 | **Ready for decomposition** | Every section in [`../mvp-scope.md`](../mvp-scope.md) §5 is complete and the issue list is enumerated |
-| **Blocked on escalation** | Complete, but an open question must be decided before implementation begins |
+| **Blocked on escalation** | Complete, but an open question must be decided before implementation begins. Record it in [`../open-escalations.md`](../open-escalations.md), whose per-entry **Cascade** line is the checklist for closing it |
 | In progress | Issues are being executed |
 | Done | Acceptance and negative acceptance pass in both implementations |
 

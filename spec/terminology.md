@@ -90,8 +90,8 @@ a future profile displaces.
 | **Private input** | The custodian-held data the predicate reads. Does not cross the Q2D interface. |
 | **Answer contract** | The requester's pre-evaluation commitment: release shape, output schema, requested answer domain, maximum cardinality, allowed detail fields, precision, and disclosure class. Submitted before the custodian evaluates policy or private data. **An answer contract is not permission.** It is an input to policy evaluation. |
 | **Query** | The signed request envelope carrying protocol metadata, principals and delegation, predicate reference, answer contract, purpose, delivery, and freshness. |
-| **Response** | The signed reply carrying one outcome — `answer`, `deny`, or `escalate` — and, where applicable, a receipt. |
-| **Disclosure receipt** | The object binding request digest, response digest, predicate and version, effective answer-contract digest, policy version, release shape, assurance profile, disclosure-capacity debit, decision time, and responder identity to one exchange. Evidence that a runtime processed and authenticated an exchange — **not** evidence that the underlying facts are true, that a legal basis was valid, or that a retention promise was kept. |
+| **Response** | The signed reply to a query, carrying one outcome — `answer`, `deny`, or `escalate` — and **always a receipt**: the full shape for an answer, the reduced shape for a denial or an explicit escalation ([`core-model.md`](core-model.md) §6). A binding's auxiliary operations, such as polling an escalation, are not responses in this sense and carry no receipt. |
+| **Disclosure receipt** | The object binding one exchange, in one of two shapes. **Full**, on an `answer`: request digest, response digest, predicate and version, registry-entry digest, effective answer-contract digest, policy version, release shape, assurance profile, disclosure-capacity debit, decision time, and responder identity. **Reduced**, on a `deny` or an explicit `escalate`: request digest, decision class, decision time, responder identity, and signature suite — and deliberately nothing more, since a denial receipt naming the predicate would partition denials by predicate and defeat denial normalization. Either shape is evidence that a runtime processed and authenticated an exchange — **not** evidence that the underlying facts are true, that a legal basis was valid, or that a retention promise was kept. |
 | **Declared purpose** | What the requester states the answer is for. Signed, therefore attributable. Not proof of intent. |
 | **Authorized purpose** | What the responder actually permitted. Recorded in the receipt. Distinguish from declared purpose in every message and every document. |
 
@@ -169,16 +169,16 @@ not of the answer. See §7.
 |---|---|
 | **Policy engine** | The component returning `allow`, `deny`, or `escalate` plus modifiers, given the authenticated request context. Q2D specifies its input and output contract, not its language. |
 | **Decision modifier** | A narrowing attached to an `allow`: coarser shape, lower cardinality, stricter freshness, reduced sink set, or a required assurance profile. **A modifier coarsens; it never subsets** — the same rule that binds a requester, and for the same reason. A requester either accepts the narrowed contract or abandons the task; it is never given a broader answer and asked to discard the excess. |
-| **Effective answer domain** | The intersection of the registry entry's canonical domain, the requester's answer contract, and any policy modifiers. **Computed by the responder.** A requester may request a *coarser* form of the registered domain; it can never expand it and never request a strict subset, and a requester-asserted domain is never trusted. See [`core-model.md`](core-model.md) §2.5 for why subsetting is prohibited. |
+| **Effective answer domain** | The narrowing composition of the registry entry's canonical domain, the requester's answer contract, and any policy modifiers — not a set intersection, because coarsenings of different granularity do not intersect. See [`core-model.md`](core-model.md) §3. **Computed by the responder.** A requester may request a *coarser* form of the registered domain; it can never expand it and never request a strict subset, and a requester-asserted domain is never trusted. See [`core-model.md`](core-model.md) §2.5 for why subsetting is prohibited. |
 | **Sensitivity classification** | The registry- and policy-assigned class of a predicate, governing minimum assurance, normalization behaviour, and budget keying. Sensitivity is orthogonal to capacity: a one-bit answer can be maximally sensitive. |
 | **Disclosure-capacity budget** | A policy-defined allowance debited on release, in proportion to `log2(cardinality(effective_answer_domain))`. A throttle and escalation trigger. **Never** described as a differential-privacy, inference, or posterior-risk guarantee. It measures the capacity of the answer alphabet, not what an adversary learned. |
 | **Capacity debit** | The charge for one release, taken by the responder from the registry entry for the effective domain. Any debit asserted by a requester is ignored. |
 | **Millibit** | The unit of capacity: one thousandth of a bit, carried as an integer. `ceil(1000 × log2(cardinality))`, authored once into a registry entry and never computed at runtime. Integer accumulation is exact and order-independent; ceiling rounding can over-charge but never under-charge. See [`core-model.md`](core-model.md) §3.1. |
 | **Disclosure history** | The prior-release state consulted during policy evaluation and keyed by a policy-defined tuple such as (requester relationship, subject, sensitivity class, sink, time window). |
-| **Denial normalization** | Mapping several internal outcomes — absent data, policy refusal, budget exhaustion, unsupported predicate, failed freshness, internal escalation — onto one external class within a sensitivity class. Reduces explicit oracles. It is **not** wire-level indistinguishability: timing, size, notifications, rate limits, and later state remain observable. |
+| **Denial normalization** | Mapping several internal outcomes — absent data, policy refusal, budget exhaustion, rate-limit rejection, unsupported predicate, failed freshness, internal escalation — onto one external class within a sensitivity class. Reduces explicit oracles. It is **not** wire-level indistinguishability: timing, size, notifications, rate limits, and later state remain observable. |
 | **Explicit escalation** | An `escalate` response returning an opaque pending token. This reveals that a relationship, record, or applicable policy path may exist, and is therefore itself a disclosure requiring its own policy decision. It MUST NOT be described as denial-normalized. |
 | **Opaque escalation** | Internal escalation recorded and prompted out of band while the external response stays in the normalized class. The original query remains idempotent: identical retries keep returning the cached normalized outcome and never become an answer. |
-| **Approval-scope digest** | The key of a time-bounded grant recorded on approval under opaque escalation. Covers requester principal and delegated agent, predicate and version, answer-contract digest, purpose, answer recipient, sink set, and public-context commitment. Excludes query identifier, nonce, issue time, and expiry — so a fresh signed query can carry the same scope. Exact field list is open; see §10. |
+| **Approval-scope digest** | The key of a time-bounded grant recorded on approval under opaque escalation. Covers requester principal and delegated agent, predicate and version, answer-contract digest, purpose, answer recipient, sink set, and public-context commitment. Excludes query identifier, nonce, issue time, and expiry — so a fresh signed query can carry the same scope. The grant it keys is **single-use** — consumed by the first release made under it, so one approval authorizes one answer ([`core-model.md`](core-model.md) §5.3). Exact field list is open; see §10. |
 | **Residual oracle** | An observable channel Q2D reduces but does not close. Named, not hidden. The unavailable-to-answer transition after an opaque approval is one. |
 
 ---
@@ -244,10 +244,16 @@ computation · public transparency logs · destruction receipts · sticky policy
 conformance mark · formal inference privacy · certification program.
 
 Open items carried from Appendix C of the technical report that bear on this
-vocabulary: the core-versus-profile boundary for identity and delegation; the
-exact approval-scope digest fields and grant lifetime; the capacity calculation
-for bounded structured outputs; and whether denied and escalated outcomes debit
-the budget.
+vocabulary: the exact approval-scope digest fields and grant lifetime; the
+capacity calculation for bounded structured outputs; and which identity profile,
+if any, is mandatory to implement.
+
+Decided since that appendix was written, and no longer open: the
+core-versus-profile boundary for identity and delegation
+([`core-model.md`](core-model.md) §2.3 defines the three interfaces); grant
+multiplicity (single-use, §5.3); and **whether denied and escalated outcomes debit
+the budget** — they do not, and a required rate limit bounds the probing instead
+(§9.1).
 
 Appendix C's *canonical serialization and signature container* is no longer
 open. Signed bytes are the exact transmitted bytes

@@ -7,8 +7,8 @@
 | Status | **Ready for decomposition** |
 | Size | M |
 | Risk | medium |
-| Depends on | [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md) |
-| Blocks | P-010, P-011, P-015 |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md) |
+| Blocks | P-010, P-011, P-015, P-016 |
 
 ---
 
@@ -31,7 +31,7 @@ what it is keyed by, when it is debited, and what happens when it runs out.
 | [`spec/core-model.md`](../../spec/core-model.md) §3.1 | Millibits; ceiling rounding; **a responder never computes `log2`** |
 | [`spec/core-model.md`](../../spec/core-model.md) §4 steps 15, 18 | Budget checked before private access; debited after output validation |
 | [`spec/core-model.md`](../../spec/core-model.md) §7 | A retry must not debit twice |
-| [`spec/core-model.md`](../../spec/core-model.md) §9 | **Open:** whether `deny` and `escalate` debit |
+| [`spec/core-model.md`](../../spec/core-model.md) §9.1 | `deny` and `escalate` do not debit; a required rate limit bounds probing, and its rejection is normalized |
 | [`spec/terminology.md`](../../spec/terminology.md) §6 | Budget, capacity debit, disclosure history, the keying tuple |
 | [`spec/claims.md`](../../spec/claims.md) Q2D-C-09 | What the claim holds and does not hold |
 | [`registry/manifest.json`](../../registry/manifest.json) | `capacity_unit`, per-entry `millibits`, and the computed-domain tables |
@@ -177,33 +177,38 @@ that gate would make budget state externally observable, which
 [P-011](P-011-receipts-audit.md) §4.3 keeps out of receipts precisely because it
 reveals other requesters' activity.
 
-### 4.7 Escalation: do `deny` and `escalate` debit?
+### 4.7 `deny` and `escalate` do not debit
 
-[`core-model.md`](../../spec/core-model.md) §9 records this as undecided, and the
-subsetting resolution has narrowed it but not closed it.
+**Resolved.** [`core-model.md`](../../spec/core-model.md) §9.1 now decides this:
+neither a denial nor an escalation debits the disclosure-capacity budget, and a
+**rate limit** bounds the probing they would otherwise permit.
 
-**The argument for debiting.** A denial can be informative. Under the coarsening
-rule, a *narrowing-induced* out-of-domain denial is now impossible — that was the
-leak §2.5 closed. But a **policy** denial still carries information in some
-deployments: a requester learning that a predicate is denied for a purpose learns
-something about policy, and repeated probing across purposes could map it.
+The reasoning is recorded in §9.1 and is not restated here. What this module
+owes it:
 
-**The argument against.** Debiting denials means a requester can exhaust another
-party's budget by making requests that will be denied — a denial-of-service on
-the budget rather than on the service. And an escalation that a human ultimately
-refuses would have consumed capacity for a disclosure that never happened.
+| Requirement | Where |
+|---|---|
+| Only a released answer debits — nothing is charged at any earlier failure point | §4.2's step-15/step-18 boundary already produces this |
+| A rate limit keyed on the **relationship component only** — not the full `BudgetKey` | §4.3's key also carries sensitivity class and sink set, which come from the registry entry and the contract. The rate limit is checked at [`core-model.md`](../../spec/core-model.md) §4 step 9a, before registry resolution, so it cannot use them — and must not, because a limiter that counted only requests which resolved a predicate would leave unknown predicates unlimited, which a requester can measure |
+| The rate limit is **required configuration with no default** | The daemon refuses to start without it — [P-013](P-013-https-binding.md) §4.6's list gains a row |
+| A rate-limit rejection is **normalized** | [P-009](P-009-denial-normalization.md) §4.2's Tier C, indistinguishable from every other cause, with no retry metadata |
 
-**Proposal, not a decision.** Neither `deny` nor `escalate` debits the disclosure
-budget. The probing they enable is bounded by a **separate rate limit** keyed the
-same way, which is a different mechanism with different units and no claim
-attached to it.
+The units argument is why the two mechanisms stay separate rather than one
+being expressed as the other. Q2D-C-09 accounts for disclosure in millibits of
+answer alphabet; what a denial can leak is policy structure, which has no
+bit-count in this model. A rate limit counts requests, which is the thing
+actually being bounded. Charging denials against the bit budget would make
+`disclosure_capacity_debit_millibits` a number that no longer means what
+Q2D-C-09 says it means — and would let any reachable party spend a subject's
+budget without ever receiving an answer.
 
-Rate limiting is honest here in a way that a capacity debit is not: what a
-denial leaks is not measured in bits of answer alphabet, so charging it against
-a bit budget would be measuring one thing with another thing's ruler.
-
-**This needs a decision before issue 5.** It is a spec-level question
-([`core-model.md`](../../spec/core-model.md) §9) and therefore not settled here.
+**The rate limiter is the sharp edge in this module.** Its rejection is the one
+new denial cause introduced since [P-009](P-009-denial-normalization.md) was
+written, and a rate limiter's natural output — a 429, a `Retry-After`, a
+"try again in 40 seconds" — is cause-specific by construction. Every one of
+those is forbidden. If the limiter is distinguishable, it has become the oracle
+it was introduced to close, and the decision above is not merely unhelpful but
+worse than debiting would have been.
 
 ## 5. Interfaces
 
@@ -236,6 +241,8 @@ the pipeline — that ordering is what makes a retry unable to debit twice.
 | `budget/reserve/` | Concurrent checks; settle; release; reservation expiry |
 | `budget/window/` | Debits ageing out of a rolling window |
 | `budget/idempotent/` | A retry settles once — cross-references `replay/idempotent/` |
+| `budget/nodebit/` | A denial, an escalation, and a rate-limit rejection each leave `spent` unchanged ([`core-model.md`](../../spec/core-model.md) §9.1) |
+| `budget/ratelimit/` | A rate-limit rejection is byte-identical to every other Tier C denial; no retry metadata; no header varies — asserted **across** causes, not per cause |
 
 ## 7. Acceptance
 
@@ -285,10 +292,10 @@ there is nothing for a requester-asserted debit to be read from.
 
 | Question | Belongs to |
 |---|---|
-| **§4.7 — do `deny` and `escalate` debit?** Proposed: no, with a separate rate limit doing that job, because what a denial leaks is not measured in bits of answer alphabet | **Escalated.** [`core-model.md`](../../spec/core-model.md) §9; blocks issue 5 |
-| Does a rejected reservation appear in audit, or only settled debits? Proposed: both, since exhaustion is itself a fact an operator needs | This PRD |
-| Where does the budget store live — same store as the replay cache, or separate? Proposed: same, since §4.5 requires atomic commit across both | This PRD; blocks issue 2 |
-| Do reservations survive a restart? Proposed: no — they expire faster than a restart takes, and persisting them adds a failure mode for a bound already short | This PRD |
+| ~~**§4.7** — do `deny` and `escalate` debit?~~ | **Resolved: neither debits.** A required rate limit bounds probing instead. [`core-model.md`](../../spec/core-model.md) §9.1; see §4.7 |
+| ~~Does a rejected reservation appear in audit, or only settled debits?~~ | **Resolved: both.** Exhaustion is a fact an operator needs — a budget silently refusing traffic with no local record is indistinguishable from an outage. The audit is local and never disclosed to the requester, so recording it costs nothing externally; [P-011](P-011-receipts-audit.md) §4.3 already keeps budget state out of receipts for the separate reason that it reveals other requesters' activity |
+| ~~Where does the budget store live — same store as the replay cache, or separate?~~ | **Resolved: the same store.** §4.5 requires the debit and the cache entry to commit atomically, and two stores means a distributed transaction — the same problem [P-013](P-013-https-binding.md) §4.6 declines to solve for two daemons, arriving inside one process. One store, one transaction, and the atomicity is a local property rather than a protocol |
+| ~~Do reservations survive a restart?~~ | **Resolved: no.** A reservation is released at `expires_at + skew`, which is shorter than a restart takes to complete, so persisting them would add a recovery path for state that is already gone by the time it could be read. Dropping them is also the safe direction: a lost reservation under-reserves briefly, never under-charges, because a debit only exists after §4.2's step-18 settle |
 
 ## 11. Issues
 
@@ -298,11 +305,13 @@ there is nothing for a requester-asserted debit to be read from.
 | 2 | Budget store with timestamped debits | Open question 3 resolved; shares the transaction with P-004 |
 | 3 | `BudgetKey` derivation from decision context | Not derivable from requester-asserted fields |
 | 4 | Rolling-window `spent` | `budget/window/` passes; no calendar boundary |
-| 5 | `check` with reservation, and the exhaustion boundary | `budget/exhaustion/` and `budget/reserve/` pass; §4.7 resolved first |
+| 5 | `check` with reservation, and the exhaustion boundary | `budget/exhaustion/` and `budget/reserve/` pass |
+| 5a | **Rate limiter**, keyed on the **relationship component only** — never the full `BudgetKey` — checked at [`core-model.md`](../../spec/core-model.md) §4 step 9a; required configuration with no default | Startup fails when unconfigured; the limiter is reachable without registry resolution, so a request naming an unknown predicate counts identically to one naming a known predicate; `budget/ratelimit/` shows a rejection byte-identical to a Tier C denial, with no retry metadata and no distinguishing header |
 | 6 | `settle` / `release` wired into P-004's atomic commit | `budget/idempotent/` passes |
 | 7 | Reservation expiry | Unsettled reservation released at `expires_at + skew` |
 | 8 | Accumulation order-independence | P-001 cross-vector permutation assertion passes |
 | 9 | Author `budget/` corpus section | Six groups; `harness lint` clean |
-| 10 | **Escalate §4.7 and record the outcome** | Decision written into §4.7 and `core-model.md` §9 |
+| 10 | ~~Escalate §4.7 and record the outcome~~ — **done** | Resolved: neither debits; `core-model.md` §9.1 written; §4.7 rewritten; issue 5a added |
 
-Issue 10 blocks issue 5. Issue 2 blocks 5, 6, and 7.
+Issue 2 blocks 5, 6, and 7. Issue 5a is independent of the budget store and can
+start immediately.

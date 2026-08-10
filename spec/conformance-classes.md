@@ -35,17 +35,21 @@ There is no certification program and no conformance mark. See
 ### CC-1 — Core requester
 
 **Must.** Construct well-formed answer contracts; resolve principal and
-delegated agent identity; sign queries covering every field in
+delegated agent identity through the interfaces in
+[`core-model.md`](core-model.md) §2.3; sign queries covering every field in
 [`core-model.md`](core-model.md) §2 under the mandatory-to-implement suite
 `eddsa-jws-2026`; emit a `routing` projection that is a strict subset of the
-signed object; handle all three response statuses; verify response signatures
-against its own minimum acceptable suite policy before exposing an answer; store
-receipts; honour idempotency on retry.
+signed object; **process every response in the order in
+[`core-model.md`](core-model.md) §4.1**; handle all three response statuses;
+verify response signatures against its own minimum acceptable suite policy before
+exposing an answer; store receipts; honour idempotency on retry.
 
 **Must not.** Expand a registered answer domain; re-sign a modified contract as
 though it were the original; treat an `escalate` pending token as an answer;
-place a signature-covered field in `routing` only; accept a response whose suite
-falls below its minimum acceptable policy.
+**parse a response object before its signature verifies, or release any part of a
+response to a caller before §4.1 step 9**; map an unrecognized status onto a
+default; place a signature-covered field in `routing` only; accept a response
+whose suite falls below its minimum acceptable policy.
 
 **Supports.** Q2D-C-01, Q2D-C-05, Q2D-C-07.
 
@@ -53,17 +57,24 @@ falls below its minimum acceptable policy.
 
 **Must.** Execute the processing order in [`core-model.md`](core-model.md) §4
 without reordering steps 1–16; check the signature suite against its minimum
-acceptable policy before verifying; authenticate and verify delegation; reject
-any `routing` / `signed` disagreement; enforce replay and expiry; resolve the
-predicate against a pinned registry and fail closed on anything unknown; compute
-the effective answer domain itself; validate output against it; debit capacity
-once; record the suite in the receipt; sign the response.
+acceptable policy before verifying; authenticate and verify delegation through
+the interfaces in [`core-model.md`](core-model.md) §2.3; reject any `routing` /
+`signed` disagreement; enforce replay and expiry; **enforce a configured rate
+limit at step 9a**, keyed on the relationship only
+([`core-model.md`](core-model.md) §9.1); resolve the predicate against a pinned
+registry and fail closed on anything unknown; compute the effective answer domain
+itself by narrowing composition, per shape, per §3.2; validate output against it;
+debit capacity once; issue a receipt with every outcome; record the suite in the
+receipt; sign the response.
 
 **Must not.** Read private input before step 16; parse the core object before
 its signature verifies; use `routing` for any decision the signature covers;
-accept a requester-asserted answer domain or capacity debit; accept a suite
-below its policy floor or offer an alternative suite in a rejection; silently
-downgrade a requested assurance profile; serialize private input into an error.
+accept a requester-asserted answer domain or capacity debit; **debit capacity for
+a denial, an escalation, or a rate-limit rejection** (§9.1); rate-limit *after*
+registry resolution, which would leave unknown predicates unlimited; start with
+no rate limit configured; accept a suite below its policy floor or offer an alternative
+suite in a rejection; silently downgrade a requested assurance profile;
+serialize private input into an error.
 
 **Supports.** Q2D-C-02, Q2D-C-03, Q2D-C-04, Q2D-C-06, Q2D-C-07, Q2D-C-09, Q2D-C-10.
 
@@ -161,6 +172,38 @@ loss.
 
 **Supports.** Q2D-C-11.
 
+### CC-12 — Direct HTTPS binding
+
+**Must.** Carry the [`core-model.md`](core-model.md) §2.1 envelope as the request
+body, unmodified and unexamined by the transport; return **HTTP 200 with a signed
+body for every Q2D outcome** — `answer`, `deny`, and `escalate` alike; return a
+4xx with no signed body only where a request never became a Q2D exchange
+(malformed framing, oversized body, wrong content type, unknown path); serve
+capability discovery from configuration; where explicit escalation is supported,
+return an identical response for unknown, expired, and still-pending tokens —
+a **poll status object carrying no receipt**, since an unknown token has no
+exchange a receipt could bind — and once decided, a **poll outcome object**
+stating only that an authority approved or refused. A poll never returns the
+answer: an approval is a grant, and the answer comes from a fresh revalidated
+query ([`core-model.md`](core-model.md) §5.3).
+
+**Must not.** Place any Q2D field in a path, query parameter, or header, or read
+one from there; accept a transport-level idempotency key alongside the signed
+`query_id` and `nonce`; vary any status code or response header with the
+outcome — including `429`, `503`, and `Retry-After`, which are cause-specific
+retry metadata by construction; serve a registry entry from an unauthenticated
+endpoint, which is an existence oracle and makes the §2.4.1 entry-digest check
+vacuous; attach a receipt to a poll response, which would attest to an exchange
+that may not exist; log request or response bodies or headers.
+
+**Supports.** Q2D-C-08 at the transport layer, and Q2D-C-11 as one of the two
+bindings its equivalence requires.
+
+**Note.** A rate-limit rejection (§9.1) is a Q2D outcome, not a transport event.
+It is returned as a normalized denial under the rules above — HTTP 200, signed
+body, no distinguishing header — for the same reason every other cause in its
+class is.
+
 ---
 
 ## Requester-side class
@@ -230,9 +273,19 @@ with no owning class is a specification gap.
 | Q2D-C-08 denial normalization | CC-2, CC-3 |
 | Q2D-C-09 disclosure-capacity accounting | CC-2, CC-3 |
 | Q2D-C-10 exchange-bound accountability | CC-2, CC-11 |
-| Q2D-C-11 binding equivalence | CC-8, CC-9 |
+| Q2D-C-11 binding equivalence | CC-8, CC-9, CC-12 |
 | Q2D-C-12 evidence segregation | CC-10 |
 | Q2D-C-13 conditional flow confinement | CC-10 |
+
+**Q2D-C-11 is the one claim no single owning class establishes.** Equivalence is
+a statement *between* bindings, so implementing any one of CC-8, CC-9, or CC-12
+supplies a binding to compare and demonstrates nothing on its own. The claim
+holds only once two of them pass the same vector set.
+
+Also note that Q2D-C-12 and Q2D-C-13 hold only under the
+`q2d-contained-runtime-0.1` profile, per [`claims.md`](claims.md). CC-10's
+compatibility mode is the honest position for a requester without it: a valid
+CC-1 requester claiming neither.
 
 ---
 

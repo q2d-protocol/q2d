@@ -4,10 +4,10 @@
 |---|---|
 | PRD | P-014 |
 | Stage | 6 — closes it |
-| Status | **Blocked on escalation** — open question 1 |
+| Status | **Ready for decomposition** |
 | Size | M |
 | Risk | **high** — the key-to-principal binding is Q2D-C-06's trusted base, and in this profile a human establishes it by comparing a string |
-| Depends on | [P-003](P-003-crypto-suites.md), [P-009](P-009-denial-normalization.md) |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-003](P-003-crypto-suites.md), [P-009](P-009-denial-normalization.md) |
 | Blocks | P-013, P-016 |
 | Pairs with | [P-013](P-013-https-binding.md) — the daemon cannot authenticate anyone without this, and this PRD owns no transport |
 
@@ -221,11 +221,14 @@ The consequence is the limitation to state everywhere it matters:
 > told, by hand. There is no revocation list, no status endpoint, and no
 > propagation. Revocation is per-deployment and manual.
 
-[`trust-matrix.md`](../../threat-model/trust-matrix.md) §4 says a compromised key
-defeats Q2D-C-05 or Q2D-C-06 *"until revocation"*, which reads as though
-revocation were a mechanism with reach. Under this profile it is a person
-editing a file on each machine. Open question 3 proposes making that explicit in
-the threat model rather than leaving it to a reader's assumption.
+[`trust-matrix.md`](../../threat-model/trust-matrix.md) §4 previously said a
+compromised key defeats Q2D-C-05 or Q2D-C-06 *"until revocation"* and stopped
+there, which read as though revocation were a mechanism with reach. Under this
+profile it is a person editing a file on each machine. **§4 now says so**, and
+adds that the exposure is bounded by who gets told rather than by a window that
+closes — scoped to this profile, so a later one with real revocation
+infrastructure is not retroactively described as having none. Open question 3,
+resolved.
 
 ### 4.6 Private key storage
 
@@ -271,13 +274,15 @@ The internal audit event records which, because
 
 ## 5. Interfaces
 
-**Provisional.** The first three implement interfaces that
-[`core-model.md`](../../spec/core-model.md) §2.3 names and does not define; their
-shape is input to open question 1, not a resolution of it. Only
-`resolve_key` is settled, by [P-003](P-003-crypto-suites.md) §5.
+**Settled.** [`core-model.md`](../../spec/core-model.md) §2.3 now defines all
+three, technology-free, taking these signatures as its input. This section
+implements them; it no longer proposes them. The reasoning under
+`identify_principal` and `verify_delegation` below moved into the specification
+with the signatures, because it is the part a second profile must not
+reinterpret.
 
 ```
-// the three interfaces — technology-free
+// the three interfaces — core-model.md §2.3, technology-free
 resolve_key(key_id: KeyId)            -> Result<PublicKey>        // P-003 §5
 identify_principal(key_id: KeyId)     -> Result<PrincipalId>
 verify_delegation(principal: PrincipalId, agent: KeyId,
@@ -390,22 +395,22 @@ authorization decision somewhere it cannot be audited.
 
 | Question | Belongs to |
 |---|---|
-| **1.** [`core-model.md`](../../spec/core-model.md) §2.3 names three interfaces and defines only the one [P-003](P-003-crypto-suites.md) needed. Defining the other two here would put the core-vs-profile boundary in a PRD. **Recommended: add the three signatures to §2.3, technology-free**, using §5 as input; leave §9's mandatory-profile question parked | **Escalation.** Blocks this PRD's status and issues 3 and 4 |
-| **2.** Should a conformance class exist for an identity profile? None does — CC-1 and CC-2 require delegation verification without saying what an implementer conforms to when they supply it. Proposed: **not yet.** A class would fix the boundary §9 is still deciding, and it is the second missing-class finding after [P-013](P-013-https-binding.md) open question 2 — worth resolving together, after 1 | Escalation, batched with [P-013](P-013-https-binding.md) |
-| **3.** [`trust-matrix.md`](../../threat-model/trust-matrix.md) §4 says a compromised key defeats a claim "until revocation", which under this profile means a person editing a file on every machine. Proposed: say so in §4, since the current wording implies reach the profile does not have | **Escalation.** A `threat-model/` wording change that alters meaning |
-| **4.** What is a `PrincipalId` — an opaque string, a URI, a key digest? Proposed: an opaque deployment-chosen string, because anything structured invites parsing it for authorization | This PRD; blocks issue 3 |
-| **5.** Does the requester delegate to *itself* in MVP, or is `requester.agent` the same key as the principal with a self-issued delegation? Proposed: self-issued, per §4.4 — the collapsed case exercises the path | This PRD |
-| **6.** Passphrase or OS keychain for private keys? Proposed: neither in MVP; file permissions, with the interface shaped so a keychain is a swap | This PRD |
-| **7.** Does pairing need an expiry, so a binding must be periodically reconfirmed? Proposed: no in MVP — an expiry that lapses mid-deployment fails closed in a way indistinguishable from compromise, and the operational cost is real | This PRD; revisit at Stage 8 |
+| **1.** ~~[`core-model.md`](../../spec/core-model.md) §2.3 names three interfaces and defines only one~~ | **Resolved: all three are now defined in §2.3**, technology-free, with §5 as input. The two properties that carry security meaning moved into the spec with them — `identify_principal` separate from `resolve_key`, and `verify_delegation` returning success rather than the evidence. §9's mandatory-profile question stays parked, and §2.3 says so explicitly so the definition is not read as answering it |
+| **2.** ~~Should a conformance class exist for an identity profile?~~ | **Resolved: not yet**, while [P-013](P-013-https-binding.md) open question 2 was resolved the other way. The distinction, stated here so the pair does not read as an oversight: **a conformance class can be written for a boundary that is settled.** P-013's binding has a complete must / must-not list today (its §4.1–4.5, now CC-12). An identity class would have to state which profile an implementation conforms to, and *which profile, if any, is mandatory* is exactly what [`core-model.md`](../../spec/core-model.md) §9 still parks. Revisit when a second profile exists |
+| **3.** ~~[`trust-matrix.md`](../../threat-model/trust-matrix.md) §4 says a compromised key defeats a claim "until revocation"~~ | **Resolved: amended.** §4 now states that under this profile revocation is per-deployment and manual, with no propagation, and that the exposure is bounded by who gets told rather than by a window that closes. §4.5's wording was lifted into the threat model, which is where a reader doing adversary analysis actually looks |
+| **4.** ~~What is a `PrincipalId` — an opaque string, a URI, a key digest?~~ | **Resolved: an opaque, deployment-chosen string**, compared only for equality. Not a URI and not a key digest. Anything with structure invites something downstream parsing it for authorization — a domain suffix, a namespace prefix — which turns identity into policy input and does it in a field no signature covers the *meaning* of. A key digest is worse still: it would make the principal change on rotation, and §4.5 makes rotation a routine re-pairing |
+| **5.** ~~Does the requester delegate to itself in MVP?~~ | **Resolved: a self-issued delegation**, with `requester.agent` a distinct key from the principal. Collapsing the two — or allowing an empty delegation when they are equal — would leave `verify_delegation` unexercised on every MVP path, so the first real deployment would be the first test of it. Two keys and a signed delegation cost a fixture and keep the check on the critical path (§4.4) |
+| **6.** ~~Passphrase or OS keychain for private keys?~~ | **Resolved: neither — file permissions**, enforced at startup (§4.6). A passphrase means an interactive prompt, and a daemon that cannot start unattended is one an operator will work around by storing the passphrase beside the key. A keychain is platform-specific and would put a third OS integration in a Stage 6 deliverable. `load_own_key` takes a `KeyFilePolicy`, so a keychain implementation is a substitution rather than a redesign. **The limitation is stated in the operational-security notes** rather than implied |
+| **7.** ~~Does pairing need an expiry?~~ | **Resolved: no in MVP.** A lapsed pairing fails closed as a Tier B rejection, which is indistinguishable from a compromised or rotated key — so the expiry would generate exactly the alarm it was meant to make meaningful, on a schedule, until operators stopped reading it. Re-pairing is already required on rotation (§4.5), which is the event that matters. Revisit at Stage 8 if operating experience shows stale bindings accumulating |
 
 ## 11. Issues
 
 | # | Issue | Done when |
 |---|---|---|
-| 1 | Escalate open questions 1, 2, and 3 | Resolved; `core-model.md` §2.3 and `trust-matrix.md` §4 amended or the recommendations declined, with §4.1 and §4.5 citing the outcome |
+| 1 | ~~Escalate open questions 1, 2, and 3~~ — **done** | Resolved; `core-model.md` §2.3 defines the three interfaces, `trust-matrix.md` §4 amended, identity conformance class deferred with the reason recorded; §4.5 and §5 cite the outcome |
 | 2 | `fingerprint` with the §4.3 encoding | `identity/fingerprint/` byte-matches across implementations |
-| 3 | Pairing store, `pair`, `unpair`, `identify_principal` | `identity/pairing/` passes; open questions 1 and 4 resolved first |
-| 4 | `verify_delegation` and the delegation object | `identity/delegation/` passes; open question 1 resolved first |
+| 3 | Pairing store, `pair`, `unpair`, `identify_principal` | `identity/pairing/` passes; open question 4 resolved first. `identify_principal` is a **separate** lookup from `resolve_key` ([`core-model.md`](../../spec/core-model.md) §2.3) — no combined call returning both may exist |
+| 4 | `verify_delegation` and the delegation object | `identity/delegation/` passes; the function returns success or failure and **never** the evidence (§2.3) |
 | 5 | Confirmation mode, recorded and enforced | `identity/confirmation/` passes; unconfirmed refused by default |
 | 6 | `resolve_key` over the pairing store | [P-003](P-003-crypto-suites.md)'s interface satisfied; no fallback path exists |
 | 7 | Rotation and the no-rollover rule | `identity/rotation/` passes; rollover statements rejected |
@@ -416,6 +421,7 @@ authorization decision somewhere it cannot be audited.
 | 12 | Pairing ceremony in the quickstart, with the comparison step | An outsider completes it; the step is not described as optional |
 | 13 | Claim-language audit | Nothing calls unconfirmed pairing authenticated, or this profile the Q2D identity model |
 
-Issue 1 blocks 3 and 4 — both implement interfaces whose shape is the
-escalation. Issue 2 is independent and can start immediately; the fingerprint
-encoding is settled and everything else waits on it being stable.
+Issue 2 is independent and can start immediately; the fingerprint encoding is
+settled and everything else waits on it being stable. Issues 3 and 4 are now
+unblocked — [`core-model.md`](../../spec/core-model.md) §2.3 fixes the interface
+shapes, so this module implements rather than proposes them.

@@ -11,7 +11,9 @@ Present:
 | File | Purpose |
 |---|---|
 | [`mvp-scope.md`](mvp-scope.md) | Phase 1 scope, stage order, PRD set, and gates. Parent of the PRD set. |
-| [`versioning.md`](versioning.md) | Tag scheme and independent version lines. |
+| [`versioning.md`](versioning.md) | Tag scheme, independent version lines, and the known divergences between the deposited report and the current specification. |
+| [`open-escalations.md`](open-escalations.md) | Every escalation, open or closed, with the options considered and a **Cascade** line naming each document the decision touches. |
+| [`prds/`](prds/) | The sixteen PRDs and their registry. |
 
 Planned, per the artifact split in the technical report (§ *Open-source
 and governance posture*):
