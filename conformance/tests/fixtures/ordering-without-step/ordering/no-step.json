@@ -1,0 +1,16 @@
+{
+  "id": "ordering/reject/no-step",
+  "section": "ordering",
+  "requirement": ["core-model.md#4"],
+  "description": "An ordering vector that states no step, and so asserts nothing about ordering.",
+  "operation": "process_query",
+  "input": {},
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "malformed_envelope",
+      "wire": { "status": "deny", "external_reason": "unavailable" }
+    },
+    "comparison": "bytes"
+  }
+}

@@ -245,6 +245,22 @@ class LintTest(unittest.TestCase):
             *lint_module.known_identifiers(), lint_module.citable_sections())
         self.assertEqual(errors, [])
 
+    def test_an_ordering_vector_must_state_its_step(self):
+        # The section exists to assert *which* step rejected. A vector there
+        # with no step asserts nothing about ordering and would pass silently,
+        # because §4.8 holds a vector only to the step it states.
+        code, output = run_lint(FIXTURES / "ordering-without-step")
+        self.assertEqual(code, 1)
+        self.assertIn("must state the step", output)
+
+    def test_a_section_rule_never_crashes_on_a_malformed_vector(self):
+        # Section rules run alongside the schema's checks, not after them, so
+        # they are handed vectors of any shape. One malformed vector must not
+        # abort the run that was going to report it.
+        code, output = run_lint(FIXTURES / "ordering-malformed")
+        self.assertEqual(code, 1)
+        self.assertIn("expected object, found null", output)
+
     def test_malformed_json_is_rejected(self):
         code, output = run_lint(FIXTURES / "malformed-json")
         self.assertEqual(code, 1)

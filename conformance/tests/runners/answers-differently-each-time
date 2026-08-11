@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+"""Reads a clock, which P-001 §4.3 forbids. Two runs disagree."""
+import json, sys, time
+vector = json.loads(open(sys.argv[1]).read())
+json.dump({"vector_id": vector["id"], "outcome": "ok",
+           "output": {"signed": "", "routing": {}, "issued_at": time.time_ns()},
+           "implementation": {"name": "q2d-ambient", "version": "0.0.0"}}, sys.stdout)

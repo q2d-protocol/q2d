@@ -119,6 +119,40 @@ def placement_errors(vector: dict, path: Path, corpus_root: Path) -> list[str]:
     return errors
 
 
+def section_errors(vector: dict) -> list[str]:
+    """Rules a section carries that the schema cannot express.
+
+    `ordering/` exists to assert *which* step rejected (P-001 §5, §4.6). A
+    vector there that states no step asserts nothing about ordering, which is
+    the one thing its section is for -- and it would pass silently, because
+    §4.8 holds a vector only to the step it states.
+    """
+    errors = []
+    if vector.get("section") != "ordering":
+        return errors
+
+    expect = vector.get("expect")
+    if not isinstance(expect, dict):
+        return errors  # the schema is already reporting this one
+
+    if expect.get("outcome") != "rejected":
+        errors.append("section: an ordering/ vector asserts where a rejection "
+                      "happened, so its outcome must be 'rejected'")
+        return errors
+
+    # These checks run alongside the schema's, not after them, so the vector
+    # they are handed may be any shape at all. Reaching into a `rejection` that
+    # is null or an integer would raise, and one malformed vector would abort
+    # the run that was going to report it -- hiding every failure after it.
+    rejection = expect.get("rejection")
+    if not isinstance(rejection, dict):
+        return errors  # the schema is already reporting this one
+    if "step" not in rejection:
+        errors.append("section: an ordering/ vector must state the step it "
+                      "rejects at, or it asserts nothing about ordering")
+    return errors
+
+
 def lint(corpus_root: Path) -> int:
     """Validate every vector under `corpus_root`. Returns a process exit code."""
     if not corpus_root.is_dir():
@@ -147,6 +181,7 @@ def lint(corpus_root: Path) -> int:
         if isinstance(vector, dict):
             errors += placement_errors(vector, path, corpus_root)
             errors += citation_errors(vector, claims, classes, sections)
+            errors += section_errors(vector)
 
             vector_id = vector.get("id")
             if isinstance(vector_id, str):

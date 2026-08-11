@@ -1,0 +1,13 @@
+{
+  "id": "ordering/reject/rejection-is-null",
+  "section": "ordering",
+  "requirement": ["core-model.md#4"],
+  "description": "Schema-invalid in a way the section rule must not crash on.",
+  "operation": "process_query",
+  "input": {},
+  "expect": {
+    "outcome": "rejected",
+    "rejection": null,
+    "comparison": "bytes"
+  }
+}

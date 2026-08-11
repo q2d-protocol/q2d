@@ -419,7 +419,7 @@ What must fail, and how the failure is observed.
 
 | Must fail | Observed as |
 |---|---|
-| A runner that reads a clock or generates a nonce | Two runs of the same vector produce different output; harness reports non-determinism |
+| A runner that reads a clock or generates a nonce | Two runs of the same vector produce different output; harness reports non-determinism. **Every vector runs twice for this reason** — nothing else catches it, and the byte comparison the Stage 1 gate rests on would fail later for reasons nobody could place |
 | A runner that emits exit 1 for a vector expecting rejection | Harness reports runner failure, distinct from vector failure |
 | A vector asserting an outcome it does not cite a requirement for | `harness lint` rejects it |
 | A vector with `comparison` unset | `harness lint` rejects it |

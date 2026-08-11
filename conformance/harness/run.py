@@ -20,6 +20,13 @@ Three properties of how this is done, each of which is a rule somewhere:
   reported differently on purpose: one means the implementation is wrong about
   Q2D, the other means it is wrong about the contract, and conflating them
   sends whoever is debugging to the wrong file.
+- **Every vector runs twice.** §4.3 requires every varying input to come from
+  the vector, so a runner that reads a clock or generates a nonce is
+  non-conforming -- and §8 says how that is observed: *two runs of the same
+  vector produce different output*. Nothing else catches it. The vector would
+  pass, the corpus would look green, and the byte comparison the Stage 1 gate
+  rests on would fail later against the other implementation for reasons nobody
+  could place. It costs twice the runtime of a suite that proves less.
 """
 
 from __future__ import annotations
@@ -173,6 +180,17 @@ def run_vector(vector, runner: Path, result_schema: dict, vector_schema: dict,
         # this vector's expectation.
         return Outcome(vector, False,
                        f"result is for {result['vector_id']!r}, not {vector.body['id']!r}",
+                       runner_failed=True)
+
+    # §4.3, observed the only way it can be: ask twice and compare. A runner
+    # reading a clock or minting a nonce answers differently, and every other
+    # check here would have passed it.
+    second_code, second_stdout, _ = invoke(runner, projected, scratch)
+    if second_code != code or second_stdout != stdout:
+        return Outcome(vector, False,
+                       "two runs of this vector produced different output — the "
+                       "runner is reading something the vector did not supply "
+                       "(a clock, an RNG, ambient state)",
                        runner_failed=True)
 
     passed, reason = judge(vector, result)

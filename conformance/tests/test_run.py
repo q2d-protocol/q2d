@@ -132,6 +132,25 @@ class RunnerFailureTest(unittest.TestCase):
         self.assertIn("no result within", output)
 
 
+class DeterminismTest(unittest.TestCase):
+    """P-001 §8, row 1: two runs of the same vector must produce one answer.
+
+    Nothing else catches an ambient clock or RNG. The vector passes, the corpus
+    looks green, and the byte comparison the Stage 1 gate rests on fails later
+    against the other implementation for reasons nobody can place.
+    """
+
+    def test_a_runner_reading_a_clock_is_caught(self):
+        code, output = run(RUNNERS / "answers-differently-each-time")
+        self.assertEqual(code, 1)
+        self.assertIn("two runs of this vector produced different output", output)
+        self.assertIn("did not produce a result the harness could judge", output)
+
+    def test_a_deterministic_runner_is_not_accused(self):
+        code, _ = run(RUNNERS / "answers-correctly")
+        self.assertEqual(code, 0)
+
+
 class RejectionJudgementTest(unittest.TestCase):
     def test_the_right_denial_for_the_wrong_reason_fails(self):
         # The wire response matches; the internal reason does not. Checking
