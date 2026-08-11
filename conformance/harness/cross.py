@@ -168,13 +168,18 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
 
     divergent = 0
     unusable = 0
+    invalid = 0
 
     with tempfile.TemporaryDirectory(prefix="q2d-cross-") as tmp:
         scratch = Path(tmp)
         for vector in vectors:
             if schema_module.validate(vector.body, vector_schema):
-                unusable += 1
-                print(f"  SKIP  {vector.id}\n          vector does not conform; "
+                # Same class as a file that will not parse: a vector nobody was
+                # asked about, so agreement across the corpus has not been
+                # shown. Counted separately from an unusable *pair* -- this is
+                # the corpus being wrong, not the runners.
+                invalid += 1
+                print(f"  INVALID  {vector.id}\n          vector does not conform; "
                       f"run `harness lint`")
                 continue
 
@@ -236,9 +241,10 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
             print(f"  agree   {vector.id}")
 
     total = len(vectors)
-    compared = total - unusable
+    compared = total - unusable - invalid
     print(f"\n{compared - divergent}/{compared} vectors agree "
-          f"({total} in the corpus, {unusable} not comparable)")
+          f"({total} in the corpus, {unusable} not comparable, "
+          f"{invalid} not conforming)")
 
     # Said on every run, including a clean one. §4.8 asks for two things and
     # this mode does one of them, so a bare "vectors agree" would read as the
@@ -260,9 +266,9 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
     if divergent:
         print(f"FAILED: {divergent} vector(s) where the two implementations differ")
         return 1
-    if unreadable:
-        print(f"FAILED: the corpus is not wholly readable, so agreement across "
-              f"it has not been shown")
+    if unreadable or invalid:
+        print(f"FAILED: {len(unreadable) + invalid} file(s) could not be put to "
+              f"either runner, so agreement across the corpus has not been shown")
         return 1
     if not compared:
         # Two runners agreeing about nothing is not agreement.

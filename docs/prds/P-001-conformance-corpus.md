@@ -426,10 +426,12 @@ each is a property of the corpus rather than of one mode's code:
   is the coverage gap the Stage 1 gate exists to close. When *neither* answers,
   neither has claimed anything, so there is nothing they disagree about;
   judging either against the corpus is `run`'s job.
-- **A partial corpus fails.** A file that will not parse is a vector neither
-  runner was asked about, so agreement across the corpus has not been shown.
-  Printing that beside a zero exit would make a partial run look like a
-  complete one.
+- **A partial corpus fails.** A file that will not parse, or a vector that does
+  not conform to the schema, is one neither runner was asked about — so
+  agreement *across the corpus* has not been shown. Printing that beside a zero
+  exit would make a partial run look like a complete one. The two are counted
+  and named apart, because a non-conforming vector is the corpus being wrong
+  and an unusable pair is the runners being wrong.
 - **Two runners agreeing about nothing is not agreement.** An empty corpus, or
   one neither runner can answer, exits 0 and says so in words rather than
   printing `0/0 agree`.
@@ -534,6 +536,7 @@ change one stops and escalates.
 | ~~Does the corpus version independently of the spec, or track it?~~ | **Resolved: it tracks the spec.** The corpus exists to demonstrate that a spec version is implementable, so a vector set that could drift from the version it tests would let two implementations agree with each other and with neither spec. A corpus release is identified by the `spec/vX.Y` it was authored against ([`versioning.md`](../versioning.md)) |
 | ~~Should `process_query` vectors carry expected timing bands?~~ | **Resolved: a minimal timing capability is pulled forward to Stage 7.** Not a measurement framework — an assertion that two response paths fall within a band, which is what [P-015](P-015-escalation-lifecycle.md) issue 4 needs to show an opaque escalation is not distinguishable by latency. Full timing bands stay at Stage 8, where [P-016](P-016-demonstration-adversarial.md) owns measurement and reporting |
 | ~~**The §4.5 operation-vocabulary extension for Stages 5–8.**~~ | **Resolved: settled as one change, before Stage 5** — issue 17, not an open question. §4.5 now lists every anticipated operation with its owning PRD, and no later PRD names one unilaterally: four PRDs choosing separately would diverge at the *runner* level, where it surfaces as an unknown-operation error rather than a failing vector. The list already reflects the two decisions that changed it — the registry-entry endpoint is gone, and `requester/order/` needs an operation that can assert *which step* rejected |
+| **Does `cross` satisfy §4.8's cross-implementation clause with only the first half built?** Issue 9 compares what two runners each produced; putting A's signed output to B for verification needs a vector to name its companion artefact and the field that consumes it — a format change, and protocol knowledge §3 places outside the harness. I split it to issue 19, made every run state which half it did, and held issue 9 to the half it built. **The scope reduction is Peter's call, not mine**: the alternative is to keep issue 9 open until the format change and issue 19 land together, so no one ever sees a green `cross` that establishes less than §4.8 states | **Raised, awaiting decision.** Recorded here rather than settled in the PRD, because narrowing an acceptance clause is a scope decision even when the honesty of the output is preserved |
 | ~~Where do fuzzing seeds live — corpus or per-module?~~ | **Resolved: per-module.** The corpus is the cross-implementation contract and every file in it must mean the same thing to both runners; a seed corpus is a local artifact of one fuzzer's coverage history and would make the shared corpus non-reproducible between languages. Seeds live beside the fuzz target that produced them |
 
 ## 11. Issues

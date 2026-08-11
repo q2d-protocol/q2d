@@ -127,7 +127,16 @@ class PartialCorpusTest(unittest.TestCase):
                              FIXTURES / "malformed-json")
         self.assertEqual(code, 1)
         self.assertIn("could not be read", output)
-        self.assertIn("not wholly readable", output)
+        self.assertIn("could not be put to either runner", output)
+
+    def test_a_non_conforming_vector_fails_the_run(self):
+        # Same class: a vector nobody was asked about. It is the corpus being
+        # wrong rather than the runners, so it is counted and named apart from
+        # a pair that could not answer.
+        code, output = cross(CORRECT, CORRECT, FIXTURES / "schema-invalid")
+        self.assertEqual(code, 1)
+        self.assertIn("INVALID", output)
+        self.assertIn("could not be put to either runner", output)
 
 
 class StageZeroExpectedStateTest(unittest.TestCase):
