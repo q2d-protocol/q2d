@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://q2d.dev/conformance/result.schema.json",
+  "title": "Q2D conformance runner result",
+  "description": "What a runner writes to stdout for one vector. RUNNER-CONTRACT.md is the operational form; P-001 §4.6 and §6 are the source. The harness validates against this before judging a result: output that does not conform is a runner failure, not a vector failure, and the two must not be confused. The three outcomes are separate shapes rather than one shape with optional fields, because 'ok' with nothing to compare and 'rejected' with no reason are malformed results that would otherwise surface later as comparison failures and be read as vector failures.",
+  "type": "object",
+  "oneOf": [
+    {
+      "description": "The operation succeeded.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vector_id", "outcome", "output", "implementation"],
+      "properties": {
+        "vector_id": {
+          "description": "The id of the vector this result is for. The harness checks it against the vector it sent, so a runner that answers the wrong question is caught rather than scored.",
+          "type": "string",
+          "minLength": 1
+        },
+        "outcome": { "const": "ok" },
+        "output": {
+          "description": "Any JSON value; its shape is the operation's."
+        },
+        "implementation": {
+          "description": "Who produced this result. Required on every outcome: `harness cross` compares two runners, and an unattributed result is unusable in exactly the report that matters most.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "version": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    {
+      "description": "The implementation rejected the input. A successful run reporting a rejection, never a runner failure.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vector_id", "outcome", "rejection", "implementation"],
+      "properties": {
+        "vector_id": { "type": "string", "minLength": 1 },
+        "outcome": { "const": "rejected" },
+        "rejection": {
+          "description": "Both halves, because the harness checks both: the internal reason an implementation records locally, and the wire response a requester receives.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["internal_reason", "wire"],
+          "properties": {
+            "internal_reason": { "type": "string", "minLength": 1 },
+            "wire": { "type": "object" },
+            "step": {
+              "description": "The core-model.md §4 step at which rejection occurred, and how ordering is asserted without instrumenting the implementation. An integer for a numbered step, or one of the lettered steps §4's table defines -- today only 9a, the rate-limit check. A schema that could not express 9a would force a conforming runner to misreport where it rejected; one that accepted 12b would let it report a step the specification does not have.",
+              "oneOf": [
+                { "type": "integer", "minimum": 1, "maximum": 19 },
+                { "enum": ["9a"] }
+              ]
+            }
+          }
+        },
+        "implementation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "version": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    {
+      "description": "The implementation faulted while processing a vector it understood. Always fails the vector -- reportable, never passing.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vector_id", "outcome", "implementation"],
+      "properties": {
+        "vector_id": { "type": "string", "minLength": 1 },
+        "outcome": { "const": "error" },
+        "detail": {
+          "description": "Optional free text, read by a human debugging a runner and never by the harness. It must carry no private input: a runner under test is still a Q2D implementation, and core-model.md §4 step 17 forbids serializing private values into an error path.",
+          "type": "string"
+        },
+        "implementation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["name", "version"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "version": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    }
+  ]
+}

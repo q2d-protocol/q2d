@@ -8,7 +8,10 @@ how to run them, and cites the PRD rather than restating it.
 ```
 conformance/
   vector.schema.json   the authored vector format, machine-checkable  (P-001 §4.4)
+  result.schema.json   what a runner writes back                      (P-001 §4.6)
+  RUNNER-CONTRACT.md   what an implementation must ship               (P-001 §4.1)
   harness/             the harness                                    (P-001 §4.7)
+  runners/stub/        the reference runner: answers nothing, on purpose
   corpus/              vectors, one directory per section             (P-001 §5)
   tests/               the harness's own tests
 ```

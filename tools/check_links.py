@@ -36,9 +36,16 @@ EXTERNAL_PREFIXES = ("http://", "https://", "mailto:", "tel:", "#")
 
 
 def tracked_markdown() -> list[Path]:
-    """Ask git, so gitignored trees are out of scope without a second list."""
+    """Ask git, so gitignored trees are out of scope without a second list.
+
+    `--others --exclude-standard` includes files not yet added. Without it a new
+    document's links go unchecked until the commit after the one that introduced
+    them -- which is exactly when nobody looks again, and is how this check
+    reported clean over a file carrying two broken links.
+    """
     listing = subprocess.run(
-        ["git", "-C", str(REPO_ROOT), "ls-files", "*.md", "**/*.md"],
+        ["git", "-C", str(REPO_ROOT), "ls-files", "--cached", "--others",
+         "--exclude-standard", "*.md", "**/*.md"],
         capture_output=True, text=True, check=True).stdout.split()
     return [REPO_ROOT / name for name in sorted(set(listing))]
 

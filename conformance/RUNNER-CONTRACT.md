@@ -1,0 +1,141 @@
+# The runner contract
+
+What an implementation must ship for the conformance harness to judge it, and
+what the harness promises in return.
+[`docs/prds/P-001-conformance-corpus.md`](../docs/prds/P-001-conformance-corpus.md)
+§4.1, §4.3, §4.6 and §6 are the source; this document is the operational form of
+them, and cites rather than restates.
+
+Both implementations must honour it. It is deliberately small: the harness invokes
+a subprocess, reads JSON, and compares.
+
+## Invocation
+
+```
+q2d-conform <vector-file.json>        →  result JSON on stdout
+```
+
+One vector per invocation. The harness supplies the path; the runner reads
+nothing else. In particular it is **never given a path to the authored corpus**
+(P-001 §4.2), and the file it receives is the projection — `id`, `operation`,
+`input`, and nothing more.
+
+## Exit status reports whether the runner functioned
+
+Never whether the vector passed (P-001 §4.1).
+
+| Exit | Meaning |
+|---|---|
+| 0 | A result was written to stdout. The vector may still fail; the harness decides. This includes a result whose `outcome` is `error`. |
+| 1 | The runner could not process the vector — unknown operation, malformed file. No result is written. |
+| 2 | A fault so early that no result could be written at all. |
+
+**A vector expecting a rejection is a successful run that reports a rejection**
+— exit 0, `outcome: "rejected"`. Conflating "the implementation rejected the
+input" with "the runner failed" makes negative acceptance untestable, and
+negative acceptance is where this protocol lives.
+
+**The dividing line is whether a result was written, not whether anything went
+wrong** (P-001 §4.1). A result whose outcome is `error` is still a result: the
+implementation faulted on a vector it understood, said so, and exits 0. Exit 2
+is the case where nothing could be written at all. Both fail the vector; the
+difference is whether the harness has anything to report about *why*.
+
+## Result format
+
+```json
+{
+  "vector_id": "message/sign/query-minimal",
+  "outcome": "ok",
+  "output": { },
+  "implementation": { "name": "q2d-rs", "version": "0.1.0" }
+}
+```
+
+A rejection reports **both halves**, because the harness checks both:
+
+```json
+{
+  "vector_id": "registry/reject/unknown-predicate-version",
+  "outcome": "rejected",
+  "rejection": {
+    "internal_reason": "unknown_predicate_version",
+    "wire": { "status": "deny", "external_reason": "unavailable" },
+    "step": 10
+  },
+  "implementation": { "name": "q2d-rs", "version": "0.1.0" }
+}
+```
+
+[`result.schema.json`](result.schema.json) is the machine-checkable form.
+**`harness run` does not exist yet** — it is P-001 issue 4 — and validating
+runner output against this schema is part of what it will do: a runner whose
+output does not conform has not produced a result the harness can judge, which
+is a runner failure rather than a vector failure, and the two must not be
+scored the same.
+
+Three things about that shape:
+
+- **`implementation` is required on every result**, including rejections and
+  errors. P-001 §4.6's rejection example omits it for brevity; requiring it is a
+  harness decision, because `harness cross` compares two runners' output and a
+  result that does not say who produced it is unattributable in the report that
+  matters most.
+- **`step`** is the [`core-model.md`](../spec/core-model.md) §4 step at which
+  rejection occurred, and is how ordering is asserted without instrumenting the
+  implementation. Optional in general; the `ordering/` section is where it is
+  the point.
+- **The internal reason and the wire response are separate fields**, because
+  they are separate values in a conforming implementation
+  ([`core-model.md`](../spec/core-model.md) §5.2). A runner that derives one
+  from the other has already lost the property the corpus is checking.
+
+## What a runner must not do
+
+- **Read a clock, or generate a nonce, key, or identifier.** Every value that
+  would otherwise vary is supplied by the vector (P-001 §4.3). A runner that
+  reads ambient state produces an unreproducible result and is non-conforming —
+  and the cross-implementation comparison stops being a byte comparison, which
+  is the property the Stage 1 gate rests on.
+- **Read anything but the vector file it was given** — including this
+  repository. A runner that consulted `vector.schema.json` for the operation
+  vocabulary would answer differently depending on the checkout it ran in, and
+  the shipped Rust and Go runners will not have the corpus to consult anyway.
+  Embed what you need; a vocabulary that has drifted shows up as exit 1 on a
+  vector the corpus expects you to answer, which is the loud failure.
+- **Answer a file carrying anything but `id`, `operation`, and `input`.** P-001
+  §6 fixes that shape. An extra field means the file is not a projection, and
+  the extra field that matters is `expect`: a runner holding an expectation was
+  handed the authored vector, so the harness failed to project it and the
+  corpus has stopped being evidence. Exit 1 rather than answer. The harness
+  holds the first key to that door; this is the second lock, and it costs one
+  comparison.
+- **Parse permissively.** `NaN`, `Infinity`, and duplicate object keys are not
+  JSON (RFC 8259), and a runner that accepts them accepts a file another runner
+  rejects — the divergence the shared corpus exists to surface, arriving inside
+  the thing meant to surface it. A vector file that is not JSON is exit 1.
+- **Decide its own pass or fail.** The implementation reports; the harness
+  judges (P-001 §9.4). A runner that reads an expectation could not have got one
+  from the harness, so a runner that has one has found the authored corpus.
+- **Print anything else on stdout.** Diagnostics go to stderr. The harness
+  parses stdout as one JSON document.
+
+## Operations
+
+The closed vocabulary is P-001 §4.5, and
+[`vector.schema.json`](vector.schema.json)'s `operation` enum is its
+machine-checkable form. **An operation a runner does not recognise is exit 1,
+never a skip** — fail-closed applies to runners too, and a skipped vector is a
+vector nobody notices is unimplemented.
+
+## The reference stub
+
+[`runners/stub/q2d-conform`](runners/stub/q2d-conform) implements this contract
+and nothing else: it reports `error` for every operation. It exists so the
+harness can be developed and tested against a runner before either
+implementation exists, and so that P-001 §7's gate — *the harness runs and
+reports fail for every vector* — is demonstrable rather than asserted.
+
+It is not a partial implementation and must never become one. The moment the
+stub answers a vector correctly, the harness is being tested against something
+that shares an author with the corpus.
