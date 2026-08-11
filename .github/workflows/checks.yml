@@ -15,15 +15,16 @@ name: checks
 # thirteen uncovered claims -- so the check is green while true, and turns red
 # when someone changes the thing without changing the expectation.
 #
-# `harness run` has landed, and its assertion is in the suite this workflow
-# already runs: conformance/tests/test_run.py holds the real corpus to *no
-# vector passing against the reference stub*. True while no implementation
-# exists, green, and red the day the stub learns to answer or a real runner is
-# wired in without updating it.
+# `run` and `coverage` have landed, and their assertions are in the suite this
+# workflow already runs: test_run.py holds the real corpus to *no vector passing
+# against the reference stub*, and test_coverage.py holds it to *all thirteen
+# claims uncovered*. Both are true while the corpus is empty and no
+# implementation exists, both are green, and both turn red the day that changes
+# without the expectation changing with it.
 #
-# `cross` and `coverage` do not exist yet, and
-# conformance/tests/test_harness_cli.py holds them to exiting non-zero -- which
-# turns red when one is built, the moment to add its assertion.
+# `cross` does not exist yet, and conformance/tests/test_harness_cli.py holds it
+# to exiting non-zero -- which turns red when it is built, the moment to add its
+# assertion.
 
 on:
   pull_request:

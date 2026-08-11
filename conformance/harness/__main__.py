@@ -17,6 +17,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import coverage as coverage_mode
 import lint as lint_mode
 import run as run_mode
 from corpus import CorpusError
@@ -26,7 +27,6 @@ DEFAULT_CORPUS = Path(__file__).resolve().parents[1] / "corpus"
 
 PENDING = {
     "cross": ("P-001 issue 9", "A produces, B verifies"),
-    "coverage": ("P-001 issue 6", "claims with no citing vector"),
 }
 
 USAGE = """usage: python3 conformance/harness <mode> [options]
@@ -34,8 +34,8 @@ USAGE = """usage: python3 conformance/harness <mode> [options]
 modes:
   lint       [--corpus DIR]            corpus self-checks
   run        --impl PATH [--corpus DIR]  run a corpus against one runner
+  coverage   [--corpus DIR]            claims with no citing vector
   cross      [--a P --b P]             not built yet -- P-001 issue 9
-  coverage                             not built yet -- P-001 issue 6
 """
 
 
@@ -51,7 +51,7 @@ def main(argv: list[str]) -> int:
         print(f"harness {mode}: not built yet -- {issue} ({summary})", file=sys.stderr)
         return 2
 
-    if mode not in ("lint", "run"):
+    if mode not in ("lint", "run", "coverage"):
         print(f"harness: unknown mode {mode!r}\n\n{USAGE}", end="", file=sys.stderr)
         return 2
 
@@ -63,6 +63,8 @@ def main(argv: list[str]) -> int:
     try:
         if mode == "lint":
             return lint_mode.lint(options["corpus"])
+        if mode == "coverage":
+            return coverage_mode.coverage(options["corpus"])
         return run_mode.run(options["corpus"], options["impl"])
     except (CorpusError, UnsupportedKeyword) as exc:
         print(f"harness {mode}: {exc}", file=sys.stderr)
@@ -76,7 +78,8 @@ def parse_options(mode: str, args: list[str]) -> tuple[dict, str]:
     CI invocation should not silently run something other than what was asked
     for.
     """
-    allowed = {"lint": {"--corpus"}, "run": {"--corpus", "--impl"}}[mode]
+    allowed = {"lint": {"--corpus"}, "coverage": {"--corpus"},
+               "run": {"--corpus", "--impl"}}[mode]
     options = {"corpus": DEFAULT_CORPUS, "impl": None}
 
     remaining = list(args)
