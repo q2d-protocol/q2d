@@ -18,13 +18,13 @@ import sys
 from pathlib import Path
 
 import lint as lint_mode
-from lint import CorpusError
+import run as run_mode
+from corpus import CorpusError
 from schema import UnsupportedKeyword
 
 DEFAULT_CORPUS = Path(__file__).resolve().parents[1] / "corpus"
 
 PENDING = {
-    "run": ("P-001 issue 4", "executes a corpus against one runner"),
     "cross": ("P-001 issue 9", "A produces, B verifies"),
     "coverage": ("P-001 issue 6", "claims with no citing vector"),
 }
@@ -32,10 +32,10 @@ PENDING = {
 USAGE = """usage: python3 conformance/harness <mode> [options]
 
 modes:
-  lint       [--corpus DIR]   corpus self-checks (P-001 issue 5 completes these)
-  run        [--impl PATH]    not built yet -- P-001 issue 4
-  cross      [--a P --b P]    not built yet -- P-001 issue 9
-  coverage                    not built yet -- P-001 issue 6
+  lint       [--corpus DIR]            corpus self-checks
+  run        --impl PATH [--corpus DIR]  run a corpus against one runner
+  cross      [--a P --b P]             not built yet -- P-001 issue 9
+  coverage                             not built yet -- P-001 issue 6
 """
 
 
@@ -51,23 +51,48 @@ def main(argv: list[str]) -> int:
         print(f"harness {mode}: not built yet -- {issue} ({summary})", file=sys.stderr)
         return 2
 
-    if mode != "lint":
+    if mode not in ("lint", "run"):
         print(f"harness: unknown mode {mode!r}\n\n{USAGE}", end="", file=sys.stderr)
         return 2
 
-    corpus = DEFAULT_CORPUS
-    if args:
-        if args[0] != "--corpus" or len(args) != 2:
-            print(f"harness lint: unexpected arguments {' '.join(args)!r}\n\n{USAGE}",
-                  end="", file=sys.stderr)
-            return 2
-        corpus = Path(args[1])
+    options, problem = parse_options(mode, args)
+    if problem:
+        print(f"harness {mode}: {problem}\n\n{USAGE}", end="", file=sys.stderr)
+        return 2
 
     try:
-        return lint_mode.lint(corpus)
+        if mode == "lint":
+            return lint_mode.lint(options["corpus"])
+        return run_mode.run(options["corpus"], options["impl"])
     except (CorpusError, UnsupportedKeyword) as exc:
-        print(f"harness lint: {exc}", file=sys.stderr)
+        print(f"harness {mode}: {exc}", file=sys.stderr)
         return 2
+
+
+def parse_options(mode: str, args: list[str]) -> tuple[dict, str]:
+    """Flags for a mode, or a message saying why they are wrong.
+
+    An unrecognised flag is an error rather than something ignored: a typo in a
+    CI invocation should not silently run something other than what was asked
+    for.
+    """
+    allowed = {"lint": {"--corpus"}, "run": {"--corpus", "--impl"}}[mode]
+    options = {"corpus": DEFAULT_CORPUS, "impl": None}
+
+    remaining = list(args)
+    while remaining:
+        flag = remaining.pop(0)
+        if flag not in allowed:
+            return {}, f"unexpected argument {flag!r}"
+        if not remaining:
+            return {}, f"{flag} needs a value"
+        value = remaining.pop(0)
+        options["corpus" if flag == "--corpus" else "impl"] = Path(value)
+
+    if mode == "run" and options["impl"] is None:
+        return {}, "--impl is required; there is nothing to run a corpus against"
+
+    return options, ""
 
 
 if __name__ == "__main__":

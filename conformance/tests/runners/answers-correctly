@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+"""Answers the two `valid` fixture vectors, and nothing else.
+
+Hardcoded rather than computed: this exists to show the harness reports a pass
+when a runner is right, and a runner that computed anything would be a partial
+implementation living in a test directory.
+"""
+import json, sys
+
+ANSWERS = {
+    "message/sign/query-minimal": {
+        "outcome": "ok", "output": {"signed": "", "routing": {}}},
+    "denial/uniformity-c/unknown-predicate": {
+        "outcome": "rejected",
+        "rejection": {"internal_reason": "unknown_predicate",
+                      "wire": {"status": "deny", "external_reason": "unavailable"},
+                      "step": 10}},
+}
+
+vector = json.loads(open(sys.argv[1]).read())
+answer = ANSWERS.get(vector["id"])
+if answer is None:
+    print(f"no canned answer for {vector['id']}", file=sys.stderr)
+    raise SystemExit(1)
+json.dump({"vector_id": vector["id"], **answer,
+           "implementation": {"name": "q2d-fake", "version": "0.0.0"}}, sys.stdout)

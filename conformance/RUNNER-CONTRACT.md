@@ -67,12 +67,13 @@ A rejection reports **both halves**, because the harness checks both:
 }
 ```
 
-[`result.schema.json`](result.schema.json) is the machine-checkable form.
-**`harness run` does not exist yet** — it is P-001 issue 4 — and validating
-runner output against this schema is part of what it will do: a runner whose
-output does not conform has not produced a result the harness can judge, which
-is a runner failure rather than a vector failure, and the two must not be
-scored the same.
+[`result.schema.json`](result.schema.json) is the machine-checkable form, and
+`harness run` validates every result against it before judging anything. A
+runner whose output does not conform has not produced a result the harness can
+judge, and that is reported as a **runner** failure rather than a vector
+failure — one means the implementation is wrong about Q2D, the other means it
+is wrong about this contract, and conflating them sends whoever is debugging to
+the wrong file.
 
 Three things about that shape:
 

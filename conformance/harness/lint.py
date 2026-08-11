@@ -36,38 +36,10 @@ SPEC_CITATION_RE = re.compile(r"^([a-z0-9-]+\.md)#(.+)$")
 HEADING_RE = re.compile(r"^#{1,6}\s+([0-9]+(?:\.[0-9]+)*)\b", re.MULTILINE)
 
 
-class CorpusError(Exception):
-    """The corpus or its schema cannot be read, so nothing can be judged."""
-
-
-def _reject_constant(token: str):
-    """`json.loads` accepts NaN and Infinity; RFC 8259 does not."""
-    raise ValueError(f"{token} is not valid JSON")
-
-
-def _reject_duplicate_keys(pairs):
-    """`json.loads` keeps the last of a repeated key and says nothing.
-
-    A file whose meaning depends on which duplicate a parser keeps is not a
-    shared contract, and core-model.md §2.1's envelope rules reject duplicates
-    on the wire for the same reason.
-    """
-    seen = set()
-    for key, _ in pairs:
-        if key in seen:
-            raise ValueError(f"duplicate object key {key!r}")
-        seen.add(key)
-    return dict(pairs)
-
-
-def parse_strictly(text: str):
-    """Parse as RFC 8259 JSON, not as what Python will tolerate.
-
-    A vector the harness accepts and a Rust or Go runner rejects is a corpus
-    that means two things, which is the one thing it may not be.
-    """
-    return json.loads(text, parse_constant=_reject_constant,
-                      object_pairs_hook=_reject_duplicate_keys)
+# Both live in corpus.py, so `lint` and `run` cannot disagree about what a
+# vector file is -- in the one component whose job is deciding whether two
+# things agree.
+from corpus import CorpusError, parse_strictly  # noqa: E402,F401
 
 
 def load_schema() -> dict:

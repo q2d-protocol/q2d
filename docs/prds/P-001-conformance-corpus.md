@@ -302,7 +302,11 @@ A rejection reports **both halves**, because the harness checks both:
 
 `step` is the [`core-model.md`](../../spec/core-model.md) §4 step at which
 rejection occurred, and is how ordering is asserted without instrumenting the
-implementation.
+implementation. **It is a field of a conformance result, not of any Q2D
+message** — nothing on the wire carries it, and
+[`core-model.md`](../../spec/core-model.md) §4 defines the order it names
+without defining this field. Its shape and its optionality are therefore this
+PRD's to fix, and are fixed here.
 
 **It is an integer for a numbered step and a string for a lettered one.** §4's
 table carries **step 9a**, the rate-limit check, and the example above shows an
@@ -336,6 +340,13 @@ harness lint                                             # corpus self-checks
 **Per vector:** outcome matches; output matches under the declared comparison
 mode; for rejections, the internal reason, the wire response, and the step all
 match.
+
+The step is optional on a vector (§4.6), so "matches" needs saying precisely:
+**where a vector states a step, the runner's must equal it; where a vector
+states none, it asserts nothing about the step** and a runner may still report
+one. A vector that cares about ordering says so, which is what `ordering/` is;
+one that does not is testing something else and should not fail on a field it
+never claimed.
 
 **Cross-vector** — the assertions a per-vector test structurally cannot make:
 
