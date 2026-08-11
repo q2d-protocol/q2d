@@ -68,6 +68,11 @@ import run as run_module
 import schema as schema_module
 
 
+# Distinct from 1, which means the two runners disagreed. This means they did
+# not, and the mode still cannot establish what §4.8 asks of it -- two facts a
+# caller has to be able to tell apart.
+EXIT_CLAUSE_INCOMPLETE = 2
+
 # Fields that carry protocol content, and so are what a `bytes` comparison is
 # about. `rejection.step` and `rejection.internal_reason` are the harness's own
 # bookkeeping -- where the rejection happened and why, neither of which crosses
@@ -319,4 +324,20 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
               "runner could answer anything in it, so no agreement has been "
               "shown")
         return 1
-    return 0
+
+    # Everything compared, agreed. That is still not §4.8 met, because §4.8 asks
+    # for two things and issue 19 is the other one -- so this exits non-zero,
+    # with a code of its own. A caller must not be able to read "the clause
+    # holds" off an exit status that means "the half I can check holds": the
+    # exit code is the only part of this report a CI gate reads, and every
+    # sentence above it could be perfect while the gate still overstated.
+    #
+    # Whether that stays true is §10's open question. If the scope reduction is
+    # approved, this becomes `return 0` and the reason line stays; until then
+    # fail-closed is the repository's own rule, and it applies to the harness as
+    # much as to a responder.
+    print(f"\nINCOMPLETE: {compared} vector(s) agree, which is the first half of "
+          f"§4.8's cross-implementation clause. The second — B verifying what A "
+          f"produced — is issue 19 and is not implemented, so this exits "
+          f"{EXIT_CLAUSE_INCOMPLETE} rather than 0. See P-001 §10.")
+    return EXIT_CLAUSE_INCOMPLETE

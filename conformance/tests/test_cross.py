@@ -28,6 +28,10 @@ STUB = CONFORMANCE / "runners" / "stub" / "q2d-conform"
 VALID = FIXTURES / "valid"
 
 CORRECT = RUNNERS / "answers-correctly"
+
+# `cross` exits this when the runners agreed and the mode still cannot
+# establish §4.8's second clause. See cross.EXIT_CLAUSE_INCOMPLETE.
+INCOMPLETE = 2
 OTHER_KEY_ORDER = RUNNERS / "answers-correctly-other-key-order"
 DIVERGENT = RUNNERS / "answers-with-a-different-signature"
 
@@ -40,9 +44,12 @@ def cross(a: Path, b: Path, corpus: Path = VALID) -> tuple[int, str]:
 
 
 class AgreementTest(unittest.TestCase):
+    # Agreement exits INCOMPLETE, not 0: §4.8 asks for two things and issue 19
+    # is the other one, so no caller can read "the clause holds" off this
+    # mode's status. P-001 §10 carries the pending decision.
     def test_two_runners_producing_the_same_values_agree(self):
         code, output = cross(CORRECT, CORRECT)
-        self.assertEqual(code, 0, output)
+        self.assertEqual(code, INCOMPLETE, output)
         self.assertIn("3/3 vectors agree", output)
 
     def test_the_result_envelope_s_key_order_is_not_a_divergence(self):
@@ -50,7 +57,7 @@ class AgreementTest(unittest.TestCase):
         # its JSON writer. Reporting that as a divergence would fail two
         # correct implementations for something that is not Q2D at all.
         code, output = cross(CORRECT, OTHER_KEY_ORDER)
-        self.assertEqual(code, 0, output)
+        self.assertEqual(code, INCOMPLETE, output)
         self.assertIn("3/3 vectors agree", output)
 
 
@@ -125,7 +132,7 @@ class ApproximateBytesTest(unittest.TestCase):
         # "agree" over an object is less than byte equality. Saying so is the
         # whole of the fix -- taking it for byte equality is the failure.
         code, output = cross(CORRECT, CORRECT, FIXTURES / "valid")
-        self.assertEqual(code, 0, output)
+        self.assertEqual(code, INCOMPLETE, output)
         self.assertIn("compared a composite value", output)
         self.assertIn("message/sign/query-minimal: output", output)
 

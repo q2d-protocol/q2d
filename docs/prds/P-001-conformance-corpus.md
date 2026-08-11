@@ -458,8 +458,13 @@ each is a property of the corpus rather than of one mode's code:
   protocol logic outside the harness explicitly. Making it real needs a vector
   to declare its companion, which is a format change. Until then `cross` says
   on every run — including a clean one — that it compared what each runner
-  produced and did not put A's output to B, so a green result cannot be read as
-  the whole of this clause.
+  produced and did not put A's output to B — **and exits 2 rather than 0 when
+  the runners agree**, because the exit status is the only part of the report a
+  CI gate reads, and every sentence above it could be perfect while the status
+  still said the clause holds. 2 is distinct from 1: 1 means the two runners
+  disagreed, 2 means they did not and the mode still cannot establish what §4.8
+  asks. If §10's open question is decided the other way, this becomes 0 and the
+  reason line stays.
 
 **Coverage:** every claim in [`spec/claims.md`](../../spec/claims.md) is cited by
 at least one vector. Uncited claims are reported, not silently absent.
@@ -525,6 +530,7 @@ What must fail, and how the failure is observed.
 | Two rejections in one normalized class with differing `wire` objects | Cross-vector denial-uniformity assertion fails |
 | A budget permutation reaching a different total | Cross-vector accumulation assertion fails |
 | A `bytes` vector where two implementations differ by one byte | Cross-implementation comparison fails, naming the offset |
+| A corpus where the two runners agree on everything comparable | `harness cross` still exits non-zero — §4.8's second clause is issue 19, and the exit status must not say a half-checked clause holds |
 
 The last row is the one this PRD exists for.
 
@@ -552,7 +558,7 @@ change one stops and escalates.
 | ~~Does the corpus version independently of the spec, or track it?~~ | **Resolved: it tracks the spec.** The corpus exists to demonstrate that a spec version is implementable, so a vector set that could drift from the version it tests would let two implementations agree with each other and with neither spec. A corpus release is identified by the `spec/vX.Y` it was authored against ([`versioning.md`](../versioning.md)) |
 | ~~Should `process_query` vectors carry expected timing bands?~~ | **Resolved: a minimal timing capability is pulled forward to Stage 7.** Not a measurement framework — an assertion that two response paths fall within a band, which is what [P-015](P-015-escalation-lifecycle.md) issue 4 needs to show an opaque escalation is not distinguishable by latency. Full timing bands stay at Stage 8, where [P-016](P-016-demonstration-adversarial.md) owns measurement and reporting |
 | ~~**The §4.5 operation-vocabulary extension for Stages 5–8.**~~ | **Resolved: settled as one change, before Stage 5** — issue 17, not an open question. §4.5 now lists every anticipated operation with its owning PRD, and no later PRD names one unilaterally: four PRDs choosing separately would diverge at the *runner* level, where it surfaces as an unknown-operation error rather than a failing vector. The list already reflects the two decisions that changed it — the registry-entry endpoint is gone, and `requester/order/` needs an operation that can assert *which step* rejected |
-| **Does `cross` satisfy §4.8's cross-implementation clause with only the first half built?** Issue 9 compares what two runners each produced; putting A's signed output to B for verification needs a vector to name its companion artefact and the field that consumes it — a format change, and protocol knowledge §3 places outside the harness. I split it to issue 19, made every run state which half it did, and held issue 9 to the half it built. **The scope reduction is Peter's call, not mine**: the alternative is to keep issue 9 open until the format change and issue 19 land together, so no one ever sees a green `cross` that establishes less than §4.8 states | **Raised, awaiting decision.** Recorded here rather than settled in the PRD, because narrowing an acceptance clause is a scope decision even when the honesty of the output is preserved |
+| **Does `cross` satisfy §4.8's cross-implementation clause with only the first half built?** Issue 9 compares what two runners each produced; putting A's signed output to B for verification needs a vector to name its companion artefact and the field that consumes it — a format change, and protocol knowledge §3 places outside the harness. I split it to issue 19, made every run state which half it did, and **held `cross` to exiting 2 even when the runners agree**, so nothing can read the clause off its status. **The scope reduction is Peter's call, not mine**, and until it is made this is fail-closed: the mode does not return success for a clause it half-checked. Deciding it either way is a one-line change — approve the split and agreement returns 0, or reject it and issue 9 stays open until issue 19 lands with it | **Raised, awaiting decision.** Recorded here rather than settled in the PRD, because narrowing an acceptance clause is a scope decision even when the honesty of the output is preserved |
 | ~~Where do fuzzing seeds live — corpus or per-module?~~ | **Resolved: per-module.** The corpus is the cross-implementation contract and every file in it must mean the same thing to both runners; a seed corpus is a local artifact of one fuzzer's coverage history and would make the shared corpus non-reproducible between languages. Seeds live beside the fuzz target that produced them |
 
 ## 11. Issues
