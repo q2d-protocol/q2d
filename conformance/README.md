@@ -73,10 +73,13 @@ reason for rather than a preference:
 - **`requirement` and `comparison` are mandatory with no default.** A vector
   citing nothing is not traceability, and a defaulted comparison mode is how a
   determinism requirement gets quietly dropped. P-001 §4.4.
-- **`expect` never reaches an implementation.** The harness strips it and writes
-  an input-only projection; implementations are not given a path to the authored
-  corpus. An implementation that can read the expected output can pass by
-  reproducing it. P-001 §4.2, and P-001 issue 2 builds the projection.
+- **`expect` never reaches an implementation.** The harness writes an input-only
+  projection; implementations are not given a path to the authored corpus. An
+  implementation that can read the expected output can pass by reproducing it.
+  P-001 §4.2. [`harness/projection.py`](harness/projection.py) builds it from
+  the **allowlist** `{id, operation, input}` rather than by deleting `expect` —
+  a delete keeps the rule true only for the fields someone thought of, and a
+  later `expected` or `notes_for_the_runner` would sail through it.
 - **Everything that would otherwise vary comes from `input`** — keys, nonces,
   timestamps, identifiers. A runner that reads a clock or generates a nonce
   produces an unreproducible result and is non-conforming. P-001 §4.3.
