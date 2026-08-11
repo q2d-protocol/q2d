@@ -155,17 +155,29 @@ both-verify check, and it is the property the Stage 1 gate rests on.
   where it does not. A vector must state which; there is no default, because a
   silent default is how a determinism requirement gets quietly dropped.
 
-**A `bytes` comparison is exact over a string and approximate over an object.**
+**A `bytes` comparison is exact over a string and impossible over an object.**
 The harness parses JSON, so what it can compare is what survives parsing. For a
 string value — a JWS compact serialization, a digest, a signature — that is
 exact: the artefact *is* the string, and `"\u003c"` and `"<"` carry the same
-one. For an object or array it is not: whitespace between tokens and the choice
-of escape are gone before the comparison sees them, so two runners emitting
-differently-encoded but equivalent JSON compare equal. **A vector that tests
-canonicalization must therefore carry the serialization as a string**, which is
-the form the comparison is exact over. `cross` names every vector whose `bytes`
-comparison landed on a composite value, on every run, so nobody reads "agree"
-for more than was checked.
+one. For an object or array the bytes never reached the harness at all:
+whitespace between tokens and the choice of escape are gone before any
+comparison sees them, and re-serializing the parsed tree would assert a byte
+equality nobody checked.
+
+So **a value compared as `bytes` must be a string** — the serialization itself.
+`cross` refuses a `bytes` vector whose `output` or `rejection.wire` is
+composite, reporting it `UNCHECKABLE` and failing the run rather than counting
+it as agreement. `step` and `internal_reason` are exempt: neither crosses the
+interface, so their encoding is nobody's contract.
+
+**This has a consequence past this mode, and it is in §10.** A denial's wire
+response is reported as an object, so the harness cannot check that two
+rejections in a normalized class are byte-identical — which is what
+[P-009](P-009-denial-normalization.md) requires of them. The cross-vector
+assertion compares parsed trees with authored key order preserved, which
+catches field order and content and not encoding. Closing that needs a result
+format that carries the response as its serialized string, which is a format
+change.
 
 **`semantic` is defined as parse-then-deep-equal**, and only that:
 
@@ -530,6 +542,7 @@ What must fail, and how the failure is observed.
 | Two rejections in one normalized class with differing `wire` objects | Cross-vector denial-uniformity assertion fails |
 | A budget permutation reaching a different total | Cross-vector accumulation assertion fails |
 | A `bytes` vector where two implementations differ by one byte | Cross-implementation comparison fails, naming the offset |
+| A `bytes` vector whose compared value is an object rather than a string | `harness cross` reports it `UNCHECKABLE` and fails — the bytes never reached the harness, so calling it agreement would assert what was never checked |
 | A corpus where the two runners agree on everything comparable | `harness cross` still exits non-zero — §4.8's second clause is issue 19, and the exit status must not say a half-checked clause holds |
 
 The last row is the one this PRD exists for.
@@ -559,6 +572,7 @@ change one stops and escalates.
 | ~~Should `process_query` vectors carry expected timing bands?~~ | **Resolved: a minimal timing capability is pulled forward to Stage 7.** Not a measurement framework — an assertion that two response paths fall within a band, which is what [P-015](P-015-escalation-lifecycle.md) issue 4 needs to show an opaque escalation is not distinguishable by latency. Full timing bands stay at Stage 8, where [P-016](P-016-demonstration-adversarial.md) owns measurement and reporting |
 | ~~**The §4.5 operation-vocabulary extension for Stages 5–8.**~~ | **Resolved: settled as one change, before Stage 5** — issue 17, not an open question. §4.5 now lists every anticipated operation with its owning PRD, and no later PRD names one unilaterally: four PRDs choosing separately would diverge at the *runner* level, where it surfaces as an unknown-operation error rather than a failing vector. The list already reflects the two decisions that changed it — the registry-entry endpoint is gone, and `requester/order/` needs an operation that can assert *which step* rejected |
 | **Does `cross` satisfy §4.8's cross-implementation clause with only the first half built?** Issue 9 compares what two runners each produced; putting A's signed output to B for verification needs a vector to name its companion artefact and the field that consumes it — a format change, and protocol knowledge §3 places outside the harness. I split it to issue 19, made every run state which half it did, and **held `cross` to exiting 2 even when the runners agree**, so nothing can read the clause off its status. **The scope reduction is Peter's call, not mine**, and until it is made this is fail-closed: the mode does not return success for a clause it half-checked. Deciding it either way is a one-line change — approve the split and agreement returns 0, or reject it and issue 9 stays open until issue 19 lands with it | **Raised, awaiting decision.** Recorded here rather than settled in the PRD, because narrowing an acceptance clause is a scope decision even when the honesty of the output is preserved |
+| **Should a runner report a wire response as its serialized string rather than as a parsed object?** As formatted, `rejection.wire` is an object, so the bytes are gone before the harness sees them: it can compare fields, content, and authored key order, but not whitespace or escaping. That means neither `cross` nor the denial-uniformity assertion can establish the byte-identity [P-009](P-009-denial-normalization.md) requires of a normalized class — they establish structural identity, which is weaker and reads the same in a report. My recommendation is that a runner reports the response *both* ways: the serialization as a string for the byte comparison, and the parsed object for the structural checks that need to reach inside it. The cost is a format change and a second field every runner must fill; the alternative is that Q2D's byte-identity requirement is asserted by documents and never by a check | **Raised, awaiting decision.** A format change, and it changes what P-009's vectors can demonstrate |
 | ~~Where do fuzzing seeds live — corpus or per-module?~~ | **Resolved: per-module.** The corpus is the cross-implementation contract and every file in it must mean the same thing to both runners; a seed corpus is a local artifact of one fuzzer's coverage history and would make the shared corpus non-reproducible between languages. Seeds live beside the fuzz target that produced them |
 
 ## 11. Issues

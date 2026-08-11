@@ -48,17 +48,17 @@ class AgreementTest(unittest.TestCase):
     # is the other one, so no caller can read "the clause holds" off this
     # mode's status. P-001 §10 carries the pending decision.
     def test_two_runners_producing_the_same_values_agree(self):
-        code, output = cross(CORRECT, CORRECT)
+        code, output = cross(CORRECT, CORRECT, FIXTURES / "message-only")
         self.assertEqual(code, INCOMPLETE, output)
-        self.assertIn("3/3 vectors agree", output)
+        self.assertIn("1/1 vectors agree", output)
 
     def test_the_result_envelope_s_key_order_is_not_a_divergence(self):
         # Whether a runner writes `outcome` before `vector_id` is a property of
         # its JSON writer. Reporting that as a divergence would fail two
         # correct implementations for something that is not Q2D at all.
-        code, output = cross(CORRECT, OTHER_KEY_ORDER)
+        code, output = cross(CORRECT, OTHER_KEY_ORDER, FIXTURES / "message-only")
         self.assertEqual(code, INCOMPLETE, output)
-        self.assertIn("3/3 vectors agree", output)
+        self.assertIn("1/1 vectors agree", output)
 
 
 class DivergenceTest(unittest.TestCase):
@@ -124,22 +124,32 @@ class DivergenceTest(unittest.TestCase):
         self.assertIn("nothing was compared", output)
 
 
-class ApproximateBytesTest(unittest.TestCase):
+class UncheckableBytesTest(unittest.TestCase):
     """What a JSON-parsing harness can and cannot mean by "identical bytes"."""
 
-    def test_a_composite_bytes_value_is_named_as_approximate(self):
-        # Whitespace and escaping are gone before the comparison sees them, so
-        # "agree" over an object is less than byte equality. Saying so is the
-        # whole of the fix -- taking it for byte equality is the failure.
+    def test_a_composite_bytes_value_is_not_called_agreement(self):
+        # The runner reported a parsed structure, so whitespace and escaping
+        # were gone before the harness saw them. Comparing the re-serialized
+        # tree and printing `agree` would assert byte equality that was never
+        # checked -- and the corpus's denial vectors are exactly this shape,
+        # which is why it fails rather than warns.
         code, output = cross(CORRECT, CORRECT, FIXTURES / "valid")
-        self.assertEqual(code, INCOMPLETE, output)
-        self.assertIn("compared a composite value", output)
-        self.assertIn("message/sign/query-minimal: output", output)
+        self.assertEqual(code, 1)
+        self.assertIn("UNCHECKABLE", output)
+        self.assertIn("rejection.wire", output)
+        self.assertIn("were not compared", output)
 
-    def test_bookkeeping_fields_are_not_named(self):
+    def test_a_string_bytes_value_is_comparable(self):
+        # A JWS compact serialization, a digest, a signature: the artefact *is*
+        # the string, so the comparison over it is exact.
+        code, output = cross(CORRECT, CORRECT, FIXTURES / "message-only")
+        self.assertEqual(code, INCOMPLETE, output)
+        self.assertNotIn("UNCHECKABLE", output)
+        self.assertIn("1/1 vectors agree", output)
+
+    def test_bookkeeping_fields_do_not_make_a_vector_uncheckable(self):
         # `step` and `internal_reason` never cross the interface, so their
-        # encoding is nobody's contract and listing them would be noise in the
-        # one report that has to be read carefully.
+        # encoding is nobody's contract.
         _, output = cross(CORRECT, CORRECT, FIXTURES / "valid")
         self.assertNotIn("rejection.step", output)
         self.assertNotIn("rejection.internal_reason", output)
@@ -155,7 +165,7 @@ class PartialCorpusTest(unittest.TestCase):
                              FIXTURES / "malformed-json")
         self.assertEqual(code, 1)
         self.assertIn("could not be read", output)
-        self.assertIn("could not be put to either runner", output)
+        self.assertIn("were not compared", output)
 
     def test_a_non_conforming_vector_fails_the_run(self):
         # Same class: a vector nobody was asked about. It is the corpus being
@@ -164,7 +174,7 @@ class PartialCorpusTest(unittest.TestCase):
         code, output = cross(CORRECT, CORRECT, FIXTURES / "schema-invalid")
         self.assertEqual(code, 1)
         self.assertIn("INVALID", output)
-        self.assertIn("could not be put to either runner", output)
+        self.assertIn("were not compared", output)
 
 
 class StageZeroExpectedStateTest(unittest.TestCase):

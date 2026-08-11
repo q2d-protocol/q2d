@@ -1,8 +1,11 @@
 {
   "id": "message/sign/query-minimal",
   "section": "message",
-  "requirement": ["Q2D-C-05", "core-model.md#2.1"],
-  "description": "A minimal signed query envelope with an advisory routing projection.",
+  "requirement": [
+    "Q2D-C-05",
+    "core-model.md#2.1"
+  ],
+  "description": "A minimal signed query envelope. The output is the compact serialization itself, which is the form a `bytes` comparison is exact over (P-001 §4.4).",
   "operation": "sign_query",
   "input": {
     "key_id": "test-requester-1",
@@ -10,10 +13,7 @@
   },
   "expect": {
     "outcome": "ok",
-    "output": {
-      "signed": "",
-      "routing": {}
-    },
+    "output": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtcmVxdWVzdGVyLTEifQ.eyJxdWVyeSI6e319.c2lnbmF0dXJlLXBsYWNlaG9sZGVyLW5vdC1hLXJlYWwtc2lnbmF0dXJl",
     "comparison": "bytes"
   }
 }

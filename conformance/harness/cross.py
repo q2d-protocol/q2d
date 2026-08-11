@@ -30,12 +30,15 @@ whitespace between tokens and the choice of escape are gone before the
 comparison sees them, so two runners emitting differently-encoded but
 equivalent JSON are reported as agreeing.
 
-That is the format's limit, not a bug to fix here — the harness would need a
-byte-offset-tracking parser and a rule about which span of stdout belongs to
-which field. What it must not do is leave it unsaid, so `cross` names every
-vector whose `bytes` comparison landed on a composite value. A vector that
-genuinely tests canonicalization should carry the serialization as a string,
-which is the form this comparison is exact over; §4.4 now says so.
+So a `bytes` comparison over a composite value is not weaker — it is not the
+comparison at all, and `cross` refuses it: `UNCHECKABLE`, and the run fails. A
+value compared as `bytes` must be the serialization itself, a string, which
+§4.4 now requires.
+
+That has a consequence past this mode. A denial's wire response is reported as
+an object, so nothing here can establish that two rejections in a normalized
+class are byte-identical — which is what P-009 requires of them. §10 carries
+the format question that would close it.
 
 
 Not the two runners' stdout, which differs by construction: every result carries
@@ -198,7 +201,7 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
     divergent = 0
     unusable = 0
     invalid = 0
-    approximated: dict[str, list[str]] = {}
+    uncheckable = 0
 
     with tempfile.TemporaryDirectory(prefix="q2d-cross-") as tmp:
         scratch = Path(tmp)
@@ -246,13 +249,25 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
             fields_a = dict(comparable(result_a))
             fields_b = dict(comparable(result_b))
 
+            composite = [label for label in sorted(set(fields_a) | set(fields_b))
+                         if label in CARRIES_WIRE_CONTENT
+                         and not isinstance(fields_a.get(label), str)]
+            if mode == "bytes" and composite:
+                # The bytes never reached the harness: the runner reported a
+                # parsed structure, so whitespace and escaping were gone before
+                # this saw them. Comparing the re-serialized tree and printing
+                # `agree` would assert byte equality that was never checked, so
+                # the vector is not comparable in this mode. §10 carries the
+                # format question that would make it comparable.
+                uncheckable += 1
+                print(f"  UNCHECKABLE  {vector.id}\n          "
+                      f"`comparison: bytes` over a composite value "
+                      f"({', '.join(composite)}); the encoding is gone before "
+                      f"the harness sees it (P-001 §4.4, §10)")
+                continue
+
             difference = None
             for label in sorted(set(fields_a) | set(fields_b)):
-                if (mode == "bytes" and label in CARRIES_WIRE_CONTENT
-                        and not isinstance(fields_a.get(label), str)):
-                    # Parsed before it got here, so the encoding is gone. Named
-                    # rather than silently downgraded: see the module docstring.
-                    approximated.setdefault(vector.id, []).append(label)
                 if label not in fields_a or label not in fields_b:
                     difference = f"{label}: present in only one result"
                     break
@@ -276,20 +291,10 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
             print(f"  agree   {vector.id}")
 
     total = len(vectors)
-    compared = total - unusable - invalid
+    compared = total - unusable - invalid - uncheckable
     print(f"\n{compared - divergent}/{compared} vectors agree "
           f"({total} in the corpus, {unusable} not comparable, "
-          f"{invalid} not conforming)")
-
-    if approximated:
-        # Said whether or not anything diverged: it describes what this run was
-        # able to see, and a reader who takes "agree" for byte equality over a
-        # composite value would be taking more than was checked.
-        print(f"\n{len(approximated)} `bytes` vector(s) compared a composite "
-              f"value, where whitespace and escaping are gone before the "
-              f"comparison sees them (P-001 §4.4):")
-        for identifier, labels in sorted(approximated.items()):
-            print(f"  {identifier}: {', '.join(labels)}")
+          f"{invalid} not conforming, {uncheckable} uncheckable as bytes)")
 
     # Said on every run, including a clean one. §4.8 asks for two things and
     # this mode does one of them, so a bare "vectors agree" would read as the
@@ -311,9 +316,9 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
     if divergent:
         print(f"FAILED: {divergent} vector(s) where the two implementations differ")
         return 1
-    if unreadable or invalid:
-        print(f"FAILED: {len(unreadable) + invalid} file(s) could not be put to "
-              f"either runner, so agreement across the corpus has not been shown")
+    if unreadable or invalid or uncheckable:
+        print(f"FAILED: {len(unreadable) + invalid + uncheckable} vector(s) were "
+              f"not compared, so agreement across the corpus has not been shown")
         return 1
     if not compared:
         # Two runners agreeing about nothing is not agreement, so this is a

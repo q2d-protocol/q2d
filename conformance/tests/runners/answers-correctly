@@ -9,7 +9,7 @@ import json, sys
 
 ANSWERS = {
     "message/sign/query-minimal": {
-        "outcome": "ok", "output": {"signed": "", "routing": {}}},
+        "outcome": "ok", "output": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtcmVxdWVzdGVyLTEifQ.eyJxdWVyeSI6e319.c2lnbmF0dXJlLXBsYWNlaG9sZGVyLW5vdC1hLXJlYWwtc2lnbmF0dXJl"},
     "denial/uniformity-c/budget-exhausted": {
         "outcome": "rejected",
         "rejection": {"internal_reason": "budget_exhausted",
