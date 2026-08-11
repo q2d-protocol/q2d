@@ -203,7 +203,7 @@ class LintTest(unittest.TestCase):
     def test_valid_corpus_passes(self):
         code, output = run_lint(FIXTURES / "valid")
         self.assertEqual(code, 0, output)
-        self.assertIn("2/2 vectors valid", output)
+        self.assertIn("3/3 vectors valid", output)
 
     def test_empty_corpus_passes_and_says_so(self):
         # A committed empty directory rather than a temporary one, so the suite

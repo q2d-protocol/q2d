@@ -23,8 +23,11 @@ not a shortcut. §4.8 defines the byte comparison as a *cross-implementation*
 assertion -- "for every `comparison: bytes` vector, both runners produce
 identical bytes" -- which is `harness cross` (P-001 issue 9), where two runners'
 raw output is available to compare. Against an authored expectation there are no
-transmitted bytes to compare: the harness parsed the runner's JSON, and once
-parsed, object key order and a number's lexical form are gone.
+transmitted bytes to compare: the harness parsed the runner's JSON, and a
+number's lexical form is gone with the parse. (Object key order is not -- a
+Python parse preserves it -- which is why `cross_vector.py` can and does
+compare wire responses without sorting keys. What `run` cannot recover is the
+whitespace, escaping, and number notation of the original document.)
 
 What survives parsing is every string, and every value the specification
 requires determinism over is a string: a JWS compact serialization, a digest, a

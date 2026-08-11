@@ -1,0 +1,16 @@
+{
+  "id": "denial/uniformity-c/first",
+  "section": "denial",
+  "requirement": ["Q2D-C-08"],
+  "description": "Wire fields in one order.",
+  "operation": "resolve_predicate",
+  "input": {},
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "unknown_predicate",
+      "wire": { "status": "deny", "external_reason": "unavailable" }
+    },
+    "comparison": "bytes"
+  }
+}

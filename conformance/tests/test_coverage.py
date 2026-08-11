@@ -99,6 +99,24 @@ class CountingTest(unittest.TestCase):
                 self.assertIn("0/13 claims covered", output)
                 self.assertIn("corpus rejects it", output)
 
+    def test_a_corpus_invalid_as_a_whole_covers_nothing(self):
+        # Every vector in these fixtures is individually valid, and the corpus
+        # still contradicts itself. Counting its citations would report a claim
+        # as covered by a corpus lint refuses.
+        for fixture in ("denial-divergent", "budget-divergent"):
+            with self.subTest(fixture=fixture):
+                _, output = coverage(FIXTURES / fixture)
+                self.assertIn("0/13 claims covered", output)
+                self.assertIn("invalid as a whole", output)
+
+    def test_citation_and_demonstration_are_reported_together(self):
+        # §4.8 defines coverage as citation, so a claim cited once is covered.
+        # Printing that number alone would overstate: the reader needs to see
+        # that the cross-vector property behind it is not yet demonstrated.
+        _, output = coverage(FIXTURES / "denial-thin")
+        self.assertIn("cross-vector, over what was counted", output)
+        self.assertIn("with a single cause", output)
+
     def test_unreadable_files_are_not_counted_silently(self):
         # Their citations cannot be read, so a report that ignored them would
         # overstate coverage.

@@ -1,0 +1,16 @@
+{
+  "id": "denial/uniformity-c/second",
+  "section": "denial",
+  "requirement": ["Q2D-C-08"],
+  "description": "The same fields in the other order, which is different bytes on the wire.",
+  "operation": "capacity_debit",
+  "input": {},
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "budget_exhausted",
+      "wire": { "external_reason": "unavailable", "status": "deny" }
+    },
+    "comparison": "bytes"
+  }
+}

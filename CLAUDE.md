@@ -193,6 +193,14 @@ in this repository.
 
 - [ ] Tests exist for the negative cases, not just the positive ones. For this
       protocol the interesting behaviour is what it refuses.
+- [ ] **A check does not crash on the input it exists to reject.** This has now
+      happened four times in the conformance harness — a linter, a coverage
+      report, a section rule, and a cross-vector assertion, each reaching into a
+      field of a vector that was malformed in exactly the way the check was
+      written to catch. The failure is always the same shape: validation runs
+      *alongside* the other checks rather than before them, so every check sees
+      every shape. Aborting hides every finding after it, which is worse than
+      the malformed file.
 - [ ] Cross-document links resolve.
 - [ ] No secrets, no real personal data. Test fixtures are synthetic.
 

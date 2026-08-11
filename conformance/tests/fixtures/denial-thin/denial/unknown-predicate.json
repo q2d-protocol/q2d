@@ -1,0 +1,25 @@
+{
+  "id": "denial/uniformity-c/unknown-predicate",
+  "section": "denial",
+  "requirement": ["Q2D-C-08", "core-model.md#5.2"],
+  "description": "An unknown predicate rejects at step 10 and returns the Tier C class.",
+  "operation": "resolve_predicate",
+  "input": {
+    "predicate": {
+      "id": "q2d.dev/predicates/absent",
+      "version": "1.0.0"
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "unknown_predicate",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unavailable"
+      },
+      "step": 10
+    },
+    "comparison": "bytes"
+  }
+}

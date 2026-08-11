@@ -359,6 +359,41 @@ never claimed.
 3. **Ordering monotonicity.** No vector rejecting at step *n* has a sibling that
    reaches a later step on strictly less valid input.
 
+The first two are implemented in
+[`conformance/harness/cross_vector.py`](../../conformance/harness/cross_vector.py).
+**The third is not, and the reason is that it is not yet checkable.** "Strictly
+less valid input" is a relation *between* two vectors, and nothing in the format
+expresses it: the harness cannot tell that one vector is a weakened form of
+another rather than a different case entirely, and a check that guessed would
+either pass everything or fail correct pairs. Making it real needs vectors to
+declare the relation — a format change, and therefore a decision rather than an
+implementation detail. Until then it is a stated assertion with no check, and
+saying so beats an implementation that appears to enforce it.
+
+Two smaller decisions the implemented pair carry:
+
+- **Denial uniformity groups by the external class a vector's own wire response
+  declares**, not by section. Grouping by section would be wrong in both
+  directions: §4.1's Tier A causes share a section and are *deliberately*
+  distinct, and one normalized class spans sections.
+- **A contradiction fails; an incompleteness reports.** Two causes under one
+  external class disagreeing on the bytes is a corpus contradicting itself, and
+  fails. A class with only one cause behind it is *reported*, because the
+  harness cannot tell it from a Tier A error:
+  [P-009](P-009-denial-normalization.md) §4.1's Tier A rejections are
+  deliberately distinct from one another — a malformed envelope and an unknown
+  version tell a requester different things on purpose — so each is one cause
+  under one external value, and nothing in the vector format says which external
+  values name a *normalized* class. A rule that failed every single-cause class
+  would reject a correct corpus for containing the tier that exists to be
+  informative. The same treatment covers a debit sequence with no permutation to
+  compare against.
+- **The wire comparison does not sort keys.** Two responses carrying the same
+  fields in a different order are different bytes on the wire, and normalising
+  that away before comparing would remove the thing being checked. Python's
+  parser preserves the order keys appeared in, so authored order survives into
+  the comparison.
+
 **Cross-implementation:** for every `comparison: bytes` vector, both runners
 produce identical bytes; and in `cross` mode, B verifies what A produced.
 

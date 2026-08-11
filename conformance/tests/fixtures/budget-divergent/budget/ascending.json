@@ -1,0 +1,9 @@
+{
+  "id": "budget/accumulate/ascending",
+  "section": "budget",
+  "requirement": ["Q2D-C-09"],
+  "description": "A debit sequence in one order.",
+  "operation": "capacity_debit",
+  "input": { "debits": [1000, 1585, 2322] },
+  "expect": { "outcome": "ok", "output": 4907, "comparison": "bytes" }
+}

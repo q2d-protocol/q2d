@@ -10,6 +10,11 @@ import json, sys
 ANSWERS = {
     "message/sign/query-minimal": {
         "outcome": "ok", "output": {"signed": "", "routing": {}}},
+    "denial/uniformity-c/budget-exhausted": {
+        "outcome": "rejected",
+        "rejection": {"internal_reason": "budget_exhausted",
+                      "wire": {"status": "deny", "external_reason": "unavailable"},
+                      "step": 15}},
     "denial/uniformity-c/unknown-predicate": {
         "outcome": "rejected",
         "rejection": {"internal_reason": "unknown_predicate",

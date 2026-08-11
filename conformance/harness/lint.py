@@ -18,6 +18,7 @@ import json
 import re
 from pathlib import Path
 
+import cross_vector
 import schema as schema_module
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -39,6 +40,7 @@ HEADING_RE = re.compile(r"^#{1,6}\s+([0-9]+(?:\.[0-9]+)*)\b", re.MULTILINE)
 # Both live in corpus.py, so `lint` and `run` cannot disagree about what a
 # vector file is -- in the one component whose job is deciding whether two
 # things agree.
+import corpus
 from corpus import CorpusError, parse_strictly  # noqa: E402,F401
 
 
@@ -185,6 +187,7 @@ def lint(corpus_root: Path) -> int:
 
     failures = 0
     seen: dict[str, Path] = {}
+    vectors = []
     files = sorted(p for p in corpus_root.rglob("*.json") if p.is_file())
 
     for path in files:
@@ -196,6 +199,7 @@ def lint(corpus_root: Path) -> int:
             failures += 1
             continue
 
+        vectors.append(corpus.Vector(path, path.relative_to(corpus_root), vector))
         errors = vector_errors(vector, path, corpus_root, vector_schema,
                                claims, classes, sections)
         if isinstance(vector, dict):
@@ -214,9 +218,29 @@ def lint(corpus_root: Path) -> int:
         else:
             print(f"  ok    {label}")
 
+    # Cross-vector assertions run over whatever parsed, after the per-vector
+    # pass: they are properties of the corpus as a whole, and a corpus whose
+    # own rejection vectors disagree cannot detect an implementation whose
+    # rejections disagree.
+    cross_errors, summaries = cross_vector.assertions(vectors)
+    print("\ncross-vector")
+    for summary in summaries:
+        print(f"  {summary}")
+    for error in cross_errors:
+        print(f"  FAIL  {error}")
+
+    # Counted separately from vector failures, because a cross-vector failure
+    # belongs to no single vector: every vector in the group can be individually
+    # correct and the group still wrong. Folding it into the per-vector count
+    # would report a valid vector as invalid.
     print(f"\n{len(files) - failures}/{len(files)} vectors valid")
-    if failures:
-        print(f"FAILED: {failures} vector(s) rejected")
+    if cross_errors:
+        print(f"{len(cross_errors)} cross-vector assertion(s) failed")
+    if failures or cross_errors:
+        if failures:
+            print(f"FAILED: {failures} vector(s) rejected")
+        else:
+            print("FAILED: the corpus is invalid as a whole")
         return 1
     if not files:
         # Vacuously clean, and worth saying: an empty corpus lints green and
