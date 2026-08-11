@@ -179,6 +179,17 @@ covers exact transmitted bytes ([`core-model.md`](../../spec/core-model.md)
 both verify. That answers [P-002](P-002-message-envelope.md)'s question about
 `routing`: yes, `semantic`, and only because it is outside the signature.
 
+**Where the two modes actually differ is `cross`, not `run`.** §4.8 states the
+byte comparison as a cross-implementation assertion — *for every
+`comparison: bytes` vector, both runners produce identical bytes* — and that is
+the only place transmitted bytes exist to compare. Against an authored
+expectation the harness has parsed the runner's JSON, and once parsed, object
+key order and a number's lexical form are gone; what survives is every string,
+which is what the specification requires determinism over — a JWS compact
+serialization, a digest, a signature. So `run` compares both modes as
+parse-then-deep-equal, `cross` holds `bytes` vectors to identical output, and
+the declaration is what tells `cross` which vectors those are.
+
 Four smaller decisions the format carries, recorded here because
 [`conformance/vector.schema.json`](../../conformance/vector.schema.json) should
 not be the only place they exist:
