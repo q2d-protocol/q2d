@@ -124,6 +124,17 @@ def obtain(vector, runner: Path, result_schema: dict, scratch: Path):
     errors = schema_module.validate(result, result_schema)
     if errors:
         return None, f"emitted a non-conforming result: {errors[0]}"
+
+    # A result for a different vector is not an answer to this one, and
+    # `comparable()` deliberately drops `vector_id` -- so without this, two
+    # runners that both returned the same canned result for some other vector
+    # would be reported as agreeing across the whole corpus. `run` makes the
+    # same check for the same reason; the mode that has *two* runners to be
+    # wrong at once needs it more, not less.
+    if result["vector_id"] != vector.body["id"]:
+        return None, (f"answered {result['vector_id']!r}, not "
+                      f"{vector.body['id']!r}")
+
     return result, ""
 
 

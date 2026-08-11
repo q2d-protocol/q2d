@@ -408,6 +408,11 @@ each is a property of the corpus rather than of one mode's code:
   property of its JSON writer, not of Q2D. Key order *inside* `output` and
   `wire` is compared, because those carry protocol content and two responses
   with the same fields in a different order are different bytes on the wire.
+- **A result carrying the wrong `vector_id` is not an answer.** The comparison
+  drops `vector_id` deliberately, so without an explicit check two runners that
+  both returned the same canned result for some other vector would be reported
+  as agreeing across the whole corpus. The mode that has two runners to be
+  wrong at once needs that check more than `run` does, not less.
 - **A runner that cannot produce a result makes the vector unusable, not
   divergent.** Judging a runner against the corpus is `run`'s job. Reporting
   "these two disagree" when one of them said nothing would name the wrong

@@ -75,6 +75,18 @@ class DivergenceTest(unittest.TestCase):
         self.assertIn("DIFFER", output)
         self.assertIn("outcome:", output)
 
+    def test_two_runners_answering_a_different_vector_do_not_agree(self):
+        # `comparable()` drops `vector_id`, so without an explicit check these
+        # two agree on every field they are compared on while neither has
+        # answered anything asked of them.
+        canned = RUNNERS / "answers-a-different-vector"
+        code, output = cross(canned, canned)
+        self.assertEqual(code, 0, output)
+        self.assertIn("SKIP", output)
+        self.assertIn("answered 'some/other/vector'", output)
+        self.assertIn("nothing was compared", output)
+        self.assertNotIn("agree   ", output)
+
     def test_a_runner_that_cannot_answer_is_skipped_not_scored(self):
         # `cross` compares two runners; judging either against the corpus is
         # `run`'s job, so a runner that cannot produce a result is unusable
