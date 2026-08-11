@@ -1,0 +1,9 @@
+{
+  "id": "budget/accumulate/descending",
+  "section": "budget",
+  "requirement": ["Q2D-C-09"],
+  "description": "The same debits, permuted, reaching a different total. Neither vector is wrong on its own; only the pair is.",
+  "operation": "capacity_debit",
+  "input": { "debits": [2322, 1585, 1000] },
+  "expect": { "outcome": "ok", "output": 4906, "comparison": "bytes" }
+}

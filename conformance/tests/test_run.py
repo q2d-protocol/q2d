@@ -45,8 +45,8 @@ class TheStageZeroGateTest(unittest.TestCase):
         # being judged, not by the harness falling over.
         code, output = run(STUB)
         self.assertEqual(code, 1)
-        self.assertIn("0/2 vectors passed", output)
-        self.assertEqual(output.count("  FAIL"), 2)
+        self.assertIn("0/3 vectors passed", output)
+        self.assertEqual(output.count("  FAIL"), 3)
         self.assertIn("expected outcome 'ok', got 'error'", output)
 
     def test_an_empty_corpus_proves_nothing_and_says_so(self):
@@ -81,7 +81,7 @@ class PassingTest(unittest.TestCase):
     def test_a_correct_runner_passes_every_vector(self):
         code, output = run(RUNNERS / "answers-correctly")
         self.assertEqual(code, 0, output)
-        self.assertIn("2/2 vectors passed", output)
+        self.assertIn("3/3 vectors passed", output)
 
 
 class ExpectationNeverReachesTheRunnerTest(unittest.TestCase):

@@ -26,6 +26,7 @@ from collections import Counter
 from pathlib import Path
 
 import corpus as corpus_module
+import cross_vector
 import lint as lint_module
 import schema as schema_module
 from lint import CLAIMS_PATH, CLASSES_PATH, SCHEMA_PATH, CorpusError
@@ -115,6 +116,15 @@ def coverage(corpus_root: Path) -> int:
             errors = errors or ["duplicate identifier"]
         (rejected if errors else countable).append(vector)
 
+    # A corpus can be invalid as a whole while every vector in it is valid --
+    # two rejections claiming one class in different bytes, two debit orders
+    # reaching different totals. lint rejects such a corpus, so nothing in it
+    # is accepted evidence, and counting any of it would report a claim as
+    # covered by a corpus the harness refuses.
+    cross_errors, cross_summaries = cross_vector.assertions(countable)
+    if cross_errors:
+        countable = []
+
     cited = citations(countable)
 
     print(f"coverage over {corpus_root}\n")
@@ -132,7 +142,24 @@ def coverage(corpus_root: Path) -> int:
         # seeing.
         print(f"\nnon-claims cited by a vector: {', '.join(referenced_non_claims)}")
 
+    # Printed beside the counts, never apart from them. §4.8 defines coverage as
+    # citation -- "every claim is cited by at least one vector" -- so a claim
+    # cited once is covered by that definition, and redefining it here would put
+    # two meanings of covered in one repository. What would overstate is
+    # printing that number alone: a class with one cause behind it, or a debit
+    # sequence with no permutation, is a claim whose cross-vector property is
+    # cited but not yet demonstrated, and the reader needs both lines.
+    print("\ncross-vector, over what was counted")
+    for summary in cross_summaries:
+        print(f"  {summary}")
+
     print(f"\n{len(claims) - uncovered}/{len(claims)} claims covered by at least one vector")
+
+    if cross_errors:
+        print("\nnothing was counted: the corpus fails a cross-vector assertion, "
+              "so it is invalid as a whole and none of it is accepted evidence")
+        for error in cross_errors:
+            print(f"  {error}")
 
     uncounted = len(unreadable) + len(rejected)
     if uncounted:

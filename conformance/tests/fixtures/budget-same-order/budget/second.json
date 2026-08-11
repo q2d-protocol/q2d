@@ -1,0 +1,9 @@
+{
+  "id": "budget/accumulate/second",
+  "section": "budget",
+  "requirement": ["Q2D-C-09"],
+  "description": "The same debits in the same order as its sibling, which exercises no permutation.",
+  "operation": "capacity_debit",
+  "input": { "debits": [1000, 1585] },
+  "expect": { "outcome": "ok", "output": 2585, "comparison": "bytes" }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "denial/uniformity-c/budget-exhausted",
+  "section": "denial",
+  "requirement": ["Q2D-C-08", "core-model.md#5.2"],
+  "description": "A second Tier C cause behind the same class, so the corpus can show that distinct causes are indistinguishable rather than asserting it.",
+  "operation": "capacity_debit",
+  "input": {
+    "budget": { "spent_millibits": 4000, "limit_millibits": 4000 }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "budget_exhausted",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unavailable"
+      },
+      "step": 15
+    },
+    "comparison": "bytes"
+  }
+}

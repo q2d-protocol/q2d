@@ -1,0 +1,16 @@
+{
+  "id": "denial/uniformity-c/budget-exhausted",
+  "section": "denial",
+  "requirement": ["Q2D-C-08"],
+  "description": "Another Tier C cause, claiming the same class with a different wire response. Per-vector checks cannot see the divergence; only comparing the two can.",
+  "operation": "capacity_debit",
+  "input": {},
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "budget_exhausted",
+      "wire": { "status": "deny", "external_reason": "unavailable", "retry_after": 40 }
+    },
+    "comparison": "bytes"
+  }
+}

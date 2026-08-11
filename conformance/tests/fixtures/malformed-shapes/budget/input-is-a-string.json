@@ -1,0 +1,9 @@
+{
+  "id": "budget/accumulate/input-is-a-string",
+  "section": "budget",
+  "requirement": ["Q2D-C-09"],
+  "description": "Schema-invalid in a shape the cross-vector pass must report rather than crash on.",
+  "operation": "capacity_debit",
+  "input": "not an object",
+  "expect": "not an object either"
+}
