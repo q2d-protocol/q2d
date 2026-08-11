@@ -37,6 +37,19 @@ exit non-zero saying which issue owns them — P-001 §7 asks for a harness that
 reports fail because no implementation exists, and a mode that silently
 succeeded would be worse than one that is missing.
 
+That has a consequence for CI worth stating before someone hits it. When `run`
+lands it is red by design until Stage 1 does, and a permanently red check trains
+people to ignore red. The rule, which
+[`.github/workflows/checks.yml`](../.github/workflows/checks.yml) carries: when
+those modes exist, assert the expected state — *the harness reports fail-all*,
+*coverage reports thirteen uncovered claims* — rather than running a check that
+fails.
+
+**Neither assertion is in CI today, because neither mode exists.** What is:
+[`tests/test_harness_cli.py`](tests/test_harness_cli.py) holds the unbuilt modes
+to exiting non-zero, and turns red the day one is built — which is the moment to
+add its assertion.
+
 ## What a vector looks like
 
 The shape, with [`vector.schema.json`](vector.schema.json) as the authority and

@@ -69,6 +69,8 @@ conformance/         shared vector corpus + harness (imports neither implementat
 docs/                mvp-scope.md, versioning.md, operator docs
 paper/               technical report + reproducible build pipeline
 website/             q2d.dev  (serves the go-import tag — load-bearing)
+tools/               repo-wide hygiene checks CI runs
+.github/workflows/   CI — everything in it must be green; see below
 private-docs/        gitignored: strategy, external review, decision record
 ```
 
@@ -87,6 +89,28 @@ read it so you know what it will catch, and pre-empt those findings in your own
 self-review rather than spending rounds on them.
 
 Merge with a merge commit, never squash. Individual commits carry the reasoning.
+
+### CI is green or it is broken
+
+[`.github/workflows/checks.yml`](.github/workflows/checks.yml) contains nothing
+that is expected to fail. That is a rule, not a description of today.
+
+It matters here because this project has a gate that is deliberately red:
+[`P-001`](docs/prds/P-001-conformance-corpus.md) §7 wants the harness to report
+fail for every vector until an implementation exists. **When you build
+`harness run` or `harness coverage`, do not add it to CI as a failing job.** A
+permanently red check trains everyone to ignore red, and the cost lands on the
+day it starts meaning something.
+
+Assert the expected state instead — "the harness reports fail-all", "coverage
+reports thirteen uncovered claims". Each is green while true and turns red when
+someone changes the thing without changing the expectation, which is the signal
+you wanted.
+
+Neither mode exists yet, so neither assertion is in CI. The one that is:
+`conformance/tests/test_harness_cli.py` holds the unbuilt modes to exiting
+non-zero, and turns red the day one of them is built — which is when to add its
+assertion.
 
 ## Self-review before Codex handoff
 
@@ -288,6 +312,9 @@ python3 registry/validate.py
 # Conformance corpus: schema self-checks over the vector set
 python3 conformance/harness lint
 python3 -m unittest discover -s conformance/tests
+
+# Cross-document links — the same check CI runs
+python3 tools/check_links.py
 
 # Technical report: build and run the deposit checks
 cd paper && make DRAFT=0.2.2 PAGES=43 verify
