@@ -249,14 +249,35 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
             fields_a = dict(comparable(result_a))
             fields_b = dict(comparable(result_b))
 
-            # Both sides, not just A. One runner reporting a string and the
-            # other an object is still a comparison the bytes never arrived
-            # for, and checking only A would make the verdict depend on which
-            # runner was passed as --a.
+            # Both sides, not just A: checking only A would make the verdict
+            # depend on which runner was passed as --a. But *which* side is
+            # composite decides what the vector is. One string and one object
+            # is the two runners disagreeing about the shape of the answer --
+            # a real divergence, and one where the non-string side did not
+            # produce the serialization at all. Both composite is the format's
+            # limit rather than anybody's bug, and only that is UNCHECKABLE.
+            lopsided = [label for label in sorted(set(fields_a) | set(fields_b))
+                        if label in CARRIES_WIRE_CONTENT
+                        and isinstance(fields_a.get(label), str)
+                        != isinstance(fields_b.get(label), str)]
+            if mode == "bytes" and lopsided:
+                divergent += 1
+                label = lopsided[0]
+                stringly = "A" if isinstance(fields_a.get(label), str) else "B"
+                other = "B" if stringly == "A" else "A"
+                # Named as JSON types, not Python ones: this report is read
+                # by whoever is deciding which implementation is wrong, and
+                # `dict` is not a thing Q2D has.
+                other_value = fields_b.get(label) if other == "B" else fields_a.get(label)
+                print(f"  DIFFER  {vector.id}\n          {label}: {stringly} "
+                      f"reported a serialization (string), {other} reported "
+                      f"{compare_module.kind(other_value)} "
+                      f"— they disagree on the shape of the answer")
+                continue
+
             composite = [label for label in sorted(set(fields_a) | set(fields_b))
                          if label in CARRIES_WIRE_CONTENT
-                         and not (isinstance(fields_a.get(label), str)
-                                  and isinstance(fields_b.get(label), str))]
+                         and not isinstance(fields_a.get(label), str)]
             if mode == "bytes" and composite:
                 # The bytes never reached the harness: the runner reported a
                 # parsed structure, so whitespace and escaping were gone before

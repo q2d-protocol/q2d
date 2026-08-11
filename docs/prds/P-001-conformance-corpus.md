@@ -166,8 +166,12 @@ equality nobody checked.
 
 So **a value compared as `bytes` must be a string** — the serialization itself.
 `cross` refuses a `bytes` vector whose `output` or `rejection.wire` is
-composite, reporting it `UNCHECKABLE` and failing the run rather than counting
-it as agreement. `step` and `internal_reason` are exempt: neither crosses the
+composite on *both* sides, reporting it `UNCHECKABLE` and failing the run rather
+than counting it as agreement. One side reporting a string and the other a
+structure is a different thing and is reported as a divergence: the two runners
+disagree on the shape of the answer, and the non-string side did not produce the
+artefact at all. Calling that a format limitation would hide an implementation
+divergence behind a corpus note. `step` and `internal_reason` are exempt: neither crosses the
 interface, so their encoding is nobody's contract.
 
 **This has a consequence past this mode, and it is in §10.** A denial's wire

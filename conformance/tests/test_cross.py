@@ -139,6 +139,23 @@ class UncheckableBytesTest(unittest.TestCase):
         self.assertIn("rejection.wire", output)
         self.assertIn("were not compared", output)
 
+    def test_one_side_serializing_and_one_not_is_a_divergence(self):
+        # They disagree on the shape of the answer, and the non-string side
+        # never produced the artefact at all. Reporting that as the format's
+        # limit would hide an implementation divergence behind a corpus note.
+        code, output = cross(CORRECT, RUNNERS / "answers-with-an-unserialized-envelope",
+                             FIXTURES / "message-only")
+        self.assertEqual(code, 1)
+        self.assertIn("DIFFER", output)
+        self.assertIn("disagree on the shape of the answer", output)
+        self.assertNotIn("UNCHECKABLE", output)
+
+    def test_the_shape_divergence_does_not_depend_on_argument_order(self):
+        swapped = cross(RUNNERS / "answers-with-an-unserialized-envelope", CORRECT,
+                        FIXTURES / "message-only")
+        self.assertEqual(swapped[0], 1)
+        self.assertIn("disagree on the shape of the answer", swapped[1])
+
     def test_a_string_bytes_value_is_comparable(self):
         # A JWS compact serialization, a digest, a signature: the artefact *is*
         # the string, so the comparison over it is exact.
