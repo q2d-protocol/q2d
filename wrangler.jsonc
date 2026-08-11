@@ -1,0 +1,15 @@
+{
+  // Deploy configuration for q2d.dev, in the repository rather than only in a
+  // dashboard. website/ carries the go-import and go-source meta tags that make
+  // the Go module path work, and now also serves the conformance vector
+  // schema's $id -- a deploy config nobody can review is a second source of
+  // truth for a load-bearing directory.
+  //
+  // This is a static-assets Worker: no build step, no server code, just the
+  // contents of website/ served at the root. That is what the site already is.
+  "name": "q2d-landing-html",
+  "compatibility_date": "2025-01-01",
+  "assets": {
+    "directory": "./website"
+  }
+}

@@ -1,0 +1,86 @@
+name: checks
+
+# Everything here must be green. Nothing in this workflow is expected to fail.
+#
+# That distinction matters more than usual on this repository, because P-001 §7
+# states a gate that is deliberately red: "the harness runs, and reports fail
+# for every vector, because no implementation exists." A check that is
+# permanently red trains people to ignore red, and costs the signal exactly when
+# it starts meaning something.
+#
+# The rule for when those modes land, stated here because that is when someone
+# will reach for the wrong shape: do not add `harness run` (P-001 issue 4) or
+# `harness coverage` (P-001 issue 6) as jobs that fail. Assert the expected
+# state instead -- that the harness reports fail-all, that coverage reports
+# thirteen uncovered claims -- so the check is green while true, and turns red
+# when someone changes the thing without changing the expectation.
+#
+# Neither mode exists yet, so neither assertion is in this workflow. What does
+# exist is conformance/tests/test_harness_cli.py, which holds the unbuilt modes
+# to exiting non-zero -- and turns red the day one of them is built, which is
+# the moment to add its assertion here.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  corpus:
+    name: registry and conformance corpus
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Both are standard library only, deliberately: the harness must run
+      # wherever python3 does, without an install step.
+      - name: Registry manifest is internally consistent and every vector holds
+        run: python3 registry/validate.py
+
+      - name: Corpus lints against the vector schema
+        run: python3 conformance/harness lint
+
+      - name: Harness tests
+        run: python3 -m unittest discover -s conformance/tests
+
+      # CLAUDE.md's self-review asks a human to check this. Machines are better
+      # at it, and the escalation-closure failures this repository has recorded
+      # were all a reference somewhere nobody re-read.
+      - name: Cross-document links resolve
+        run: python3 tools/check_links.py
+
+  implementations:
+    name: rust and go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # src/lib.rs and doc.go are placeholders holding the crate and module
+      # names. Building them is cheap and catches a broken Cargo.toml or go.mod
+      # before Stage 1 needs them.
+      - name: Rust builds
+        run: cargo build --verbose
+
+      - name: Rust tests
+        run: cargo test --verbose
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Go builds
+        run: go build ./...
+
+      - name: Go vets
+        run: go vet ./...
