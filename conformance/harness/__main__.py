@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 import coverage as coverage_mode
+import cross as cross_mode
 import lint as lint_mode
 import run as run_mode
 from corpus import CorpusError
@@ -25,17 +26,13 @@ from schema import UnsupportedKeyword
 
 DEFAULT_CORPUS = Path(__file__).resolve().parents[1] / "corpus"
 
-PENDING = {
-    "cross": ("P-001 issue 9", "A produces, B verifies"),
-}
-
 USAGE = """usage: python3 conformance/harness <mode> [options]
 
 modes:
   lint       [--corpus DIR]            corpus self-checks
   run        --impl PATH [--corpus DIR]  run a corpus against one runner
   coverage   [--corpus DIR]            claims with no citing vector
-  cross      [--a P --b P]             not built yet -- P-001 issue 9
+  cross      --a PATH --b PATH [--corpus DIR]  two runners over one corpus
 """
 
 
@@ -46,12 +43,7 @@ def main(argv: list[str]) -> int:
 
     mode, args = argv[1], argv[2:]
 
-    if mode in PENDING:
-        issue, summary = PENDING[mode]
-        print(f"harness {mode}: not built yet -- {issue} ({summary})", file=sys.stderr)
-        return 2
-
-    if mode not in ("lint", "run", "coverage"):
+    if mode not in ("lint", "run", "coverage", "cross"):
         print(f"harness: unknown mode {mode!r}\n\n{USAGE}", end="", file=sys.stderr)
         return 2
 
@@ -65,6 +57,8 @@ def main(argv: list[str]) -> int:
             return lint_mode.lint(options["corpus"])
         if mode == "coverage":
             return coverage_mode.coverage(options["corpus"])
+        if mode == "cross":
+            return cross_mode.cross(options["corpus"], options["a"], options["b"])
         return run_mode.run(options["corpus"], options["impl"])
     except (CorpusError, UnsupportedKeyword) as exc:
         print(f"harness {mode}: {exc}", file=sys.stderr)
@@ -79,8 +73,9 @@ def parse_options(mode: str, args: list[str]) -> tuple[dict, str]:
     for.
     """
     allowed = {"lint": {"--corpus"}, "coverage": {"--corpus"},
-               "run": {"--corpus", "--impl"}}[mode]
-    options = {"corpus": DEFAULT_CORPUS, "impl": None}
+               "run": {"--corpus", "--impl"},
+               "cross": {"--corpus", "--a", "--b"}}[mode]
+    options = {"corpus": DEFAULT_CORPUS, "impl": None, "a": None, "b": None}
 
     remaining = list(args)
     while remaining:
@@ -89,11 +84,12 @@ def parse_options(mode: str, args: list[str]) -> tuple[dict, str]:
             return {}, f"unexpected argument {flag!r}"
         if not remaining:
             return {}, f"{flag} needs a value"
-        value = remaining.pop(0)
-        options["corpus" if flag == "--corpus" else "impl"] = Path(value)
+        options[flag.lstrip("-")] = Path(remaining.pop(0))
 
     if mode == "run" and options["impl"] is None:
         return {}, "--impl is required; there is nothing to run a corpus against"
+    if mode == "cross" and (options["a"] is None or options["b"] is None):
+        return {}, "--a and --b are both required; cross compares two runners"
 
     return options, ""
 

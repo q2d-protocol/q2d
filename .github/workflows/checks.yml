@@ -15,16 +15,19 @@ name: checks
 # thirteen uncovered claims -- so the check is green while true, and turns red
 # when someone changes the thing without changing the expectation.
 #
-# `run` and `coverage` have landed, and their assertions are in the suite this
-# workflow already runs: test_run.py holds the real corpus to *no vector passing
-# against the reference stub*, and test_coverage.py holds it to *all thirteen
-# claims uncovered*. Both are true while the corpus is empty and no
-# implementation exists, both are green, and both turn red the day that changes
-# without the expectation changing with it.
+# Every mode P-001 §4.7 lists now exists, and each carries its expected state in
+# the suite this workflow already runs rather than as a job that fails:
 #
-# `cross` does not exist yet, and conformance/tests/test_harness_cli.py holds it
-# to exiting non-zero -- which turns red when it is built, the moment to add its
-# assertion.
+#   run       no vector in the real corpus passes against the reference stub
+#   coverage  all thirteen claims uncovered
+#   cross     the stub against itself compares nothing -- there is one runner,
+#             and it answers nothing
+#
+# All three are true while no implementation exists, all three are green, and
+# each turns red the day that stops being true without the expectation moving
+# with it. That is the whole point: the gate is deliberately red, and a check
+# asserting the red state is green and honest, where a check that simply fails
+# is red and ignored.
 
 on:
   pull_request:

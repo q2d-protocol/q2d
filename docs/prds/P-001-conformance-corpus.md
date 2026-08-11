@@ -330,7 +330,7 @@ Modes:
 
 ```sh
 harness run      --impl ./target/debug/q2d-conform      # one implementation
-harness cross    --a <runner> --b <runner>              # A produces, B verifies
+harness cross    --a <runner> --b <runner>              # two runners, one corpus
 harness coverage                                        # claims with no vector
 harness lint                                             # corpus self-checks
 ```
@@ -396,6 +396,32 @@ Two smaller decisions the implemented pair carry:
 
 **Cross-implementation:** for every `comparison: bytes` vector, both runners
 produce identical bytes; and in `cross` mode, B verifies what A produced.
+
+Issue 9 built the first half. Four decisions it needed, recorded here because
+each is a property of the corpus rather than of one mode's code:
+
+- **What is compared is the result's values, field by field — not the two
+  runners' stdout.** Every result carries an `implementation` naming who
+  produced it, so comparing whole documents would report every vector as
+  divergent. The envelope's own key order and whitespace are excluded for the
+  same reason: whether a runner writes `outcome` before `vector_id` is a
+  property of its JSON writer, not of Q2D. Key order *inside* `output` and
+  `wire` is compared, because those carry protocol content and two responses
+  with the same fields in a different order are different bytes on the wire.
+- **A runner that cannot produce a result makes the vector unusable, not
+  divergent.** Judging a runner against the corpus is `run`'s job. Reporting
+  "these two disagree" when one of them said nothing would name the wrong
+  failure.
+- **Two runners agreeing about nothing is not agreement.** An empty corpus, or
+  one neither runner can answer, exits 0 and says so in words rather than
+  printing `0/0 agree`.
+- **The second half — feeding what A signed into B's verification — is not
+  implemented, and cannot be from here.** It requires knowing which operation
+  consumes a signed envelope and under which input field, which is P-002's and
+  P-003's knowledge; §3 puts protocol logic outside the harness explicitly.
+  Making it real needs a vector to declare its companion, which is a format
+  change and therefore an issue against this PRD rather than a quiet extension
+  of `cross`. Recorded so a reader does not assume both halves run.
 
 **Coverage:** every claim in [`spec/claims.md`](../../spec/claims.md) is cited by
 at least one vector. Uncited claims are reported, not silently absent.

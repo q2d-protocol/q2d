@@ -28,6 +28,7 @@ test fails naming the stale one if you do not.
 python3 conformance/harness lint                    # corpus self-checks
 python3 conformance/harness run --impl PATH         # a corpus against one runner
 python3 conformance/harness coverage                # claims with no citing vector
+python3 conformance/harness cross --a P --b P       # two runners, held to agreeing
 python3 -m unittest discover -s conformance/tests   # the harness's own tests
 ```
 
@@ -64,13 +65,11 @@ those modes exist, assert the expected state — *the harness reports fail-all*,
 *coverage reports thirteen uncovered claims* — rather than running a check that
 fails.
 
-**Two expected-state assertions are in CI**, in place of jobs that would be red
-by design: [`tests/test_run.py`](tests/test_run.py) holds the real corpus to *no
-vector passing against the reference stub*, and
-[`tests/test_coverage.py`](tests/test_coverage.py) holds it to *all thirteen
-claims uncovered*. Both are green while true and red the day they stop being.
-`cross`'s waits on `cross`, and [`tests/test_harness_cli.py`](tests/test_harness_cli.py)
-holds it to exiting non-zero until then.
+**Three expected-state assertions are in CI**, in place of jobs that would be
+red by design: no vector in the real corpus passes against the reference stub,
+all thirteen claims are uncovered, and the stub against itself compares nothing.
+Each is green while true and red the day it stops being — which is the day
+someone should be adding a real assertion in its place.
 
 ## What a vector looks like
 
