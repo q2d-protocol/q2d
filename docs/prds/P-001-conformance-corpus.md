@@ -98,6 +98,18 @@ Consequence: vectors are authored as one file containing both halves, and the
 harness produces the input-only projection at runtime. Implementations are never
 given a path to the authored corpus.
 
+Two properties of that projection, decided here rather than left in the harness:
+
+- It is built from the **allowlist** §6 fixes — `id`, `operation`, `input` —
+  rather than by deleting `expect`. A deletion keeps this section true only for
+  the fields someone thought of; a later `expected` or `notes_for_the_runner`
+  passes straight through one. An allowlist excludes a new authored field by
+  default rather than by memory.
+- Its **member order is fixed**. §6 fixes what a runner receives, not how it is
+  serialized, so this is a harness decision and not a §6 requirement: two runs
+  must write byte-identical projection files, or a runner that digests its input
+  sees a difference the corpus did not intend.
+
 ### 4.3 Determinism is required, not hoped for
 
 Every input that would otherwise vary is supplied **by the vector**: keys,
