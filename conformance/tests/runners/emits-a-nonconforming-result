@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+"""Says ok with nothing to compare -- a result the harness cannot judge."""
+import json, sys
+vector = json.loads(open(sys.argv[1]).read())
+json.dump({"vector_id": vector["id"], "outcome": "ok",
+           "implementation": {"name": "q2d-bad", "version": "0.0.0"}}, sys.stdout)

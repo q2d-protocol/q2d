@@ -1,0 +1,8 @@
+{
+  "id": "message/sign/no-expect",
+  "section": "message",
+  "requirement": ["Q2D-C-05"],
+  "description": "Parses as JSON, but states no expectation. run must report it, not fall over on it.",
+  "operation": "sign_query",
+  "input": {}
+}

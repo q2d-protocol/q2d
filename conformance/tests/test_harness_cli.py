@@ -25,7 +25,7 @@ from pathlib import Path
 HARNESS = Path(__file__).resolve().parents[1] / "harness"
 
 # Mode, and the issue that owns building it.
-UNBUILT = [("run", "issue 4"), ("cross", "issue 9"), ("coverage", "issue 6")]
+UNBUILT = [("cross", "issue 9"), ("coverage", "issue 6")]
 
 
 def harness(*args: str) -> subprocess.CompletedProcess:
@@ -54,6 +54,19 @@ class BuiltModeTest(unittest.TestCase):
     def test_lint_runs(self):
         result = harness("lint")
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_run_requires_something_to_run_against(self):
+        # Not an unbuilt mode: it is built, and refuses to guess which runner
+        # was meant.
+        result = harness("run")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--impl is required", result.stderr)
+
+    def test_an_unknown_flag_is_an_error(self):
+        # A typo in a CI invocation must not silently run something else.
+        result = harness("lint", "--impll", "x")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unexpected argument", result.stderr)
 
     def test_help_is_not_an_error(self):
         result = harness("--help")

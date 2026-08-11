@@ -1,0 +1,4 @@
+#!/usr/bin/env python3
+import json, sys
+json.dump({"vector_id": "some/other/vector", "outcome": "ok", "output": {},
+           "implementation": {"name": "q2d-confused", "version": "0.0.0"}}, sys.stdout)

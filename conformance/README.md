@@ -26,17 +26,32 @@ test fails naming the stale one if you do not.
 
 ```sh
 python3 conformance/harness lint                    # corpus self-checks
-python3 conformance/harness lint --corpus DIR       # any directory of vectors
+python3 conformance/harness run --impl PATH         # a corpus against one runner
 python3 -m unittest discover -s conformance/tests   # the harness's own tests
+```
+
+Both modes take `--corpus DIR` to point at a directory other than
+[`corpus/`](corpus). Running the corpus against the reference stub is what
+P-001 §7's gate looks like today:
+
+```
+$ python3 conformance/harness run --impl conformance/runners/stub/q2d-conform --corpus conformance/tests/fixtures/valid
+  FAIL  denial/uniformity-c/unknown-predicate
+          expected outcome 'rejected', got 'error' (the reference stub implements no Q2D behaviour)
+  FAIL  message/sign/query-minimal
+          expected outcome 'ok', got 'error' (the reference stub implements no Q2D behaviour)
+
+0/2 vectors passed
 ```
 
 Standard library only, like [`registry/validate.py`](../registry/validate.py).
 
 ## State
 
-**The corpus is empty and most of the harness does not exist yet.** Built so far:
-the vector schema and `lint` (P-001 issue 1). `run`, `cross`, and `coverage`
-exit non-zero saying which issue owns them — P-001 §7 asks for a harness that
+**The corpus is empty and part of the harness does not exist yet.** Built so far:
+the vector schema and `lint` (issue 1), the projection (issue 2), the runner
+contract and reference stub (issue 3), comparison (issue 16), and `run`
+(issue 4). `cross` and `coverage` exit non-zero saying which issue owns them — P-001 §7 asks for a harness that
 reports fail because no implementation exists, and a mode that silently
 succeeded would be worse than one that is missing.
 
@@ -48,10 +63,13 @@ those modes exist, assert the expected state — *the harness reports fail-all*,
 *coverage reports thirteen uncovered claims* — rather than running a check that
 fails.
 
-**Neither assertion is in CI today, because neither mode exists.** What is:
-[`tests/test_harness_cli.py`](tests/test_harness_cli.py) holds the unbuilt modes
-to exiting non-zero, and turns red the day one is built — which is the moment to
-add its assertion.
+**`run`'s assertion is in CI now that `run` exists**:
+[`tests/test_run.py`](tests/test_run.py) holds the real corpus to *no vector
+passing against the reference stub* — true while no implementation exists,
+green, and red the day the stub learns to answer or a real runner is wired in
+without updating it. `coverage`'s assertion waits on `coverage`, and
+[`tests/test_harness_cli.py`](tests/test_harness_cli.py) holds it and `cross` to
+exiting non-zero until then.
 
 ## What a vector looks like
 
