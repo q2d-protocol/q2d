@@ -413,6 +413,12 @@ each is a property of the corpus rather than of one mode's code:
   both returned the same canned result for some other vector would be reported
   as agreeing across the whole corpus. The mode that has two runners to be
   wrong at once needs that check more than `run` does, not less.
+- **`outcome: "error"` is not an answer.** It is the contract's way of saying
+  the runner faulted internally, a vector cannot expect one (§4.6 admits `ok`
+  and `rejected` only), and the only field two errors share is the word
+  `error`. Comparing them would report agreement for a vector on which neither
+  implementation produced anything, so it counts as no answer given, exactly
+  like exit 1.
 - **One runner answering and the other not is a divergence; neither answering
   is not.** Asymmetry is the two of them disagreeing — one language implements
   this vector and the other does not — and scoring it as merely unusable would

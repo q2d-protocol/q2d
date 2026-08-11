@@ -135,6 +135,16 @@ def obtain(vector, runner: Path, result_schema: dict, scratch: Path):
         return None, (f"answered {result['vector_id']!r}, not "
                       f"{vector.body['id']!r}")
 
+    # `outcome: "error"` says the runner faulted internally -- it is the
+    # contract's way of saying "no Q2D answer", not a Q2D answer of its own. A
+    # vector cannot expect one (§4.6 admits `ok` and `rejected` only), and the
+    # only field two errors share is the word `error`, so comparing them would
+    # report agreement for a vector on which neither implementation produced
+    # anything. It belongs with exit 1: no answer given.
+    if result["outcome"] == "error":
+        detail = result.get("detail")
+        return None, f"faulted{f': {detail}' if detail else ''}"
+
     return result, ""
 
 

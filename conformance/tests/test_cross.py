@@ -66,14 +66,24 @@ class DivergenceTest(unittest.TestCase):
         self.assertIn("first differing byte at offset", output)
         self.assertIn("output:", output)
 
-    def test_a_runner_that_answers_differently_is_a_divergence(self):
-        # The stub produces a conforming result -- `error` -- so it is
-        # comparable, and disagreeing with a runner that answers is exactly
-        # what this mode reports.
+    def test_one_runner_faulting_is_a_divergence(self):
+        # The stub emits `outcome: "error"`, which the contract uses to say the
+        # runner produced no Q2D answer. One side answering and the other
+        # faulting is the two of them disagreeing, same as exit 1.
         code, output = cross(CORRECT, STUB)
         self.assertEqual(code, 1)
         self.assertIn("DIFFER", output)
-        self.assertIn("outcome:", output)
+        self.assertIn("faulted", output)
+
+    def test_two_runners_faulting_alike_is_not_agreement(self):
+        # The only field two errors share is the word `error`. Comparing them
+        # would report agreement for a vector on which neither implementation
+        # produced anything at all.
+        code, output = cross(STUB, STUB, FIXTURES / "valid")
+        self.assertEqual(code, 0, output)
+        self.assertIn("SKIP", output)
+        self.assertIn("nothing was compared", output)
+        self.assertNotIn("agree   ", output)
 
     def test_two_runners_answering_a_different_vector_do_not_agree(self):
         # `comparable()` drops `vector_id`, so without an explicit check these
