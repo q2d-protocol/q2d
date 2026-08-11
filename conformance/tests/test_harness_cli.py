@@ -25,7 +25,7 @@ from pathlib import Path
 HARNESS = Path(__file__).resolve().parents[1] / "harness"
 
 # Mode, and the issue that owns building it.
-UNBUILT = [("cross", "issue 9"), ("coverage", "issue 6")]
+UNBUILT = [("cross", "issue 9")]
 
 
 def harness(*args: str) -> subprocess.CompletedProcess:
@@ -54,6 +54,11 @@ class BuiltModeTest(unittest.TestCase):
     def test_lint_runs(self):
         result = harness("lint")
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_coverage_runs(self):
+        result = harness("coverage")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("claims covered", result.stdout)
 
     def test_run_requires_something_to_run_against(self):
         # Not an unbuilt mode: it is built, and refuses to guess which runner

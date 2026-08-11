@@ -153,6 +153,25 @@ def section_errors(vector: dict) -> list[str]:
     return errors
 
 
+def vector_errors(vector, path: Path, corpus_root: Path, vector_schema: dict,
+                  claims: set[str], classes: set[str],
+                  sections: dict[str, set[str]]) -> list[str]:
+    """Every way one vector is invalid, schema and otherwise.
+
+    Shared with `coverage`, which must not count a vector the corpus rejects:
+    a claim reported as covered by evidence lint refuses is exactly the
+    overstatement claims.md's traceability rule exists to prevent. Cross-file
+    checks -- duplicate identifiers -- stay in `lint`, because they are
+    properties of a corpus rather than of a vector.
+    """
+    errors = schema_module.validate(vector, vector_schema)
+    if isinstance(vector, dict):
+        errors += placement_errors(vector, path, corpus_root)
+        errors += citation_errors(vector, claims, classes, sections)
+        errors += section_errors(vector)
+    return errors
+
+
 def lint(corpus_root: Path) -> int:
     """Validate every vector under `corpus_root`. Returns a process exit code."""
     if not corpus_root.is_dir():
@@ -177,12 +196,9 @@ def lint(corpus_root: Path) -> int:
             failures += 1
             continue
 
-        errors = schema_module.validate(vector, vector_schema)
+        errors = vector_errors(vector, path, corpus_root, vector_schema,
+                               claims, classes, sections)
         if isinstance(vector, dict):
-            errors += placement_errors(vector, path, corpus_root)
-            errors += citation_errors(vector, claims, classes, sections)
-            errors += section_errors(vector)
-
             vector_id = vector.get("id")
             if isinstance(vector_id, str):
                 if vector_id in seen:
