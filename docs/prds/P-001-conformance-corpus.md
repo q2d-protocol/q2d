@@ -155,6 +155,18 @@ both-verify check, and it is the property the Stage 1 gate rests on.
   where it does not. A vector must state which; there is no default, because a
   silent default is how a determinism requirement gets quietly dropped.
 
+**A `bytes` comparison is exact over a string and approximate over an object.**
+The harness parses JSON, so what it can compare is what survives parsing. For a
+string value — a JWS compact serialization, a digest, a signature — that is
+exact: the artefact *is* the string, and `"\u003c"` and `"<"` carry the same
+one. For an object or array it is not: whitespace between tokens and the choice
+of escape are gone before the comparison sees them, so two runners emitting
+differently-encoded but equivalent JSON compare equal. **A vector that tests
+canonicalization must therefore carry the serialization as a string**, which is
+the form the comparison is exact over. `cross` names every vector whose `bytes`
+comparison landed on a composite value, on every run, so nobody reads "agree"
+for more than was checked.
+
 **`semantic` is defined as parse-then-deep-equal**, and only that:
 
 - both sides are parsed as JSON and compared as trees — object key order is

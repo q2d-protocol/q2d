@@ -117,6 +117,27 @@ class DivergenceTest(unittest.TestCase):
         self.assertIn("nothing was compared", output)
 
 
+class ApproximateBytesTest(unittest.TestCase):
+    """What a JSON-parsing harness can and cannot mean by "identical bytes"."""
+
+    def test_a_composite_bytes_value_is_named_as_approximate(self):
+        # Whitespace and escaping are gone before the comparison sees them, so
+        # "agree" over an object is less than byte equality. Saying so is the
+        # whole of the fix -- taking it for byte equality is the failure.
+        code, output = cross(CORRECT, CORRECT, FIXTURES / "valid")
+        self.assertEqual(code, 0, output)
+        self.assertIn("compared a composite value", output)
+        self.assertIn("message/sign/query-minimal: output", output)
+
+    def test_bookkeeping_fields_are_not_named(self):
+        # `step` and `internal_reason` never cross the interface, so their
+        # encoding is nobody's contract and listing them would be noise in the
+        # one report that has to be read carefully.
+        _, output = cross(CORRECT, CORRECT, FIXTURES / "valid")
+        self.assertNotIn("rejection.step", output)
+        self.assertNotIn("rejection.internal_reason", output)
+
+
 class PartialCorpusTest(unittest.TestCase):
     def test_an_unreadable_corpus_file_fails_the_run(self):
         # A file that will not parse is a vector neither runner was asked

@@ -21,6 +21,23 @@ records that rather than leaving a reader to assume both halves run.
 
 ## What "identical bytes" can mean here
 
+The harness receives JSON and parses it, so what it can compare is what
+survives parsing. That is exact for a **string** value — a JWS compact
+serialization, a digest, a signature — because there the artefact *is* the
+string, and two JSON encodings of the same string (`"\u003c"` and `"<"`)
+carry the same artefact. It is *not* exact for an object or array value:
+whitespace between tokens and the choice of escape are gone before the
+comparison sees them, so two runners emitting differently-encoded but
+equivalent JSON are reported as agreeing.
+
+That is the format's limit, not a bug to fix here — the harness would need a
+byte-offset-tracking parser and a rule about which span of stdout belongs to
+which field. What it must not do is leave it unsaid, so `cross` names every
+vector whose `bytes` comparison landed on a composite value. A vector that
+genuinely tests canonicalization should carry the serialization as a string,
+which is the form this comparison is exact over; §4.4 now says so.
+
+
 Not the two runners' stdout, which differs by construction: every result carries
 an `implementation` naming who produced it, so comparing whole documents would
 report every vector as divergent.
@@ -49,6 +66,13 @@ import cross_vector
 import projection as projection_module
 import run as run_module
 import schema as schema_module
+
+
+# Fields that carry protocol content, and so are what a `bytes` comparison is
+# about. `rejection.step` and `rejection.internal_reason` are the harness's own
+# bookkeeping -- where the rejection happened and why, neither of which crosses
+# the interface -- so their encoding is nobody's contract.
+CARRIES_WIRE_CONTENT = ("output", "rejection.wire")
 
 
 def first_difference(left: str, right: str) -> str:
@@ -169,6 +193,7 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
     divergent = 0
     unusable = 0
     invalid = 0
+    approximated: dict[str, list[str]] = {}
 
     with tempfile.TemporaryDirectory(prefix="q2d-cross-") as tmp:
         scratch = Path(tmp)
@@ -218,6 +243,11 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
 
             difference = None
             for label in sorted(set(fields_a) | set(fields_b)):
+                if (mode == "bytes" and label in CARRIES_WIRE_CONTENT
+                        and not isinstance(fields_a.get(label), str)):
+                    # Parsed before it got here, so the encoding is gone. Named
+                    # rather than silently downgraded: see the module docstring.
+                    approximated.setdefault(vector.id, []).append(label)
                 if label not in fields_a or label not in fields_b:
                     difference = f"{label}: present in only one result"
                     break
@@ -245,6 +275,16 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
     print(f"\n{compared - divergent}/{compared} vectors agree "
           f"({total} in the corpus, {unusable} not comparable, "
           f"{invalid} not conforming)")
+
+    if approximated:
+        # Said whether or not anything diverged: it describes what this run was
+        # able to see, and a reader who takes "agree" for byte equality over a
+        # composite value would be taking more than was checked.
+        print(f"\n{len(approximated)} `bytes` vector(s) compared a composite "
+              f"value, where whitespace and escaping are gone before the "
+              f"comparison sees them (P-001 §4.4):")
+        for identifier, labels in sorted(approximated.items()):
+            print(f"  {identifier}: {', '.join(labels)}")
 
     # Said on every run, including a clean one. §4.8 asks for two things and
     # this mode does one of them, so a bare "vectors agree" would read as the
