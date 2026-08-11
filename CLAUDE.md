@@ -65,6 +65,7 @@ implementations diverge while both pass their own documents.
 spec/                normative definitions      — governs everything below
 threat-model/        trusted computing base per claim
 registry/            reference predicate manifest + validator
+conformance/         shared vector corpus + harness (imports neither implementation)
 docs/                mvp-scope.md, versioning.md, operator docs
 paper/               technical report + reproducible build pipeline
 website/             q2d.dev  (serves the go-import tag — load-bearing)
@@ -159,6 +160,10 @@ in this repository.
       claiming a version bump is done.
 - [ ] `website/index.html` still carries the `go-import` and `go-source` meta
       tags if you touched it. They are load-bearing for the Go module path.
+- [ ] If you changed `conformance/vector.schema.json`, the served copy at
+      `website/conformance/vector.schema.json` matches it byte for byte. The
+      schema's `$id` points at that URL, so a stale copy publishes a format
+      nothing in the repository agrees with. A test asserts it.
 
 ### Hygiene
 
@@ -279,6 +284,10 @@ living in more places than the person changing it remembered.
 ```sh
 # Registry manifest: internal consistency + every test vector
 python3 registry/validate.py
+
+# Conformance corpus: schema self-checks over the vector set
+python3 conformance/harness lint
+python3 -m unittest discover -s conformance/tests
 
 # Technical report: build and run the deposit checks
 cd paper && make DRAFT=0.2.2 PAGES=43 verify

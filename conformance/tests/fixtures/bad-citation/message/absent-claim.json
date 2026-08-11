@@ -1,0 +1,13 @@
+{
+  "id": "message/sign/absent-claim",
+  "section": "message",
+  "requirement": ["Q2D-C-99", "core-model.md#2.1"],
+  "description": "Cites a claim identifier that spec/claims.md does not define.",
+  "operation": "sign_query",
+  "input": {},
+  "expect": {
+    "outcome": "ok",
+    "output": {},
+    "comparison": "bytes"
+  }
+}
