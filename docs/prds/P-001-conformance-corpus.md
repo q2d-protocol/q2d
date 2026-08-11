@@ -432,9 +432,13 @@ each is a property of the corpus rather than of one mode's code:
   exit would make a partial run look like a complete one. The two are counted
   and named apart, because a non-conforming vector is the corpus being wrong
   and an unusable pair is the runners being wrong.
-- **Two runners agreeing about nothing is not agreement.** An empty corpus, or
-  one neither runner can answer, exits 0 and says so in words rather than
-  printing `0/0 agree`.
+- **Two runners agreeing about nothing is not agreement**, so it *fails*. An
+  empty corpus, or one neither runner can answer, exits non-zero saying which
+  in words rather than printing `0/0 agree`. `run` does the same over an empty
+  corpus, for the same reason: a gate that exits 0 having compared nothing
+  reports the property holding on the days it was never tested. `lint` still
+  exits 0 there — "every vector here is well-formed" is true of none, where
+  "these implementations agree" is not.
 - **The second half — feeding what A signed into B's verification — is issue
   19, not part of issue 9, and cannot be done from inside the harness as
   scoped.** It requires knowing which operation consumes a signed envelope and

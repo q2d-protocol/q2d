@@ -246,5 +246,11 @@ def run(corpus_root: Path, runner: Path) -> int:
         print(f"FAILED: {failures} vector(s)")
         return 1
     if not total:
-        print("corpus is empty — nothing was run, and nothing is proven")
+        # The same rule `cross` applies to comparing nothing, for the same
+        # reason: a gate that exits 0 having run nothing reports conformance on
+        # the days it was never tested. `lint` may exit 0 over an empty corpus
+        # -- "every vector here is well-formed" is true of none -- but this
+        # mode asserts an implementation was demonstrated, and none was.
+        print("FAILED: corpus is empty — nothing was run, and nothing is proven")
+        return 1
     return 0

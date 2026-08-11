@@ -271,7 +271,12 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
               f"either runner, so agreement across the corpus has not been shown")
         return 1
     if not compared:
-        # Two runners agreeing about nothing is not agreement.
-        print("nothing was compared — the corpus is empty, or neither runner "
-              "could answer anything in it")
+        # Two runners agreeing about nothing is not agreement, so this is a
+        # failure and not a quiet zero. A gate that exits 0 having compared
+        # nothing is the most expensive kind of green: it reports the property
+        # holding on the days it was never tested.
+        print("FAILED: nothing was compared — the corpus is empty, or neither "
+              "runner could answer anything in it, so no agreement has been "
+              "shown")
+        return 1
     return 0

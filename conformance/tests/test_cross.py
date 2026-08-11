@@ -80,7 +80,7 @@ class DivergenceTest(unittest.TestCase):
         # would report agreement for a vector on which neither implementation
         # produced anything at all.
         code, output = cross(STUB, STUB, FIXTURES / "valid")
-        self.assertEqual(code, 0, output)
+        self.assertEqual(code, 1)
         self.assertIn("SKIP", output)
         self.assertIn("nothing was compared", output)
         self.assertNotIn("agree   ", output)
@@ -91,7 +91,7 @@ class DivergenceTest(unittest.TestCase):
         # answered anything asked of them.
         canned = RUNNERS / "answers-a-different-vector"
         code, output = cross(canned, canned)
-        self.assertEqual(code, 0, output)
+        self.assertEqual(code, 1)
         self.assertIn("SKIP", output)
         self.assertIn("answered 'some/other/vector'", output)
         self.assertIn("nothing was compared", output)
@@ -112,7 +112,7 @@ class DivergenceTest(unittest.TestCase):
         # Judging either against the corpus is `run`'s job.
         unable = RUNNERS / "cannot-process"
         code, output = cross(unable, unable)
-        self.assertEqual(code, 0, output)
+        self.assertEqual(code, 1)
         self.assertIn("SKIP", output)
         self.assertIn("nothing was compared", output)
 
@@ -150,15 +150,15 @@ class StageZeroExpectedStateTest(unittest.TestCase):
 
     def test_the_stub_against_itself_compares_nothing(self):
         code, output = cross(STUB, STUB, CONFORMANCE / "corpus")
-        self.assertEqual(code, 0, output)
+        self.assertEqual(code, 1, output)
         self.assertIn("nothing was compared", output)
 
 
 class NothingComparedTest(unittest.TestCase):
-    def test_an_empty_corpus_compares_nothing_and_says_so(self):
+    def test_an_empty_corpus_compares_nothing_and_fails(self):
         # Two runners agreeing about nothing is not agreement.
         code, output = cross(CORRECT, CORRECT, FIXTURES / "empty")
-        self.assertEqual(code, 0)
+        self.assertEqual(code, 1)
         self.assertIn("nothing was compared", output)
 
     def test_a_missing_runner_is_an_error(self):
