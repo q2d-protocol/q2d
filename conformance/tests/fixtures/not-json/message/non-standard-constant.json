@@ -1,0 +1,13 @@
+{
+  "id": "message/digest/non-standard-constant",
+  "section": "message",
+  "requirement": ["core-model.md#2.1"],
+  "description": "Python's json module accepts NaN. RFC 8259 does not, and neither may the corpus.",
+  "operation": "digest",
+  "input": { "value": NaN },
+  "expect": {
+    "outcome": "ok",
+    "output": {},
+    "comparison": "bytes"
+  }
+}

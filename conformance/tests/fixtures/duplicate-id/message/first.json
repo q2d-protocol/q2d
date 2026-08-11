@@ -1,0 +1,13 @@
+{
+  "id": "message/sign/query-minimal",
+  "section": "message",
+  "requirement": ["Q2D-C-05"],
+  "description": "One of two vectors claiming the same identifier.",
+  "operation": "sign_query",
+  "input": {},
+  "expect": {
+    "outcome": "ok",
+    "output": {},
+    "comparison": "bytes"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "message/sign/absent-section",
+  "section": "message",
+  "requirement": ["core-model.md#99.7"],
+  "description": "Cites a section core-model.md does not have; the file existing is not enough.",
+  "operation": "sign_query",
+  "input": {},
+  "expect": {
+    "outcome": "ok",
+    "output": {},
+    "comparison": "bytes"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "message/sign/query-minimal",
+  "section": "message",
+  "requirement": ["Q2D-C-05", "core-model.md#2.1"],
+  "description": "A minimal signed query envelope with an advisory routing projection.",
+  "operation": "sign_query",
+  "input": {
+    "key_id": "test-requester-1",
+    "query": {}
+  },
+  "expect": {
+    "outcome": "ok",
+    "output": {
+      "signed": "",
+      "routing": {}
+    },
+    "comparison": "bytes"
+  }
+}

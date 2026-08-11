@@ -1,0 +1,2 @@
+An empty corpus, committed rather than created at test time so the suite runs
+in a read-only sandbox. Lint counts *.json files, so this one is invisible to it.

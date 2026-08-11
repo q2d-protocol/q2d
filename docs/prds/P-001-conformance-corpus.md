@@ -157,6 +157,32 @@ covers exact transmitted bytes ([`core-model.md`](../../spec/core-model.md)
 both verify. That answers [P-002](P-002-message-envelope.md)'s question about
 `routing`: yes, `semantic`, and only because it is outside the signature.
 
+Four smaller decisions the format carries, recorded here because
+[`conformance/vector.schema.json`](../../conformance/vector.schema.json) should
+not be the only place they exist:
+
+- **`expect.outcome` is `ok` or `rejected`.** `error` is the third value a
+  *runner* may report (§6) and means the runner faulted. A vector never expects
+  it: an internal error is not a passing result, and a corpus able to expect one
+  could green-light a runner that had stopped working.
+- **`section` is a closed vocabulary**, extended additively by the PRD that owns
+  the new section — the same discipline §4.5 applies to operations, for the
+  smaller reason that a typo must not silently create a section that `coverage`
+  then reports on.
+- **A `requirement` entry is a claim identifier, a conformance class, or a
+  `file.md#section` citation**, and the linter checks that each resolves: a
+  claim in [`claims.md`](../../spec/claims.md), a class in
+  [`conformance-classes.md`](../../spec/conformance-classes.md), or a numbered
+  section of a document in `spec/` **or `threat-model/`** — a vector may
+  exercise something the threat model names rather than the specification. The
+  cited *section* must exist, not merely the file: a citation pointing at
+  nothing is worse than no citation, because it reads as traceability to anyone
+  who does not re-derive it.
+- **A vector's `section`, the first segment of its `id`, and the directory it
+  sits in must agree.** Three statements of one fact, so a mis-filed vector is
+  caught by the two that disagree rather than found when a section-scoped run
+  quietly omits it.
+
 ### 4.5 Operation vocabulary
 
 Closed and versioned. An unknown operation is exit 1, never a skip — fail-closed

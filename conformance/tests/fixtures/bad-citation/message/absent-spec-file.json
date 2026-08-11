@@ -1,0 +1,13 @@
+{
+  "id": "message/sign/absent-spec-file",
+  "section": "message",
+  "requirement": ["core-modle.md#2.1"],
+  "description": "Cites a specification file that does not exist; the typo must not read as traceability.",
+  "operation": "sign_query",
+  "input": {},
+  "expect": {
+    "outcome": "ok",
+    "output": {},
+    "comparison": "bytes"
+  }
+}

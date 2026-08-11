@@ -1,0 +1,14 @@
+{
+  "id": "message/sign/duplicate-key",
+  "section": "message",
+  "requirement": ["core-model.md#2.1"],
+  "description": "Two 'comparison' keys. A parser that keeps the last one silently decides what this vector means.",
+  "operation": "sign_query",
+  "input": {},
+  "expect": {
+    "outcome": "ok",
+    "output": {},
+    "comparison": "bytes",
+    "comparison": "semantic"
+  }
+}

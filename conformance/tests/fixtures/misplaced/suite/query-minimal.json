@@ -1,0 +1,13 @@
+{
+  "id": "message/sign/query-minimal",
+  "section": "message",
+  "requirement": ["Q2D-C-05"],
+  "description": "Declares section 'message' while sitting under suite/. Lint must catch the disagreement.",
+  "operation": "sign_query",
+  "input": {},
+  "expect": {
+    "outcome": "ok",
+    "output": {},
+    "comparison": "bytes"
+  }
+}
