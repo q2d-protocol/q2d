@@ -413,20 +413,29 @@ each is a property of the corpus rather than of one mode's code:
   both returned the same canned result for some other vector would be reported
   as agreeing across the whole corpus. The mode that has two runners to be
   wrong at once needs that check more than `run` does, not less.
-- **A runner that cannot produce a result makes the vector unusable, not
-  divergent.** Judging a runner against the corpus is `run`'s job. Reporting
-  "these two disagree" when one of them said nothing would name the wrong
-  failure.
+- **One runner answering and the other not is a divergence; neither answering
+  is not.** Asymmetry is the two of them disagreeing — one language implements
+  this vector and the other does not — and scoring it as merely unusable would
+  let a `bytes` vector implemented on one side pass this mode in silence, which
+  is the coverage gap the Stage 1 gate exists to close. When *neither* answers,
+  neither has claimed anything, so there is nothing they disagree about;
+  judging either against the corpus is `run`'s job.
+- **A partial corpus fails.** A file that will not parse is a vector neither
+  runner was asked about, so agreement across the corpus has not been shown.
+  Printing that beside a zero exit would make a partial run look like a
+  complete one.
 - **Two runners agreeing about nothing is not agreement.** An empty corpus, or
   one neither runner can answer, exits 0 and says so in words rather than
   printing `0/0 agree`.
-- **The second half — feeding what A signed into B's verification — is not
-  implemented, and cannot be from here.** It requires knowing which operation
-  consumes a signed envelope and under which input field, which is P-002's and
-  P-003's knowledge; §3 puts protocol logic outside the harness explicitly.
-  Making it real needs a vector to declare its companion, which is a format
-  change and therefore an issue against this PRD rather than a quiet extension
-  of `cross`. Recorded so a reader does not assume both halves run.
+- **The second half — feeding what A signed into B's verification — is issue
+  19, not part of issue 9, and cannot be done from inside the harness as
+  scoped.** It requires knowing which operation consumes a signed envelope and
+  under which input field, which is P-002's and P-003's knowledge; §3 puts
+  protocol logic outside the harness explicitly. Making it real needs a vector
+  to declare its companion, which is a format change. Until then `cross` says
+  on every run — including a clean one — that it compared what each runner
+  produced and did not put A's output to B, so a green result cannot be read as
+  the whole of this clause.
 
 **Coverage:** every claim in [`spec/claims.md`](../../spec/claims.md) is cited by
 at least one vector. Uncited claims are reported, not silently absent.
@@ -535,7 +544,7 @@ Decomposition into tracked work. Each names its acceptance.
 | 6 | Harness `coverage` mode | Reports all 13 claims uncovered against an empty corpus |
 | 7 | Cross-vector assertions: denial uniformity | Generalizes `registry/validate.py`'s check to any corpus section |
 | 8 | Cross-vector assertions: budget order-independence | Permutation test over a debit sequence |
-| 9 | Harness `cross` mode | A produces, B verifies; reports first differing byte offset |
+| 9 | Harness `cross` mode | Two runners over one corpus, compared field by field; reports the first differing byte offset. The B-verifies-A half is issue 19 |
 | 10 | Test key material | Fixed keypairs committed, RFC 8032 seeds where applicable, marked test-only |
 | 11 | Fold `registry/` vectors into the corpus | Registry vectors run under the harness with unchanged results |
 | 12 | Author `message/` section | Envelope, signing, verification, routing disagreement |
@@ -545,6 +554,7 @@ Decomposition into tracked work. Each names its acceptance.
 | 16 | `semantic` comparison implemented per §4.4 | Array order significant; absent ≠ null; no coercion; both runners agree on a differing-tree report |
 | 17 | **Settle the §4.5 operation vocabulary for Stages 5–8, as one change** | Every operation named, with its owning PRD; no later PRD introduces one unilaterally. Closes after the endpoint drop and the requester-order addition, both already reflected in §4.5 |
 | 18 | Minimal timing capability, available at Stage 7 | A vector can assert two response paths fall within a band; [P-015](P-015-escalation-lifecycle.md) issue 4 can be written against it |
+| 19 | **Cross-verification: put A's output to B** | §4.8's second cross-implementation clause. Split out of issue 9, which found it needs a vector to name its companion artefact and the field that consumes it — a format change, and protocol knowledge §3 places outside the harness. Blocked on [P-002](P-002-message-envelope.md) and [P-003](P-003-crypto-suites.md) settling which operation consumes a signed envelope |
 
 Issue 16 blocks 12 — `message/` cannot be authored until `semantic` behaves
 identically in both runners. Issue 17 blocks the corpus sections of

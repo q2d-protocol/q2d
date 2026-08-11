@@ -171,16 +171,30 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
             result_a, problem_a = obtain(vector, runner_a, result_schema, scratch)
             result_b, problem_b = obtain(vector, runner_b, result_schema, scratch)
 
-            if problem_a or problem_b:
+            if problem_a and problem_b:
                 # Neither runner is being judged against the corpus here -- that
-                # is `run` -- so a runner that cannot answer is reported as
-                # unusable rather than as a divergence between the two.
+                # is `run` -- so two runners that both cannot answer are
+                # reported as unusable rather than as a divergence between
+                # them. Neither claimed anything, so there is nothing they
+                # disagree about.
                 unusable += 1
                 print(f"  SKIP  {vector.id}")
-                if problem_a:
-                    print(f"          A {problem_a}")
-                if problem_b:
-                    print(f"          B {problem_b}")
+                print(f"          A {problem_a}")
+                print(f"          B {problem_b}")
+                continue
+
+            if problem_a or problem_b:
+                # One answered and one did not, which *is* the two of them
+                # disagreeing: one implementation handles this vector and the
+                # other does not. Treating it as unusable would let a `bytes`
+                # vector that only one language implements pass this mode
+                # silently, which is precisely the coverage gap the Stage 1
+                # gate exists to close.
+                divergent += 1
+                side, problem = ("A", problem_a) if problem_a else ("B", problem_b)
+                other = "B" if side == "A" else "A"
+                print(f"  DIFFER  {vector.id}\n          {side} {problem}, "
+                      f"while {other} produced a result")
                 continue
 
             mode = vector.body["expect"]["comparison"]
@@ -216,11 +230,29 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
     print(f"\n{compared - divergent}/{compared} vectors agree "
           f"({total} in the corpus, {unusable} not comparable)")
 
+    # Said on every run, including a clean one. §4.8 asks for two things and
+    # this mode does one of them, so a bare "vectors agree" would read as the
+    # whole requirement met. See the module docstring for why the other half
+    # cannot be done from here.
+    print("compared what each runner produced; did not put A's output to B for "
+          "verification (P-001 §4.8, issue 19)")
+
     if unreadable:
+        # A file that will not parse is a vector neither runner was asked
+        # about, so the corpus this mode reported on is smaller than the corpus
+        # on disk. Printing that beside a zero exit would make a partial run
+        # look like a complete one, which is the shape of understatement that
+        # matters most in a gate.
         print(f"{len(unreadable)} file(s) could not be read; run `harness lint`")
+        for relative, problem in unreadable:
+            print(f"  {relative}: {problem}")
 
     if divergent:
         print(f"FAILED: {divergent} vector(s) where the two implementations differ")
+        return 1
+    if unreadable:
+        print(f"FAILED: the corpus is not wholly readable, so agreement across "
+              f"it has not been shown")
         return 1
     if not compared:
         # Two runners agreeing about nothing is not agreement.

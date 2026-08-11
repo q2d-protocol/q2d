@@ -87,14 +87,37 @@ class DivergenceTest(unittest.TestCase):
         self.assertIn("nothing was compared", output)
         self.assertNotIn("agree   ", output)
 
-    def test_a_runner_that_cannot_answer_is_skipped_not_scored(self):
-        # `cross` compares two runners; judging either against the corpus is
-        # `run`'s job, so a runner that cannot produce a result is unusable
-        # here rather than divergent.
+    def test_only_one_runner_answering_is_itself_a_divergence(self):
+        # One implementation handles the vector and the other does not, which
+        # is the two of them disagreeing. Calling it merely unusable would let
+        # a `bytes` vector that only one language implements pass this mode in
+        # silence -- the coverage gap the Stage 1 gate exists to close.
         code, output = cross(CORRECT, RUNNERS / "cannot-process")
+        self.assertEqual(code, 1)
+        self.assertIn("DIFFER", output)
+        self.assertIn("while A produced a result", output)
+
+    def test_neither_runner_answering_is_skipped_not_scored(self):
+        # Neither claimed anything, so there is nothing they disagree about.
+        # Judging either against the corpus is `run`'s job.
+        unable = RUNNERS / "cannot-process"
+        code, output = cross(unable, unable)
         self.assertEqual(code, 0, output)
         self.assertIn("SKIP", output)
         self.assertIn("nothing was compared", output)
+
+
+class PartialCorpusTest(unittest.TestCase):
+    def test_an_unreadable_corpus_file_fails_the_run(self):
+        # A file that will not parse is a vector neither runner was asked
+        # about, so the corpus reported on is smaller than the corpus on disk.
+        # Exiting 0 with a note would make a partial run look like a complete
+        # one.
+        code, output = cross(CORRECT, CORRECT,
+                             FIXTURES / "malformed-json")
+        self.assertEqual(code, 1)
+        self.assertIn("could not be read", output)
+        self.assertIn("not wholly readable", output)
 
 
 class StageZeroExpectedStateTest(unittest.TestCase):
