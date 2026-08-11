@@ -249,9 +249,14 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
             fields_a = dict(comparable(result_a))
             fields_b = dict(comparable(result_b))
 
+            # Both sides, not just A. One runner reporting a string and the
+            # other an object is still a comparison the bytes never arrived
+            # for, and checking only A would make the verdict depend on which
+            # runner was passed as --a.
             composite = [label for label in sorted(set(fields_a) | set(fields_b))
                          if label in CARRIES_WIRE_CONTENT
-                         and not isinstance(fields_a.get(label), str)]
+                         and not (isinstance(fields_a.get(label), str)
+                                  and isinstance(fields_b.get(label), str))]
             if mode == "bytes" and composite:
                 # The bytes never reached the harness: the runner reported a
                 # parsed structure, so whitespace and escaping were gone before
@@ -272,8 +277,15 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
                     difference = f"{label}: present in only one result"
                     break
                 if mode == "bytes":
-                    left = cross_vector.as_authored(fields_a[label])
-                    right = cross_vector.as_authored(fields_b[label])
+                    # The string itself, not its JSON encoding: the artefact is
+                    # the string, so an offset must count into the signature a
+                    # reader is looking at rather than into the quoted form,
+                    # which is off by one and sends them to the wrong byte.
+                    left = fields_a[label]
+                    right = fields_b[label]
+                    if not isinstance(left, str):
+                        left = cross_vector.as_authored(left)
+                        right = cross_vector.as_authored(right)
                     if left != right:
                         difference = f"{label}: {first_difference(left, right)}"
                         break

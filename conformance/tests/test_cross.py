@@ -70,7 +70,7 @@ class DivergenceTest(unittest.TestCase):
         code, output = cross(CORRECT, DIVERGENT, FIXTURES / "message-only")
         self.assertEqual(code, 1)
         self.assertIn("DIFFER", output)
-        self.assertIn("first differing byte at offset", output)
+        self.assertIn("first differing byte at offset 120", output)
         self.assertIn("output:", output)
 
     def test_one_runner_faulting_is_a_divergence(self):
