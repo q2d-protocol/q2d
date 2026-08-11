@@ -62,14 +62,29 @@ class PublishedCopyTest(unittest.TestCase):
     one is stale rather than only that they differ.
     """
 
-    def test_served_copy_is_byte_identical(self):
-        source = lint_module.SCHEMA_PATH
-        served = lint_module.REPO_ROOT / "website" / "conformance" / "vector.schema.json"
-        self.assertTrue(served.exists(),
-                        f"{served} is missing; the schema's $id would 404")
-        self.assertEqual(
-            source.read_bytes(), served.read_bytes(),
-            f"{served} is stale -- copy {source} over it")
+    def test_every_published_schema_is_served_byte_identically(self):
+        conformance = lint_module.REPO_ROOT / "conformance"
+        served_root = lint_module.REPO_ROOT / "website" / "conformance"
+        schemas = sorted(conformance.glob("*.schema.json"))
+        self.assertTrue(schemas, "no schemas found to check")
+        for source in schemas:
+            served = served_root / source.name
+            with self.subTest(schema=source.name):
+                self.assertTrue(served.exists(),
+                                f"{served} is missing; the schema's $id would 404")
+                self.assertEqual(
+                    source.read_bytes(), served.read_bytes(),
+                    f"{served} is stale -- copy {source} over it")
+
+    def test_every_published_schema_declares_the_url_that_serves_it(self):
+        # A $id nobody serves is a URL this project publishes and does not
+        # answer; a $id that does not match where the file sits is worse,
+        # because the drift check above would pass while the URL was wrong.
+        for source in sorted((lint_module.REPO_ROOT / "conformance").glob("*.schema.json")):
+            with self.subTest(schema=source.name):
+                declared = json.loads(source.read_text(encoding="utf-8"))["$id"]
+                self.assertEqual(declared,
+                                 f"https://q2d.dev/conformance/{source.name}")
 
 
 class ValidVectorTest(unittest.TestCase):
@@ -159,9 +174,19 @@ class MalformedVectorTest(unittest.TestCase):
         self.assert_rejected(vector, "reports one half of a rejection")
 
     def test_step_outside_the_processing_order(self):
+        for step in (0, 20, "9", "a", "1a", "19z", "9A"):
+            vector = self.mutate(REJECTED_VECTOR)
+            vector["expect"]["rejection"]["step"] = step
+            with self.subTest(step=step):
+                self.assert_rejected(vector, f"names step {step!r}")
+
+    def test_a_lettered_step_is_expressible(self):
+        # core-model.md §4 carries step 9a, the rate-limit check, and it is
+        # precisely the step whose ordering matters: a limiter running after
+        # registry resolution leaves unknown predicates unlimited.
         vector = self.mutate(REJECTED_VECTOR)
-        vector["expect"]["rejection"]["step"] = 20
-        self.assert_rejected(vector, "names a step core-model.md §4 does not have")
+        vector["expect"]["rejection"]["step"] = "9a"
+        self.assertEqual(schema_module.validate(vector, self.schema), [])
 
     def test_identifier_without_a_section_segment(self):
         vector = self.mutate()

@@ -1,0 +1,157 @@
+#!/usr/bin/env python3
+"""The reference runner: implements the contract, answers nothing.
+
+    q2d-conform <vector-file.json>        →  result JSON on stdout
+
+See ../../RUNNER-CONTRACT.md. This exists so the harness can be built and tested
+against a runner before either implementation exists, and so P-001 §7's gate --
+*the harness runs and reports fail for every vector, because no implementation
+exists* -- is demonstrable rather than asserted.
+
+**It must never learn to answer a vector.** The moment it does, the harness is
+being exercised against something that shares an author with the corpus, and the
+one thing the corpus is for is catching two readings of one specification.
+
+What it does implement is the part of the contract that is not protocol: read
+the projection, recognise the operation or exit 1, and report `error` with a
+well-formed result. That much has to be right, because the harness's own tests
+are written against it.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+NAME = "q2d-stub"
+VERSION = "0.0.0"
+
+EXIT_RESULT_PRODUCED = 0
+EXIT_CANNOT_PROCESS = 1
+EXIT_INTERNAL = 2
+
+# P-001 §6's VectorInput, and nothing else.
+PROJECTED_FIELDS = ("id", "operation", "input")
+
+# P-001 §4.5's vocabulary, embedded rather than read from vector.schema.json.
+#
+# Reading the schema at runtime would be the tidier way to avoid a second copy,
+# and it is wrong: this contract says a runner reads the supplied vector and
+# nothing else, and a runner whose behaviour depends on a file in the checkout
+# gives a different answer for the same vector depending on where it runs. The
+# Rust and Go runners will ship separately from the corpus and cannot read it
+# either, so a stub that could is not modelling them.
+#
+# Drift is caught where it should be. A runner that does not recognise an
+# operation the corpus uses exits 1, and the vector fails loudly (P-001 §4.5);
+# the harness's own tests additionally hold this list against the schema, which
+# is a check the *harness* may make because the harness is allowed to read both.
+KNOWN_OPERATIONS = frozenset({
+    "sign_query",
+    "sign_response",
+    "verify_query",
+    "verify_response",
+    "digest",
+    "resolve_predicate",
+    "effective_domain",
+    "capacity_debit",
+    "policy_decide",
+    "evaluate_predicate",
+    "process_query",
+})
+
+
+def _reject_constant(token: str):
+    """`json.loads` accepts NaN and Infinity; RFC 8259 does not."""
+    raise ValueError(f"{token} is not valid JSON")
+
+
+def _reject_duplicate_keys(pairs):
+    """`json.loads` keeps the last of a repeated key and says nothing."""
+    seen = set()
+    for key, _ in pairs:
+        if key in seen:
+            raise ValueError(f"duplicate object key {key!r}")
+        seen.add(key)
+    return dict(pairs)
+
+
+def parse_strictly(text: str):
+    """Parse as RFC 8259 JSON, not as what Python tolerates.
+
+    Duplicated from the harness rather than imported: a runner that depended on
+    the harness would be judged by code it shares with its judge. The cost of
+    the duplication is two small functions; the cost of the dependency would be
+    the point of the whole exercise.
+    """
+    return json.loads(text, parse_constant=_reject_constant,
+                      object_pairs_hook=_reject_duplicate_keys)
+
+
+def fail(message: str, code: int) -> int:
+    print(f"q2d-conform: {message}", file=sys.stderr)
+    return code
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) != 2:
+        return fail("usage: q2d-conform <vector-file.json>", EXIT_CANNOT_PROCESS)
+
+    try:
+        vector = parse_strictly(Path(argv[1]).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        return fail(f"cannot read the vector: {exc}", EXIT_CANNOT_PROCESS)
+
+    # Both must be present *and* strings. A non-string id would be copied into
+    # `vector_id` and emitted as a result the harness cannot judge -- the runner
+    # reporting that it functioned when it did not. Malformed input is exit 1.
+    if not isinstance(vector, dict):
+        return fail("the vector file is not an object", EXIT_CANNOT_PROCESS)
+    for field in ("id", "operation"):
+        if not isinstance(vector.get(field), str):
+            return fail(f"the vector carries no string {field}", EXIT_CANNOT_PROCESS)
+    # P-001 §6 fixes VectorInput = { id, operation, input }: exactly those.
+    #
+    # A missing field is malformed. So is an extra one, and the extra field that
+    # matters is `expect`. A runner holding an expectation was handed the
+    # authored vector, which means the harness failed to project it (§4.2) --
+    # and the corpus stops being evidence the moment an implementation can read
+    # the answer. Refusing is the second lock on a door the harness holds the
+    # first key to.
+    missing = [f for f in PROJECTED_FIELDS if f not in vector]
+    if missing:
+        return fail(f"the vector carries no {', '.join(missing)}", EXIT_CANNOT_PROCESS)
+    extra = sorted(set(vector) - set(PROJECTED_FIELDS))
+    if extra:
+        if "expect" in extra:
+            return fail("the vector carries an expectation -- it was not projected; "
+                        "refusing to answer a vector whose answer it was given",
+                        EXIT_CANNOT_PROCESS)
+        return fail(f"the vector carries unexpected field(s): {', '.join(extra)}",
+                    EXIT_CANNOT_PROCESS)
+
+    # An operation this runner does not recognise is exit 1, never a skip.
+    if vector["operation"] not in KNOWN_OPERATIONS:
+        return fail(f"unknown operation {vector['operation']!r}", EXIT_CANNOT_PROCESS)
+
+    # A result was produced, so exit 0 -- the vector fails on its outcome, which
+    # is the harness's call to make and not this runner's.
+    json.dump({
+        "vector_id": vector["id"],
+        "outcome": "error",
+        "detail": "the reference stub implements no Q2D behaviour",
+        "implementation": {"name": NAME, "version": VERSION},
+    }, sys.stdout, sort_keys=True)
+    sys.stdout.write("\n")
+    return EXIT_RESULT_PRODUCED
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main(sys.argv))
+    except SystemExit:
+        raise
+    except BaseException as exc:  # noqa: BLE001 -- the contract's exit 2 case
+        print(f"q2d-conform: internal error: {exc}", file=sys.stderr)
+        raise SystemExit(EXIT_INTERNAL)

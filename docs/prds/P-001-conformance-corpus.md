@@ -76,14 +76,24 @@ Exit status reports whether the runner *functioned*, never whether the vector
 
 | Exit | Meaning |
 |---|---|
-| 0 | A result was produced. The vector may still fail; the harness decides. |
-| 1 | The runner could not process the vector — unknown operation, malformed file. |
-| 2 | Internal error. |
+| 0 | A result was written to stdout. The vector may still fail; the harness decides. This includes a result whose `outcome` is `error`. |
+| 1 | The runner could not process the vector — unknown operation, malformed file. No result is written. |
+| 2 | A fault so early that no result could be written at all. |
 
 A vector expecting a rejection is a successful run that reports a rejection.
 Conflating "the implementation rejected the input" with "the runner failed" makes
 negative acceptance untestable, and negative acceptance is where this protocol
 lives.
+
+**The dividing line is whether a result was written, not whether anything went
+wrong.** `outcome: "error"` is the structured way to say the implementation
+faulted on a vector it understood; that is a result, so it is exit 0 and the
+harness reports it. Exit 2 is the case where nothing could be written — the
+runner crashed, or could not reach stdout. Both fail the vector; the difference
+is whether the harness has anything to say about why, and stating it here rather
+than leaving each runner to choose is what keeps two implementations from
+disagreeing about process status before they can disagree about anything
+interesting.
 
 ### 4.2 Implementations never see the expectation
 
@@ -282,6 +292,15 @@ A rejection reports **both halves**, because the harness checks both:
 `step` is the [`core-model.md`](../../spec/core-model.md) §4 step at which
 rejection occurred, and is how ordering is asserted without instrumenting the
 implementation.
+
+**It is an integer for a numbered step and a string for a lettered one.** §4's
+table carries **step 9a**, the rate-limit check, and the example above shows an
+integer only because the vector it is drawn from rejects at step 10. A format
+that could not name 9a would force a conforming runner to misreport where it
+rejected — and 9a is precisely the step whose ordering matters, since a limiter
+running after registry resolution would leave unknown predicates unlimited and
+become the existence oracle [`core-model.md`](../../spec/core-model.md) §9.1
+introduced it to avoid.
 
 ### 4.7 The harness
 
