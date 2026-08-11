@@ -575,7 +575,7 @@ Decomposition into tracked work. Each names its acceptance.
 | 6 | Harness `coverage` mode | Reports all 13 claims uncovered against an empty corpus |
 | 7 | Cross-vector assertions: denial uniformity | Generalizes `registry/validate.py`'s check to any corpus section |
 | 8 | Cross-vector assertions: budget order-independence | Permutation test over a debit sequence |
-| 9 | Harness `cross` mode | Two runners over one corpus, compared field by field; reports the first differing byte offset. The B-verifies-A half is issue 19 |
+| 9 | Harness `cross` mode | **Half built, and stays open.** Two runners over one corpus, compared field by field, reporting the first differing byte offset — and exiting 2 rather than 0 when they agree, because §4.8's B-verifies-A half is not done. Whether that half becomes issue 19 or stays inside this issue is §10's open question; until it is decided, this issue is not closable |
 | 10 | Test key material | Fixed keypairs committed, RFC 8032 seeds where applicable, marked test-only |
 | 11 | Fold `registry/` vectors into the corpus | Registry vectors run under the harness with unchanged results |
 | 12 | Author `message/` section | Envelope, signing, verification, routing disagreement |
@@ -585,7 +585,7 @@ Decomposition into tracked work. Each names its acceptance.
 | 16 | `semantic` comparison implemented per §4.4 | Array order significant; absent ≠ null; no coercion; both runners agree on a differing-tree report |
 | 17 | **Settle the §4.5 operation vocabulary for Stages 5–8, as one change** | Every operation named, with its owning PRD; no later PRD introduces one unilaterally. Closes after the endpoint drop and the requester-order addition, both already reflected in §4.5 |
 | 18 | Minimal timing capability, available at Stage 7 | A vector can assert two response paths fall within a band; [P-015](P-015-escalation-lifecycle.md) issue 4 can be written against it |
-| 19 | **Cross-verification: put A's output to B** | §4.8's second cross-implementation clause. Split out of issue 9, which found it needs a vector to name its companion artefact and the field that consumes it — a format change, and protocol knowledge §3 places outside the harness. Blocked on [P-002](P-002-message-envelope.md) and [P-003](P-003-crypto-suites.md) settling which operation consumes a signed envelope |
+| 19 | **Cross-verification: put A's output to B** | *Proposed, not yet approved — see §10.* §4.8's second cross-implementation clause, which issue 9 found needs a vector to name its companion artefact and the field that consumes it — a format change, and protocol knowledge §3 places outside the harness. Blocked on [P-002](P-002-message-envelope.md) and [P-003](P-003-crypto-suites.md) settling which operation consumes a signed envelope |
 
 Issue 16 blocks 12 — `message/` cannot be authored until `semantic` behaves
 identically in both runners. Issue 17 blocks the corpus sections of

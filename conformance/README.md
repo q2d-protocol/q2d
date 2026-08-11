@@ -54,20 +54,23 @@ Standard library only, like [`registry/validate.py`](../registry/validate.py).
 
 ## State
 
-**The corpus is empty and part of the harness does not exist yet.** Built so far:
-the vector schema and `lint` (issue 1), the projection (issue 2), the runner
-contract and reference stub (issue 3), comparison (issue 16), and `run`
-(issue 4). `cross` and `coverage` exit non-zero saying which issue owns them — P-001 §7 asks for a harness that
-reports fail because no implementation exists, and a mode that silently
-succeeded would be worse than one that is missing.
+**Every mode exists; the corpus is empty and there is nothing to run it
+against.** Built: the vector schema and `lint` (issue 1), the projection
+(issue 2), the runner contract and reference stub (issue 3), `run` (issue 4),
+the determinism check (issue 5), `coverage` (issue 6), the two cross-vector
+assertions (issues 7 and 8), comparison (issue 16), and `cross` (issue 9).
 
-That has a consequence for CI worth stating before someone hits it. When `run`
-lands it is red by design until Stage 1 does, and a permanently red check trains
-people to ignore red. The rule, which
-[`.github/workflows/checks.yml`](../.github/workflows/checks.yml) carries: when
-those modes exist, assert the expected state — *the harness reports fail-all*,
-*coverage reports thirteen uncovered claims* — rather than running a check that
-fails.
+`cross` is **half of what P-001 §4.8 asks**: it compares what two runners each
+produced, and does not put A's output to B for verification, which is issue 19.
+It says so on every run and exits 2 — not 0 — when the runners agree, so nothing
+can read the clause off its status. Whether that split is accepted is an open
+question in P-001 §10, awaiting a decision.
+
+That has a consequence for CI worth stating before someone hits it. `run` is red
+by design until Stage 1 lands, and a permanently red check trains people to
+ignore red. The rule, which
+[`.github/workflows/checks.yml`](../.github/workflows/checks.yml) carries: assert
+the expected state rather than running a check that fails.
 
 **Three expected-state assertions are in CI**, in place of jobs that would be
 red by design: no vector in the real corpus passes against the reference stub,
