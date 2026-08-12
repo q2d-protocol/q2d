@@ -262,6 +262,13 @@ class JwsTest(unittest.TestCase):
                 with self.assertRaises(author.ProfileError):
                     self.signed({"issued_at": wrong})
 
+    def test_empty_objects_and_arrays_serialize(self):
+        # A `query` is legitimately empty in the minimal message vector, and a
+        # serializer that crashed on one could author no signed vector at all.
+        self.assertEqual(author.serialize({}), b"{}")
+        self.assertEqual(author.serialize([]), b"[]")
+        self.assertEqual(author.serialize({"query": {}}), b'{"query":{}}')
+
     def test_a_named_timestamp_field_is_checked_however_malformed(self):
         with self.assertRaises(author.ProfileError):
             self.signed({"issued_at": "2026-1-01T00:00:00Z"})

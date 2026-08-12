@@ -278,7 +278,7 @@ def _serialize(value) -> str:
         # Duplicate keys cannot occur in a Python dict, so §4.2's production
         # rule is structurally satisfied. Parsing is where it has to be
         # enforced, and conformance/harness/corpus.py does that.
-            keys = sorted(value, key=sort_key)
+        keys = sorted(value, key=sort_key)
         for key in keys:
             # By name as well as by shape: core-model.md gives these fields
             # timestamps, so a malformed one is caught however malformed --
