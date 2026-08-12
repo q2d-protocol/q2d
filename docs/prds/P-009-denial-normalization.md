@@ -249,11 +249,18 @@ where two exchanges differ in exactly those two fields. **Which one §7 means is
 a question for this PRD**, and the corpus enforces the achievable reading
 meanwhile: identical, because the vector fixes both fields.
 
-Such a vector can now be authored: the protected header a signature needs is
-[`crypto-suites.md`](../../spec/crypto-suites.md) §3's, which was the last thing
-missing. The corpus's existing rejection vectors still assert projections, and
-the harness names every one of them on every run, so nothing reads a partial
-comparison as uniformity until they are replaced.
+A signature can now be produced — the protected header it needs is
+[`crypto-suites.md`](../../spec/crypto-suites.md) §3's — but **that was not the
+only thing standing in the way of a vector in this section.** Two open questions
+in [P-001](P-001-conformance-corpus.md) §10 still decide bytes a whole-response
+denial vector would carry: whether §5.2's response field list is closed, and
+which RFC 3339 spelling a receipt timestamp uses. Authoring these vectors before
+those are settled would settle them by example, in the section whose whole
+purpose is demonstrating Q2D-C-08.
+
+Meanwhile the corpus's existing rejection vectors assert projections, and the
+harness names every one of them on every run, so nothing reads a partial
+comparison as uniformity.
 
 ## 7. Acceptance
 

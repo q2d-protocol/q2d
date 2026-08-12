@@ -235,9 +235,10 @@ signature's protected header, which §4 step 3 and step 4 read *before* the
 payload can be parsed — a verifier cannot choose a policy check or resolve a key
 from fields it is not yet allowed to read.
 [`crypto-suites.md`](crypto-suites.md) §3 defines that header and why it is
-closed. The header's copies are pre-authentication and untrusted; **these are the
-authoritative ones**, and a verifier confirms the pairs agree once the signature
-verifies.
+closed. **The fields in this table are the authoritative ones.** The header's copies are
+read before anything is authenticated and are therefore untrusted; they exist so
+a verifier can reach the point of verifying at all. A verifier confirms each pair
+agrees once the signature verifies, and a disagreement rejects.
 
 ## 3. Effective answer domain
 

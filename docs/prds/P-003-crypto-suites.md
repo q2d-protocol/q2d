@@ -118,8 +118,11 @@ treats absence of a suite as a valid state.
 Not carrying `alg` is the point rather than an omission: a header a
 general-purpose JOSE library can process is one where that library selects the
 verification algorithm from attacker-controlled data, which is the decision step
-2 exists to take away from the sender. JWS compact serialization is the
-container here, not JOSE's algorithm negotiation.
+2 exists to take away from the sender. The JWS compact *form* is the container
+here, not JOSE's algorithm negotiation — and since RFC 7515 §4.1.1 requires
+`alg`, a Q2D signed string is not a conformant JWS and JOSE tooling rejects it.
+[`crypto-suites.md`](../../spec/crypto-suites.md) §3 states that outright, so
+nobody discovers it from a library error.
 
 ### 4.3 The suite registry is data, not code
 

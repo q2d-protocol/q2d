@@ -52,9 +52,17 @@ same mechanism and pinned the same way.
 
 ### `eddsa-jws-2026` — mandatory to implement
 
-Ed25519 (RFC 8032) over **JWS compact serialization** with the core object as an
-opaque base64url payload. The signature covers the exact transmitted bytes.
-**No canonicalization is involved**, and none is required.
+Ed25519 (RFC 8032) over the **JWS compact form** — three base64url segments
+separated by dots, exactly as RFC 7515 §7.1 lays them out — with the core object
+as an opaque base64url payload. The signature covers the exact transmitted
+bytes. **No canonicalization is involved**, and none is required.
+
+**The compact form, not conformant JWS.** RFC 7515 §4.1.1 makes `alg` a required
+header parameter, and a Q2D header does not carry one — see below for why. So a
+Q2D signed string is not a JWS, standard JOSE tooling will reject it, and that
+is the intended outcome rather than a cost. Borrowing the layout keeps the
+framing familiar and the parsing trivial; borrowing the algorithm negotiation
+would reintroduce what §4's downgrade rules exist to remove.
 
 This is the default and the only suite an implementation must support to claim
 [`conformance-classes.md`](conformance-classes.md) CC-1 or CC-2.
@@ -109,8 +117,13 @@ state one can express.** This is stronger than rejecting it. A header carrying
 `alg` would be one a general-purpose JOSE library could process — and such a
 library selects its verification algorithm from the header, which is precisely
 the decision §4's minimum-acceptable-policy check exists to take away from the
-sender. A Q2D header is deliberately not processable by JOSE tooling: it uses
-JWS compact serialization as a container, not JOSE's algorithm negotiation.
+sender.
+
+The consequence is that these are not JWS objects and JOSE tooling rejects them,
+which is the point: a verifier that can be pointed at a Q2D message and handed a
+result by a library that never consulted local suite policy is the failure this
+suite is shaped to prevent. The identifier `eddsa-jws-2026` names the form the
+bytes take, not conformance to RFC 7515.
 
 This is the only suite registered in 0.1.
 
