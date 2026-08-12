@@ -96,8 +96,16 @@ def imported_names(source: str) -> set[str]:
             names.update(alias.name.split(".")[0] for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
             if node.level == 1:
-                # `from . import x` reaches a sibling, which the sibling rule
-                # below covers.
+                # `from . import corpus` names siblings as its aliases;
+                # `from .corpus import Vector` names one as its module. Both go
+                # through the same check as everything else -- dropping them
+                # would let `from .bindings import sign` past, and a file named
+                # `bindings.py` dropped into the harness directory is a sibling
+                # by this test's definition only until somebody looks at it.
+                if node.module:
+                    names.add(node.module.split(".")[0])
+                else:
+                    names.update(alias.name.split(".")[0] for alias in node.names)
                 continue
             if node.level > 1:
                 # `from .. import x` reaches *outside* the harness directory,
@@ -137,6 +145,16 @@ def import_problem(name: str, siblings: set[str]) -> str | None:
                 f"run on a bare Python")
 
     if spec.origin in NOT_A_FILE:
+        # A namespace package (PEP 420) has no origin of its own but does have
+        # search locations, and a third-party one's locations are in
+        # site-packages. Accepting every origin-less spec as a built-in would
+        # let exactly that past.
+        locations = list(getattr(spec, "submodule_search_locations", None) or [])
+        outside = [place for place in locations
+                   if not under(Path(place), STDLIB)]
+        if outside:
+            return (f"imports {name!r}, a namespace package with locations "
+                    f"outside the standard library ({outside[0]})")
         return None
 
     origin = Path(spec.origin).resolve()
@@ -199,10 +217,15 @@ class ImportTest(unittest.TestCase):
                               "        from cryptography import x\n"
                               "from .. import bindings\n"
                               "from . import corpus\n")
-        # `from . import corpus` is a sibling and absent. `from .. import` is
-        # not: it reaches outside the harness directory, and is reported under a
-        # name that resolves to nothing so it fails rather than being dropped.
-        self.assertEqual(names, {"json", "q2d_core", "cryptography", ".."})
+        # `from . import corpus` names a sibling, and is extracted like any
+        # other so the sibling rule -- rather than this function -- is what
+        # accepts it. `from .. import` reaches outside the harness directory and
+        # is reported under a name that resolves to nothing, so it fails rather
+        # than being dropped.
+        self.assertEqual(names,
+                         {"json", "q2d_core", "cryptography", "corpus", ".."})
+        self.assertIsNone(import_problem("corpus", {"corpus"}))
+        self.assertIsNotNone(import_problem("bindings", {"corpus"}))
 
 
 class PathTest(unittest.TestCase):
