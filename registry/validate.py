@@ -203,7 +203,10 @@ def object_schemas(schema, path):
 def timestamps(value, path="manifest"):
     """Every string in the manifest that is shaped like a date-time."""
     if isinstance(value, str):
-        if re.match(r"\A\d{4}-\d{2}-\d{2}[Tt]", value):
+        # Any date-prefixed string, whatever separator follows. Matching only
+        # `T`/`t` would skip `2026-01-01 00:00:00Z`, which Python's
+        # `fromisoformat` accepts and §2.2 does not.
+        if re.match(r"\A\d{4}-\d{2}-\d{2}[^0-9]", value):
             yield path, value
     elif isinstance(value, dict):
         for key, item in value.items():
@@ -388,6 +391,13 @@ def main(argv: list[str]) -> int:
                   f"{where} uses only scope.md §4.1's profile", ",".join(outside))
             check(schema.get("$schema") == DIALECT,
                   f"{where} declares §4.1's dialect", str(schema.get("$schema")))
+            # And nowhere else: JSON Schema lets a nested `$schema` switch
+            # dialects for that subschema, which is the divergence §4.1 pins
+            # the dialect to prevent, reintroduced one level down.
+            nested = [at for at, sub in object_schemas(schema, where)
+                      if at != where and "$schema" in sub]
+            check(not nested, f"{where} declares a dialect only at its root",
+                  ",".join(nested))
             # Every object, not only the root: a nested one omitting it, or
             # setting it true, accepts fields the entry never declared.
             # §4.1 admits `format` with one value. The keyword check above
