@@ -366,10 +366,16 @@ a requested label, and it is admissible only when all four hold:
 1. **Total** — every registered value appears as a key. A missing value is a
    result with no image in the requested domain, which is the subsetting §2.5
    prohibits, arrived at by omission.
-2. **Onto** — every requested label appears as a value. A label no registered
-   value maps to is an answer the predicate cannot return, and its presence
-   inflates the requested domain's cardinality, which is what the capacity debit
-   is computed from.
+2. **Exactly the requested labels** — the mapping's image *equals*
+   `answer_contract.domain`, in both directions. No requested label may be
+   unreachable: one no registered value maps to is an answer the predicate
+   cannot return, and its presence inflates the cardinality the capacity debit
+   is computed from. And no other label may be produced: a mapping whose image
+   contains a label outside the requested domain can return a result outside
+   the domain the requester asked for, which is what Q2D-C-02 and Q2D-C-03
+   exist to prevent. Containment in one direction is not enough — a mapping of
+   `{a,b,c,d}` onto `{x,y,z}` against a requested domain of `{x,y}` satisfies
+   every other condition here and returns `z`.
 3. **Non-expanding** — the label set is strictly smaller than the registered
    value set. Equal is not a coarsening and needs no mapping; larger is the
    expansion §2.5 forbids.
