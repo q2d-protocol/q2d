@@ -445,8 +445,24 @@ def valid_rfc3339(value: str) -> bool:
         if int(offset_hour) > 23 or int(offset_minute) > 59:
             return False
     if second == "60":
-        # Not resolved to UTC: this decides which diagnostic to print, and a
-        # leap second in any spelling is a real instant.
+        # §5.7 puts a leap second at 23:59 UTC at a month end. Checked here as
+        # well as in `valid_timestamp`, because this function's answer becomes
+        # the sentence "is valid RFC 3339" -- and `2026-01-01T00:00:60Z` is
+        # not, so saying so would assert a false fact about the RFC.
+        shift = 0
+        if offset_hour is not None:
+            shift = (int(offset_hour) * 60 + int(offset_minute)) * (
+                -1 if value[19 if matched.group(7) is None else 21] == "-" else 1)
+        try:
+            local = datetime(int(year), int(month), int(day),
+                             int(hour), int(minute))
+        except ValueError:
+            return False
+        utc = local - timedelta(minutes=shift)
+        if (utc.hour, utc.minute) != (23, 59):
+            return False
+        if utc.day != monthrange(utc.year, utc.month)[1]:
+            return False
         second = "59"
     try:
         datetime.strptime(f"{year}-{month}-{day}T{hour}:{minute}:{second}",

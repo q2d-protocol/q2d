@@ -210,7 +210,11 @@ class WholeResponseTest(unittest.TestCase):
                       lint_mod.timestamp_error("x", "2026-01-01T00:00:00+00:00"))
         for not_an_instant in ("2026-99-99T99:99:99+99:99",
                                "2026-02-30T00:00:00+00:00",
-                               "2026-01-01T00:00:00+99:99"):
+                               "2026-01-01T00:00:00+99:99",
+                               # §5.7 puts a leap second at 23:59 UTC at a
+                               # month end; this is neither, in any spelling.
+                               "2026-01-01T00:00:60Z",
+                               "2026-01-01T00:00:60+00:00"):
             with self.subTest(value=not_an_instant):
                 self.assertIn("is not a timestamp",
                               lint_mod.timestamp_error("x", not_an_instant))
@@ -218,7 +222,9 @@ class WholeResponseTest(unittest.TestCase):
         # RFC 3339 §5.6's grammar, not the cases I happened to think of: every
         # spelling it permits and §2.2 does not is named as such.
         for other in ("2026-01-01t00:00:00Z", "2026-01-01T00:00:00.5Z",
-                      "2026-01-01t00:00:00z", "2026-01-01T00:00:00-05:30"):
+                      "2026-01-01t00:00:00z", "2026-01-01T00:00:00-05:30",
+                      # A real leap second, spelled two ways §2.2 rejects.
+                      "2016-12-31T23:59:60z", "2016-12-31T15:59:60-08:00"):
             with self.subTest(value=other):
                 self.assertIn("valid RFC 3339",
                               lint_mod.timestamp_error("x", other))
