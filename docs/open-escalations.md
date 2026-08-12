@@ -18,18 +18,20 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-25 is the only one open**, and it does not block decomposition. It
-> was found while checking that every PRD is decomposable, was sitting in
-> P-006's open-question table marked *"This PRD"*, and is not a PRD's to decide
-> — it changes `spec/`. It decides *where* the registry schema profile lives
-> rather than what it says, so nothing depends on the answer to proceed. All
-> sixteen PRDs are Ready for decomposition.
+> **E-25 is the only one open**, and it does not block decomposition. It asks
+> whether a policy modifier may coarsen an `enum`, and where its mapping would
+> live — E-17's resolution put the requester's mapping in the answer contract,
+> and a modifier has none. [`core-model.md`](../spec/core-model.md) §3.2 states
+> a conservative rule meanwhile: a modifier narrowing an `enum` is an
+> implementation error. All sixteen PRDs are Ready for decomposition.
 >
-> **E-17 closed** after this note was written: §3.2's conservative `enum` rule
-> — reject any requested domain not equal to the registered one — is superseded
-> by a declared coarsening mapping. That rule was the interim position and is no
-> longer the behaviour; an implementation still enforcing it is rejecting
-> requests §3.2 now admits.
+> **Two closed after this note was first written, and both changed behaviour an
+> implementer would otherwise get wrong.** E-17 supersedes §3.2's conservative
+> `enum` rule — an implementation still rejecting any requested domain not equal
+> to the registered one is refusing requests §3.2 admits. E-16 moved the
+> registry's JSON Schema profile into [`scope.md`](../spec/scope.md) §4.1, so it
+> is no longer a property of two implementations that a third could not have
+> known about.
 
 ## How to use it
 
