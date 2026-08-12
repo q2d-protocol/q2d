@@ -305,6 +305,23 @@ def main(argv: list[str]) -> int:
     check(not wrong,
           "every date-time is core-model.md §2.2's spelling (scope.md §4.1)",
           "; ".join(wrong))
+    # A leap second is valid RFC 3339 and valid under §2.2, and this validator
+    # cannot check a manifest containing one: `ts()` uses `fromisoformat`,
+    # which raises on second 60. Reported as a **limit of this tool**, not as
+    # non-conformance -- the distinction matters, because narrowing §2.2 to
+    # what this file can parse would be a specification change made by a
+    # convenience.
+    leap = [f"{path}={value}" for path, value in timestamps(manifest)
+            if value[17:19] == "60"]
+    if leap:
+        print("\nSTOPPED: this validator cannot check a manifest containing a "
+              "leap second —")
+        print("  " + "; ".join(leap))
+        print("  `datetime.fromisoformat` raises on second 60. The value may "
+              "well be conforming;\n  core-model.md §2.2 permits it and this "
+              "tool cannot say so either way.")
+        return 1
+
     if wrong:
         # Reported *and* stopped. Everything below parses these values --
         # `ts()` calls `fromisoformat`, which raises on them -- so continuing
