@@ -394,8 +394,8 @@ def main(argv: list[str]) -> int:
             # And nowhere else: JSON Schema lets a nested `$schema` switch
             # dialects for that subschema, which is the divergence §4.1 pins
             # the dialect to prevent, reintroduced one level down.
-            nested = [at for at, sub in object_schemas(schema, where)
-                      if at != where and "$schema" in sub]
+            nested = [at for k, at in schema_keywords(schema, where)
+                      if k == "$schema" and at != where]
             check(not nested, f"{where} declares a dialect only at its root",
                   ",".join(nested))
             # Every object, not only the root: a nested one omitting it, or
