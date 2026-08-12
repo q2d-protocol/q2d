@@ -295,6 +295,13 @@ class JwsTest(unittest.TestCase):
         with self.assertRaises(author.ProfileError):
             author.serialize({"issued_at": "never"})
 
+    def test_a_predicate_may_have_its_own_receipt(self):
+        # `receipt` re-enters protocol level only from protocol level. A
+        # predicate's own structure called `receipt` is not §6's.
+        author.serialize({"public_context": {"receipt": {"decided_at": "never"}}})
+        with self.assertRaises(author.ProfileError):
+            author.serialize({"receipt": {"decided_at": "never"}})
+
     def test_the_shape_rule_still_reaches_everywhere(self):
         # A wrong spelling is a wrong spelling wherever it sits, and needs no
         # knowledge of what the field means.

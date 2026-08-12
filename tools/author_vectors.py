@@ -304,9 +304,13 @@ def _serialize(value, protocol_level: bool = False) -> str:
                         f"{key} is a timestamp field and {value[key]!r} is not "
                         f"core-model.md §2.2's timestamp — uppercase `T`, "
                         f"uppercase `Z`, second precision, and a real instant")
+        # `receipt` re-enters protocol level only from protocol level. A
+        # `public_context` carrying a field called `receipt` is the predicate's
+        # own structure, and promoting it would enforce §6's field meanings
+        # inside data the previous line says may mean anything.
         return "{" + ",".join(
             f"{escape_string(k)}:"
-            f"{_serialize(value[k], protocol_level=k in PROTOCOL_SUBOBJECTS)}"
+            f"{_serialize(value[k], protocol_level=protocol_level and k in PROTOCOL_SUBOBJECTS)}"
             for k in keys) + "}"
 
     raise ProfileError(
