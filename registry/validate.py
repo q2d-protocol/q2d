@@ -305,6 +305,18 @@ def main(argv: list[str]) -> int:
     check(not wrong,
           "every date-time is core-model.md §2.2's spelling (scope.md §4.1)",
           "; ".join(wrong))
+    if wrong:
+        # Reported *and* stopped. Everything below parses these values --
+        # `ts()` calls `fromisoformat`, which raises on them -- so continuing
+        # would abort the sweep partway with a traceback instead of the report
+        # just printed, and the finding would be buried by the crash it
+        # predicted.
+        print(f"\n{CHECKS - len(FAILURES)}/{CHECKS} checks passed")
+        print("FAILED:")
+        for f in FAILURES:
+            print(f"  - {f}")
+        print("\nstopped here: the checks below parse these values")
+        return 1
 
     ids = [p["id"] for p in preds]
     check(len(set(ids)) == len(ids), "predicate identifiers unique")
