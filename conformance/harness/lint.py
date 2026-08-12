@@ -190,6 +190,37 @@ EXPLICIT_ESCALATE_FIELDS = frozenset({"status", "pending_token", "expires_at",
                                       "receipt", "signature"})
 
 
+def timestamp_offset_vectors(vectors) -> list[str]:
+    """Vectors whose receipt timestamp uses an offset rather than `Z`.
+
+    Reported rather than rejected, and reported rather than ignored: §6 does
+    not say `Z`, so a vector using an offset may well be conforming, and a
+    corpus quietly carrying both forms is one nobody notices until two
+    implementations disagree about which they emit.
+    """
+    named = []
+    for vector in vectors:
+        body = vector.body if hasattr(vector, "body") else vector
+        if not isinstance(body, dict):
+            continue
+        expect = body.get("expect")
+        if not isinstance(expect, dict):
+            continue
+        rejection = expect.get("rejection")
+        if not isinstance(rejection, dict):
+            continue
+        wire = rejection.get("wire")
+        if not isinstance(wire, dict):
+            continue
+        receipt = wire.get("receipt")
+        if not isinstance(receipt, dict):
+            continue
+        decided = receipt.get("decided_at")
+        if isinstance(decided, str) and offset_form(decided):
+            named.append(str(body.get("id", "?")))
+    return named
+
+
 def denial_section_errors(vector: dict) -> list[str]:
     """A `denial/` vector asserts the whole response, never a projection.
 
@@ -253,7 +284,8 @@ DENY_STATUS = ("deny", "escalate")
 # string, because §6 grounds the whole length guarantee in none of the reduced
 # fields being variable-length -- and a timestamp carrying sub-second precision
 # or a numeric offset is variable-length, which quietly removes it.
-RFC3339_SECOND_Z = re.compile(r"\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\Z")
+RFC3339_SECOND = re.compile(
+    r"\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(Z|[+-]\d{2}:\d{2})\Z")
 
 
 def valid_timestamp(value: str) -> bool:
@@ -272,15 +304,18 @@ def valid_timestamp(value: str) -> bool:
     conformance turns on is whether an implementation parses RFC 3339, not
     whether the instant occurred.
 
-    `Z` is required rather than a numeric offset, and that one is an inference
-    rather than a quotation: §6 says "RFC 3339, second precision" and does not
-    say `Z`, but it grounds the length guarantee in none of the reduced fields
-    being variable-length, and `+00:00` is six characters where `Z` is one.
-    The inference is recorded as an open question in P-001 §10 rather than
-    treated as settled -- three rounds of this check were spent resolving
-    specification choices in a lint rule, which is the wrong place for them.
+A numeric offset is **accepted** and separately reported. §6 says "RFC 3339,
+    second precision" and does not say `Z`; it also grounds the length
+    guarantee in none of the reduced fields being variable-length, and
+    `+00:00` is six characters where `Z` is one. So §6 arguably requires `Z` by
+    implication while not saying it -- which is an open question (P-001 §10),
+    and rejecting the offset form here would settle it in a lint rule and push
+    both implementations toward an uncited profile. Reporting keeps it visible
+    without deciding it, and makes a corpus split across the two forms
+    impossible to author unnoticed.
     """
-    if not RFC3339_SECOND_Z.match(value):
+    matched = RFC3339_SECOND.match(value)
+    if not matched:
         return False
     # strptime has no leap second, so the date is checked with the second
     # clamped. Everything else about the value is still validated -- and `:60`
@@ -288,19 +323,25 @@ def valid_timestamp(value: str) -> bool:
     # unconditionally would have blessed `00:00:60Z`, which is not an instant
     # and which one implementation could accept while another rejects: the
     # divergence this check exists to prevent, introduced by the check.
-    if value[17:19] == "60":
+    year, month, day, hour, minute, second, _ = matched.groups()
+    if second == "60":
         # RFC 3339 §5.7 puts a leap second at 23:59. Whether *this* one was
         # inserted is not knowable here -- see the docstring.
-        if value[11:16] != "23:59":
+        if (hour, minute) != ("23", "59"):
             return False
-        checkable = value[:17] + "59Z"
-    else:
-        checkable = value
+        second = "59"
     try:
-        datetime.strptime(checkable, "%Y-%m-%dT%H:%M:%SZ")
+        datetime.strptime(f"{year}-{month}-{day}T{hour}:{minute}:{second}",
+                          "%Y-%m-%dT%H:%M:%S")
     except ValueError:
         return False
     return True
+
+
+def offset_form(value: str) -> bool:
+    """Does this timestamp use a numeric offset rather than `Z`?"""
+    matched = RFC3339_SECOND.match(value)
+    return bool(matched) and matched.group(7) != "Z"
 
 
 def nonempty_string(where: str, value) -> list[str]:
@@ -506,6 +547,15 @@ def lint(corpus_root: Path) -> int:
     print("\ncross-vector")
     for summary in summaries:
         print(f"  {summary}")
+
+    # Accepted, and said out loud. Whether §6 requires `Z` is P-001 §10; until
+    # it is settled the corpus must not silently split across the two forms,
+    # and rejecting the offset form here would settle it in a lint rule.
+    offsets = sorted(timestamp_offset_vectors(vectors))
+    if offsets:
+        print(f"  receipt timestamps: {len(offsets)} vector(s) use a numeric "
+              f"offset rather than 'Z' — accepted, and an open question "
+              f"(P-001 §10): {', '.join(offsets)}")
     for error in cross_errors:
         print(f"  FAIL  {error}")
 

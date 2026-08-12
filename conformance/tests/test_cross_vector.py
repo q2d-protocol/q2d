@@ -165,6 +165,16 @@ class WholeResponseTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("must never be described as such", output)
 
+    def test_an_offset_timestamp_is_accepted_and_reported(self):
+        # §6 says "RFC 3339, second precision" and does not say Z. Rejecting
+        # the offset form would settle that in a lint rule and push both
+        # implementations toward an uncited profile; ignoring it would let the
+        # corpus split across two forms unnoticed.
+        code, output = lint(FIXTURES / "denial-offset-timestamp")
+        self.assertEqual(code, 0, output)
+        self.assertIn("numeric offset rather than 'Z'", output)
+        self.assertIn("open question", output)
+
     def test_a_leap_second_is_accepted(self):
         # RFC 3339 permits second 60 and §6 asks for RFC 3339. Excluding it
         # would be narrowing the specification in harness code — and it is a

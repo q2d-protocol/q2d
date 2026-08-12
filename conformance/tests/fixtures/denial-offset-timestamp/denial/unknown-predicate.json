@@ -1,0 +1,32 @@
+{
+  "id": "denial/uniformity-c/unknown-predicate",
+  "section": "denial",
+  "requirement": [
+    "Q2D-C-08",
+    "core-model.md#5.2"
+  ],
+  "description": "A receipt timestamp with a numeric offset rather than Z. Accepted — §6 does not say Z — and reported, because whether it should is open.",
+  "operation": "process_query",
+  "input": {
+    "cause": "unknown_predicate"
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "unknown_predicate",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unavailable",
+        "receipt": {
+          "request_digest": "sha-256:0000000000000000000000000000000000000000000000000000000000000000",
+          "decision_class": "unavailable",
+          "decided_at": "2026-01-01T00:00:00+00:00",
+          "responder": "did:example:test-custodian-1",
+          "signature_suite": "eddsa-jws-2026"
+        },
+        "signature": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      }
+    },
+    "comparison": "bytes"
+  }
+}
