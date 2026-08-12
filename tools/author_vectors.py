@@ -50,16 +50,14 @@ JCS-based suite.
 deterministic production profile, which is fully specified — nine rules, all
 concrete.
 
-The Ed25519 below signs. The JWS compact serialization does **not** assemble,
-because the protected header's member set is not specified anywhere: P-003 §4.1
-gives the structure, §4.2 says a verifier reads "the declared suite" from the
-header, and `crypto-suites.md` implies `alg` exists by rejecting `alg: none` —
-but no document says whether the header is `{"alg": "EdDSA", "kid": …}` or
-`{"suite": "eddsa-jws-2026", "kid": …}` or both. §4.2's sorting rule determines
-the *order* once the members are known, so this is the one remaining gap between
-the specification and a byte-exact signed vector. It is P-001 §10, raised rather
-than decided: choosing here would resolve a specification ambiguity in a
-generator, which is the thing CLAUDE.md is most explicit about not doing.
+`jws_compact()` assembles a signed string: header, payload, signature. The
+header is [`crypto-suites.md`](../spec/crypto-suites.md) §3's — exactly `suite`
+and `key_id`, no `alg` — which was an open question until it was raised as one
+and decided in `spec/` rather than settled here.
+
+That is the whole of what this file can produce today, and it is enough for a
+`message/sign/` vector: the signed string is determined by the key, the key id,
+and the object, so it is a byte-exact assertion rather than an approximate one.
 
 ## On the Ed25519 below
 
@@ -86,12 +84,16 @@ purpose.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+
+# crypto-suites.md §3's mandatory-to-implement suite, and the only one in 0.1.
+SUITE = "eddsa-jws-2026"
 KEY_FILE = REPO / "conformance" / "keys" / "ed25519-test-only.json"
 
 
@@ -356,35 +358,56 @@ def check_known_answers() -> None:
                 f"RFC 8032 publishes {answer['signature']}")
 
 
-def jws_compact(*_args, **_kwargs):
-    """Not implementable yet — the protected header's members are unspecified.
+def base64url(raw: bytes) -> str:
+    """RFC 7515's base64url: no padding, URL-safe alphabet."""
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
-    P-003 §4.1 gives the structure and §4.2 says a verifier reads the declared
-    suite from the header, but no document in this repository says which members
-    the header carries. P-002 §4.2's sorting rule fixes their order once they
-    are known, so this is the one thing between a specified profile and a
-    byte-exact signed vector.
 
-    Raising rather than guessing: a guess here would be a specification
-    ambiguity resolved in a generator, and every signed vector in the corpus
-    would then assert it.
+def jws_compact(seed: bytes, key_id: str, payload, suite: str = SUITE) -> str:
+    """The `signed` string: header, payload, signature, dot-separated.
+
+    P-003 §4.1:
+
+        signed        = BASE64URL(protected_header) "." BASE64URL(payload)
+                        "." BASE64URL(signature)
+        signing_input = ASCII(BASE64URL(protected_header) "."
+                        BASE64URL(payload))
+
+    The header is `crypto-suites.md` §3's: exactly `suite` and `key_id`, in the
+    order P-002 §4.2's key rule fixes, which is `key_id` first. No `alg` --
+    §3 is explicit that a Q2D header does not carry one, so that a JOSE library
+    cannot select a verification algorithm from data nobody has authenticated
+    yet.
+
+    `payload` is serialized by the same profile, so the whole signed string is
+    determined by the key, the key id, and the object -- which is what makes a
+    `message/sign/` vector a byte-exact assertion rather than an approximate
+    one.
     """
-    raise NotImplementedError(
-        "the JWS protected header's member set is not specified — see P-001 §10 "
-        "and P-003 §4.1. Authoring a signed vector needs that decision first")
+    check_known_answers()
+
+    header = serialize({"key_id": key_id, "suite": suite})
+    signing_input = f"{base64url(header)}.{base64url(serialize(payload))}"
+    signature = sign(seed, signing_input.encode("ascii"))
+    return f"{signing_input}.{base64url(signature)}"
 
 
 def main(argv: list[str]) -> int:
     if "--self-test" not in argv[1:]:
         print(__doc__.strip().splitlines()[0])
         print("\nusage: python3 tools/author_vectors.py --self-test")
-        print("\nSigned vectors cannot be authored yet: the JWS protected "
-              "header's\nmember set is unspecified. See P-001 §10.")
         return 2
 
     check_known_answers()
     print(f"Ed25519 reproduces all {len(known_answers())} RFC 8032 §7.1 vectors")
-    print(f"P-002 §4.2 serializer available; JWS assembly blocked on P-001 §10")
+
+    # Signing something end to end, so the self-test covers the thing the tool
+    # is for rather than only the primitive underneath it.
+    keys = json.loads(KEY_FILE.read_text(encoding="utf-8"))["keys"]
+    key_id, key = next(iter(keys.items()))
+    signed = jws_compact(bytes.fromhex(key["seed"]), key_id, {"type": "query"})
+    print(f"P-002 §4.2 serializer and crypto-suites.md §3 header available")
+    print(f"\n  {signed}")
     return 0
 
 

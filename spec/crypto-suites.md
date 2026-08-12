@@ -52,14 +52,78 @@ same mechanism and pinned the same way.
 
 ### `eddsa-jws-2026` — mandatory to implement
 
-Ed25519 (RFC 8032) over **JWS compact serialization** with the core object as an
-opaque base64url payload. The signature covers the exact transmitted bytes.
-**No canonicalization is involved**, and none is required.
+Ed25519 (RFC 8032) over the **JWS compact form** — three base64url segments
+separated by dots, exactly as RFC 7515 §7.1 lays them out — with the core object
+as an opaque base64url payload. The signature covers the exact transmitted
+bytes. **No canonicalization is involved**, and none is required.
+
+**The compact form, not conformant JWS.** RFC 7515 §4.1.1 makes `alg` a required
+header parameter, and a Q2D header does not carry one — see below for why. So a
+Q2D signed string is not a JWS, standard JOSE tooling will reject it, and that
+is the intended outcome rather than a cost. Borrowing the layout keeps the
+framing familiar and the parsing trivial; borrowing the algorithm negotiation
+would reintroduce what §4's downgrade rules exist to remove.
 
 This is the default and the only suite an implementation must support to claim
 [`conformance-classes.md`](conformance-classes.md) CC-1 or CC-2.
 
 Signature size: 64 bytes. Public key: 32 bytes.
+
+#### The protected header
+
+**Exactly two members, and no others:**
+
+| Member | Value |
+|---|---|
+| `suite` | The suite identifier — `eddsa-jws-2026` here. |
+| `key_id` | The key that signed. Resolvable under the identity profile, as `signature.key_id` is. |
+
+Serialized under the same deterministic production profile as the payload, so
+the two members appear in a fixed order — `key_id` before `suite`, by the key
+ordering that profile defines.
+
+**The header is closed because it is read before verification.** It is the only
+attacker-controlled data a verifier touches while it still has no signature to
+rely on, so every member is a pre-authentication input surface, and each one is
+there because the ordering in [`core-model.md`](core-model.md) §4 leaves no
+alternative:
+
+- **`suite`** is needed at §4 step 3, to check the declared suite against local
+  policy before choosing how to verify. It carries the *suite identifier*, not
+  an algorithm name: a verifier looks it up in this registry, and after
+  verification confirms it equals the payload's `signature.profile`, which is
+  the same kind of identifier. An algorithm name could not be compared to it.
+- **`key_id`** is needed at §4 step 4, to resolve the key. The signed object
+  carries `signature.key_id`, but that is inside the payload and §2.1 is
+  explicit that a verifier *"parses the core object only after verifying those
+  bytes"* — so the payload's copy is unreadable at the moment the key must be
+  chosen. `routing` cannot supply it either: it is advisory, may not be used
+  for a decision the signature covers, and §2.1's list does not include a key.
+
+  It is a **lookup key into a set the verifier already trusts**, never a path,
+  a URL, or a query. Treating it as any of those turns an attacker-controlled
+  string into a fetch or an injection before anything is authenticated.
+
+Both members are duplicated in the signed payload — `signature.profile` and
+`signature.key_id` — and a verifier confirms both pairs agree after verifying.
+The duplication is not redundancy: the header's copies are read *before*
+verification and are therefore untrusted, and the payload's copies are the
+authoritative ones. Comparing them catches a producer that signs a payload
+declaring one thing under a header declaring another, which no verifier would
+otherwise notice.
+
+**`alg` is not a member of a Q2D protected header, and `alg: none` is not a
+state one can express.** This is stronger than rejecting it. A header carrying
+`alg` would be one a general-purpose JOSE library could process — and such a
+library selects its verification algorithm from the header, which is precisely
+the decision §4's minimum-acceptable-policy check exists to take away from the
+sender.
+
+The consequence is that these are not JWS objects and JOSE tooling rejects them,
+which is the point: a verifier that can be pointed at a Q2D message and handed a
+result by a library that never consulted local suite policy is the failure this
+suite is shaped to prevent. The identifier `eddsa-jws-2026` names the form the
+bytes take, not conformance to RFC 7515.
 
 This is the only suite registered in 0.1.
 
@@ -92,7 +156,11 @@ Three rules. Each is a `must`.
 
 **The suite identifier is inside the signed material.** It is a field of the
 signed core object, not of the outer envelope. An intermediary that rewrites the
-outer envelope cannot change which suite a verifier believes was used.
+outer envelope cannot change which suite a verifier believes was used. The
+protected header carries a copy, because a verifier must choose a policy check
+before it can verify — but that copy is signature-covered too, and §3 requires
+the two to be confirmed equal, so it is a *reading order* rather than a second
+authority.
 
 **The verifier holds a minimum acceptable policy.** Accepting whatever suite the
 sender selected is not agility; it is a downgrade oracle. A verifier maintains

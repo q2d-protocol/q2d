@@ -66,6 +66,15 @@ signing_input = ASCII(BASE64URL(protected_header) "." BASE64URL(payload))
 The protected header is covered by the signature. The payload is the byte string
 [P-002](P-002-message-envelope.md) produced.
 
+**The header's members are `suite` and `key_id`, and no others** —
+[`crypto-suites.md`](../../spec/crypto-suites.md) §3 defines them and why the
+set is closed. Two consequences for this module: `key_id` is what §4.2 step 1's
+sibling resolves at [`core-model.md`](../../spec/core-model.md) §4 step 4,
+because the payload's `signature.key_id` cannot be read yet; and `resolve_key`
+takes that identifier as a **lookup into a set the implementation already
+trusts**, never a path or a URL, since it is attacker-controlled and read before
+anything is authenticated.
+
 There is exactly one moment where a verifier must read attacker-controlled data
 before verifying anything: **it must know which algorithm to verify with.** That
 is the classic JWS algorithm-confusion surface, and the mitigation is not to
@@ -74,12 +83,13 @@ avoid reading the header — it is to never let the header *decide*.
 ### 4.2 The header declares; local policy decides
 
 ```
-1. Read the declared suite from the protected header.
+1. Read the declared suite from the protected header's `suite` member.
 2. Reject unless it is a member of the verifier's own acceptable set.
 3. Verify using the parameters of the registry entry for that suite —
    never parameters taken from the header.
 4. After verification, confirm the payload's signature.profile equals the
-   header's declared suite. Mismatch rejects.
+   header's `suite`, and signature.key_id equals the header's `key_id`.
+   Either mismatch rejects.
 ```
 
 Step 2 is the whole defence. A verifier that verifies with whatever the header
@@ -92,10 +102,27 @@ another, which is a real implementation bug and one that no verifier would
 otherwise notice. The two declarations exist for different readers, and confirming
 they agree costs one comparison.
 
-**`alg: none`, and any header presenting an unsigned or unregistered algorithm,
-is rejected at step 2** by construction — it is not in the acceptable set. No
-special case is written for it, and no code path may exist that treats absence of
-an algorithm as a valid state.
+**The key identifier is checked the same way and for the same reason.** A
+producer that signs with one key while the header names another is the identical
+bug, and it is worse in one respect: the verifier resolved and used the header's
+key, so the signature verifies and nothing downstream is aware the signed object
+disagrees about who signed it. Two comparisons, not one.
+
+**`alg: none` is not a state a Q2D header can express.** The header has no `alg`
+member ([`crypto-suites.md`](../../spec/crypto-suites.md) §3), so there is
+nothing for `none` to be the value of — and a header carrying an unregistered
+suite is rejected at step 2 by construction, since it is not in the acceptable
+set. No special case is written for either, and no code path may exist that
+treats absence of a suite as a valid state.
+
+Not carrying `alg` is the point rather than an omission: a header a
+general-purpose JOSE library can process is one where that library selects the
+verification algorithm from attacker-controlled data, which is the decision step
+2 exists to take away from the sender. The JWS compact *form* is the container
+here, not JOSE's algorithm negotiation — and since RFC 7515 §4.1.1 requires
+`alg`, a Q2D signed string is not a conformant JWS and JOSE tooling rejects it.
+[`crypto-suites.md`](../../spec/crypto-suites.md) §3 states that outright, so
+nobody discovers it from a library error.
 
 ### 4.3 The suite registry is data, not code
 
@@ -191,7 +218,7 @@ in a message. There is no code path that derives it from received data.
 | `suite/rfc8032/` | Raw Ed25519 against RFC 8032 §7.1 known-answer vectors |
 | `suite/sign/` | JWS compact construction, byte-exact, over P-002 payloads |
 | `suite/verify/` | Valid, tampered payload, tampered header, tampered signature |
-| `suite/downgrade/` | Below-floor suite, unregistered suite, `alg: none`, header/payload mismatch |
+| `suite/downgrade/` | Below-floor suite, unregistered suite, a header carrying `alg`, header/payload suite mismatch, header/payload key mismatch |
 | `suite/status/` | Deprecated verifies but will not produce; withdrawn refuses both |
 | `suite/keys/` | Unresolvable key; rejection indistinguishable from signature failure |
 
@@ -217,7 +244,8 @@ in a message. There is no code path that derives it from received data.
 
 | Must fail | Observed as |
 |---|---|
-| `alg: none`, or any unregistered algorithm | Rejected at step 2; no special case in the code, and none may be added |
+| A header carrying `alg` at all, or any unregistered suite | The first is not a member the format has, so it is rejected as an unexpected member before step 2; the second is rejected *at* step 2. No special case in the code for either, and none may be added |
+| A header whose `key_id` differs from the payload's `signature.key_id` | Rejected at step 4. The signature verifies — the verifier used the header's key — so nothing else would catch it |
 | A suite below the verifier's floor | Rejected, with **no alternative named** in the response |
 | Header suite ≠ payload `signature.profile` | Rejected after verification |
 | Verifying with parameters taken from the header rather than the registry entry | Header-parameter vector verifies when it must not |
