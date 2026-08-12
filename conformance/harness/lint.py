@@ -121,6 +121,58 @@ def placement_errors(vector: dict, path: Path, corpus_root: Path) -> list[str]:
     return errors
 
 
+# core-model.md §6's reduced receipt: "exactly five fields, and no others".
+REDUCED_RECEIPT_FIELDS = frozenset({"request_digest", "decision_class",
+                                    "decided_at", "responder",
+                                    "signature_suite"})
+
+
+def receipt_errors(vector: dict) -> list[str]:
+    """A deny receipt a vector asserts must be the shape §6 defines.
+
+    Not a *narrower* comparison -- a wrong one. A vector may omit `receipt`
+    entirely, which asserts nothing about it and is legitimate where response
+    construction is not what the vector tests. But a vector that asserts a
+    receipt with four fields, or with six, is asserting that a conforming
+    implementation emits one, and core-model.md §6 says it does not: "exactly
+    five fields, and no others", and "adding a field to it -- even an optional
+    one -- is a specification change".
+
+    The extra-field case is the one that matters most, and it is why this is an
+    error rather than a note: a field present for some causes and absent for
+    others is precisely the distinction normalization removes, and a
+    variable-length one breaks the length guarantee §6 grounds in the shape.
+    """
+    expect = vector.get("expect")
+    if not isinstance(expect, dict):
+        return []                       # the schema is already reporting this
+    rejection = expect.get("rejection")
+    if not isinstance(rejection, dict):
+        return []
+    wire = rejection.get("wire")
+    if not isinstance(wire, dict) or "receipt" not in wire:
+        return []
+
+    receipt = wire["receipt"]
+    if not isinstance(receipt, dict):
+        return [f"receipt: asserted as {type(receipt).__name__}, but "
+                f"core-model.md §6's reduced shape is an object of five fields"]
+
+    missing = sorted(REDUCED_RECEIPT_FIELDS - set(receipt))
+    extra = sorted(set(receipt) - REDUCED_RECEIPT_FIELDS)
+    errors = []
+    if missing:
+        errors.append(f"receipt: missing {', '.join(missing)} — core-model.md "
+                      f"§6's reduced shape is exactly five fields. Omit "
+                      f"`receipt` entirely to assert nothing about it")
+    if extra:
+        errors.append(f"receipt: carries {', '.join(extra)} — core-model.md §6 "
+                      f"is 'exactly five fields, and no others', because a "
+                      f"field present for some causes and absent for others "
+                      f"reintroduces the distinction normalization removes")
+    return errors
+
+
 def section_errors(vector: dict) -> list[str]:
     """Rules a section carries that the schema cannot express.
 
@@ -171,6 +223,7 @@ def vector_errors(vector, path: Path, corpus_root: Path, vector_schema: dict,
         errors += placement_errors(vector, path, corpus_root)
         errors += citation_errors(vector, claims, classes, sections)
         errors += section_errors(vector)
+        errors += receipt_errors(vector)
     return errors
 
 

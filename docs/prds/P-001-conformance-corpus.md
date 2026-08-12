@@ -420,10 +420,17 @@ Two smaller decisions the implemented pair carry:
   fails. **What it compares is named on every run**, because a vector may
   assert a subset of [`core-model.md`](../../spec/core-model.md) §5.2's
   response and the two fields every vector carries today — `status` and
-  `external_reason` — are both fixed by the class. The reduced receipt's five
-  fields are checked too: §6 grounds the length guarantee in none of them being
-  variable-length, so a receipt missing one is a receipt whose length nothing
-  constrains, and checking only the outer four would call that whole. Comparing those two compares
+  `external_reason` — are both fixed by the class.
+
+  **A receipt a vector does assert is held to §6's shape, and that is an error
+  rather than a report.** Omitting `receipt` asserts nothing about it and is
+  legitimate; asserting one with four fields or six asserts that a conforming
+  implementation emits it, and §6 says *"exactly five fields, and no others"*.
+  The extra-field case is the one that matters: a field present for some causes
+  and absent for others is the distinction normalization removes, and
+  [`claims.md`](../../spec/claims.md) names the concrete instance — *"a denial
+  receipt that named the predicate would partition denials by predicate,
+  defeating Q2D-C-08"*. Comparing those two compares
   two constants, so a summary that stopped at "one class, five vectors" would
   read as evidence of uniformity while establishing none of it. §5.3 puts the
   leak precisely where the vectors are silent: *"a receipt that recorded
@@ -659,6 +666,7 @@ What must fail, and how the failure is observed.
 | Two rejections in one normalized class with differing `wire` objects | Cross-vector denial-uniformity assertion fails |
 | A budget permutation reaching a different total | Cross-vector accumulation assertion fails |
 | A `bytes` vector where two implementations differ by one byte | Cross-implementation comparison fails, naming the offset |
+| A denial vector asserting a receipt that is not §6's five fields | `harness lint` rejects it — too few or too many. Omitting `receipt` is legitimate and reported as a partial comparison instead |
 | A `bytes` vector whose compared value is an object rather than a string | `harness cross` reports it `UNCHECKABLE` and fails — the bytes never reached the harness, so calling it agreement would assert what was never checked |
 | A corpus where the two runners agree on everything comparable | `harness cross` still exits non-zero — §4.8's second clause is issue 19, and the exit status must not say a half-checked clause holds |
 

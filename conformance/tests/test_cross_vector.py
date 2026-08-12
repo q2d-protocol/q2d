@@ -99,20 +99,49 @@ class PartialResponseTest(unittest.TestCase):
         _, output = lint(CONFORMANCE / "corpus")
         self.assertIn("compared a partial response", output)
 
-    def test_an_incomplete_receipt_is_still_a_partial_comparison(self):
-        # All four §5.2 fields present and the receipt missing one of its five.
-        # §6 says the length guarantee follows from none of the reduced fields
-        # being variable-length, so a receipt missing one is a receipt whose
-        # length nothing constrains -- checking only the outer four would call
-        # that whole.
-        _, output = lint(FIXTURES / "denial-thin-receipt")
-        self.assertIn("compared a partial response", output)
-        self.assertIn("receipt.signature_suite", output)
-
     def test_a_whole_response_is_not_reported_as_partial(self):
         code, output = lint(FIXTURES / "denial-whole-response")
         self.assertEqual(code, 0, output)
         self.assertNotIn("compared a partial response", output)
+
+
+class ReducedReceiptShapeTest(unittest.TestCase):
+    """§6: "exactly five fields, and no others".
+
+    A wrong-shaped receipt is not a narrower comparison, which is why these
+    fail rather than report. Omitting `receipt` asserts nothing about it and is
+    legitimate; asserting a four-field or six-field one asserts that a
+    conforming implementation emits it, and §6 says none does.
+    """
+
+    def test_a_receipt_missing_a_field_is_rejected(self):
+        code, output = lint(FIXTURES / "denial-malformed-receipt")
+        self.assertEqual(code, 1)
+        self.assertIn("receipt: missing signature_suite", output)
+        self.assertIn("Omit `receipt` entirely", output)
+
+    def test_a_receipt_with_an_extra_field_is_rejected(self):
+        # The case that matters most. §6 forbids it because a field present for
+        # some causes and absent for others reintroduces the distinction
+        # normalization removes -- and this fixture's extra field is the one
+        # claims.md names outright: "a denial receipt that named the predicate
+        # would partition denials by predicate, defeating Q2D-C-08".
+        code, output = lint(FIXTURES / "denial-extra-receipt-field")
+        self.assertEqual(code, 1)
+        self.assertIn("receipt: carries predicate", output)
+        self.assertIn("exactly five fields, and no others", output)
+
+    def test_a_correct_receipt_passes(self):
+        code, output = lint(FIXTURES / "denial-whole-response")
+        self.assertEqual(code, 0, output)
+
+    def test_omitting_the_receipt_is_not_an_error(self):
+        # The real corpus does exactly this, and it is legitimate: a registry/
+        # vector tests predicate evaluation, not response construction. It is
+        # *reported* as a partial comparison, not rejected.
+        code, output = lint(CONFORMANCE / "corpus")
+        self.assertEqual(code, 0, output)
+        self.assertIn("compared a partial response", output)
 
 
 class BudgetAccumulationTest(unittest.TestCase):
