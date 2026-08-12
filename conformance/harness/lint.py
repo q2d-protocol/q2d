@@ -584,26 +584,6 @@ def valid_timestamp(value: str) -> bool:
     return True
 
 
-def timestamp_profile(value: str) -> str | None:
-    """Which of RFC 3339's spellings this timestamp uses, as a label.
-
-    RFC 3339 permits several forms of the same instant -- `T` or `t`, `Z` or
-    `z` or a numeric offset -- and §6 says only "RFC 3339, second precision".
-    Which one Q2D requires is P-001 §10. Until that is settled, no form is
-    rejected and the *set in use* is what matters: a corpus carrying more than
-    one is defective whichever way §6 goes, because no implementation emits
-    more than one.
-    """
-    matched = RFC3339_SECOND.match(value)
-    if not matched:
-        return None
-    separator = "T" if "T" in value[:11] else "t"
-    terminator = matched.group(7)
-    if terminator in ("Z", "z"):
-        return f"…{separator}…{terminator}"
-    return f"…{separator}…±hh:mm"
-
-
 def nonempty_string(where: str, value) -> list[str]:
     if not isinstance(value, str):
         return [f"{where}: {type(value).__name__}, but core-model.md gives it a "
