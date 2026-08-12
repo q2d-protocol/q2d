@@ -175,6 +175,19 @@ def schema_keywords(schema, path):
             yield key, path
 
 
+def schema_values(schema):
+    """Every (keyword, value) pair a schema uses, at any depth."""
+    if not isinstance(schema, dict):
+        return
+    for key, value in schema.items():
+        yield key, value
+        if key == "properties" and isinstance(value, dict):
+            for sub in value.values():
+                yield from schema_values(sub)
+        elif key == "items":
+            yield from schema_values(value)
+
+
 def object_schemas(schema, path):
     """Every subschema that declares `type: object`, with where it sits."""
     if not isinstance(schema, dict):
@@ -377,6 +390,15 @@ def main(argv: list[str]) -> int:
                   f"{where} declares §4.1's dialect", str(schema.get("$schema")))
             # Every object, not only the root: a nested one omitting it, or
             # setting it true, accepts fields the entry never declared.
+            # §4.1 admits `format` with one value. The keyword check above
+            # sees names only, so `format: email` would read as inside the
+            # profile while being exactly the library-dependent behaviour the
+            # profile excludes.
+            formats = sorted({v for k, v in schema_values(schema)
+                              if k == "format" and v != "date-time"})
+            check(not formats,
+                  f"{where} uses only `format: date-time`", ",".join(map(str, formats)))
+
             loose = [at for at in object_schemas(schema, where)
                      if at[1].get("additionalProperties") is not False]
             check(not loose,
