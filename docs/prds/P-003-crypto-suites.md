@@ -200,7 +200,12 @@ in a message. There is no code path that derives it from received data.
 - [ ] Raw Ed25519 reproduces every RFC 8032 §7.1 vector in both implementations.
 - [ ] Both produce **byte-identical** compact JWS for the same key and payload —
       Ed25519 determinism makes this a byte comparison, not a both-verify check.
-- [ ] Each implementation verifies the other's signatures (`harness cross`).
+- [ ] Each implementation verifies the other's signatures. **This is
+      [P-001](P-001-conformance-corpus.md) issue 19, not the `harness cross`
+      that exists today** — that one compares what two runners each produced,
+      which exercises both signers and neither verifier. Blocked until 19 lands,
+      and this PRD is one of the two it is blocked on: issue 19 needs to know
+      which operation consumes a signed envelope, which is settled here.
 - [ ] `verify` returns bytes; no path exists from a compact JWS to a parsed core
       object that skips verification. Asserted by type signature, not by test.
 - [ ] A deprecated suite verifies and refuses to sign; a withdrawn suite refuses

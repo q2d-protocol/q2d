@@ -459,8 +459,14 @@ than a structure, which is a new vector shape; see open question 5.
 - [ ] Every §4.6 condition refuses startup, observably, in both implementations.
 - [ ] There is no configuration, environment variable, or build feature that
       serves without TLS.
-- [ ] `harness cross`: the Rust requester completes an exchange against the Go
-      daemon and the reverse — [`mvp-scope.md`](../mvp-scope.md) §1 item 7.
+- [ ] The Rust requester completes an exchange against the Go daemon and the
+      reverse — [`mvp-scope.md`](../mvp-scope.md) §1 item 7. **Not `harness
+      cross`**, which runs two runners over a corpus of static vectors and
+      speaks no transport; a live exchange between two processes is this PRD's
+      own interop check and needs a harness that does not exist yet. Naming a
+      mode that cannot do it would leave the criterion looking covered. Owned
+      here; see [P-001](P-001-conformance-corpus.md) §3 for why the conformance
+      harness is not the place for it.
 - [ ] The [`mvp-scope.md`](../mvp-scope.md) §1 walkthrough completes on two
       machines by someone following the quickstart and nothing else.
 

@@ -36,6 +36,7 @@ python3 conformance/harness cross --a P --b P       # two runners, held to agree
                                                    #     missing runner, bad corpus
                                                    #   3 they agreed, and §4.8's
                                                    #     second clause is issue 19
+                                                   #     (0 when issue 19 lands)
 python3 -m unittest discover -s conformance/tests   # the harness's own tests
 ```
 
@@ -72,12 +73,21 @@ dependency assertion (issue 15), the test key material (issue 10), and the
 divergence fails the build rather than leaving the corpus asserting last month's
 registry.
 
-`cross` is **half of what P-001 §4.8 asks**: it compares what two runners each
-produced, and does not put A's output to B for verification, which is issue 19.
-It says so on every run and exits 3 — not 0 — when the runners agree, so nothing
-can read the clause off its status. (3, not 2: 2 is the status for nothing
-having run at all.) Whether that split is accepted is an open
-question in P-001 §10, awaiting a decision.
+`cross` covers **the first of the two things P-001 §4.8 asks**: it compares
+what two runners each produced, and does not put A's output to B for
+verification. That second half is P-001 issue 19 — split out deliberately
+(§10), not forgotten. `cross` says so on every run and exits 3 — not 0 — when
+the runners agree, so nothing can read the clause off its status. (3, not 2:
+2 is the status for nothing having run at all.) It returns 0 when issue 19
+lands.
+
+The two halves are not the same check. Byte agreement compares A's *signer*
+against B's signer and exercises neither **verifier**, and verification is what
+[`core-model.md`](../spec/core-model.md) §4 step 4 gates the whole pipeline on.
+An implementation with a lenient verifier passes every byte-comparison vector
+in the corpus. [`mvp-scope.md`](../docs/mvp-scope.md)'s Stage 1 gate is
+cross-verification for that reason, which is what makes issue 19 load-bearing
+rather than tidy-up.
 
 That has a consequence for CI worth stating before someone hits it. `run` is red
 by design until Stage 1 lands, and a permanently red check trains people to

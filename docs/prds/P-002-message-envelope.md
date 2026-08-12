@@ -229,7 +229,10 @@ system carries the ordering requirement rather than a comment.
 - [ ] A verifier accepts bytes that verify but do not match the production
       profile — proving verification does not depend on serialization.
 - [ ] Round trip: `parse_core(serialize_core(x)) == x` for every vector.
-- [ ] `harness cross` passes for `message/`.
+- [ ] `harness cross` reports agreement for every `message/` vector. Note that
+      agreement is exit **3**, not 0, until [P-001](P-001-conformance-corpus.md)
+      issue 19 lands — §4.8 asks for two things and this mode does one of them.
+      Read the report, not the status.
 
 The fourth item is the one that proves §4.1. A suite where every payload happens
 to be profile-conformant cannot distinguish a correct verifier from one that

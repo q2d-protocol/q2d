@@ -386,8 +386,11 @@ is also why §4.2 injects the nonce and the clock.
 
 - [ ] Both implementations produce **byte-identical** signed queries for every
       `requester/sign/` vector.
-- [ ] `harness cross`: each implementation's requester query verifies in the
-      other's responder, and each verifies the other's response.
+- [ ] Each implementation's requester query verifies in the other's responder,
+      and each verifies the other's response. **This is
+      [P-001](P-001-conformance-corpus.md) issue 19**, not the `harness cross`
+      that exists today — that one compares what two runners each produced,
+      which exercises both signers and neither verifier.
 - [ ] No path exists from response bytes to an `Answer` that skips verification
       — asserted by the type, not by a test.
 - [ ] A response below the requester's suite floor, with a failing signature, or
