@@ -46,6 +46,14 @@ REPO = CONFORMANCE.parent
 
 STDLIB = Path(sysconfig.get_paths()["stdlib"]).resolve()
 
+# Where installed packages live. On most layouts `site-packages` sits *under*
+# the stdlib directory -- `lib/python3.12/site-packages` -- so "inside the
+# stdlib path" is not the same question as "part of the standard library", and
+# a check that asked only the first would accept every installed package.
+INSTALLED = {Path(path).resolve()
+             for key in ("purelib", "platlib")
+             for path in [sysconfig.get_paths().get(key)] if path}
+
 # Origins `importlib` reports for modules with no file of their own.
 NOT_A_FILE = ("built-in", "frozen", None)
 
@@ -81,6 +89,22 @@ def under(path: Path, root: Path) -> bool:
     """
     resolved = path.resolve()
     return resolved == root or root in resolved.parents
+
+
+def is_stdlib(path: Path) -> bool:
+    """Is this file part of the standard library, rather than merely near it?
+
+    Two conditions, because either alone is wrong. `site-packages` is usually
+    *inside* the stdlib directory, so containment alone accepts every installed
+    package; and a virtualenv puts `site-packages` somewhere else entirely, so
+    the name alone misses nothing but proves nothing either.
+    """
+    resolved = path.resolve()
+    if any(under(resolved, installed) for installed in INSTALLED):
+        return False
+    if "site-packages" in resolved.parts or "dist-packages" in resolved.parts:
+        return False
+    return under(resolved, STDLIB)
 
 
 def imported_names(source: str) -> set[str]:
@@ -150,17 +174,14 @@ def import_problem(name: str, siblings: set[str]) -> str | None:
         # site-packages. Accepting every origin-less spec as a built-in would
         # let exactly that past.
         locations = list(getattr(spec, "submodule_search_locations", None) or [])
-        outside = [place for place in locations
-                   if not under(Path(place), STDLIB)]
+        outside = [place for place in locations if not is_stdlib(Path(place))]
         if outside:
             return (f"imports {name!r}, a namespace package with locations "
                     f"outside the standard library ({outside[0]})")
         return None
 
     origin = Path(spec.origin).resolve()
-    if "site-packages" in origin.parts:
-        return f"imports {name!r} from site-packages ({origin})"
-    if not under(origin, STDLIB):
+    if not is_stdlib(origin):
         return (f"imports {name!r} from {origin}, which is outside the standard "
                 f"library. The harness is stdlib-only: a package shared with one "
                 f"implementation and not the other reintroduces the common-mode "
@@ -199,6 +220,19 @@ class ImportTest(unittest.TestCase):
         self.assertIsNotNone(problem, "a module outside the standard library "
                                       "was accepted; the check is not checking")
         self.assertIn("outside the standard library", problem)
+
+    def test_a_namespace_package_inside_the_stdlib_tree_is_rejected(self):
+        # The shape that makes containment alone wrong: a PEP 420 namespace
+        # package installed under `lib/pythonX.Y/site-packages`, which *is*
+        # inside the stdlib directory on most layouts. Built where site-packages
+        # actually is, rather than assumed.
+        base = next(iter(INSTALLED), None) or (STDLIB / "site-packages")
+        self.assertFalse(is_stdlib(base / "vendor" / "thing.py"),
+                         f"{base} was accepted as standard library")
+        self.assertFalse(is_stdlib(STDLIB / "site-packages" / "thing.py"),
+                         "site-packages under the stdlib path was accepted")
+        self.assertTrue(is_stdlib(STDLIB / "json" / "__init__.py"),
+                        "the standard library was not recognised")
 
     def test_a_name_that_resolves_to_nothing_is_rejected(self):
         problem = import_problem("q2d_core_binding_that_does_not_exist", set())
