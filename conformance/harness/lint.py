@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 
 import cross_vector
@@ -255,6 +256,27 @@ DENY_STATUS = ("deny", "escalate")
 RFC3339_SECOND_Z = re.compile(r"\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\Z")
 
 
+def valid_timestamp(value: str) -> bool:
+    """RFC 3339, second precision, `Z` -- as a shape *and* as a real instant.
+
+    The shape carries §6's length argument: fixed width, which
+    `2026-1-1T0:0:0Z` is not. Parsing carries the rest, because a regex over
+    digit placement accepts `2026-99-99T99:99:99Z`, which no implementation
+    emits and a vector must not assert.
+
+    Second 60 -- a leap second, which RFC 3339 permits -- is rejected here. A
+    test corpus asserting one would be asserting an instant that depends on
+    when it was authored, and §4.3 puts every varying input in the vector.
+    """
+    if not RFC3339_SECOND_Z.match(value):
+        return False
+    try:
+        datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return False
+    return True
+
+
 def nonempty_string(where: str, value) -> list[str]:
     if not isinstance(value, str):
         return [f"{where}: {type(value).__name__}, but core-model.md gives it a "
@@ -283,6 +305,16 @@ def wire_value_errors(wire: dict) -> list[str]:
     if status == "escalate":
         errors += nonempty_string("wire.pending_token", wire.get("pending_token"))
         errors += nonempty_string("wire.expires_at", wire.get("expires_at"))
+        if "external_reason" in wire:
+            # Determinate, unlike extra fields in general (§10): §5.3 says an
+            # explicit escalation "is **not** denial-normalized and must never
+            # be described as such", and external_reason is the field that
+            # describes an outcome as belonging to a normalized class.
+            errors.append(
+                "wire.external_reason: present on an explicit escalation — "
+                "core-model.md §5.3 says one is 'not denial-normalized and "
+                "must never be described as such', and this is the field that "
+                "would describe it as such")
     else:
         errors += nonempty_string("wire.external_reason",
                                   wire.get("external_reason"))
@@ -293,7 +325,7 @@ def wire_value_errors(wire: dict) -> list[str]:
         for field in sorted(REDUCED_RECEIPT_FIELDS & set(receipt)):
             errors += nonempty_string(f"wire.receipt.{field}", receipt[field])
         decided = receipt.get("decided_at")
-        if isinstance(decided, str) and not RFC3339_SECOND_Z.match(decided):
+        if isinstance(decided, str) and not valid_timestamp(decided):
             errors.append(
                 f"wire.receipt.decided_at: {decided!r} is not RFC 3339 at "
                 f"second precision with 'Z' — core-model.md §6 grounds the "

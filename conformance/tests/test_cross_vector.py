@@ -157,6 +157,21 @@ class WholeResponseTest(unittest.TestCase):
         self.assertIn("missing expires_at, pending_token", output)
         self.assertIn("explicit escalation", output)
 
+    def test_an_escalation_described_as_normalized_is_rejected(self):
+        # Determinate, unlike extra fields in general: `external_reason` is the
+        # field that describes an outcome as belonging to a normalized class,
+        # and §5.3 says an explicit escalation is not one.
+        code, output = lint(FIXTURES / "denial-escalation-described")
+        self.assertEqual(code, 1)
+        self.assertIn("must never be described as such", output)
+
+    def test_a_timestamp_with_no_real_instant_behind_it_is_rejected(self):
+        # Digit placement is not a date. The shape carries §6's length
+        # argument; parsing carries the rest.
+        _, output = lint(FIXTURES / "denial-bad-values")
+        self.assertIn("impossible-timestamp", output)
+        self.assertIn("2026-99-99T99:99:99Z", output)
+
     def test_other_sections_may_assert_a_projection(self):
         # The real corpus is registry/ rejections, which test predicate
         # evaluation rather than response construction.
