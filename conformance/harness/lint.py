@@ -190,15 +190,16 @@ EXPLICIT_ESCALATE_FIELDS = frozenset({"status", "pending_token", "expires_at",
                                       "receipt", "signature"})
 
 
-def timestamp_offset_vectors(vectors) -> list[str]:
-    """Vectors whose receipt timestamp uses an offset rather than `Z`.
+def timestamp_forms(vectors) -> tuple[list[str], list[str]]:
+    """Which vectors use an offset and which use `Z`, named separately.
 
-    Reported rather than rejected, and reported rather than ignored: §6 does
-    not say `Z`, so a vector using an offset may well be conforming, and a
-    corpus quietly carrying both forms is one nobody notices until two
-    implementations disagree about which they emit.
+    Neither form is rejected: §6 does not say `Z`, so a vector using an offset
+    may well be conforming, and deciding that here would settle a specification
+    question in a lint rule. What *is* rejected is a corpus using both, which
+    is defective whichever way §6 goes -- no implementation emits both, so no
+    implementation can satisfy such a corpus.
     """
-    named = []
+    offsets, zulus = [], []
     for vector in vectors:
         body = vector.body if hasattr(vector, "body") else vector
         if not isinstance(body, dict):
@@ -216,9 +217,10 @@ def timestamp_offset_vectors(vectors) -> list[str]:
         if not isinstance(receipt, dict):
             continue
         decided = receipt.get("decided_at")
-        if isinstance(decided, str) and offset_form(decided):
-            named.append(str(body.get("id", "?")))
-    return named
+        if isinstance(decided, str) and valid_timestamp(decided):
+            (offsets if offset_form(decided) else zulus).append(
+                str(body.get("id", "?")))
+    return offsets, zulus
 
 
 def denial_section_errors(vector: dict) -> list[str]:
@@ -568,14 +570,22 @@ def lint(corpus_root: Path) -> int:
     for summary in summaries:
         print(f"  {summary}")
 
-    # Accepted, and said out loud. Whether §6 requires `Z` is P-001 §10; until
-    # it is settled the corpus must not silently split across the two forms,
-    # and rejecting the offset form here would settle it in a lint rule.
-    offsets = sorted(timestamp_offset_vectors(vectors))
+    # Whether §6 requires `Z` is P-001 §10, and neither accepting nor rejecting
+    # the offset form settles it. What can be said without settling it: a corpus
+    # carrying *both* forms is defective whichever way §6 goes, because no
+    # implementation can emit both -- so that fails, and either form alone is
+    # reported and allowed.
+    offsets, zulus = timestamp_forms(vectors)
     if offsets:
         print(f"  receipt timestamps: {len(offsets)} vector(s) use a numeric "
-              f"offset rather than 'Z' — accepted, and an open question "
-              f"(P-001 §10): {', '.join(offsets)}")
+              f"offset rather than 'Z' — allowed, and an open question "
+              f"(P-001 §10): {', '.join(sorted(offsets))}")
+    if offsets and zulus:
+        cross_errors = list(cross_errors) + [
+            f"receipt timestamps: the corpus uses both 'Z' "
+            f"({', '.join(sorted(zulus))}) and a numeric offset "
+            f"({', '.join(sorted(offsets))}). Which §6 requires is open "
+            f"(P-001 §10); that no implementation emits both is not"]
     for error in cross_errors:
         print(f"  FAIL  {error}")
 

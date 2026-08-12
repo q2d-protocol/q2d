@@ -165,6 +165,16 @@ class WholeResponseTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("must never be described as such", output)
 
+    def test_a_corpus_using_both_timestamp_forms_fails(self):
+        # Neither form is rejected — §6 does not say Z, and deciding that here
+        # would settle a specification question in a lint rule. A corpus using
+        # both is defective whichever way §6 goes: no implementation emits
+        # both, so none can satisfy it.
+        code, output = lint(FIXTURES / "denial-mixed-timestamp-forms")
+        self.assertEqual(code, 1)
+        self.assertIn("uses both 'Z'", output)
+        self.assertIn("is not", output)
+
     def test_an_offset_timestamp_is_accepted_and_reported(self):
         # §6 says "RFC 3339, second precision" and does not say Z. Rejecting
         # the offset form would settle that in a lint rule and push both
