@@ -1,0 +1,34 @@
+{
+  "id": "denial/escalation/described-as-normalized",
+  "section": "denial",
+  "requirement": [
+    "Q2D-C-10",
+    "core-model.md#5.3"
+  ],
+  "description": "An explicit escalation carrying external_reason — the field that describes an outcome as belonging to a normalized class, which §5.3 says one is not.",
+  "operation": "process_query",
+  "input": {
+    "cause": "budget_exhausted"
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "policy_escalate",
+      "wire": {
+        "status": "escalate",
+        "pending_token": "opaque-token-placeholder",
+        "expires_at": "2026-01-01T01:00:00Z",
+        "receipt": {
+          "request_digest": "sha-256:0000000000000000000000000000000000000000000000000000000000000000",
+          "decision_class": "escalate",
+          "decided_at": "2026-01-01T00:00:00Z",
+          "responder": "did:example:test-custodian-1",
+          "signature_suite": "eddsa-jws-2026"
+        },
+        "signature": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "external_reason": "unavailable"
+      }
+    },
+    "comparison": "bytes"
+  }
+}

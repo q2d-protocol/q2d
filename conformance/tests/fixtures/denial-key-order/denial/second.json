@@ -1,15 +1,28 @@
 {
   "id": "denial/uniformity-c/second",
   "section": "denial",
-  "requirement": ["Q2D-C-08"],
-  "description": "The same fields in the other order, which is different bytes on the wire.",
+  "requirement": [
+    "Q2D-C-08"
+  ],
+  "description": "The same fields in the other order, which is different bytes on the wire. The signature and receipt digest are placeholders: this is a harness fixture, not a corpus vector, and authoring a real signature is blocked on P-001 §10.",
   "operation": "capacity_debit",
   "input": {},
   "expect": {
     "outcome": "rejected",
     "rejection": {
       "internal_reason": "budget_exhausted",
-      "wire": { "external_reason": "unavailable", "status": "deny" }
+      "wire": {
+        "external_reason": "unavailable",
+        "status": "deny",
+        "receipt": {
+          "request_digest": "sha-256:0000000000000000000000000000000000000000000000000000000000000000",
+          "decision_class": "unavailable",
+          "decided_at": "2026-01-01T00:00:00Z",
+          "responder": "did:example:test-custodian-1",
+          "signature_suite": "eddsa-jws-2026"
+        },
+        "signature": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      }
     },
     "comparison": "bytes"
   }

@@ -38,6 +38,7 @@ from pathlib import Path
 
 import compare as compare_module
 import corpus as corpus_module
+import lint as lint_module
 import projection as projection_module
 import schema as schema_module
 
@@ -119,8 +120,40 @@ def judge(vector, result: dict) -> tuple[bool, str]:
                        f"{expected_rejection['internal_reason']!r}, got "
                        f"{actual_rejection['internal_reason']!r}")
 
+    # A vector may assert a subset of core-model.md §5.2's response where
+    # response construction is not what it tests -- vector.schema.json says so
+    # on `wire` -- and "asserts nothing about the fields it omits" has to mean
+    # exactly that here, or a conforming implementation returning the whole
+    # response fails every registry/ vector for returning too much.
+    #
+    # **Top level only, and `wire` only.** Not `output`: an answer is bounded by
+    # the effective domain (Q2D-C-03), so an implementation returning a field
+    # the vector did not ask for is the failure that claim exists to catch, and
+    # ignoring it would be a subset rule quietly disabling a claim. And not
+    # inside `receipt`, which is exactly five fields or a lint failure.
+    #
+    # And **only where the vector is actually a projection** -- decided by what
+    # it asserts, not by which section it sits in. A vector carrying all four
+    # of §5.2's fields is asserting the whole response wherever it lives, so a
+    # `retry_after` or a `debug_cause` the runner added is a divergence from
+    # what it asserted, and dropping it would be the cause-specific oracle
+    # Q2D-C-08 exists to catch, discarded by the comparison.
+    #
+    # This subsumes the section rule rather than replacing it: a denial/ vector
+    # must assert all four (checked above), so it is always compared exactly.
+    expected_wire = expected_rejection["wire"]
+    actual_wire = actual_rejection["wire"]
+    if isinstance(expected_wire, dict) and isinstance(actual_wire, dict):
+        # Which fields count as "the whole response" depends on the outcome:
+        # §5.3's explicit escalation has no `external_reason` at all, so
+        # measuring it against a denial's field list called every one of them a
+        # projection.
+        if not lint_module.required_wire_fields(expected_wire) <= set(expected_wire):
+            actual_wire = {name: value for name, value in actual_wire.items()
+                           if name in expected_wire}
+
     difference = compare_module.compare(
-        expected_rejection["wire"], actual_rejection["wire"], expect["comparison"])
+        expected_wire, actual_wire, expect["comparison"])
     if difference:
         return False, f"wire response differs: {difference}"
 
@@ -149,6 +182,15 @@ def run_vector(vector, runner: Path, result_schema: dict, vector_schema: dict,
         return Outcome(vector, False,
                        f"vector does not conform to the schema: {errors[0]} "
                        f"(run `harness lint` for the whole picture)")
+
+    # The lint rules this mode's own logic depends on: it decides whether a
+    # vector is a projection from the fields it asserts, and it judges a
+    # receipt it would not otherwise have checked. See
+    # `lint.response_shape_errors` for why they are one call.
+    errors = lint_module.response_shape_errors(vector.body)
+    if errors:
+        return Outcome(vector, False,
+                       f"{errors[0]} (run `harness lint` for the whole picture)")
 
     try:
         projected = projection_module.project(vector.body)

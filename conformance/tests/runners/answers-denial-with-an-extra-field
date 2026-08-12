@@ -1,0 +1,24 @@
+#!/usr/bin/env python3
+"""Adds a cause-specific field to an otherwise uniform denial.
+
+The oracle Q2D-C-08 exists to catch: the four fields are right, and a fifth
+tells a requester which cause it was.
+"""
+import json, sys
+
+RECEIPT = {"request_digest": "sha-256:" + "0" * 64,
+           "decision_class": "unavailable",
+           "decided_at": "2026-01-01T00:00:00Z",
+           "responder": "did:example:test-custodian-1",
+           "signature_suite": "eddsa-jws-2026"}
+
+vector = json.loads(open(sys.argv[1]).read())
+json.dump({"vector_id": vector["id"], "outcome": "rejected",
+           "rejection": {"internal_reason": "budget_exhausted",
+                         "wire": {"status": "deny",
+                                  "external_reason": "unavailable",
+                                  "receipt": RECEIPT, "signature": "z" * 86,
+                                  "debug_cause": "budget_exhausted"},
+                         "step": 15},
+           "implementation": {"name": "q2d-leaky", "version": "0.0.0"}},
+          sys.stdout)

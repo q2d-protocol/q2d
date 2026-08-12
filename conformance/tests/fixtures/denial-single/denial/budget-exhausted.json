@@ -1,0 +1,32 @@
+{
+  "id": "denial/uniformity-c/budget-exhausted",
+  "section": "denial",
+  "requirement": [
+    "Q2D-C-08",
+    "core-model.md#5.2"
+  ],
+  "description": "Two causes in one normalized class, each asserting the whole §5.2 response including its reduced receipt. Fixture only: the signature is a placeholder, because authoring a real one is blocked on P-001 §10.",
+  "operation": "process_query",
+  "input": {
+    "cause": "budget_exhausted"
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "budget_exhausted",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unavailable",
+        "receipt": {
+          "request_digest": "sha-256:0000000000000000000000000000000000000000000000000000000000000000",
+          "decision_class": "unavailable",
+          "decided_at": "2026-01-01T00:00:00Z",
+          "responder": "did:example:test-custodian-1",
+          "signature_suite": "eddsa-jws-2026"
+        },
+        "signature": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      }
+    },
+    "comparison": "bytes"
+  }
+}

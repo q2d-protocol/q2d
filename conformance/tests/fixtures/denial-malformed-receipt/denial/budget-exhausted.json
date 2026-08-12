@@ -1,0 +1,31 @@
+{
+  "id": "denial/uniformity-c/budget-exhausted",
+  "section": "denial",
+  "requirement": [
+    "Q2D-C-08",
+    "core-model.md#5.2"
+  ],
+  "description": "All four §5.2 fields present, but the reduced receipt is missing a field. Fixture for the check that a whole-looking response with an incomplete receipt is still a partial comparison.",
+  "operation": "process_query",
+  "input": {
+    "cause": "budget_exhausted"
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "budget_exhausted",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unavailable",
+        "receipt": {
+          "request_digest": "sha-256:0000000000000000000000000000000000000000000000000000000000000000",
+          "decision_class": "unavailable",
+          "decided_at": "2026-01-01T00:00:00Z",
+          "responder": "did:example:test-custodian-1"
+        },
+        "signature": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      }
+    },
+    "comparison": "bytes"
+  }
+}

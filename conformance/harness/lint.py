@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import json
 import re
+from calendar import monthrange
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import cross_vector
@@ -121,6 +123,457 @@ def placement_errors(vector: dict, path: Path, corpus_root: Path) -> list[str]:
     return errors
 
 
+# core-model.md §6's reduced receipt: "exactly five fields, and no others".
+REDUCED_RECEIPT_FIELDS = frozenset({"request_digest", "decision_class",
+                                    "decided_at", "responder",
+                                    "signature_suite"})
+
+
+def receipt_errors(vector: dict) -> list[str]:
+    """A deny receipt a vector asserts must be the shape §6 defines.
+
+    Not a *narrower* comparison -- a wrong one. A vector may omit `receipt`
+    entirely, which asserts nothing about it and is legitimate where response
+    construction is not what the vector tests. But a vector that asserts a
+    receipt with four fields, or with six, is asserting that a conforming
+    implementation emits one, and core-model.md §6 says it does not: "exactly
+    five fields, and no others", and "adding a field to it -- even an optional
+    one -- is a specification change".
+
+    The extra-field case is the one that matters most, and it is why this is an
+    error rather than a note: a field present for some causes and absent for
+    others is precisely the distinction normalization removes, and a
+    variable-length one breaks the length guarantee §6 grounds in the shape.
+    """
+    expect = vector.get("expect")
+    if not isinstance(expect, dict):
+        return []                       # the schema is already reporting this
+    rejection = expect.get("rejection")
+    if not isinstance(rejection, dict):
+        return []
+    wire = rejection.get("wire")
+    if not isinstance(wire, dict) or "receipt" not in wire:
+        return []
+
+    receipt = wire["receipt"]
+    if not isinstance(receipt, dict):
+        return [f"receipt: asserted as {type(receipt).__name__}, but "
+                f"core-model.md §6's reduced shape is an object of five fields"]
+
+    missing = sorted(REDUCED_RECEIPT_FIELDS - set(receipt))
+    extra = sorted(set(receipt) - REDUCED_RECEIPT_FIELDS)
+    errors = receipt_value_errors(receipt)
+    if missing:
+        errors.append(f"receipt: missing {', '.join(missing)} — core-model.md "
+                      f"§6's reduced shape is exactly five fields. Omit "
+                      f"`receipt` entirely to assert nothing about it")
+    if extra:
+        errors.append(f"receipt: carries {', '.join(extra)} — core-model.md §6 "
+                      f"is 'exactly five fields, and no others', because a "
+                      f"field present for some causes and absent for others "
+                      f"reintroduces the distinction normalization removes")
+    return errors
+
+
+# core-model.md §5.2's deny response, in full. An *opaque* escalation is here
+# too, not in the escalate set below: §5.3 says it "returns the same normalized
+# envelope as §5.2 — including its receipt", and being indistinguishable from a
+# denial is the entire point of it.
+DENY_RESPONSE_FIELDS = frozenset({"status", "external_reason", "receipt",
+                                  "signature"})
+
+# §5.3's *explicit* escalation: "returns `status: escalate` with an opaque
+# `pending_token` and `expires_at`", and "carries a receipt: the reduced shape
+# §5.2 defines, with `decision_class: escalate`". It has no external_reason --
+# it is "not denial-normalized and must never be described as such" -- so
+# holding it to §5.2's field list would reject a correct vector.
+EXPLICIT_ESCALATE_FIELDS = frozenset({"status", "pending_token", "expires_at",
+                                      "receipt", "signature"})
+
+
+def timestamp_forms(vectors) -> dict:
+    """Every RFC 3339 spelling the corpus uses, and which vectors use it.
+
+    No spelling is rejected: §6 says only "RFC 3339, second precision", so
+    deciding between them here would settle a specification question in a lint
+    rule. What *is* rejected is a corpus using more than one, which is
+    defective whichever way §6 goes -- no implementation emits several, so none
+    could satisfy such a corpus.
+    """
+    profiles: dict = {}
+    for vector in vectors:
+        body = vector.body if hasattr(vector, "body") else vector
+        if not isinstance(body, dict):
+            continue
+        expect = body.get("expect")
+        if not isinstance(expect, dict):
+            continue
+        rejection = expect.get("rejection")
+        if not isinstance(rejection, dict):
+            continue
+        wire = rejection.get("wire")
+        if not isinstance(wire, dict):
+            continue
+        receipt = wire.get("receipt")
+        if not isinstance(receipt, dict):
+            continue
+        decided = receipt.get("decided_at")
+        if isinstance(decided, str) and valid_timestamp(decided):
+            profile = timestamp_profile(decided)
+            if profile:
+                profiles.setdefault(profile, []).append(str(body.get("id", "?")))
+    return profiles
+
+
+def receipt_coherence_errors(vector: dict) -> list[str]:
+    """The receipt's class against the response's, wherever one is asserted.
+
+    Not only in `denial/`: a `registry/` rejection carrying a receipt that
+    says `escalate` behind a `deny` leaks the true outcome just as
+    completely, and is no more conforming for being in another section.
+    This lived inside the denial/-only value checks and reached nothing
+    else.
+    """
+    expect = vector.get("expect")
+    if not isinstance(expect, dict):
+        return []
+    rejection = expect.get("rejection")
+    if not isinstance(rejection, dict):
+        return []
+    wire = rejection.get("wire")
+    if not isinstance(wire, dict):
+        return []
+    receipt = wire.get("receipt")
+    if not isinstance(receipt, dict):
+        return []
+
+    errors: list[str] = []
+    status = wire.get("status")
+    # The receipt's own field values are checked by `receipt_errors`, which
+    # runs wherever a receipt is asserted rather than only here -- a
+    # registry/ vector may carry one too, and an empty digest in it is no
+    # more conforming for being in a different section.
+    #
+    # §5.3's boundary, quoted because nothing else in the specification is
+    # put this strongly: "an opaque escalation must not be distinguishable
+    # from any other outcome in that class by its receipt any more than by
+    # its response... a receipt that recorded `escalate` for an outcome the
+    # wire made uniform would defeat Q2D-C-08 through the evidence attached
+    # to it, in the one place nobody looks for a normalization leak."
+    #
+    # So the receipt's class is not free of the response's. An explicit
+    # escalation carries `decision_class: escalate` (§5.3); a denial --
+    # including an opaque escalation, which is a denial on the wire --
+    # carries the normalized class, which is what `external_reason` also
+    # carries (§5.2 "the normalized class, not the true cause"; P-011 §4.1
+    # "the normalized external class"). Two fields defined as the same
+    # value that disagree would themselves be a distinction.
+    decision = receipt.get("decision_class")
+    if isinstance(decision, str) and decision:
+        if status == "escalate":
+            if decision != "escalate":
+                errors.append(
+                    f"wire.receipt.decision_class: {decision!r} on an "
+                    f"explicit escalation — core-model.md §5.3 gives it "
+                    f"'escalate'")
+        elif decision == "escalate":
+            errors.append(
+                "wire.receipt.decision_class: 'escalate' on a response the "
+                "wire made uniform — core-model.md §5.3 calls this out by "
+                "name: it 'would defeat Q2D-C-08 through the evidence "
+                "attached to it, in the one place nobody looks for a "
+                "normalization leak'")
+        else:
+            external = wire.get("external_reason")
+            if isinstance(external, str) and external and decision != external:
+                errors.append(
+                    f"wire.receipt.decision_class: {decision!r} but "
+                    f"external_reason is {external!r} — both are defined "
+                    f"as the normalized class (core-model.md §5.2, P-011 "
+                    f"§4.1), so two values is itself a distinction")
+    return errors
+
+
+def response_shape_errors(vector: dict) -> list[str]:
+    """Every rule about the *shape of an asserted response*, in one call.
+
+    `run` applies these as well as the schema, because its own comparison logic
+    depends on them: it decides whether a vector is a projection from the
+    fields it asserts, and judges a receipt it has not checked. Relying on
+    "lint would have caught it" in a mode that never calls lint is how a
+    safeguard goes missing exactly when someone runs a corpus without linting
+    it first.
+
+    A list rather than two calls, so a third rule added to `lint` does not
+    silently fail to reach `run` -- which has now happened twice.
+    """
+    errors: list[str] = []
+    for rule in (denial_section_errors, receipt_errors,
+                 receipt_coherence_errors, wire_value_errors):
+        errors += rule(vector)
+    return errors
+
+
+def required_wire_fields(wire: dict) -> frozenset:
+    """The whole response for the outcome this wire asserts.
+
+    One function so `lint` and `run` cannot drift about it: lint uses it to
+    require a whole response in `denial/`, and run uses it to decide whether a
+    vector is a projection at all.
+    """
+    if isinstance(wire, dict) and wire.get("status") == "escalate":
+        return EXPLICIT_ESCALATE_FIELDS
+    return DENY_RESPONSE_FIELDS
+
+
+def denial_section_errors(vector: dict) -> list[str]:
+    """A `denial/` vector asserts the whole response, never a projection.
+
+    Elsewhere a subset is legitimate: a `registry/` vector exercises whether a
+    predicate evaluates and rejects correctly, and the envelope around the
+    rejection is not its subject. Here it is the *only* subject, and a subset
+    is not a narrower test but a vacuous one -- `status` and `external_reason`
+    are both fixed by the normalized class, so a vector asserting only those
+    compares two constants across every cause and cannot fail.
+
+    core-model.md §5.3 puts the leak where a projection is silent: "a receipt
+    that recorded escalate for an outcome the wire made uniform would defeat
+    Q2D-C-08 through the evidence attached to it, in the one place nobody looks
+    for a normalization leak."
+    """
+    if vector.get("section") != "denial":
+        return []
+    expect = vector.get("expect")
+    if not isinstance(expect, dict) or expect.get("outcome") != "rejected":
+        return []
+    rejection = expect.get("rejection")
+    if not isinstance(rejection, dict):
+        return []
+    wire = rejection.get("wire")
+    if not isinstance(wire, dict):
+        return []
+
+    # Missing fields only. An *extra* top-level field is deliberately not
+    # rejected here, and the asymmetry with `receipt_errors` is the
+    # specification's rather than an oversight: §6 closes the receipt's list --
+    # "the authoritative field list", "exactly five fields, and no others" --
+    # and §5.2 says nothing of the kind about the response, while contemplating
+    # a field outside its own table: "if retry metadata is present, its value
+    # is identical across every cause mapped to that class".
+    #
+    # Whether §5.2's list is closed is P-001 §10, raised and not decided.
+    # Meanwhile the case that actually threatens Q2D-C-08 is covered: an extra
+    # field that *differs* between causes is a different wire response, and the
+    # denial-uniformity assertion fails the corpus for it.
+    # Which whole response depends on which outcome the vector asserts, and
+    # the two are different shapes rather than one with optional parts.
+    escalating = wire.get("status") == "escalate"
+    required = required_wire_fields(wire)
+    where = "§5.3's explicit escalation" if escalating else "§5.2's whole response"
+
+    missing = sorted(required - set(wire))
+    if missing:
+        detail = (" A subset compares only fields the normalized class already "
+                  "fixes, so it cannot fail." if not escalating else "")
+        return [f"wire: missing {', '.join(missing)} — a denial/ vector asserts "
+                f"core-model.md {where}.{detail}"]
+
+    # Values are checked by `wire_value_errors`, which runs for every vector.
+    return []
+
+
+# §5.2 gives `status` one value on a denial; §5.3 gives an explicit escalation
+# the other. Nothing else is an outcome a rejection vector can assert.
+DENY_STATUS = ("deny", "escalate")
+
+# §6: "RFC 3339, second precision". Checked as a format, not merely as a
+# string, because §6 grounds the whole length guarantee in none of the reduced
+# fields being variable-length -- and a timestamp carrying sub-second precision
+# or a numeric offset is variable-length, which quietly removes it.
+# RFC 3339 permits lowercase `t` and `z`, and §6 does not define an
+# uppercase-only profile. Both are matched; which one a corpus may use is
+# P-001 §10's question, and the answer here is the same as for the offset
+# form -- allow either, report it, and fail a corpus that mixes.
+RFC3339_SECOND = re.compile(
+    r"\A(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})"
+    r"(Z|z|[+-]\d{2}:\d{2})\Z")
+
+
+def valid_timestamp(value: str) -> bool:
+    """RFC 3339, second precision, `Z` -- as a shape *and* as a real instant.
+
+    The shape carries §6's length argument: fixed width, which
+    `2026-1-1T0:0:0Z` is not. Parsing carries the rest, because a regex over
+    digit placement accepts `2026-99-99T99:99:99Z`, which no implementation
+    emits and a vector must not assert.
+
+    Second 60 at 23:59 is **accepted**, and no attempt is made to decide
+    whether that particular leap second was really inserted. It cannot be
+    decided statically -- which leap seconds exist is IERS data that changes
+    after this file is written -- and it is the wrong question anyway: a vector
+    *supplies* `decided_at`, no implementation's clock produces it, so what
+    conformance turns on is whether an implementation parses RFC 3339, not
+    whether the instant occurred.
+
+A numeric offset is **accepted** and separately reported. §6 says "RFC 3339,
+    second precision" and does not say `Z`; it also grounds the length
+    guarantee in none of the reduced fields being variable-length, and
+    `+00:00` is six characters where `Z` is one. So §6 arguably requires `Z` by
+    implication while not saying it -- which is an open question (P-001 §10),
+    and rejecting the offset form here would settle it in a lint rule and push
+    both implementations toward an uncited profile. Reporting keeps it visible
+    without deciding it, and makes a corpus split across the two forms
+    impossible to author unnoticed.
+    """
+    matched = RFC3339_SECOND.match(value)
+    if not matched:
+        return False
+    # strptime has no leap second, so the date is checked with the second
+    # clamped. Everything else about the value is still validated -- and `:60`
+    # is accepted only at 23:59, which is where RFC 3339 §5.7 puts it. Clamping
+    # unconditionally would have blessed `00:00:60Z`, which is not an instant
+    # and which one implementation could accept while another rejects: the
+    # divergence this check exists to prevent, introduced by the check.
+    year, month, day, hour, minute, second, offset = matched.groups()
+
+    if offset not in ("Z", "z"):
+        # The regex matches the offset's *shape*; these are its ranges.
+        # Discarding it and parsing only the local time accepted `+99:99`.
+        offset_hour, offset_minute = int(offset[1:3]), int(offset[4:6])
+        if offset_hour > 23 or offset_minute > 59:
+            return False
+
+    if second == "60":
+        # RFC 3339 §5.7 puts a leap second at 23:59 **UTC**, which is a
+        # different wall time under an offset: `2016-12-31T15:59:60-08:00` is
+        # the same instant as `2016-12-31T23:59:60Z` and is equally valid.
+        # Checking the local fields rejected it. Whether *this* leap second was
+        # inserted is still not knowable here -- see the docstring.
+        shift = 0
+        if offset not in ("Z", "z"):
+            shift = (int(offset[1:3]) * 60 + int(offset[4:6])) * (
+                -1 if offset[0] == "-" else 1)
+        try:
+            local_dt = datetime(int(year), int(month), int(day),
+                                int(hour), int(minute))
+        except ValueError:
+            return False
+        utc = local_dt - timedelta(minutes=shift)
+        if (utc.hour, utc.minute) != (23, 59):
+            return False
+        # §5.7: ":60" occurs "at the end of months in which a leap second
+        # occurs". The month end is fixed by the RFC and checked; *which*
+        # months is IERS data that changes after this file is written, is not
+        # statically decidable, and is deliberately not checked. That is the
+        # line: what the grammar fixes, not what an announcement decides.
+        if utc.day != monthrange(utc.year, utc.month)[1]:
+            return False
+        second = "59"
+    try:
+        datetime.strptime(f"{year}-{month}-{day}T{hour}:{minute}:{second}",
+                          "%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        return False
+    return True
+
+
+def timestamp_profile(value: str) -> str | None:
+    """Which of RFC 3339's spellings this timestamp uses, as a label.
+
+    RFC 3339 permits several forms of the same instant -- `T` or `t`, `Z` or
+    `z` or a numeric offset -- and §6 says only "RFC 3339, second precision".
+    Which one Q2D requires is P-001 §10. Until that is settled, no form is
+    rejected and the *set in use* is what matters: a corpus carrying more than
+    one is defective whichever way §6 goes, because no implementation emits
+    more than one.
+    """
+    matched = RFC3339_SECOND.match(value)
+    if not matched:
+        return None
+    separator = "T" if "T" in value[:11] else "t"
+    terminator = matched.group(7)
+    if terminator in ("Z", "z"):
+        return f"…{separator}…{terminator}"
+    return f"…{separator}…±hh:mm"
+
+
+def nonempty_string(where: str, value) -> list[str]:
+    if not isinstance(value, str):
+        return [f"{where}: {type(value).__name__}, but core-model.md gives it a "
+                f"string value"]
+    if not value:
+        return [f"{where}: empty — a vector asserting an empty value asserts "
+                f"that a conforming implementation emits one"]
+    return []
+
+
+def wire_value_errors(vector: dict) -> list[str]:
+    """The values §5.2 and §6 determine, for whatever the vector asserts.
+
+    Presence alone would accept a vector asserting `status: "answer"` on a
+    rejection, or an empty signature -- either of which would then be scored
+    against both implementations as though it were a conforming response.
+
+    **Only fields that are present.** Which fields a vector must assert depends
+    on its section (`denial_section_errors`); what a field must *contain* does
+    not, so a `registry/` projection asserting `status` and `external_reason`
+    is held to those two exactly as a whole response is. This ran only for
+    `denial/` and so reached neither.
+    """
+    expect = vector.get("expect")
+    if not isinstance(expect, dict):
+        return []
+    rejection = expect.get("rejection")
+    if not isinstance(rejection, dict):
+        return []
+    wire = rejection.get("wire")
+    if not isinstance(wire, dict):
+        return []
+
+    errors: list[str] = []
+
+    status = wire.get("status")
+    if "status" in wire and status not in DENY_STATUS:
+        errors.append(f"wire.status: {status!r} — core-model.md §5.2 gives a "
+                      f"denial {DENY_STATUS[0]!r}, §5.3 an explicit escalation "
+                      f"{DENY_STATUS[1]!r}, and a rejection asserts one of them")
+
+    for field in ("external_reason", "signature", "pending_token", "expires_at"):
+        if field in wire:
+            errors += nonempty_string(f"wire.{field}", wire[field])
+
+    if status == "escalate":
+        if "external_reason" in wire:
+            # Determinate, unlike extra fields in general (§10): §5.3 says an
+            # explicit escalation "is **not** denial-normalized and must never
+            # be described as such", and external_reason is the field that
+            # describes an outcome as belonging to a normalized class.
+            errors.append(
+                "wire.external_reason: present on an explicit escalation — "
+                "core-model.md §5.3 says one is 'not denial-normalized and "
+                "must never be described as such', and this is the field that "
+                "would describe it as such")
+
+    receipt = wire.get("receipt")
+    return errors
+
+
+def receipt_value_errors(receipt: dict) -> list[str]:
+    """The values §6 determines for a reduced receipt, wherever one appears."""
+    errors: list[str] = []
+    for field in sorted(REDUCED_RECEIPT_FIELDS & set(receipt)):
+        errors += nonempty_string(f"wire.receipt.{field}", receipt[field])
+
+    decided = receipt.get("decided_at")
+    if isinstance(decided, str) and decided and not valid_timestamp(decided):
+        errors.append(
+            f"wire.receipt.decided_at: {decided!r} is not RFC 3339 at second "
+            f"precision — core-model.md §6 grounds the length guarantee in "
+            f"none of the reduced fields being variable-length, and this is "
+            f"the one that can vary")
+    return errors
+
+
 def section_errors(vector: dict) -> list[str]:
     """Rules a section carries that the schema cannot express.
 
@@ -171,6 +624,10 @@ def vector_errors(vector, path: Path, corpus_root: Path, vector_schema: dict,
         errors += placement_errors(vector, path, corpus_root)
         errors += citation_errors(vector, claims, classes, sections)
         errors += section_errors(vector)
+        # The same list `run` applies, from the same place. Calling the rules
+        # individually here is how the coherence rule reached `run` and not
+        # `lint` -- two call sites, one of them updated.
+        errors += response_shape_errors(vector)
     return errors
 
 
@@ -226,6 +683,24 @@ def lint(corpus_root: Path) -> int:
     print("\ncross-vector")
     for summary in summaries:
         print(f"  {summary}")
+
+    # Whether §6 requires `Z` is P-001 §10, and neither accepting nor rejecting
+    # the offset form settles it. What can be said without settling it: a corpus
+    # carrying *both* forms is defective whichever way §6 goes, because no
+    # implementation can emit both -- so that fails, and either form alone is
+    # reported and allowed.
+    profiles = timestamp_forms(vectors)
+    if profiles:
+        print(f"  receipt timestamps: {', '.join(sorted(profiles))} — which "
+              f"RFC 3339 spelling §6 requires is open (P-001 §10), so any one "
+              f"is allowed")
+    if len(profiles) > 1:
+        listing = "; ".join(f"{form} in {', '.join(sorted(ids))}"
+                            for form, ids in sorted(profiles.items()))
+        cross_errors = list(cross_errors) + [
+            f"receipt timestamps: the corpus uses {len(profiles)} spellings of "
+            f"RFC 3339 — {listing}. Which one §6 requires is open (P-001 §10); "
+            f"that no implementation emits several is not"]
     for error in cross_errors:
         print(f"  FAIL  {error}")
 

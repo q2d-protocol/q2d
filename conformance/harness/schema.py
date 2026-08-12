@@ -24,6 +24,7 @@ ASSERTIONS = frozenset({
     "type", "enum", "const",
     "properties", "required", "additionalProperties",
     "items", "minItems", "maxItems",
+    "minProperties",
     "minLength", "maxLength",
     "minimum", "maximum",
     "pattern",
@@ -125,6 +126,13 @@ def validate(instance, schema: dict, where: str = "") -> list[str]:
                 errors += validate(item, schema["items"], f"{at}[{i}]")
 
     if isinstance(instance, dict):
+        if "minProperties" in schema and len(instance) < schema["minProperties"]:
+            # An empty object where one is required is a vector asserting
+            # nothing while looking like it asserts something -- the shape this
+            # corpus exists to make impossible.
+            errors.append(f"{at}: has {len(instance)} field(s), "
+                          f"fewer than the {schema['minProperties']} required")
+
         for name in schema.get("required", []):
             if name not in instance:
                 errors.append(f"{at}: missing required field {name!r}")

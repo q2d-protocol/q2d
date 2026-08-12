@@ -1,0 +1,32 @@
+{
+  "id": "denial/uniformity-c/budget-exhausted",
+  "section": "denial",
+  "requirement": [
+    "Q2D-C-08",
+    "core-model.md#5.2"
+  ],
+  "description": "RFC 3339's lowercase separators, which it permits and §6 does not exclude.",
+  "operation": "process_query",
+  "input": {
+    "cause": "budget_exhausted"
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "budget_exhausted",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unavailable",
+        "receipt": {
+          "request_digest": "sha-256:0000000000000000000000000000000000000000000000000000000000000000",
+          "decision_class": "unavailable",
+          "decided_at": "2026-01-01t00:00:00z",
+          "responder": "did:example:test-custodian-1",
+          "signature_suite": "eddsa-jws-2026"
+        },
+        "signature": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      }
+    },
+    "comparison": "bytes"
+  }
+}

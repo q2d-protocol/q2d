@@ -1,11 +1,17 @@
 {
   "id": "denial/uniformity-c/budget-exhausted",
   "section": "denial",
-  "requirement": ["Q2D-C-08", "core-model.md#5.2"],
-  "description": "A second Tier C cause behind the same class, so the corpus can show that distinct causes are indistinguishable rather than asserting it.",
+  "requirement": [
+    "Q2D-C-08",
+    "core-model.md#5.2"
+  ],
+  "description": "A second Tier C cause behind the same class, so the corpus can show that distinct causes are indistinguishable rather than asserting it. The signature and receipt digest are placeholders: this is a harness fixture, not a corpus vector, and authoring a real signature is blocked on P-001 §10.",
   "operation": "capacity_debit",
   "input": {
-    "budget": { "spent_millibits": 4000, "limit_millibits": 4000 }
+    "budget": {
+      "spent_millibits": 4000,
+      "limit_millibits": 4000
+    }
   },
   "expect": {
     "outcome": "rejected",
@@ -13,7 +19,15 @@
       "internal_reason": "budget_exhausted",
       "wire": {
         "status": "deny",
-        "external_reason": "unavailable"
+        "external_reason": "unavailable",
+        "receipt": {
+          "request_digest": "sha-256:0000000000000000000000000000000000000000000000000000000000000000",
+          "decision_class": "unavailable",
+          "decided_at": "2026-01-01T00:00:00Z",
+          "responder": "did:example:test-custodian-1",
+          "signature_suite": "eddsa-jws-2026"
+        },
+        "signature": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
       },
       "step": 15
     },

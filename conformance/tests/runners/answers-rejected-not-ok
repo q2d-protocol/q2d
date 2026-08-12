@@ -6,12 +6,22 @@ so it must be reported before anything asks whether the bytes are comparable.
 """
 import json, sys
 
+# core-model.md §5.2's whole deny response. Placeholder signature: a
+# real one is blocked on P-001 §10, and this is a fixture runner.
+RECEIPT = {"request_digest": "sha-256:0000000000000000000000000000000000000000000000000000000000000000",
+           "decision_class": "unavailable",
+           "decided_at": "2026-01-01T00:00:00Z",
+           "responder": "did:example:test-custodian-1",
+           "signature_suite": "eddsa-jws-2026"}
+SIGNATURE = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+
 vector = json.loads(open(sys.argv[1]).read())
 if vector["id"] != "message/sign/query-minimal":
     print(f"no canned answer for {vector['id']}", file=sys.stderr)
     raise SystemExit(1)
 json.dump({"vector_id": vector["id"], "outcome": "rejected",
            "rejection": {"internal_reason": "unknown_key",
-                         "wire": {"status": "deny", "external_reason": "unavailable"}},
+                         "wire": {"status": "deny", "external_reason": "unavailable",
+                                "receipt": RECEIPT, "signature": SIGNATURE}},
            "implementation": {"name": "q2d-rejecting", "version": "0.0.0"}},
           sys.stdout)

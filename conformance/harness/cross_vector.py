@@ -56,6 +56,52 @@ def multiset_key(value) -> str:
                       ensure_ascii=False, allow_nan=False)
 
 
+# core-model.md §5.2's deny response, in full. A vector asserting fewer of these
+# asserts nothing about the ones it omits, and for a normalized class that
+# matters more than it looks: `status` and `external_reason` are fixed by the
+# class, so comparing only those two compares two constants.
+DENY_RESPONSE_FIELDS = ("status", "external_reason", "receipt", "signature")
+
+
+
+# §5.3's explicit escalation, which has no external_reason. Kept here rather
+# than imported from `lint` because this module is imported *by* lint.
+EXPLICIT_ESCALATE_FIELDS = frozenset({"status", "pending_token", "expires_at",
+                                      "receipt", "signature"})
+
+
+def pair_diverges(left: dict, right: dict) -> bool:
+    """Do two wire responses in one class disagree?
+
+    **Both whole: compared whole.** A field present in one and absent in the
+    other is then the divergence it is -- a `retry_after` on one cause and not
+    another is exactly the cause-specific leak Q2D-C-08 forbids, and
+    intersecting it away would be the check discarding its own finding.
+
+    **Either a projection: compared on what both assert.** A projection asserts
+    nothing about the fields it omits (vector.schema.json on `wire`), so it
+    cannot disagree about them.
+
+    Pairwise rather than across the class, because intersecting group-wide lets
+    one projection blind it: two vectors asserting different receipts would
+    agree because a third omitted `receipt`.
+    """
+    if whole_response(left) and whole_response(right):
+        return as_authored(left) != as_authored(right)
+    shared = set(left) & set(right)
+    return (as_authored({k: v for k, v in left.items() if k in shared})
+            != as_authored({k: v for k, v in right.items() if k in shared}))
+
+
+def whole_response(wire) -> bool:
+    """Does this wire assert a whole response, or a projection of one?"""
+    if not isinstance(wire, dict):
+        return False
+    required = (EXPLICIT_ESCALATE_FIELDS if wire.get("status") == "escalate"
+                else frozenset(DENY_RESPONSE_FIELDS))
+    return required <= set(wire)
+
+
 def rejection_vectors(vectors):
     for vector in vectors:
         if not isinstance(vector.body, dict):
@@ -80,6 +126,7 @@ def denial_uniformity(vectors) -> tuple[list[str], str]:
     """
     errors: list[str] = []
     groups: dict[str, list[tuple[str, str, str]]] = defaultdict(list)
+    partial: dict[str, set] = {}
 
     for vector, rejection in rejection_vectors(vectors):
         wire = rejection["wire"]
@@ -89,13 +136,55 @@ def denial_uniformity(vectors) -> tuple[list[str], str]:
             # group and there is nothing to compare it against.
             continue
         groups[str(external)].append(
-            (vector.id, as_authored(wire), str(rejection.get("internal_reason", ""))))
+            (vector.id, wire, str(rejection.get("internal_reason", ""))))
+        # Only whole §5.2 fields. A `receipt` that is present but the wrong
+        # shape is not a narrower comparison -- it is a vector asserting a
+        # receipt the specification says no implementation emits -- and
+        # `lint.receipt_errors` fails it.
+        absent = {f for f in DENY_RESPONSE_FIELDS if f not in wire}
+        if absent:
+            partial.setdefault(str(external), set()).update(absent)
 
     thin = []
 
     for external, members in sorted(groups.items()):
-        wires = {wire for _, wire, _ in members}
-        if len(wires) > 1:
+        # Compared on the fields every member asserts, not on whole objects.
+        # A vector "asserts nothing about the fields it omits"
+        # (vector.schema.json on `wire`), so a projection sitting in a class
+        # beside a whole response must not be reported as disagreeing with it
+        # for the fields it declined to mention -- which is what would happen
+        # the moment the first whole-response denial vector is authored beside
+        # the registry/ projections that exist today.
+        #
+        # The comparison is weaker for it, and that is exactly what the partial
+        # report below says. It is not weaker than the vectors themselves: two
+        # vectors asserting different things about a field they both assert
+        # still disagree.
+        # Only where a member *is* a projection. When every member asserts a
+        # whole response, they are compared whole -- so a field present in one
+        # and absent in another is the divergence it is, rather than being
+        # intersected away. That is the case `denial-divergent` exercises, and
+        # it is the failure this assertion exists for.
+        #
+        # Authored key order is preserved when projecting: a wire's own order
+        # is part of its bytes (§4.8), and sorting here would normalise away
+        # the thing being compared.
+        # **Pairwise**, not group-wide. Intersecting across the whole class
+        # would let one projection blind it: two vectors asserting different
+        # receipts would agree because a third omitted `receipt`. Each pair is
+        # compared on what both assert, so a field two members both assert is
+        # always compared, whatever a third does.
+        divergent_pair = False
+        for i, (_, left, _) in enumerate(members):
+            for _, right, _ in members[i + 1:]:
+                if pair_diverges(left, right):
+                    divergent_pair = True
+                    break
+            if divergent_pair:
+                break
+
+        wires = {as_authored(wire) for _, wire, _ in members}
+        if divergent_pair:
             listing = ", ".join(sorted(v for v, _, _ in members))
             errors.append(
                 f"denial uniformity: {len(wires)} distinct wire responses claim "
@@ -119,6 +208,20 @@ def denial_uniformity(vectors) -> tuple[list[str], str]:
 
     summary = (f"{len(groups)} external class(es) across "
                f"{sum(len(m) for m in groups.values())} rejection vector(s)")
+
+    if partial:
+        # Said every run, because the alternative is a confident line over a
+        # comparison that could not have failed. Where every wire in a class is
+        # a proper subset of §5.2's response, the fields actually compared are
+        # `status` and `external_reason` -- both fixed by the class -- so the
+        # check is a tautology unless the receipt is present. §5.3 puts the
+        # leak precisely there.
+        for external in sorted(partial):
+            missing = ", ".join(sorted(partial[external]))
+            summary += (f"; {external!r} compared a partial response (no "
+                        f"{missing}), which cannot detect a receipt-level "
+                        f"divergence — see vector.schema.json on `wire`")
+
     if thin:
         summary += (f"; {len(thin)} with a single cause, which show nothing about "
                     f"indistinguishability and may simply be Tier A: "

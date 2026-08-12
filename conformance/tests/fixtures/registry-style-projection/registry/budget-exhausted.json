@@ -1,0 +1,28 @@
+{
+  "id": "registry/uniformity-c/budget-exhausted",
+  "section": "registry",
+  "requirement": [
+    "Q2D-C-08",
+    "core-model.md#5.2"
+  ],
+  "description": "A projection, as a registry/ vector legitimately asserts. A runner returning the whole response must pass it.",
+  "operation": "capacity_debit",
+  "input": {
+    "budget": {
+      "spent_millibits": 4000,
+      "limit_millibits": 4000
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "budget_exhausted",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unavailable"
+      },
+      "step": 15
+    },
+    "comparison": "bytes"
+  }
+}

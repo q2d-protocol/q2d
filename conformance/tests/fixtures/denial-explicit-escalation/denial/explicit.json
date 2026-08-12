@@ -1,0 +1,33 @@
+{
+  "id": "denial/escalation/explicit",
+  "section": "denial",
+  "requirement": [
+    "Q2D-C-10",
+    "core-model.md#5.3"
+  ],
+  "description": "An explicit escalation: §5.3's shape, not §5.2's. No external_reason — it is 'not denial-normalized and must never be described as such'.",
+  "operation": "process_query",
+  "input": {
+    "cause": "budget_exhausted"
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "policy_escalate",
+      "wire": {
+        "status": "escalate",
+        "pending_token": "opaque-token-placeholder",
+        "expires_at": "2026-01-01T01:00:00Z",
+        "receipt": {
+          "request_digest": "sha-256:0000000000000000000000000000000000000000000000000000000000000000",
+          "decision_class": "escalate",
+          "decided_at": "2026-01-01T00:00:00Z",
+          "responder": "did:example:test-custodian-1",
+          "signature_suite": "eddsa-jws-2026"
+        },
+        "signature": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      }
+    },
+    "comparison": "bytes"
+  }
+}

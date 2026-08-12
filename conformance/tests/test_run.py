@@ -77,6 +77,78 @@ class StageZeroExpectedStateTest(unittest.TestCase):
             self.assertIn(f"0/{len(vectors)} vectors passed", output)
 
 
+class PartialWireTest(unittest.TestCase):
+    """A vector asserting a subset of §5.2 asserts nothing about the rest.
+
+    vector.schema.json says so on `wire`. If `run` compared the whole object,
+    a conforming implementation returning §5.2's four fields would fail every
+    registry/ vector for returning too much — the corpus contract and the
+    comparison would disagree, and the comparison would win.
+    """
+
+    def test_a_whole_response_passes_a_projecting_vector(self):
+        code, output = run(RUNNERS / "answers-the-whole-response",
+                           FIXTURES / "registry-style-projection")
+        self.assertEqual(code, 0, output)
+        self.assertIn("1/1 vectors passed", output)
+
+    def test_an_asserted_field_still_has_to_match(self):
+        # The subset rule drops what the vector does not mention; it does not
+        # soften what it does.
+        code, output = run(RUNNERS / "answers-denial-with-another-reason",
+                           FIXTURES / "registry-style-projection")
+        self.assertEqual(code, 1)
+        self.assertIn("internal reason", output)
+
+
+class DenialExactnessTest(unittest.TestCase):
+    def test_a_whole_response_vector_outside_denial_is_also_exact(self):
+        # The projection is decided by what the vector asserts, not by its
+        # section. One asserting all four fields is asserting the whole
+        # response wherever it lives.
+        code, output = run(RUNNERS / "answers-denial-with-an-extra-field",
+                           FIXTURES / "registry-whole-response")
+        self.assertEqual(code, 1)
+        self.assertIn("debug_cause", output)
+
+    def test_an_explicit_escalation_is_compared_exactly(self):
+        # §5.3's shape has no external_reason, so measuring it against a
+        # denial's field list called every explicit escalation a projection —
+        # and projections drop extra fields.
+        code, output = run(RUNNERS / "answers-escalation-with-an-extra-field",
+                           FIXTURES / "escalation-single")
+        self.assertEqual(code, 1)
+        self.assertIn("debug_cause", output)
+
+    def test_a_vector_with_an_invalid_receipt_is_not_run(self):
+        # `run` judges the receipt, so it applies the rule that decides whether
+        # the receipt is one. Without it, a vector asserting a six-field
+        # receipt would be scored against a runner emitting the same sixth
+        # field, and both would look conforming.
+        code, output = run(RUNNERS / "answers-correctly",
+                           FIXTURES / "denial-extra-receipt-field")
+        self.assertEqual(code, 1)
+        self.assertIn("exactly five fields", output)
+
+    def test_a_lint_invalid_denial_projection_is_not_run(self):
+        # `run`'s exact-comparison decision depends on a denial/ vector being
+        # whole-response, which is a lint rule. A mode that never calls lint
+        # cannot rely on lint having been called.
+        code, output = run(RUNNERS / "answers-correctly",
+                           FIXTURES / "denial-projection")
+        self.assertEqual(code, 1)
+        self.assertIn("whole response", output)
+
+    def test_an_extra_field_on_a_denial_fails(self):
+        # denial/ is not projected. A runner returning the four fields plus a
+        # cause-specific fifth is the oracle Q2D-C-08 exists to catch, and a
+        # subset rule applied here would drop it.
+        code, output = run(RUNNERS / "answers-denial-with-an-extra-field",
+                           FIXTURES / "denial-single")
+        self.assertEqual(code, 1)
+        self.assertIn("debug_cause", output)
+
+
 class PassingTest(unittest.TestCase):
     def test_a_correct_runner_passes_every_vector(self):
         code, output = run(RUNNERS / "answers-correctly")
