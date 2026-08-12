@@ -63,8 +63,22 @@ def has_float(obj) -> bool:
     return False
 
 
+class NotATimestamp(Exception):
+    """A value where a timestamp was expected. Reported, never a traceback."""
+
+
 def ts(s: str) -> datetime:
-    return datetime.fromisoformat(s.replace("Z", "+00:00"))
+    """Parse a timestamp, or raise something the caller can report.
+
+    The eager scan above catches anything *shaped* like a date-time. A value
+    that is not -- `"tomorrow"` in a field the schema declares `format:
+    date-time` -- reaches here, and an unguarded `fromisoformat` would abort
+    the sweep with a traceback instead of naming the file.
+    """
+    try:
+        return datetime.fromisoformat(s.replace("Z", "+00:00"))
+    except (ValueError, AttributeError) as exc:
+        raise NotATimestamp(f"{s!r} is not a timestamp ({exc})") from None
 
 
 # ---- reference evaluations -------------------------------------------------
@@ -314,13 +328,16 @@ def main(argv: list[str]) -> int:
     leap = [f"{path}={value}" for path, value in timestamps(manifest)
             if value[17:19] == "60"]
     if leap:
+        # Exit 2, not 1: 1 means the manifest is wrong, and this manifest may
+        # be right. A caller has to be able to tell "non-conforming" from
+        # "this tool cannot say".
         print("\nSTOPPED: this validator cannot check a manifest containing a "
               "leap second —")
         print("  " + "; ".join(leap))
         print("  `datetime.fromisoformat` raises on second 60. The value may "
               "well be conforming;\n  core-model.md §2.2 permits it and this "
               "tool cannot say so either way.")
-        return 1
+        return 2
 
     if wrong:
         # Reported *and* stopped. Everything below parses these values --
@@ -419,7 +436,13 @@ def main(argv: list[str]) -> int:
         for v in p["test_vectors"]:
             name = v["name"]
             exp = v["expect"]
-            rej = reject_reason(p["id"], v["public_context"])
+            try:
+                rej = reject_reason(p["id"], v["public_context"])
+            except NotATimestamp as exc:
+                # Named and skipped, not raised: one malformed vector must not
+                # hide every finding after it.
+                check(False, f"{name}: public context parses", str(exc))
+                continue
 
             if exp["outcome"] == "reject":
                 check(rej == exp["internal_reason"],
