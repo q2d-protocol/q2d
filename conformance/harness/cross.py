@@ -16,8 +16,16 @@ signed into B's verification means knowing which operation consumes a signed
 envelope and under which input field -- that is P-002's and P-003's knowledge,
 and P-001 §3 puts protocol logic outside this harness explicitly: *"a change
 that gives it protocol knowledge is out of scope and an escalation."* Making it
-real needs a vector to declare its companion, which is a format change. §4.8
-records that rather than leaving a reader to assume both halves run.
+real needs a vector to declare its companion, which is a format change. It is
+P-001 issue 19, and this mode exits 3 rather than 0 until it lands.
+
+It is not the same check written twice. Byte agreement compares A's *signer*
+against B's signer; neither **verifier** is exercised at all. Verification is
+core-model.md §4 step 4, and everything from step 5 down is gated on it --
+steps 1 to 3 run before it deliberately, on envelope size and the declared
+suite, which is the most attacker-exposed code there is. An implementation with
+a lenient verifier passes every byte-comparison vector there is. mvp-scope.md's
+Stage 1 gate is cross-verification for that reason.
 
 ## What "identical bytes" can mean here
 
@@ -406,17 +414,19 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
 
     # Everything compared, agreed. That is still not §4.8 met, because §4.8 asks
     # for two things and issue 19 is the other one -- so this exits non-zero,
-    # with a code of its own. A caller must not be able to read "the clause
+    # with a code of its own. `return 0` here is issue 19's last line. A caller must not be able to read "the clause
     # holds" off an exit status that means "the half I can check holds": the
     # exit code is the only part of this report a CI gate reads, and every
     # sentence above it could be perfect while the gate still overstated.
     #
-    # Whether that stays true is §10's open question. If the scope reduction is
-    # approved, this becomes `return 0` and the reason line stays; until then
-    # fail-closed is the repository's own rule, and it applies to the harness as
-    # much as to a responder.
+    # §10 settled this: the split is approved -- issue 9 is byte agreement, and
+    # B-verifying-A is issue 19 -- and the status stays non-zero until 19 lands.
+    # It is not redundant work. Byte agreement compares A's *signer* against B's
+    # signer and says nothing about either verifier, and mvp-scope.md's Stage 1
+    # gate is cross-verification, so 19 is what makes that gate real.
     print(f"\nINCOMPLETE: {compared} vector(s) agree, which is the first half of "
           f"§4.8's cross-implementation clause. The second — B verifying what A "
           f"produced — is issue 19 and is not implemented, so this exits "
-          f"{EXIT_CLAUSE_INCOMPLETE} rather than 0. See P-001 §10.")
+          f"{EXIT_CLAUSE_INCOMPLETE} rather than 0. Deliberate, and settled: "
+          f"see P-001 §10.")
     return EXIT_CLAUSE_INCOMPLETE

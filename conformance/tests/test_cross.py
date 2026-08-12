@@ -48,7 +48,8 @@ def cross(a: Path, b: Path, corpus: Path = VALID) -> tuple[int, str]:
 class AgreementTest(unittest.TestCase):
     # Agreement exits INCOMPLETE, not 0: §4.8 asks for two things and issue 19
     # is the other one, so no caller can read "the clause holds" off this
-    # mode's status. P-001 §10 carries the pending decision.
+    # mode's status. Settled in P-001 §10; this becomes 0 when issue 19 lands,
+    # and this test is where that change announces itself.
     def test_two_runners_producing_the_same_values_agree(self):
         code, output = cross(CORRECT, CORRECT, FIXTURES / "message-only")
         self.assertEqual(code, INCOMPLETE, output)
