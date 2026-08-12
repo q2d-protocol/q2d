@@ -65,9 +65,22 @@ question is still fresh than after the answer arrives.
 | **E-15** | `mvp-scope.md` §1 reads as though MVP completion is Phase 1 completion | P-016 | `mvp-scope.md` §1 | **Closed** |
 | **E-16** | Should the registry's JSON Schema profile be normative in `spec/`? | P-006 | `scope.md` | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5 | **Open** |
+| **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
+| **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
+| **E-20** | What does a vector's `wire` field assert? | P-001 §10 | `conformance/vector.schema.json`, P-009 §5 | **Closed** |
+| **E-21** | Which members does the signature's protected header carry? | P-001 §10 | `crypto-suites.md` §3, `core-model.md` §2.7 | **Closed** |
+| **E-22** | Are `core-model.md` §5's response field lists closed, and where does retry metadata live? | P-001 §10 | `core-model.md` §5.1, §5.2, §5.3, §9.1 | **Closed** |
+| **E-23** | Which RFC 3339 spelling may a receipt timestamp use? | P-001 §10 | `core-model.md` §6 | **Open** |
 
 Two further items are **coordination, not escalation** — P-001 owns both. They
 are listed in §2 because they block the same PRDs, and both are now **closed**.
+
+**E-18 … E-23 were raised while building P-001's harness and corpus**, and each
+was recorded in P-001 §10 as it was raised. They are entered here late, which is
+the failure this register exists to prevent: a decision recorded only in the PRD
+that raised it is findable by someone already reading that PRD, and by nobody
+else. Their full options and reasoning are in P-001 §10; §4 below carries the
+summary and what each cascaded into.
 
 ---
 
@@ -1067,6 +1080,64 @@ P-008 — capacity for a declared coarsening · corpus `domain/narrowing/`.
 
 ---
 
+## E-23 — Which RFC 3339 spelling may a receipt timestamp use?
+
+**Raised by** [P-001](prds/P-001-conformance-corpus.md) §10 ·
+**Decides** [`core-model.md`](../spec/core-model.md) §6 ·
+**Blocks** P-001 issues 12–14's `denial/` vectors, P-009's whole section
+
+### Context
+
+§6 says `decided_at` is *"RFC 3339, second precision"*. RFC 3339 permits several
+spellings of one instant: `T` or `t`, `Z` or `z`, and a numeric offset such as
+`+00:00` instead of `Z`.
+
+§6 names no profile among them — **and it also grounds the reduced receipt's
+whole length guarantee in none of its fields being variable-length.** `+00:00` is
+six characters where `Z` is one. So the same section appears to require `Z` by
+implication while not saying it.
+
+### Concretely
+
+Every `denial/` vector will carry a receipt. Settling this after they are
+authored means regenerating them; settling it before costs one sentence.
+
+### Options
+
+**A. State the profile in §6** — `Z`, second precision, uppercase `T`.
+
+**B. Drop the length argument's dependence on this field**, and accept that
+byte-length uniformity across causes is a property of the *values* a deployment
+emits rather than of the shape.
+
+### Recommendation — A
+
+§6's own argument already needs it. B would weaken the one structural guarantee
+Q2D-C-08's size condition rests on, to gain a flexibility nothing has asked for.
+
+### Why this one is not cosmetic
+
+Until it is settled, **`claims.md` Q2D-C-08's size condition is not structurally
+met.** Closure bounds the field set; it does not bound the response's size while
+one field's length is a deployment's choice. Q2D-C-08's *"holds when… the
+external envelope, its size, and its retry semantics are identical"* therefore
+still rests partly on what an implementation happens to emit, which is what
+closing §5 and §6 was meant to remove. `claims.md` now says so under **Enforced
+by**, rather than claiming a bound that is not yet there.
+
+### Interim position
+
+`harness lint` **allows any single spelling, names the one in use on every run,
+and fails a corpus that mixes them** — across every timestamp a response
+carries, the receipt's `decided_at` and §5.3's `expires_at` alike. The mixing rule is decidable without
+settling the question: no implementation emits several spellings, so a corpus
+carrying more than one cannot be satisfied by any implementation, whichever way
+§6 goes. Rejecting a spelling would settle the question in a lint rule and push
+both implementations toward an uncited profile — which was tried, twice, in
+opposite directions.
+
+---
+
 ## 2. Coordination items — P-001 decides, no escalation needed
 
 Listed here because they block the same PRDs and would otherwise be tracked
@@ -1114,7 +1185,12 @@ question 5.
 ## 3. Resolutions
 
 E-01 … E-15 were decided in one pass and cascaded in the same change; every
-recommendation was adopted. **E-16 and E-17 are open** and are not in this table.
+recommendation was adopted. **E-16, E-17 and E-23 are open** and are not in this
+table.
+
+E-18 … E-22 were decided one at a time while P-001's harness and corpus were
+built, each cascaded before the next was raised. Every recommendation was
+adopted.
 
 | ID | Resolution | Landed in |
 |---|---|---|
@@ -1135,6 +1211,11 @@ recommendation was adopted. **E-16 and E-17 are open** and are not in this table
 | **E-15** | §1 states that MVP completion is not Phase 1 completion, **naming the three claims** | `mvp-scope.md` §1 · P-016 §4.6 |
 | **C-01** | Minimal timing capability **pulled forward to Stage 7** | P-001 §4.5, §10, issue 18 · P-016 open question 2 |
 | **C-02** | Operation vocabulary settled as one issue before Stage 5, **after** E-06 and E-14, both of which change the list | P-001 §4.5, issue 17 |
+| **E-18** | The split is **approved**: P-001 issue 9 is byte agreement between two runners, and B-verifying-A is issue 19. `harness cross` exits **3 rather than 0** when the runners agree, because the exit status is the only part of the report a release gate reads. Not redundant work — byte agreement compares A's *signer* against B's signer and exercises neither verifier, and [`mvp-scope.md`](mvp-scope.md) Stage 1's gate **is** cross-verification | P-001 §4.8, §7, issues 9 and 19 · P-002 §7, P-003 §7, P-012 §7, P-013 §7 (three of which named `harness cross` for work it does not do) |
+| **E-19** | Signed vectors are authored **from the specification text**, by [`tools/author_vectors.py`](../tools/author_vectors.py), written before either implementation exists — a corpus generated from an implementation cannot check that implementation. Three disciplines carry it: never described as independent; a tool/implementation disagreement is a specification ambiguity under investigation; output is committed and thereafter authored data | P-001 §4.9, §10 · `conformance/keys/README.md` · the tool's Ed25519 is gated on RFC 8032 §7.1's published vectors |
+| **E-20** | A vector may assert a **subset** of §5.2's response where response construction is not what it tests, and asserts nothing about the fields it omits; `denial/` may not, because `status` and `external_reason` are both fixed by the normalized class, so a subset there compares two constants and cannot fail | `conformance/vector.schema.json` · P-001 §4.8 · P-009 §5 · `harness lint` and `harness run` |
+| **E-21** | The protected header carries **`suite` and `key_id`, and no others**. `suite` is the suite identifier, because P-003 §4.2 step 4 confirms it *equals* the payload's `signature.profile`. `key_id` is there because §4 resolves the key at step 4 while the payload's copy is unreadable until step 5 — a gap nothing had recorded. **No `alg`**, so `alg: none` is not a state the format can express, and a Q2D signed string is consequently **not a conformant JWS** but the JWS compact *form* | `crypto-suites.md` §3, §4 · `core-model.md` §2.7 · P-003 §4.1, §4.2, §6 · `tools/author_vectors.py` |
+| **E-22** | **Every §5 response is a closed field list** — §5.1 with `evidence` conditional on the assurance profile named in the same response, §5.2 at four fields, §5.3's explicit escalation at five. Adding one is a specification change, on the reasoning §6 already gave for the receipt. **§5.2's retry permission is dropped**: it permitted a field whose only conforming value was uniform, no conformance class allowed the transport form, and P-009 §4.4 declined to emit any — a permission with no user is a trap | `core-model.md` §5.1, §5.2, §5.3, §9.1 · `claims.md` Q2D-C-08 (enforcement description) · P-009 §4.4, P-013 §4.2 · `harness lint` |
 
 ### What did not change, deliberately
 

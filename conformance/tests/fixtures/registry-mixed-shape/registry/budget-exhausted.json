@@ -1,0 +1,28 @@
+{
+  "id": "registry/uniformity-c/budget-exhausted",
+  "section": "registry",
+  "requirement": [
+    "Q2D-C-08",
+    "core-model.md#5.2"
+  ],
+  "description": "A projection mixing §5.2's external_reason with §5.3's pending_token. A subset of neither shape, so no conforming response could satisfy it.",
+  "operation": "capacity_debit",
+  "input": {
+    "budget": {
+      "spent_millibits": 4000,
+      "limit_millibits": 4000
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "budget_exhausted",
+      "wire": {
+        "external_reason": "unavailable",
+        "pending_token": "opaque-placeholder"
+      },
+      "step": 15
+    },
+    "comparison": "bytes"
+  }
+}

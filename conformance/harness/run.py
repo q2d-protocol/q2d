@@ -135,14 +135,40 @@ def judge(vector, result: dict) -> tuple[bool, str]:
     # And **only where the vector is actually a projection** -- decided by what
     # it asserts, not by which section it sits in. A vector carrying all four
     # of §5.2's fields is asserting the whole response wherever it lives, so a
-    # `retry_after` or a `debug_cause` the runner added is a divergence from
+    # `retry_after` or a `debug_cause` the *runner* added is a divergence from
     # what it asserted, and dropping it would be the cause-specific oracle
-    # Q2D-C-08 exists to catch, discarded by the comparison.
+    # Q2D-C-08 exists to catch, discarded by the comparison. A runner is not
+    # lint-checked -- it is compared -- so this is where a field §5.2 does not
+    # have gets caught coming from an implementation rather than a vector.
     #
     # This subsumes the section rule rather than replacing it: a denial/ vector
     # must assert all four (checked above), so it is always compared exactly.
     expected_wire = expected_rejection["wire"]
     actual_wire = actual_rejection["wire"]
+
+    # Before any of that: a field §5 does not have is never "not asserted".
+    # A projection says nothing about §5's *other* fields; it says nothing at
+    # all about fields the response cannot carry, and filtering those away
+    # would let a leaky implementation past every projection vector -- which is
+    # most of the corpus, and exactly where no whole-response denial vector
+    # covers the operation.
+    if isinstance(actual_wire, dict):
+        # A *vector* may omit `status` -- it is projecting, and has not said
+        # which response it is. A runner's output may not: a conforming
+        # response always carries one, and without it the allowed set would be
+        # the union of both shapes, which is a wider surface than either.
+        if "status" not in actual_wire:
+            return False, ("wire response carries no `status` — core-model.md "
+                           "§5 gives every response one, and without it there "
+                           "is no shape to hold the rest of the fields to")
+        forbidden = sorted(set(actual_wire)
+                           - lint_module.required_wire_fields(actual_wire))
+        if forbidden:
+            return False, (f"wire response carries {', '.join(forbidden)}, which "
+                           f"core-model.md §5 does not give it — a closed field "
+                           f"list, so this is a field the implementation can "
+                           f"vary by cause")
+
     if isinstance(expected_wire, dict) and isinstance(actual_wire, dict):
         # Which fields count as "the whole response" depends on the outcome:
         # §5.3's explicit escalation has no `external_reason` at all, so

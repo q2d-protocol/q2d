@@ -127,11 +127,14 @@ exchange was fully distinguishable.
 
 MVP emits none.
 
-[`core-model.md`](../../spec/core-model.md) §5.2 permits retry metadata if its
-value and semantics are identical across every cause in the class. Meeting that
-is possible and is a standing invitation to get it wrong — a `Retry-After`
-computed from a rate limiter is cause-specific by construction, and it would take
-one plausible commit to introduce.
+[`core-model.md`](../../spec/core-model.md) §5.2 **has no field for retry
+metadata**, so this is now structural rather than a module decision. It was a
+module decision first: §5.2 used to permit retry metadata whose value was
+identical across every cause, this PRD declined to emit any, and the argument
+was that meeting the uniformity condition is possible and is a standing
+invitation to get it wrong — a `Retry-After` computed from a rate limiter is
+cause-specific by construction, and it would take one plausible commit to
+introduce. That argument closed the permission rather than merely declining it.
 
 Emitting none costs a requester a backoff hint it can supply itself.
 
@@ -143,9 +146,11 @@ rejection is a Tier C cause like any other. A rate limiter that answers "try
 again in 40 seconds" has partitioned the class by cause, and the fact that it was
 introduced to close an oracle makes it no less of one.
 
-The rule is unchanged and now load-bearing: **no retry metadata, from any source,
-for any cause.** [P-013](P-013-https-binding.md) §4.2 carries the transport half —
-no `429`, no `503`, no `Retry-After` header.
+The rule is unchanged and now structural: **no retry metadata, from any source,
+for any cause.** [`core-model.md`](../../spec/core-model.md) §5.2 carries it in
+the response — there is no field to put a value in —
+and [P-013](P-013-https-binding.md) §4.2 carries the transport half: no `429`,
+no `503`, no `Retry-After` header.
 
 ### 4.5 The wire builder cannot see the reason
 
@@ -250,13 +255,12 @@ a question for this PRD**, and the corpus enforces the achievable reading
 meanwhile: identical, because the vector fixes both fields.
 
 A signature can now be produced — the protected header it needs is
-[`crypto-suites.md`](../../spec/crypto-suites.md) §3's — but **that was not the
-only thing standing in the way of a vector in this section.** Two open questions
-in [P-001](P-001-conformance-corpus.md) §10 still decide bytes a whole-response
-denial vector would carry: whether §5.2's response field list is closed, and
-which RFC 3339 spelling a receipt timestamp uses. Authoring these vectors before
-those are settled would settle them by example, in the section whose whole
-purpose is demonstrating Q2D-C-08.
+[`crypto-suites.md`](../../spec/crypto-suites.md) §3's — and §5.2's field list
+is closed at four, so the shape of these vectors is settled. **One open question
+in [P-001](P-001-conformance-corpus.md) §10 still decides bytes they would
+carry:** which RFC 3339 spelling a receipt timestamp uses. Authoring these
+vectors before it is settled would settle it by example, in the section whose
+whole purpose is demonstrating Q2D-C-08.
 
 Meanwhile the corpus's existing rejection vectors assert projections, and the
 harness names every one of them on every run, so nothing reads a partial

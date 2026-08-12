@@ -125,6 +125,16 @@ class WholeResponseTest(unittest.TestCase):
         self.assertIn("wire: missing receipt, signature", output)
         self.assertIn("cannot fail", output)
 
+    def test_a_denial_carrying_an_extra_field_is_rejected(self):
+        # §5.2 is "exactly four fields, and no others". The fixture uses the
+        # field that would actually appear — a rate limiter's retry value,
+        # which core-model.md §9.1 makes every deployment capable of producing
+        # and which is cause-specific by construction.
+        code, output = lint(FIXTURES / "denial-extra-response-field")
+        self.assertEqual(code, 1)
+        self.assertIn("wire: carries retry_after", output)
+        self.assertIn("vary by cause", output)
+
     def test_the_values_5_2_determines_are_checked_not_only_the_keys(self):
         # Presence alone would accept a vector asserting `status: "answer"` on
         # a rejection, or an empty signature — either then scored against both
@@ -184,7 +194,7 @@ class WholeResponseTest(unittest.TestCase):
             with self.subTest(fixture=fixture):
                 code, output = lint(FIXTURES / fixture)
                 self.assertEqual(code, 0, output)
-                self.assertIn("receipt timestamps:", output)
+                self.assertIn("response timestamps:", output)
                 self.assertIn("open (P-001 §10)", output)
 
     def test_an_impossible_offset_is_rejected(self):
@@ -281,6 +291,40 @@ class CoherenceOutsideDenialTest(unittest.TestCase):
 
 
 class ValuesOutsideDenialTest(unittest.TestCase):
+    def test_extra_fields_are_rejected_outside_denial_too(self):
+        # §5's closure is a property of the response, not of a section. Which
+        # fields a vector must assert depends on what it tests; which fields
+        # exist does not.
+        code, output = lint(FIXTURES / "registry-extra-response-field")
+        self.assertEqual(code, 1)
+        self.assertIn("wire: carries retry_after", output)
+
+    def test_a_projection_with_no_status_is_not_held_to_one_shape(self):
+        # It has not said which response it is, so §5.3's own fields must not
+        # read as forbidden extras.
+        code, output = lint(FIXTURES / "registry-escalation-projection")
+        self.assertEqual(code, 0, output)
+
+    def test_a_projection_mixing_two_shapes_is_rejected(self):
+        # A subset of neither §5.2 nor §5.3, so no conforming response could
+        # satisfy it — it would fail every runner, for the corpus's mistake.
+        code, output = lint(FIXTURES / "registry-mixed-shape")
+        self.assertEqual(code, 1)
+        self.assertIn("subset of neither", output)
+
+    def test_a_spelling_mixed_across_fields_is_caught(self):
+        # §5.3's `expires_at` is the same kind of value under the same open
+        # question as the receipt's `decided_at`. A response spelling one with
+        # `Z` and the other with an offset is mixed inside itself.
+        code, output = lint(FIXTURES / "denial-mixed-across-fields")
+        self.assertEqual(code, 1)
+        self.assertIn("spellings of RFC 3339", output)
+
+    def test_an_escalation_expiry_must_be_a_time(self):
+        code, output = lint(FIXTURES / "denial-bad-expires")
+        self.assertEqual(code, 1)
+        self.assertIn("wire.expires_at:", output)
+
     def test_asserted_values_are_checked_outside_denial_too(self):
         # Which fields a vector must assert depends on its section; what a
         # field may contain does not. A projection asserting `status: answer`

@@ -74,9 +74,11 @@ def pair_diverges(left: dict, right: dict) -> bool:
     """Do two wire responses in one class disagree?
 
     **Both whole: compared whole.** A field present in one and absent in the
-    other is then the divergence it is -- a `retry_after` on one cause and not
-    another is exactly the cause-specific leak Q2D-C-08 forbids, and
-    intersecting it away would be the check discarding its own finding.
+    other is then the divergence it is, and intersecting it away would be the
+    check discarding its own finding. Since §5.2 closed, an *authored* vector
+    cannot carry a field outside the four -- `lint` rejects it before this runs
+    -- so what this catches is a value differing where both assert it, and a
+    field set differing inside a receipt.
 
     **Either a projection: compared on what both assert.** A projection asserts
     nothing about the fields it omits (vector.schema.json on `wire`), so it

@@ -214,14 +214,22 @@ def timestamp_forms(vectors) -> dict:
         wire = rejection.get("wire")
         if not isinstance(wire, dict):
             continue
+        # Every timestamp a response carries, not only the receipt's. §5.3's
+        # `expires_at` is the same kind of value under the same open question,
+        # and a corpus whose escalations spell it one way while its receipts
+        # spell it another is mixed just as surely.
+        found = []
         receipt = wire.get("receipt")
-        if not isinstance(receipt, dict):
-            continue
-        decided = receipt.get("decided_at")
-        if isinstance(decided, str) and valid_timestamp(decided):
-            profile = timestamp_profile(decided)
-            if profile:
-                profiles.setdefault(profile, []).append(str(body.get("id", "?")))
+        if isinstance(receipt, dict):
+            found.append(receipt.get("decided_at"))
+        found.append(wire.get("expires_at"))
+
+        for value in found:
+            if isinstance(value, str) and valid_timestamp(value):
+                profile = timestamp_profile(value)
+                if profile:
+                    profiles.setdefault(profile, []).append(
+                        str(body.get("id", "?")))
     return profiles
 
 
@@ -308,8 +316,9 @@ def response_shape_errors(vector: dict) -> list[str]:
     silently fail to reach `run` -- which has now happened twice.
     """
     errors: list[str] = []
-    for rule in (denial_section_errors, receipt_errors,
-                 receipt_coherence_errors, wire_value_errors):
+    for rule in (denial_section_errors, extra_wire_field_errors,
+                 receipt_errors, receipt_coherence_errors,
+                 wire_value_errors):
         errors += rule(vector)
     return errors
 
@@ -320,9 +329,19 @@ def required_wire_fields(wire: dict) -> frozenset:
     One function so `lint` and `run` cannot drift about it: lint uses it to
     require a whole response in `denial/`, and run uses it to decide whether a
     vector is a projection at all.
+
+    A wire with **no `status`** has not said which response it is, so it gets
+    the union: a projection asserting `pending_token` and `expires_at` is a
+    partial explicit escalation, and measuring it against a denial's list would
+    report §5.3's own fields as forbidden extras.
     """
-    if isinstance(wire, dict) and wire.get("status") == "escalate":
+    if not isinstance(wire, dict):
+        return DENY_RESPONSE_FIELDS
+    status = wire.get("status")
+    if status == "escalate":
         return EXPLICIT_ESCALATE_FIELDS
+    if status is None:
+        return DENY_RESPONSE_FIELDS | EXPLICIT_ESCALATE_FIELDS
     return DENY_RESPONSE_FIELDS
 
 
@@ -353,18 +372,6 @@ def denial_section_errors(vector: dict) -> list[str]:
     if not isinstance(wire, dict):
         return []
 
-    # Missing fields only. An *extra* top-level field is deliberately not
-    # rejected here, and the asymmetry with `receipt_errors` is the
-    # specification's rather than an oversight: §6 closes the receipt's list --
-    # "the authoritative field list", "exactly five fields, and no others" --
-    # and §5.2 says nothing of the kind about the response, while contemplating
-    # a field outside its own table: "if retry metadata is present, its value
-    # is identical across every cause mapped to that class".
-    #
-    # Whether §5.2's list is closed is P-001 §10, raised and not decided.
-    # Meanwhile the case that actually threatens Q2D-C-08 is covered: an extra
-    # field that *differs* between causes is a different wire response, and the
-    # denial-uniformity assertion fails the corpus for it.
     # Which whole response depends on which outcome the vector asserts, and
     # the two are different shapes rather than one with optional parts.
     escalating = wire.get("status") == "escalate"
@@ -378,8 +385,61 @@ def denial_section_errors(vector: dict) -> list[str]:
         return [f"wire: missing {', '.join(missing)} — a denial/ vector asserts "
                 f"core-model.md {where}.{detail}"]
 
-    # Values are checked by `wire_value_errors`, which runs for every vector.
+    # Extra fields are `extra_wire_field_errors`, which runs for every vector:
+    # §5's closure is a property of the response, not of this section. Values
+    # likewise, in `wire_value_errors`.
     return []
+
+
+def extra_wire_field_errors(vector: dict) -> list[str]:
+    """A response may carry no field §5 does not list, in any section.
+
+    §5.2 is "exactly four fields, and no others" and §5.3's explicit escalation
+    exactly five, on the reasoning §6 already gave for the receipt: a field
+    present for some causes and absent for others reintroduces the distinction
+    normalization removes, and a field set that is not enumerated cannot be
+    size-bounded.
+
+    **Not scoped to `denial/`,** unlike the rule that a whole response must be
+    asserted. Which fields a vector must assert depends on what it is testing;
+    which fields *exist* does not. A `registry/` vector asserting a projection
+    plus a `retry_after` is asserting a field the response does not have, and
+    an implementation would be scored against it.
+    """
+    expect = vector.get("expect")
+    if not isinstance(expect, dict):
+        return []
+    rejection = expect.get("rejection")
+    if not isinstance(rejection, dict):
+        return []
+    wire = rejection.get("wire")
+    if not isinstance(wire, dict):
+        return []
+
+    # With no `status` the vector has not said which response it is, so it must
+    # be a projection of *one* of them -- not a mixture. The union would accept
+    # `external_reason` beside `pending_token`, which is a subset of neither
+    # shape and which every conforming runner would fail.
+    if wire.get("status") is None:
+        shapes = {"§5.2's response": DENY_RESPONSE_FIELDS,
+                  "§5.3's explicit escalation": EXPLICIT_ESCALATE_FIELDS}
+        if not any(set(wire) <= fields for fields in shapes.values()):
+            return [f"wire: {', '.join(sorted(wire))} is a subset of neither "
+                    f"core-model.md §5.2's response nor §5.3's explicit "
+                    f"escalation. A projection that names no `status` must "
+                    f"project one of them; this one could not be satisfied by "
+                    f"any conforming response"]
+        return []
+
+    allowed = required_wire_fields(wire)
+    extra = sorted(set(wire) - allowed)
+    if not extra:
+        return []
+    where = ("§5.3's explicit escalation" if wire.get("status") == "escalate"
+             else "§5.2's response")
+    return [f"wire: carries {', '.join(extra)} — core-model.md {where} is "
+            f"exactly {len(allowed)} fields and no others, so a response that "
+            f"can grow one has a field a producer can vary by cause"]
 
 
 # §5.2 gives `status` one value on a denial; §5.3 gives an explicit escalation
@@ -542,6 +602,15 @@ def wire_value_errors(vector: dict) -> list[str]:
         if field in wire:
             errors += nonempty_string(f"wire.{field}", wire[field])
 
+    # §5.3 gives `expires_at` the same form as the receipt's `decided_at`:
+    # RFC 3339, second precision. Checked the same way, so an escalation vector
+    # cannot assert a time no implementation would emit.
+    expires = wire.get("expires_at")
+    if isinstance(expires, str) and expires and not valid_timestamp(expires):
+        errors.append(
+            f"wire.expires_at: {expires!r} is not RFC 3339 at second precision "
+            f"— core-model.md §5.3")
+
     if status == "escalate":
         if "external_reason" in wire:
             # Determinate, unlike extra fields in general (§10): §5.3 says an
@@ -691,14 +760,14 @@ def lint(corpus_root: Path) -> int:
     # reported and allowed.
     profiles = timestamp_forms(vectors)
     if profiles:
-        print(f"  receipt timestamps: {', '.join(sorted(profiles))} — which "
+        print(f"  response timestamps: {', '.join(sorted(profiles))} — which "
               f"RFC 3339 spelling §6 requires is open (P-001 §10), so any one "
               f"is allowed")
     if len(profiles) > 1:
         listing = "; ".join(f"{form} in {', '.join(sorted(ids))}"
                             for form, ids in sorted(profiles.items()))
         cross_errors = list(cross_errors) + [
-            f"receipt timestamps: the corpus uses {len(profiles)} spellings of "
+            f"response timestamps: the corpus uses {len(profiles)} spellings of "
             f"RFC 3339 — {listing}. Which one §6 requires is open (P-001 §10); "
             f"that no implementation emits several is not"]
     for error in cross_errors:

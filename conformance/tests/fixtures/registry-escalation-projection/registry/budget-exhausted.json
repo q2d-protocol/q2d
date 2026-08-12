@@ -1,0 +1,28 @@
+{
+  "id": "registry/uniformity-c/budget-exhausted",
+  "section": "registry",
+  "requirement": [
+    "Q2D-C-08",
+    "core-model.md#5.2"
+  ],
+  "description": "A projection of §5.3's explicit escalation that omits status. Measuring it against a denial's field list would report §5.3's own fields as forbidden extras.",
+  "operation": "capacity_debit",
+  "input": {
+    "budget": {
+      "spent_millibits": 4000,
+      "limit_millibits": 4000
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "budget_exhausted",
+      "wire": {
+        "pending_token": "opaque-placeholder",
+        "expires_at": "2026-01-01T01:00:00Z"
+      },
+      "step": 15
+    },
+    "comparison": "bytes"
+  }
+}

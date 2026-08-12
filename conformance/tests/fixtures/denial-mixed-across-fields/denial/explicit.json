@@ -1,0 +1,33 @@
+{
+  "id": "denial/escalation/explicit",
+  "section": "denial",
+  "requirement": [
+    "Q2D-C-10",
+    "core-model.md#5.3"
+  ],
+  "description": "A receipt spelled with Z beside an expiry spelled with an offset. Mixed, inside one response.",
+  "operation": "process_query",
+  "input": {
+    "cause": "budget_exhausted"
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "policy_escalate",
+      "wire": {
+        "status": "escalate",
+        "pending_token": "opaque-token-placeholder",
+        "expires_at": "2026-01-01T01:00:00+00:00",
+        "receipt": {
+          "request_digest": "sha-256:0000000000000000000000000000000000000000000000000000000000000000",
+          "decision_class": "escalate",
+          "decided_at": "2026-01-01T00:00:00Z",
+          "responder": "did:example:test-custodian-1",
+          "signature_suite": "eddsa-jws-2026"
+        },
+        "signature": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      }
+    },
+    "comparison": "bytes"
+  }
+}
