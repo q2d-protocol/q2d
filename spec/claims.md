@@ -65,6 +65,13 @@ is never trusted.
 responder rejects unknown predicate versions and registry digests.
 **Enforced by.** Registry pinning; signature over the manifest; fail-closed on
 unknown version or digest; narrowing composition computed responder-side.
+
+`answer_contract.coarsening` (`core-model.md` §2.5) is not an exception to this.
+The requester declares a mapping; the responder **validates** it against the
+registered domain under §3.2 and computes the effective domain itself. A
+declared mapping is a request like any other field of the contract, and the
+capacity debit still comes from the registry rather than from anything the
+requester said.
 **Fails if.** The registry signing key is compromised; an entry is wrong; the
 responder accepts a requester-supplied domain as authoritative.
 **Not.** A guarantee that the registered domain is *appropriate*. A registry can

@@ -18,7 +18,7 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-16 and E-17 are open**, and **neither blocks decomposition.** Both were
+> **E-16 is open**, and **neither blocks decomposition.** Both were
 > found while checking that every PRD is decomposable, both were sitting in
 > P-006's open-question table marked *"This PRD"*, and neither is a PRD's to
 > decide — each changes `spec/`. Each has a conforming interim position:
@@ -64,7 +64,7 @@ question is still fresh than after the answer arrives.
 | **E-14** | Should the requester's response processing order be normative? | P-012 | `core-model.md` | **Closed** |
 | **E-15** | `mvp-scope.md` §1 reads as though MVP completion is Phase 1 completion | P-016 | `mvp-scope.md` §1 | **Closed** |
 | **E-16** | Should the registry's JSON Schema profile be normative in `spec/`? | P-006 | `scope.md` | **Open** |
-| **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5 | **Open** |
+| **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
 | **E-20** | What does a vector's `wire` field assert? | P-001 §10 | `conformance/vector.schema.json`, P-009 §5 | **Closed** |
@@ -997,7 +997,7 @@ out-of-profile schema) · `registry/validate.py` enforces it · P-001 corpus
 
 ## E-17 — Is a coarsening mapping declared by the requester, or inferred?
 
-**Raised by** [P-006](prds/P-006-request-validation.md) §4.5 ·
+**Closed — A, declared.** Raised by [P-006](prds/P-006-request-validation.md) §4.5 ·
 **Decides** [`core-model.md`](../spec/core-model.md) §2.5 ·
 **Blocks** nothing. [`core-model.md`](../spec/core-model.md) §3.2 states a
 conservative `enum` rule — a requested domain must equal the registered one —
@@ -1037,150 +1037,43 @@ equal the registered domain) and this escalation decides whether to widen it.
 consequence: under inference, a requester cannot check an `enum` result at all,
 and its conformance check degrades to shape identity.
 
-### Options
+### Resolution — A, declared
 
-| | Option | For | Against |
-|---|---|---|---|
-| **A** | **Declared** — the answer contract carries the mapping | Checkable by both sides, no semantic judgement in code, and the requester can validate the result. Removes the one shape where §4.5's table has no rule | A field added to `answer_contract` in `core-model.md` §2.5 — signed, capacity-relevant, and it grows the signed object for a case most requests will not use |
-| **B** | **Inferred** — the responder derives it | No spec change; smaller contract | Two implementations can infer differently and both pass. This is the divergence class the whole project is organised against, and it would be undetectable from the wire |
-| **C** | **Neither: prohibit `enum` coarsening in 0.1** — an `enum` request must equal the registered domain, as `boolean` already must | No spec field, no divergence, and §4.5 gains a rule that is trivially checkable | Removes a genuine capability. A requester that only needs *reachable / not-reachable* must receive the finer answer and coarsen it locally — which discloses more, and debits more, than it needed |
+`answer_contract.coarsening` carries the mapping. §3.2 states the four
+conditions a responder validates it against — total, onto, non-expanding, and a
+function — all of which are set comparisons and counts.
 
-### Recommendation — A, declared
+**The responder makes no judgement about what a label means.** A mapping saying
+`via-assistant → not-reachable` is admissible even where a human would call it
+wrong: Q2D-C-01 binds the requester to the commitment it made, and what the
+responder guarantees is that the returned answer lies inside the requested
+domain, not that the requester asked a sensible question. That division is what
+makes the check mechanical, and mechanical is what makes two implementations
+agree.
 
-B is not defensible in a project whose central discipline is that two
-implementations must agree: it puts a semantic judgement in code, on a path where
-disagreement produces a wrong answer rather than an error.
+B was not defensible in a project organised around two implementations agreeing:
+it puts a semantic judgement in code, on the one path where a disagreement
+produces a wrong answer rather than an error, invisibly from the wire. C —
+prohibiting `enum` coarsening — would have made the protocol charge a requester
+for more disclosure than it asked for, since a requester needing two labels
+would receive the finer answer and coarsen it locally. That cuts against
+Q2D-C-09's purpose, which is a worse cost than the field.
 
-Between A and C, A is worth the field. C's cost is not merely a lost feature — it
-makes the protocol charge a requester for more disclosure than it asked for,
-which cuts against Q2D-C-09's whole purpose. The registered domain is what
-bounds; the contract is what the requester commits to; a requester that commits
-to less should be charged less.
+### Capacity, which needed no new mechanism
 
-The field should be **shape-specific and optional** — present only for `enum`
-requests that coarsen — and the responder validates that the mapping is **total**
-(every registered value has an image) and **non-expanding** (no label admits a
-value outside the registered domain). Totality is what §2.5's subsetting
-prohibition already requires; this makes it checkable for the one shape where it
-currently is not.
+The debit comes from the coarsened label count, looked up in the registry
+entry's capacity table exactly as any varying cardinality is
+([`registry/README.md`](../registry/README.md)). An entry whose `enum` may be
+coarsened carries a table over every reachable label count rather than a single
+value; a count the table does not cover is a registry defect and a blocker
+([P-008](prds/P-008-capacity-accounting.md) §4), not something to compute.
 
-Note the capacity consequence, which is the reason this is a §2.5 change and not
-a P-006 detail: the debit is computed from the cardinality of the *effective*
-domain, so a declared coarsening onto three labels debits `log2(3)`, not
-`log2(15)`. The mapping is therefore capacity-relevant and must be inside the
-signature.
+### What the interim rule was for
 
-**Cascade:** `core-model.md` §2.5 gains the field, and §2.5's coarsening
-paragraph gains the totality requirement · `core-model.md` §3.1 if the capacity
-lookup needs a note on declared coarsenings · `registry/manifest.json` — whether
-an entry may constrain permissible mappings · P-006 §4.5's `enum` row, §4.1, and
-issue 4 · P-006 open question 4 closed · P-006 **status** returns to
-*Ready for decomposition* · P-012 §4.5's `enum` limitation and open question 2's
-reasoning · P-002 §4.x — the field is signed, so it is envelope surface ·
-P-008 — capacity for a declared coarsening · corpus `domain/narrowing/`.
-
----
-
-## E-23 — Which RFC 3339 spelling may a receipt timestamp use?
-
-**Closed.** Raised by [P-001](prds/P-001-conformance-corpus.md) §10 ·
-**Decided** [`core-model.md`](../spec/core-model.md) §2.2
-
-### What it turned out to be
-
-Not an open choice. **P-002 §4.2 already said "RFC 3339 with `Z`, second
-precision"** — and was the only place in the repository that said `Z`, while
-`core-model.md` §6 said only "RFC 3339, second precision". A PRD held a rule
-`spec/` needed, which is the second source of truth
-[CLAUDE.md](../CLAUDE.md)'s hierarchy exists to prevent.
-
-### Why relocating it mattered more than stating it
-
-P-002 §4.2's profile applies *"to the JWS payload and to every sub-object that
-is digested"*. **`routing` is neither** — it is the outer envelope — and §2.1
-lists `expires_at` among the fields it may carry.
-
-§4 step 8 compares `routing` against `signed` and rejects any disagreement as
-tampering. With two spellings of one instant available, either a conforming
-producer's own message reads as tampered, or a verifier compares parsed
-*instants* — which moves parsing of unauthenticated data above the verification
-line §2.1 exists to keep it below. Two implementations could land on different
-readings, so the same message is tampering to one and conforming to the other,
-in the check whose entire job is detecting tampering.
-
-### Resolution
-
-§2.2 states one spelling for every timestamp in the protocol — core object,
-`routing`, and receipt alike — with the three things that depend on it named:
-step 8's byte comparison, §6's length guarantee, and cross-implementation byte
-identity. §4 step 8 now says **byte for byte** explicitly. §5.3, §6 and P-002
-§4.2 cite §2.2 rather than restating it.
-
-`claims.md` Q2D-C-08's enforcement description is restored to claiming a size
-bound, which closure alone did not give: the field list left `decided_at` free
-to be six characters or one.
-
-Two PRDs restated the rule rather than citing it and were amended with the rest:
-[P-011](prds/P-011-receipts-audit.md) §4.1's receipt table, and
-[P-009](prds/P-009-denial-normalization.md) §4.3's fixed-width argument — which
-was the argument that motivated the whole question and was, until this cascade,
-resting on a paraphrase.
-
----
-
-## E-24 — At which step is a registry-entry constraint checked, when no JSON Schema can express it?
-
-**Closed.** Raised by [P-001](prds/P-001-conformance-corpus.md) §10 ·
-**Decided** [`core-model.md`](../spec/core-model.md) §4, new step **11a**
-
-### The gap
-
-§4 step 11 was *"public context validated against the entry's input schema"*.
-The `availability-window` predicate also carries a **minimum slot duration**,
-which no JSON Schema expresses — so a rejection for it happened somewhere
-outside step 11 and §4 did not say where.
-
-### Resolution — B, a step of its own
-
-**11a**, immediately after 11. They are different mechanisms: step 11 runs a
-schema the registry supplies and an implementation satisfies it by validating a
-document; an entry's other constraints are predicate-specific logic. Folding
-them into one step would let an implementation satisfy §4 by running a validator
-and stopping, and would leave a conformance vector unable to say which of the
-two rejected — in the section that exists to assert exactly that.
-
-Lettered, as 9a is, because §4's numbers are cited across the repository and a
-mid-sequence insertion would otherwise renumber everything below it. Placed
-after 11 because the schema is the cheaper check and establishes the shape the
-constraints assume, and before 12 because both ask whether the request is within
-what the entry permits.
-
-### What made the answer easy
-
-**[P-006](prds/P-006-request-validation.md) already had the distinction.** §4.3
-is titled *"Constraints are separate from schemas"*, and §5's interface list
-carries `validate_schema` and `check_constraints` as two functions. The
-specification had one step where the module implementing it always had two
-mechanisms. That is the shape of a spec gap rather than a design choice, and it
-is why B needed no argument against A beyond naming it.
-
-### Cascade
-
-The folded registry vector states `11a`, so its `before_private_access`
-property is machine-checked rather than only described — the description still
-says "at a step before private input is read", which is now a restatement of a
-checked fact rather than the only place it appears. `vector.schema.json`'s lettered-step
-enum holds `9a` and `11a` and stays closed. Every range whose span contains a lettered step now names it —
-[`mvp-scope.md`](mvp-scope.md) Stage 4, which defines the stage as *"steps
-1–19"* and outranks every PRD; CC-2 and P-010's paraphrase of it; P-010's
-acceptance, which was *"step orchestration, 1–19"*; and §4's own invariant about
-steps 1–15 preceding private access. Each would have been satisfiable while
-skipping both lettered steps. Ranges that end before a lettered step —
-[P-013](prds/P-013-https-binding.md)'s *"steps 1–2"*,
-[P-012](prds/P-012-requester-runtime.md)'s requester order — are correct as
-written and left alone.
-
----
+§3.2 rejected any `enum` request not equal to the registered domain while this
+was open. That was conforming and implementable, and its purpose was precisely
+that no implementation would settle the question by accident before it was
+asked.
 
 ## 2. Coordination items — P-001 decides, no escalation needed
 
@@ -1229,7 +1122,7 @@ question 5.
 ## 3. Resolutions
 
 E-01 … E-15 were decided in one pass and cascaded in the same change; every
-recommendation was adopted. **E-16 and E-17 are open** and are not in this
+recommendation was adopted. **E-16 is open** and are not in this
 table.
 
 E-18 … E-24 were decided one at a time while P-001's harness and corpus were
@@ -1255,6 +1148,7 @@ recommended**, and each cascaded before the next was raised. E-21, E-22, E-23 an
 | **E-15** | §1 states that MVP completion is not Phase 1 completion, **naming the three claims** | `mvp-scope.md` §1 · P-016 §4.6 |
 | **C-01** | Minimal timing capability **pulled forward to Stage 7** | P-001 §4.5, §10, issue 18 · P-016 open question 2 |
 | **C-02** | Operation vocabulary settled as one issue before Stage 5, **after** E-06 and E-14, both of which change the list | P-001 §4.5, issue 17 |
+| **E-17** | **Declared.** The requester carries the mapping in `answer_contract.coarsening`, and the responder validates it against four conditions that are set comparisons and counts — total, onto, non-expanding, a function. **The responder makes no judgement about what a label means**: a mapping a human would call wrong is admissible, because Q2D-C-01 binds the requester to its own commitment and what a responder guarantees is that the answer lies inside the requested domain, not that the question was sensible. Capacity comes from the label count via the entry's capacity table, the mechanism that already exists for varying cardinality | `core-model.md` §2.5, §3.2 · `claims.md` Q2D-C-02 (enforcement description) · P-006 §4.5, §6 · P-012 §4.5, which recorded the degradation this removes |
 | **E-18** | The split is **approved**: P-001 issue 9 is byte agreement between two runners, and B-verifying-A is issue 19. `harness cross` exits **3 rather than 0** when the runners agree, because the exit status is the only part of the report a release gate reads. Not redundant work — byte agreement compares A's *signer* against B's signer and exercises neither verifier, and [`mvp-scope.md`](mvp-scope.md) Stage 1's gate **is** cross-verification | P-001 §4.8, §7, issues 9 and 19 · P-002 §7, P-003 §7, P-012 §7, P-013 §7 (three of which named `harness cross` for work it does not do) |
 | **E-19** | Signed vectors are authored **from the specification text**, by [`tools/author_vectors.py`](../tools/author_vectors.py), written before either implementation exists — a corpus generated from an implementation cannot check that implementation. Three disciplines carry it: never described as independent; a tool/implementation disagreement is a specification ambiguity under investigation; output is committed and thereafter authored data | P-001 §4.9, §10 · `conformance/keys/README.md` · the tool's Ed25519 is gated on RFC 8032 §7.1's published vectors |
 | **E-20** | A vector may assert a **subset** of §5.2's response where response construction is not what it tests, and asserts nothing about the fields it omits; `denial/` may not, because `status` and `external_reason` are both fixed by the normalized class, so a subset there compares two constants and cannot fail | `conformance/vector.schema.json` · P-001 §4.8 · P-009 §5 · `harness lint` and `harness run` |
