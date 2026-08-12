@@ -77,6 +77,30 @@ class StageZeroExpectedStateTest(unittest.TestCase):
             self.assertIn(f"0/{len(vectors)} vectors passed", output)
 
 
+class PartialWireTest(unittest.TestCase):
+    """A vector asserting a subset of §5.2 asserts nothing about the rest.
+
+    vector.schema.json says so on `wire`. If `run` compared the whole object,
+    a conforming implementation returning §5.2's four fields would fail every
+    registry/ vector for returning too much — the corpus contract and the
+    comparison would disagree, and the comparison would win.
+    """
+
+    def test_a_whole_response_passes_a_projecting_vector(self):
+        code, output = run(RUNNERS / "answers-the-whole-response",
+                           FIXTURES / "registry-style-projection")
+        self.assertEqual(code, 0, output)
+        self.assertIn("1/1 vectors passed", output)
+
+    def test_an_asserted_field_still_has_to_match(self):
+        # The subset rule drops what the vector does not mention; it does not
+        # soften what it does.
+        code, output = run(RUNNERS / "answers-denial-with-another-reason",
+                           FIXTURES / "registry-style-projection")
+        self.assertEqual(code, 1)
+        self.assertIn("internal reason", output)
+
+
 class PassingTest(unittest.TestCase):
     def test_a_correct_runner_passes_every_vector(self):
         code, output = run(RUNNERS / "answers-correctly")

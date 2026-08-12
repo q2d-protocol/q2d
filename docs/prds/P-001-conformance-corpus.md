@@ -422,7 +422,17 @@ Two smaller decisions the implemented pair carry:
   response and the two fields every vector carries today — `status` and
   `external_reason` — are both fixed by the class.
 
-  **A receipt a vector does assert is held to §6's shape, and that is an error
+  **A vector asserting a subset is judged on that subset**, in `run` as well as
+  in the report. "Asserts nothing about the fields it omits" has to mean
+  exactly that, or a conforming implementation returning §5.2's whole response
+  fails every `registry/` vector for returning too much — the corpus contract
+  and the comparison would disagree, and the comparison would win. It applies
+  at the top level of `wire` and nowhere else: **not to `output`**, where an
+  answer is bounded by the effective domain and an unasked-for field is the
+  failure Q2D-C-03 exists to catch, and not inside `receipt`, which is five
+  fields or a lint failure.
+
+- **A receipt a vector does assert is held to §6's shape, and that is an error
   rather than a report.** Omitting `receipt` asserts nothing about it and is
   legitimate; asserting one with four fields or six asserts that a conforming
   implementation emits it, and §6 says *"exactly five fields, and no others"*.

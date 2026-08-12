@@ -119,8 +119,28 @@ def judge(vector, result: dict) -> tuple[bool, str]:
                        f"{expected_rejection['internal_reason']!r}, got "
                        f"{actual_rejection['internal_reason']!r}")
 
+    # A vector may assert a subset of core-model.md §5.2's response where
+    # response construction is not what it tests -- vector.schema.json says so
+    # on `wire` -- and "asserts nothing about the fields it omits" has to mean
+    # exactly that here, or a conforming implementation returning the whole
+    # response fails every registry/ vector for returning too much.
+    #
+    # **Top level only, and `wire` only.** Not `output`: an answer is bounded by
+    # the effective domain (Q2D-C-03), so an implementation returning a field
+    # the vector did not ask for is the failure that claim exists to catch, and
+    # ignoring it would be a subset rule quietly disabling a claim. And not
+    # inside `receipt`, which is exactly five fields or a lint failure.
+    #
+    # The section that tests uniformity is unaffected: a denial/ vector must
+    # assert all four fields, so nothing is dropped where it would matter.
+    expected_wire = expected_rejection["wire"]
+    actual_wire = actual_rejection["wire"]
+    if isinstance(expected_wire, dict) and isinstance(actual_wire, dict):
+        actual_wire = {name: value for name, value in actual_wire.items()
+                       if name in expected_wire}
+
     difference = compare_module.compare(
-        expected_rejection["wire"], actual_rejection["wire"], expect["comparison"])
+        expected_wire, actual_wire, expect["comparison"])
     if difference:
         return False, f"wire response differs: {difference}"
 
