@@ -120,6 +120,16 @@ class DenialExactnessTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("debug_cause", output)
 
+    def test_a_vector_with_an_invalid_receipt_is_not_run(self):
+        # `run` judges the receipt, so it applies the rule that decides whether
+        # the receipt is one. Without it, a vector asserting a six-field
+        # receipt would be scored against a runner emitting the same sixth
+        # field, and both would look conforming.
+        code, output = run(RUNNERS / "answers-correctly",
+                           FIXTURES / "denial-extra-receipt-field")
+        self.assertEqual(code, 1)
+        self.assertIn("exactly five fields", output)
+
     def test_a_lint_invalid_denial_projection_is_not_run(self):
         # `run`'s exact-comparison decision depends on a denial/ vector being
         # whole-response, which is a lint rule. A mode that never calls lint

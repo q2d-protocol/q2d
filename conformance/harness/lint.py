@@ -224,6 +224,25 @@ def timestamp_forms(vectors) -> tuple[list[str], list[str]]:
     return offsets, zulus
 
 
+def response_shape_errors(vector: dict) -> list[str]:
+    """Every rule about the *shape of an asserted response*, in one call.
+
+    `run` applies these as well as the schema, because its own comparison logic
+    depends on them: it decides whether a vector is a projection from the
+    fields it asserts, and judges a receipt it has not checked. Relying on
+    "lint would have caught it" in a mode that never calls lint is how a
+    safeguard goes missing exactly when someone runs a corpus without linting
+    it first.
+
+    A list rather than two calls, so a third rule added to `lint` does not
+    silently fail to reach `run` -- which has now happened twice.
+    """
+    errors: list[str] = []
+    for rule in (denial_section_errors, receipt_errors):
+        errors += rule(vector)
+    return errors
+
+
 def required_wire_fields(wire: dict) -> frozenset:
     """The whole response for the outcome this wire asserts.
 
