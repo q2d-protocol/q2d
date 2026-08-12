@@ -1166,8 +1166,10 @@ is why B needed no argument against A beyond naming it.
 
 ### Cascade
 
-The folded registry vector states `11a` and no longer carries its
-`before_private_access` property as prose. `vector.schema.json`'s lettered-step
+The folded registry vector states `11a`, so its `before_private_access`
+property is machine-checked rather than only described — the description still
+says "at a step before private input is read", which is now a restatement of a
+checked fact rather than the only place it appears. `vector.schema.json`'s lettered-step
 enum holds `9a` and `11a` and stays closed. Every range whose span contains a lettered step now names it —
 [`mvp-scope.md`](mvp-scope.md) Stage 4, which defines the stage as *"steps
 1–19"* and outranks every PRD; CC-2 and P-010's paraphrase of it; P-010's
