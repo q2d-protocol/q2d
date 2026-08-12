@@ -61,8 +61,8 @@ Standard library only, like [`registry/validate.py`](../registry/validate.py).
 against.** Built: the vector schema and `lint` (issue 1), the projection
 (issue 2), the runner contract and reference stub (issue 3), `run` (issue 4),
 the determinism check (issue 5), `coverage` (issue 6), the two cross-vector
-assertions (issues 7 and 8), comparison (issue 16), `cross` (issue 9), and the
-dependency assertion (issue 15).
+assertions (issues 7 and 8), comparison (issue 16), `cross` (issue 9), the
+dependency assertion (issue 15), and the test key material (issue 10).
 
 `cross` is **half of what P-001 §4.8 asks**: it compares what two runners each
 produced, and does not put A's output to B for verification, which is issue 19.
@@ -76,6 +76,13 @@ by design until Stage 1 lands, and a permanently red check trains people to
 ignore red. The rule, which
 [`.github/workflows/checks.yml`](../.github/workflows/checks.yml) carries: assert
 the expected state rather than running a check that fails.
+
+**Test keys are RFC 8032's, not ours** — see
+[`keys/README.md`](keys/README.md). Published seeds, so an implementation's
+Ed25519 is checkable against a source neither implementation's author wrote,
+before any Q2D structure is involved. No signature over a Q2D structure is
+committed, because canonicalizing one is P-002's definition and it does not
+exist; P-001 §10 carries what that means for authoring signed vectors.
 
 **The harness depends on neither implementation, and that is checked rather
 than trusted** — [`tests/test_dependencies.py`](tests/test_dependencies.py)

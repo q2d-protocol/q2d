@@ -511,10 +511,59 @@ at least one vector. Uncited claims are reported, not silently absent.
 
 ### 4.9 Test key material
 
-Fixed Ed25519 keypairs, generated once, committed, and marked test-only in the
-filename and in a header comment. Seeds from RFC 8032's test vectors where they
-fit, so key handling is checkable against an independently published source
-before any Q2D structure is involved.
+Fixed Ed25519 keypairs, obtained once, committed, and marked test-only in the
+filename and **in the file's first field**. Seeds from RFC 8032's test vectors
+where they fit, so key handling is checkable against an independently published
+source before any Q2D structure is involved.
+
+Two words in that sentence changed when issue 10 built it, and both are
+recorded here rather than absorbed quietly.
+
+It said *"generated once"*. Nothing is generated: RFC 8032's vectors fit every
+keypair the corpus needs, and generating one would mean generating it *with*
+something — a third Ed25519 implementation in the tree. "Obtained once" is the
+requirement that was actually meant, and it is the stronger one.
+
+It also said *"in a header comment"*. JSON has no
+comments, and the corpus parses strictly (§4.4) — a file carrying a `//` line
+would not load. The first field is the same requirement in the format the
+material is actually in: the marking is the first thing a reader or a diff
+sees. Recorded rather than satisfied quietly, because a test asserting a
+first field while the PRD asked for a comment would leave the acceptance
+criterion looking met by something else.
+
+They fit for all of them, so none are generated. Three keypairs live in
+[`conformance/keys/ed25519-test-only.json`](../../conformance/keys/ed25519-test-only.json),
+taken verbatim from RFC 8032 §7.1 TESTs 1–3: two sides of an ordinary exchange,
+and a third so a vector can present a signature from the wrong key. The RFC's
+own message/signature pairs are committed beside them as reference data — not
+as vectors, which is issue 13's work.
+
+Two consequences of using published keys rather than generated ones, both
+deliberate:
+
+- **Every private seed here is public.** That is the point — anyone can check
+  the values against the RFC — and it is why the marking is in the filename as
+  well as the file. A key file is exactly the artefact that gets copied
+  somewhere else by someone in a hurry.
+- **Nothing in this repository derives a public key from a seed.** Doing so
+  would put a third Ed25519 implementation in the tree, in the one place where
+  being wrong is invisible: it would agree with whichever implementation shared
+  its bug. The check that a keypair is really a keypair comes from RFC 8032
+  having published it, and from `known_answers` once a runner exists.
+
+  This one is a **rule, not a check**. No test can decide whether some file
+  implements Ed25519 — a hand-rolled one is arithmetic, and a check that tried
+  would be pattern-matching against how somebody happened to write it. What is
+  checked is narrower and worth stating as such: the harness imports nothing
+  outside the standard library (issue 15), so the harness at least cannot reach
+  a crypto library. Everywhere else, this holds because it is written down and
+  because a reviewer reads the diff.
+
+**No signature over a Q2D structure is committed, and none can be yet** —
+producing one means canonicalizing a Q2D envelope, which is
+[P-002](P-002-message-envelope.md)'s definition and does not exist. §10 carries
+what that means for authoring signed vectors at all.
 
 ## 5. Corpus sections at completion of Stage 0
 
@@ -601,6 +650,7 @@ change one stops and escalates.
 | ~~**The §4.5 operation-vocabulary extension for Stages 5–8.**~~ | **Resolved: settled as one change, before Stage 5** — issue 17, not an open question. §4.5 now lists every anticipated operation with its owning PRD, and no later PRD names one unilaterally: four PRDs choosing separately would diverge at the *runner* level, where it surfaces as an unknown-operation error rather than a failing vector. The list already reflects the two decisions that changed it — the registry-entry endpoint is gone, and `requester/order/` needs an operation that can assert *which step* rejected |
 | **Does `cross` satisfy §4.8's cross-implementation clause with only the first half built?** Issue 9 compares what two runners each produced; putting A's signed output to B for verification needs a vector to name its companion artefact and the field that consumes it — a format change, and protocol knowledge §3 places outside the harness. I split it to issue 19, made every run state which half it did, and **held `cross` to exiting 3 even when the runners agree**, so nothing can read the clause off its status. **The scope reduction is Peter's call, not mine**, and until it is made this is fail-closed: the mode does not return success for a clause it half-checked. Deciding it either way is a one-line change — approve the split and agreement returns 0, or reject it and issue 9 stays open until issue 19 lands with it | **Raised, awaiting decision.** Recorded here rather than settled in the PRD, because narrowing an acceptance clause is a scope decision even when the honesty of the output is preserved |
 | **Should a runner report a wire response as its serialized string rather than as a parsed object?** As formatted, `rejection.wire` is an object, so the bytes are gone before the harness sees them: it can compare fields, content, and authored key order, but not whitespace or escaping. That means neither `cross` nor the denial-uniformity assertion can establish the byte-identity [P-009](P-009-denial-normalization.md) requires of a normalized class — they establish structural identity, which is weaker and reads the same in a report. My recommendation is that a runner reports the response *both* ways: the serialization as a string for the byte comparison, and the parsed object for the structural checks that need to reach inside it. The cost is a format change and a second field every runner must fill; the alternative is that Q2D's byte-identity requirement is asserted by documents and never by a check | **Raised, awaiting decision.** A format change, and it changes what P-009's vectors can demonstrate |
+| **How does a signed vector get authored, when the corpus is what an implementation is checked against?** A `message/sign/` vector states the exact bytes a conforming implementation produces. Producing those bytes means canonicalizing a Q2D envelope and signing it — so whatever produces them is an implementation of P-002 and P-003, and a corpus signed *by* an implementation checks that implementation against itself. RFC 8032's keys make the primitive checkable independently (§4.9) and do not touch this: the canonicalization is ours. My recommendation is a small authoring tool, in Python, that implements RFC 8032 signing from the reference code and P-002's canonical form from the specification text — kept out of `conformance/harness/` and out of CI, run once per vector, with its output committed and thereafter treated as authored data. It is a third implementation of the *canonicalization*, which is the cost, and that is also the benefit: a disagreement between it and either language is a specification ambiguity found the way this project says it wants to find them. The alternative is to author signed vectors from the first implementation and accept that the first implementation cannot be checked against them | **Raised, awaiting decision.** Blocks issues 12, 13, and 14 — every section that contains a signature |
 | ~~Where do fuzzing seeds live — corpus or per-module?~~ | **Resolved: per-module.** The corpus is the cross-implementation contract and every file in it must mean the same thing to both runners; a seed corpus is a local artifact of one fuzzer's coverage history and would make the shared corpus non-reproducible between languages. Seeds live beside the fuzz target that produced them |
 
 ## 11. Issues
@@ -618,7 +668,7 @@ Decomposition into tracked work. Each names its acceptance.
 | 7 | Cross-vector assertions: denial uniformity | Generalizes `registry/validate.py`'s check to any corpus section |
 | 8 | Cross-vector assertions: budget order-independence | Permutation test over a debit sequence |
 | 9 | Harness `cross` mode | **Half built, and stays open.** Two runners over one corpus, compared field by field, reporting the first differing byte offset — and exiting 3 rather than 0 when they agree, because §4.8's B-verifies-A half is not done. Whether that half becomes issue 19 or stays inside this issue is §10's open question; until it is decided, this issue is not closable |
-| 10 | Test key material | Fixed keypairs committed, RFC 8032 seeds where applicable, marked test-only |
+| 10 | Test key material | **Done.** Three keypairs from RFC 8032 §7.1 committed in `conformance/keys/`, marked test-only in the filename and the first field, with the RFC's published signatures beside them as reference data. No seed appears outside that directory, asserted by a byte search over every file. That nothing derives a public key from a seed is a rule rather than a check — see §4.9 for why a test cannot decide it, and what is checked instead |
 | 11 | Fold `registry/` vectors into the corpus | Registry vectors run under the harness with unchanged results |
 | 12 | Author `message/` section | Envelope, signing, verification, routing disagreement |
 | 13 | Author `suite/` section | Resolution, downgrade rejection, unknown suite |
