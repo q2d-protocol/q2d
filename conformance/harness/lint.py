@@ -224,6 +224,18 @@ def timestamp_forms(vectors) -> tuple[list[str], list[str]]:
     return offsets, zulus
 
 
+def required_wire_fields(wire: dict) -> frozenset:
+    """The whole response for the outcome this wire asserts.
+
+    One function so `lint` and `run` cannot drift about it: lint uses it to
+    require a whole response in `denial/`, and run uses it to decide whether a
+    vector is a projection at all.
+    """
+    if isinstance(wire, dict) and wire.get("status") == "escalate":
+        return EXPLICIT_ESCALATE_FIELDS
+    return DENY_RESPONSE_FIELDS
+
+
 def denial_section_errors(vector: dict) -> list[str]:
     """A `denial/` vector asserts the whole response, never a projection.
 
@@ -266,7 +278,7 @@ def denial_section_errors(vector: dict) -> list[str]:
     # Which whole response depends on which outcome the vector asserts, and
     # the two are different shapes rather than one with optional parts.
     escalating = wire.get("status") == "escalate"
-    required = EXPLICIT_ESCALATE_FIELDS if escalating else DENY_RESPONSE_FIELDS
+    required = required_wire_fields(wire)
     where = "§5.3's explicit escalation" if escalating else "§5.2's whole response"
 
     missing = sorted(required - set(wire))

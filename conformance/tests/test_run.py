@@ -111,6 +111,15 @@ class DenialExactnessTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("debug_cause", output)
 
+    def test_an_explicit_escalation_is_compared_exactly(self):
+        # §5.3's shape has no external_reason, so measuring it against a
+        # denial's field list called every explicit escalation a projection —
+        # and projections drop extra fields.
+        code, output = run(RUNNERS / "answers-escalation-with-an-extra-field",
+                           FIXTURES / "escalation-single")
+        self.assertEqual(code, 1)
+        self.assertIn("debug_cause", output)
+
     def test_a_lint_invalid_denial_projection_is_not_run(self):
         # `run`'s exact-comparison decision depends on a denial/ vector being
         # whole-response, which is a lint rule. A mode that never calls lint

@@ -144,7 +144,11 @@ def judge(vector, result: dict) -> tuple[bool, str]:
     expected_wire = expected_rejection["wire"]
     actual_wire = actual_rejection["wire"]
     if isinstance(expected_wire, dict) and isinstance(actual_wire, dict):
-        if not lint_module.DENY_RESPONSE_FIELDS <= set(expected_wire):
+        # Which fields count as "the whole response" depends on the outcome:
+        # §5.3's explicit escalation has no `external_reason` at all, so
+        # measuring it against a denial's field list called every one of them a
+        # projection.
+        if not lint_module.required_wire_fields(expected_wire) <= set(expected_wire):
             actual_wire = {name: value for name, value in actual_wire.items()
                            if name in expected_wire}
 
