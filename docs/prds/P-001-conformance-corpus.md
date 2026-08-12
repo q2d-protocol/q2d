@@ -511,12 +511,20 @@ at least one vector. Uncited claims are reported, not silently absent.
 
 ### 4.9 Test key material
 
-Fixed Ed25519 keypairs, generated once, committed, and marked test-only in the
+Fixed Ed25519 keypairs, obtained once, committed, and marked test-only in the
 filename and **in the file's first field**. Seeds from RFC 8032's test vectors
 where they fit, so key handling is checkable against an independently published
 source before any Q2D structure is involved.
 
-This section said *"in a header comment"* until issue 10 built it. JSON has no
+Two words in that sentence changed when issue 10 built it, and both are
+recorded here rather than absorbed quietly.
+
+It said *"generated once"*. Nothing is generated: RFC 8032's vectors fit every
+keypair the corpus needs, and generating one would mean generating it *with*
+something — a third Ed25519 implementation in the tree. "Obtained once" is the
+requirement that was actually meant, and it is the stronger one.
+
+It also said *"in a header comment"*. JSON has no
 comments, and the corpus parses strictly (§4.4) — a file carrying a `//` line
 would not load. The first field is the same requirement in the format the
 material is actually in: the marking is the first thing a reader or a diff
@@ -543,6 +551,14 @@ deliberate:
   being wrong is invisible: it would agree with whichever implementation shared
   its bug. The check that a keypair is really a keypair comes from RFC 8032
   having published it, and from `known_answers` once a runner exists.
+
+  This one is a **rule, not a check**. No test can decide whether some file
+  implements Ed25519 — a hand-rolled one is arithmetic, and a check that tried
+  would be pattern-matching against how somebody happened to write it. What is
+  checked is narrower and worth stating as such: the harness imports nothing
+  outside the standard library (issue 15), so the harness at least cannot reach
+  a crypto library. Everywhere else, this holds because it is written down and
+  because a reviewer reads the diff.
 
 **No signature over a Q2D structure is committed, and none can be yet** —
 producing one means canonicalizing a Q2D envelope, which is
@@ -652,7 +668,7 @@ Decomposition into tracked work. Each names its acceptance.
 | 7 | Cross-vector assertions: denial uniformity | Generalizes `registry/validate.py`'s check to any corpus section |
 | 8 | Cross-vector assertions: budget order-independence | Permutation test over a debit sequence |
 | 9 | Harness `cross` mode | **Half built, and stays open.** Two runners over one corpus, compared field by field, reporting the first differing byte offset — and exiting 3 rather than 0 when they agree, because §4.8's B-verifies-A half is not done. Whether that half becomes issue 19 or stays inside this issue is §10's open question; until it is decided, this issue is not closable |
-| 10 | Test key material | **Done.** Three keypairs from RFC 8032 §7.1 committed in `conformance/keys/`, marked test-only in the filename and the first field, with the RFC's published signatures beside them as reference data. Nothing in the repository derives a public key from a seed, and no seed appears outside that directory — both asserted |
+| 10 | Test key material | **Done.** Three keypairs from RFC 8032 §7.1 committed in `conformance/keys/`, marked test-only in the filename and the first field, with the RFC's published signatures beside them as reference data. No seed appears outside that directory, asserted by a byte search over every file. That nothing derives a public key from a seed is a rule rather than a check — see §4.9 for why a test cannot decide it, and what is checked instead |
 | 11 | Fold `registry/` vectors into the corpus | Registry vectors run under the harness with unchanged results |
 | 12 | Author `message/` section | Envelope, signing, verification, routing disagreement |
 | 13 | Author `suite/` section | Resolution, downgrade rejection, unknown suite |

@@ -27,6 +27,11 @@ Generating our own would also mean generating them *with* something. Whatever
 that was would be a third implementation of Ed25519 in the repository, in the
 one place where being wrong is invisible.
 
+So nothing here derives a public key from a seed — and that is a rule rather
+than a check. No test can decide whether a file implements Ed25519; what is
+checked is that the harness imports nothing outside the standard library, and
+that no private seed appears anywhere outside this directory.
+
 ## What is here
 
 `ed25519-test-only.json`:
