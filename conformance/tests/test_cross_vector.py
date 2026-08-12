@@ -312,6 +312,14 @@ class ValuesOutsideDenialTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("subset of neither", output)
 
+    def test_a_spelling_mixed_across_fields_is_caught(self):
+        # §5.3's `expires_at` is the same kind of value under the same open
+        # question as the receipt's `decided_at`. A response spelling one with
+        # `Z` and the other with an offset is mixed inside itself.
+        code, output = lint(FIXTURES / "denial-mixed-across-fields")
+        self.assertEqual(code, 1)
+        self.assertIn("spellings of RFC 3339", output)
+
     def test_an_escalation_expiry_must_be_a_time(self):
         code, output = lint(FIXTURES / "denial-bad-expires")
         self.assertEqual(code, 1)

@@ -214,14 +214,22 @@ def timestamp_forms(vectors) -> dict:
         wire = rejection.get("wire")
         if not isinstance(wire, dict):
             continue
+        # Every timestamp a response carries, not only the receipt's. §5.3's
+        # `expires_at` is the same kind of value under the same open question,
+        # and a corpus whose escalations spell it one way while its receipts
+        # spell it another is mixed just as surely.
+        found = []
         receipt = wire.get("receipt")
-        if not isinstance(receipt, dict):
-            continue
-        decided = receipt.get("decided_at")
-        if isinstance(decided, str) and valid_timestamp(decided):
-            profile = timestamp_profile(decided)
-            if profile:
-                profiles.setdefault(profile, []).append(str(body.get("id", "?")))
+        if isinstance(receipt, dict):
+            found.append(receipt.get("decided_at"))
+        found.append(wire.get("expires_at"))
+
+        for value in found:
+            if isinstance(value, str) and valid_timestamp(value):
+                profile = timestamp_profile(value)
+                if profile:
+                    profiles.setdefault(profile, []).append(
+                        str(body.get("id", "?")))
     return profiles
 
 
@@ -752,14 +760,14 @@ def lint(corpus_root: Path) -> int:
     # reported and allowed.
     profiles = timestamp_forms(vectors)
     if profiles:
-        print(f"  receipt timestamps: {', '.join(sorted(profiles))} — which "
+        print(f"  response timestamps: {', '.join(sorted(profiles))} — which "
               f"RFC 3339 spelling §6 requires is open (P-001 §10), so any one "
               f"is allowed")
     if len(profiles) > 1:
         listing = "; ".join(f"{form} in {', '.join(sorted(ids))}"
                             for form, ids in sorted(profiles.items()))
         cross_errors = list(cross_errors) + [
-            f"receipt timestamps: the corpus uses {len(profiles)} spellings of "
+            f"response timestamps: the corpus uses {len(profiles)} spellings of "
             f"RFC 3339 — {listing}. Which one §6 requires is open (P-001 §10); "
             f"that no implementation emits several is not"]
     for error in cross_errors:

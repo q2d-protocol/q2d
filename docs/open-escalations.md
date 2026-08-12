@@ -1128,7 +1128,8 @@ by**, rather than claiming a bound that is not yet there.
 ### Interim position
 
 `harness lint` **allows any single spelling, names the one in use on every run,
-and fails a corpus that mixes them.** The mixing rule is decidable without
+and fails a corpus that mixes them** — across every timestamp a response
+carries, the receipt's `decided_at` and §5.3's `expires_at` alike. The mixing rule is decidable without
 settling the question: no implementation emits several spellings, so a corpus
 carrying more than one cannot be satisfied by any implementation, whichever way
 §6 goes. Rejecting a spelling would settle the question in a lint rule and push
