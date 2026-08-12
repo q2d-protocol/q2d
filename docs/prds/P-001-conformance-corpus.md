@@ -430,9 +430,12 @@ Two smaller decisions the implemented pair carry:
   at the top level of `wire` and nowhere else: **not to `output`**, where an
   answer is bounded by the effective domain and an unasked-for field is the
   failure Q2D-C-03 exists to catch; not inside `receipt`, which is five fields
-  or a lint failure; and **not in `denial/` at all**, where a vector asserts
-  the whole response and a fifth field a runner added is the cause-specific
-  oracle Q2D-C-08 exists to catch.
+  or a lint failure; and **only where the vector is
+  actually a projection**, decided by what it asserts rather than by which
+  section it sits in — one carrying all four of §5.2's fields is asserting the
+  whole response wherever it lives, so a fifth field a runner added is a
+  divergence from what it asserted, and dropping it would discard the
+  cause-specific oracle Q2D-C-08 exists to catch.
 
 - **A receipt a vector does assert is held to §6's shape, and that is an error
   rather than a report.** Omitting `receipt` asserts nothing about it and is

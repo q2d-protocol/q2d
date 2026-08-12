@@ -132,18 +132,21 @@ def judge(vector, result: dict) -> tuple[bool, str]:
     # ignoring it would be a subset rule quietly disabling a claim. And not
     # inside `receipt`, which is exactly five fields or a lint failure.
     #
-    # And **not in `denial/`**, which is the section that tests uniformity. A
-    # vector there asserts all four fields, so there is no subset to honour --
-    # and projecting anyway would drop a `retry_after` or a `debug_cause` a
-    # runner added, which is the cause-specific oracle Q2D-C-08 exists to
-    # catch. There it is compared exactly, extra fields included.
+    # And **only where the vector is actually a projection** -- decided by what
+    # it asserts, not by which section it sits in. A vector carrying all four
+    # of §5.2's fields is asserting the whole response wherever it lives, so a
+    # `retry_after` or a `debug_cause` the runner added is a divergence from
+    # what it asserted, and dropping it would be the cause-specific oracle
+    # Q2D-C-08 exists to catch, discarded by the comparison.
+    #
+    # This subsumes the section rule rather than replacing it: a denial/ vector
+    # must assert all four (checked above), so it is always compared exactly.
     expected_wire = expected_rejection["wire"]
     actual_wire = actual_rejection["wire"]
-    projecting = (isinstance(vector.body, dict)
-                  and vector.body.get("section") != "denial")
-    if projecting and isinstance(expected_wire, dict) and isinstance(actual_wire, dict):
-        actual_wire = {name: value for name, value in actual_wire.items()
-                       if name in expected_wire}
+    if isinstance(expected_wire, dict) and isinstance(actual_wire, dict):
+        if not lint_module.DENY_RESPONSE_FIELDS <= set(expected_wire):
+            actual_wire = {name: value for name, value in actual_wire.items()
+                           if name in expected_wire}
 
     difference = compare_module.compare(
         expected_wire, actual_wire, expect["comparison"])

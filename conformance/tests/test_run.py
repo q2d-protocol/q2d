@@ -102,6 +102,15 @@ class PartialWireTest(unittest.TestCase):
 
 
 class DenialExactnessTest(unittest.TestCase):
+    def test_a_whole_response_vector_outside_denial_is_also_exact(self):
+        # The projection is decided by what the vector asserts, not by its
+        # section. One asserting all four fields is asserting the whole
+        # response wherever it lives.
+        code, output = run(RUNNERS / "answers-denial-with-an-extra-field",
+                           FIXTURES / "registry-whole-response")
+        self.assertEqual(code, 1)
+        self.assertIn("debug_cause", output)
+
     def test_a_lint_invalid_denial_projection_is_not_run(self):
         # `run`'s exact-comparison decision depends on a denial/ vector being
         # whole-response, which is a lint rule. A mode that never calls lint
