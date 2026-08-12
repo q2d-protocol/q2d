@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+"""Same wire response as `answers-correctly`, a different internal reason.
+
+The divergence a normalized denial is designed to hide from a requester and
+must never hide from a conformance run: the responses are identical, the two
+implementations decided differently.
+"""
+import json, sys
+
+vector = json.loads(open(sys.argv[1]).read())
+if vector["id"] != "denial/uniformity-c/budget-exhausted":
+    print(f"no canned answer for {vector['id']}", file=sys.stderr)
+    raise SystemExit(1)
+json.dump({"vector_id": vector["id"], "outcome": "rejected",
+           "rejection": {"internal_reason": "policy_denied",
+                         "wire": {"status": "deny", "external_reason": "unavailable"},
+                         "step": 15},
+           "implementation": {"name": "q2d-other-reason", "version": "0.0.0"}},
+          sys.stdout)

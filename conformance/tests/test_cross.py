@@ -168,6 +168,26 @@ class UncheckableBytesTest(unittest.TestCase):
         self.assertIn("outcome: A says 'ok', B says 'rejected'", output)
         self.assertNotIn("UNCHECKABLE", output)
 
+    def test_an_uncheckable_vector_is_still_compared_on_everything_else(self):
+        # The wire responses are byte-identical to a reader and the two
+        # implementations decided differently. Stopping at "the format cannot
+        # show me the bytes" would report a format limitation and bury the
+        # divergence a normalized denial is specifically designed to hide.
+        code, output = cross(CORRECT, RUNNERS / "answers-denial-with-another-reason",
+                             FIXTURES / "denial-only")
+        self.assertEqual(code, 1)
+        self.assertIn("DIFFER", output)
+        self.assertIn("internal_reason", output)
+        self.assertNotIn("UNCHECKABLE", output)
+
+    def test_uncheckable_says_what_did_agree(self):
+        # Structurally identical is worth saying: it tells a reader the gap is
+        # the encoding and not the content.
+        code, output = cross(CORRECT, CORRECT, FIXTURES / "denial-only")
+        self.assertEqual(code, 1)
+        self.assertIn("UNCHECKABLE", output)
+        self.assertIn("structurally identical", output)
+
     def test_a_string_bytes_value_is_comparable(self):
         # A JWS compact serialization, a digest, a signature: the artefact *is*
         # the string, so the comparison over it is exact.

@@ -165,9 +165,15 @@ comparison sees them, and re-serializing the parsed tree would assert a byte
 equality nobody checked.
 
 So **a value compared as `bytes` must be a string** — the serialization itself.
-`cross` refuses a `bytes` vector whose `output` or `rejection.wire` is
-composite on *both* sides, reporting it `UNCHECKABLE` and failing the run rather
-than counting it as agreement. One side reporting a string and the other a
+`cross` refuses to call a `bytes` vector agreed when its `output` or
+`rejection.wire` is composite on *both* sides: it reports `UNCHECKABLE` and
+fails the run. **Everything else about that vector is still compared** — as a
+tree, which is all the format left — because two implementations can reject for
+different internal reasons behind byte-identical denials, and reporting only
+"the harness cannot see the bytes" would bury exactly the divergence a
+normalized denial is designed to hide from a requester. `UNCHECKABLE` is
+therefore the verdict only when everything visible agreed, and the report says
+so. One side reporting a string and the other a
 structure is a different thing and is reported as a divergence: the two runners
 disagree on the shape of the answer, and the non-string side did not produce the
 artefact at all. Calling that a format limitation would hide an implementation

@@ -298,47 +298,63 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
                       f"— they disagree on the shape of the answer")
                 continue
 
-            composite = [label for label in sorted(set(fields_a) | set(fields_b))
-                         if label in CARRIES_WIRE_CONTENT
-                         and not isinstance(fields_a.get(label), str)]
-            if mode == "bytes" and composite:
-                # The bytes never reached the harness: the runner reported a
-                # parsed structure, so whitespace and escaping were gone before
-                # this saw them. Comparing the re-serialized tree and printing
-                # `agree` would assert byte equality that was never checked, so
-                # the vector is not comparable in this mode. §10 carries the
-                # format question that would make it comparable.
-                uncheckable += 1
-                print(f"  UNCHECKABLE  {vector.id}\n          "
-                      f"`comparison: bytes` over a composite value "
-                      f"({', '.join(composite)}); the encoding is gone before "
-                      f"the harness sees it (P-001 §4.4, §10)")
-                continue
-
             difference = None
+            # Labels whose bytes this run could not see. Collected rather than
+            # returned on: everything else about the vector is still compared,
+            # because two runners can reject for different internal reasons or
+            # emit visibly different denial objects, and reporting only "the
+            # format cannot show me the bytes" would bury that.
+            unseen: list[str] = []
+
             for label in sorted(fields_a):
+                left = fields_a[label]
+                right = fields_b[label]
+
+                if mode == "bytes" and not isinstance(left, str):
+                    # A parsed structure, so whitespace and escaping were gone
+                    # before this saw them (§4.4). Compared as a tree, which is
+                    # everything the format left to compare, and the vector is
+                    # only ever reported as *agreeing* on it if nothing else
+                    # diverged -- see below.
+                    if label in CARRIES_WIRE_CONTENT:
+                        unseen.append(label)
+                    found = compare_module.compare(left, right, "semantic")
+                    if found:
+                        difference = f"{label}: {found}"
+                        break
+                    continue
+
                 if mode == "bytes":
                     # The string itself, not its JSON encoding: the artefact is
                     # the string, so an offset must count into the signature a
                     # reader is looking at rather than into the quoted form,
                     # which is off by one and sends them to the wrong byte.
-                    left = fields_a[label]
-                    right = fields_b[label]
-                    if not isinstance(left, str):
-                        left = cross_vector.as_authored(left)
-                        right = cross_vector.as_authored(right)
                     if left != right:
                         difference = f"{label}: {first_difference(left, right)}"
                         break
-                else:
-                    found = compare_module.compare(fields_a[label], fields_b[label], mode)
-                    if found:
-                        difference = f"{label}: {found}"
-                        break
+                    continue
+
+                found = compare_module.compare(left, right, mode)
+                if found:
+                    difference = f"{label}: {found}"
+                    break
 
             if difference:
                 divergent += 1
                 print(f"  DIFFER  {vector.id}\n          {difference}")
+                continue
+
+            if unseen:
+                # Everything the harness could compare agreed, and the bytes
+                # were not among it. That is not agreement under `bytes`, so it
+                # is neither a pass nor a divergence: it is a vector this mode
+                # cannot answer, and §10 carries the format change that would
+                # let it.
+                uncheckable += 1
+                print(f"  UNCHECKABLE  {vector.id}\n          "
+                      f"structurally identical, but `comparison: bytes` over a "
+                      f"composite value ({', '.join(unseen)}) — the encoding is "
+                      f"gone before the harness sees it (P-001 §4.4, §10)")
                 continue
 
             print(f"  agree   {vector.id}")
