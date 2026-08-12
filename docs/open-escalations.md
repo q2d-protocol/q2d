@@ -1242,8 +1242,7 @@ question 5.
 ## 3. Resolutions
 
 E-01 … E-15 were decided in one pass and cascaded in the same change; every
-recommendation was adopted. **E-16 is open** and are not in this
-table.
+recommendation was adopted. **E-25 is open** and is not in this table.
 
 E-18 … E-24 were decided one at a time while P-001's harness and corpus were
 built, each raised with options and a recommendation, each **adopted as

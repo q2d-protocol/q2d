@@ -456,14 +456,28 @@ def main(argv: list[str]) -> int:
             # libraries would reject or reinterpret it differently, which is
             # what the profile exists to prevent. The keyword filter above sees
             # names only.
-            SHAPES = {"properties": dict, "required": list, "enum": list,
-                      "items": dict, "type": (str, list),
-                      "additionalProperties": bool, "$schema": str,
-                      "format": str, "minItems": int, "maxItems": int,
-                      "minLength": int, "maxLength": int}
+            # `bool` is a subclass of `int` in Python, so a plain isinstance
+            # check would accept `minItems: true`. Numbers are named
+            # explicitly, and booleans excluded from them.
+            def shaped(keyword, value):
+                if keyword in ("minItems", "maxItems", "minLength", "maxLength"):
+                    return isinstance(value, int) and not isinstance(value, bool)
+                if keyword in ("minimum", "maximum"):
+                    return (isinstance(value, (int, float))
+                            and not isinstance(value, bool))
+                if keyword == "additionalProperties":
+                    return isinstance(value, bool)
+                return isinstance(value, {"properties": dict, "required": list,
+                                          "enum": list, "items": dict,
+                                          "type": (str, list), "$schema": str,
+                                          "format": str}[keyword])
+
+            KNOWN = {"properties", "required", "enum", "items", "type",
+                     "additionalProperties", "$schema", "format", "minItems",
+                     "maxItems", "minLength", "maxLength", "minimum", "maximum"}
             misshapen = sorted(
                 f"{k}={type(v).__name__}" for k, v in schema_values(schema)
-                if k in SHAPES and not isinstance(v, SHAPES[k]))
+                if k in KNOWN and not shaped(k, v))
             check(not misshapen,
                   f"{where} gives every keyword a value of its own kind",
                   ",".join(misshapen))
