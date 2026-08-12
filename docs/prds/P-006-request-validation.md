@@ -111,7 +111,8 @@ entry already fitted the profile was therefore not true of the list as written.
 §4.1 carries both — `$schema` required, because two implementations validating
 against different dialects is the same divergence one level up — and
 `registry/validate.py` now enforces the profile over the manifest rather than
-leaving it to the implementations.
+leaving it to the implementations — across all three of an entry's schemas, and
+`additionalProperties: false` on every object rather than only the root.
 
 ### 4.3 Constraints are separate from schemas
 

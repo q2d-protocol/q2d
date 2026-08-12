@@ -175,6 +175,18 @@ def schema_keywords(schema, path):
             yield key, path
 
 
+def object_schemas(schema, path):
+    """Every subschema that declares `type: object`, with where it sits."""
+    if not isinstance(schema, dict):
+        return
+    if schema.get("type") == "object":
+        yield path, schema
+    for name, sub in (schema.get("properties") or {}).items():
+        yield from object_schemas(sub, f"{path}.properties.{name}")
+    if "items" in schema:
+        yield from object_schemas(schema["items"], f"{path}.items")
+
+
 def timestamps(value, path="manifest"):
     """Every string in the manifest that is shaped like a date-time."""
     if isinstance(value, str):
@@ -345,21 +357,31 @@ def main(argv: list[str]) -> int:
               "distinct internal reasons exist behind that single wire response",
               f"{len(internal)}: {sorted(internal)}")
 
+    # §4.1 says "an entry's schemas", and an entry carries three. Checking only
+    # the public-context one would leave the other two able to drift from a
+    # rule spec/ states about all of them.
     for p in preds:
-        schema = p.get("public_context_schema")
-        where = f"{p['id'].rsplit('/', 1)[-1]}.public_context_schema"
-        if not isinstance(schema, dict):
-            check(False, f"{where} is a schema")
-            continue
-        outside = sorted({k for k, _ in schema_keywords(schema, where)
-                          if k not in SCHEMA_PROFILE})
-        check(not outside,
-              f"{where} uses only scope.md §4.1's profile", ",".join(outside))
-        check(schema.get("$schema") == DIALECT,
-              f"{where} declares §4.1's dialect", str(schema.get("$schema")))
-        check(schema.get("additionalProperties") is False,
-              f"{where} sets additionalProperties: false",
-              str(schema.get("additionalProperties")))
+        name = p["id"].rsplit("/", 1)[-1]
+        for field in ("public_context_schema", "private_input_schema",
+                      "output_schema"):
+            schema = p.get(field)
+            where = f"{name}.{field}"
+            if not isinstance(schema, dict):
+                check(False, f"{where} is a schema")
+                continue
+            outside = sorted({k for k, _ in schema_keywords(schema, where)
+                              if k not in SCHEMA_PROFILE})
+            check(not outside,
+                  f"{where} uses only scope.md §4.1's profile", ",".join(outside))
+            check(schema.get("$schema") == DIALECT,
+                  f"{where} declares §4.1's dialect", str(schema.get("$schema")))
+            # Every object, not only the root: a nested one omitting it, or
+            # setting it true, accepts fields the entry never declared.
+            loose = [at for at in object_schemas(schema, where)
+                     if at[1].get("additionalProperties") is not False]
+            check(not loose,
+                  f"{where} sets additionalProperties: false on every object",
+                  ",".join(at[0] for at in loose))
 
     wrong = [f"{path}={value}" for path, value in timestamps(manifest)
              if not Q2D_TIMESTAMP.match(value)]
