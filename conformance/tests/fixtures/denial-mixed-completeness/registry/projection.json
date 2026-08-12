@@ -1,0 +1,28 @@
+{
+  "id": "registry/uniformity-c/unknown-predicate",
+  "section": "registry",
+  "requirement": [
+    "Q2D-C-08",
+    "core-model.md#5.2"
+  ],
+  "description": "A registry/ projection in the same normalized class. It asserts nothing about the fields it omits, so it does not disagree with the whole response beside it.",
+  "operation": "capacity_debit",
+  "input": {
+    "budget": {
+      "spent_millibits": 4000,
+      "limit_millibits": 4000
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "unknown_predicate",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unavailable"
+      },
+      "step": 15
+    },
+    "comparison": "bytes"
+  }
+}

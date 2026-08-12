@@ -246,6 +246,30 @@ class WholeResponseTest(unittest.TestCase):
         self.assertEqual(code, 0)
 
 
+class MixedCompletenessTest(unittest.TestCase):
+    """A projection beside a whole response, in one normalized class.
+
+    The corpus will be in exactly this state the day after the first
+    whole-response denial vector is authored: `registry/` projections and
+    `denial/` whole responses sharing an `external_reason`. Comparing them
+    whole would report "distinct wire responses" because one vector declined to
+    mention two fields — blocking the work rather than catching a divergence.
+    """
+
+    def test_a_projection_does_not_disagree_with_a_whole_response(self):
+        code, output = lint(FIXTURES / "denial-mixed-completeness")
+        self.assertEqual(code, 0, output)
+        self.assertIn("compared a partial response", output)
+
+    def test_but_two_whole_responses_are_still_compared_whole(self):
+        # denial-divergent differs by a `retry_after` present in one. Both are
+        # whole responses, so that is the divergence it is rather than a field
+        # one of them declined to mention.
+        code, output = lint(FIXTURES / "denial-divergent")
+        self.assertEqual(code, 1)
+        self.assertIn("distinct wire responses", output)
+
+
 class ReducedReceiptShapeTest(unittest.TestCase):
     """§6: "exactly five fields, and no others".
 

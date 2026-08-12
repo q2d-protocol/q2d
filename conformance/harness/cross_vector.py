@@ -64,6 +64,21 @@ DENY_RESPONSE_FIELDS = ("status", "external_reason", "receipt", "signature")
 
 
 
+# §5.3's explicit escalation, which has no external_reason. Kept here rather
+# than imported from `lint` because this module is imported *by* lint.
+EXPLICIT_ESCALATE_FIELDS = frozenset({"status", "pending_token", "expires_at",
+                                      "receipt", "signature"})
+
+
+def whole_response(wire) -> bool:
+    """Does this wire assert a whole response, or a projection of one?"""
+    if not isinstance(wire, dict):
+        return False
+    required = (EXPLICIT_ESCALATE_FIELDS if wire.get("status") == "escalate"
+                else frozenset(DENY_RESPONSE_FIELDS))
+    return required <= set(wire)
+
+
 def rejection_vectors(vectors):
     for vector in vectors:
         if not isinstance(vector.body, dict):
@@ -98,7 +113,7 @@ def denial_uniformity(vectors) -> tuple[list[str], str]:
             # group and there is nothing to compare it against.
             continue
         groups[str(external)].append(
-            (vector.id, as_authored(wire), str(rejection.get("internal_reason", ""))))
+            (vector.id, wire, str(rejection.get("internal_reason", ""))))
         # Only whole §5.2 fields. A `receipt` that is present but the wrong
         # shape is not a narrower comparison -- it is a vector asserting a
         # receipt the specification says no implementation emits -- and
@@ -110,7 +125,34 @@ def denial_uniformity(vectors) -> tuple[list[str], str]:
     thin = []
 
     for external, members in sorted(groups.items()):
-        wires = {wire for _, wire, _ in members}
+        # Compared on the fields every member asserts, not on whole objects.
+        # A vector "asserts nothing about the fields it omits"
+        # (vector.schema.json on `wire`), so a projection sitting in a class
+        # beside a whole response must not be reported as disagreeing with it
+        # for the fields it declined to mention -- which is what would happen
+        # the moment the first whole-response denial vector is authored beside
+        # the registry/ projections that exist today.
+        #
+        # The comparison is weaker for it, and that is exactly what the partial
+        # report below says. It is not weaker than the vectors themselves: two
+        # vectors asserting different things about a field they both assert
+        # still disagree.
+        # Only where a member *is* a projection. When every member asserts a
+        # whole response, they are compared whole -- so a field present in one
+        # and absent in another is the divergence it is, rather than being
+        # intersected away. That is the case `denial-divergent` exercises, and
+        # it is the failure this assertion exists for.
+        #
+        # Authored key order is preserved when projecting: a wire's own order
+        # is part of its bytes (§4.8), and sorting here would normalise away
+        # the thing being compared.
+        projecting = any(not whole_response(wire) for _, wire, _ in members)
+        if projecting:
+            shared = set.intersection(*(set(wire) for _, wire, _ in members))
+            wires = {as_authored({k: v for k, v in wire.items() if k in shared})
+                     for _, wire, _ in members}
+        else:
+            wires = {as_authored(wire) for _, wire, _ in members}
         if len(wires) > 1:
             listing = ", ".join(sorted(v for v, _, _ in members))
             errors.append(

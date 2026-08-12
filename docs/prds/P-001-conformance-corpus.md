@@ -417,7 +417,14 @@ Two smaller decisions the implemented pair carry:
   distinct, and one normalized class spans sections.
 - **A contradiction fails; an incompleteness reports.** Two causes under one
   external class disagreeing on the bytes is a corpus contradicting itself, and
-  fails. **What it compares is named on every run**, because a vector may
+  fails. **Where a member of a class is a projection, the class is compared on
+  the fields every member asserts** — a projection asserts nothing about what
+  it omits, so it does not disagree with a whole response beside it for
+  declining to mention two fields. Where every member is whole, they are
+  compared whole, so a field present in one and absent in another is the
+  divergence it is. That distinction is what lets the first whole-response
+  denial vector land beside the `registry/` projections that exist today
+  without failing the corpus. **What it compares is named on every run**, because a vector may
   assert a subset of [`core-model.md`](../../spec/core-model.md) §5.2's
   response and the two fields every vector carries today — `status` and
   `external_reason` — are both fixed by the class.
