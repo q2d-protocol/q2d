@@ -99,6 +99,16 @@ class PartialResponseTest(unittest.TestCase):
         _, output = lint(CONFORMANCE / "corpus")
         self.assertIn("compared a partial response", output)
 
+    def test_an_incomplete_receipt_is_still_a_partial_comparison(self):
+        # All four §5.2 fields present and the receipt missing one of its five.
+        # §6 says the length guarantee follows from none of the reduced fields
+        # being variable-length, so a receipt missing one is a receipt whose
+        # length nothing constrains -- checking only the outer four would call
+        # that whole.
+        _, output = lint(FIXTURES / "denial-thin-receipt")
+        self.assertIn("compared a partial response", output)
+        self.assertIn("receipt.signature_suite", output)
+
     def test_a_whole_response_is_not_reported_as_partial(self):
         code, output = lint(FIXTURES / "denial-whole-response")
         self.assertEqual(code, 0, output)

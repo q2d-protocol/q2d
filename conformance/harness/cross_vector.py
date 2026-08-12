@@ -62,6 +62,14 @@ def multiset_key(value) -> str:
 # class, so comparing only those two compares two constants.
 DENY_RESPONSE_FIELDS = ("status", "external_reason", "receipt", "signature")
 
+# core-model.md §6's reduced receipt -- "exactly five fields, and no others".
+# Checked as well as the outer four, because the outer four are where the
+# property is *claimed* and these five are where it is *carried*: §6 says the
+# length guarantee follows from none of them being variable-length, so a
+# receipt missing one is a receipt whose length nothing constrains.
+REDUCED_RECEIPT_FIELDS = ("request_digest", "decision_class", "decided_at",
+                          "responder", "signature_suite")
+
 
 def rejection_vectors(vectors):
     for vector in vectors:
@@ -99,6 +107,15 @@ def denial_uniformity(vectors) -> tuple[list[str], str]:
         groups[str(external)].append(
             (vector.id, as_authored(wire), str(rejection.get("internal_reason", ""))))
         absent = {f for f in DENY_RESPONSE_FIELDS if f not in wire}
+        receipt = wire.get("receipt")
+        if isinstance(receipt, dict):
+            absent |= {f"receipt.{f}" for f in REDUCED_RECEIPT_FIELDS
+                       if f not in receipt}
+        elif "receipt" in wire:
+            # Present but not an object: it carries no fields at all, so every
+            # one of them is missing. Reported rather than crashed on -- a
+            # malformed vector is what this check exists to describe.
+            absent |= {f"receipt.{f}" for f in REDUCED_RECEIPT_FIELDS}
         if absent:
             partial.setdefault(str(external), set()).update(absent)
 

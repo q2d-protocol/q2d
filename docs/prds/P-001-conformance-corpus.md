@@ -420,7 +420,10 @@ Two smaller decisions the implemented pair carry:
   fails. **What it compares is named on every run**, because a vector may
   assert a subset of [`core-model.md`](../../spec/core-model.md) §5.2's
   response and the two fields every vector carries today — `status` and
-  `external_reason` — are both fixed by the class. Comparing those two compares
+  `external_reason` — are both fixed by the class. The reduced receipt's five
+  fields are checked too: §6 grounds the length guarantee in none of them being
+  variable-length, so a receipt missing one is a receipt whose length nothing
+  constrains, and checking only the outer four would call that whole. Comparing those two compares
   two constants, so a summary that stopped at "one class, five vectors" would
   read as evidence of uniformity while establishing none of it. §5.3 puts the
   leak precisely where the vectors are silent: *"a receipt that recorded
