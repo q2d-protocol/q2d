@@ -232,7 +232,11 @@ def object_schemas(schema, path):
     """Every subschema that declares `type: object`, with where it sits."""
     if not isinstance(schema, dict):
         return
-    if schema.get("type") == "object":
+    # `type` may be a list -- the manifest already uses `["boolean", "null"]`
+    # for a nullable output -- so an object schema can be `["object", "null"]`
+    # and would not have matched an equality test.
+    declared = schema.get("type")
+    if declared == "object" or (isinstance(declared, list) and "object" in declared):
         yield path, schema
     for name, sub in (schema.get("properties") or {}).items():
         yield from object_schemas(sub, f"{path}.properties.{name}")
