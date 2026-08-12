@@ -35,6 +35,11 @@ signature. For those, deep equality *is* byte equality. So a `bytes` vector is
 compared exactly here and byte-compared in `cross` mode, and the declaration is
 what tells `cross` which vectors to hold to that.
 
+Where the value is an *object* rather than a string, `cross` refuses it -- the
+bytes never reached the harness, so calling it agreement would assert what was
+never checked. P-001 §4.4 carries the rule and §10 the format question that
+would close it.
+
 The one thing this arrangement cannot catch on its own is a producer emitting
 correct values with keys in the wrong order, violating P-002 §4.2's profile.
 That is caught where it is visible: P-002's `message/serialize/` vectors compare

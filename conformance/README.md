@@ -61,7 +61,8 @@ Standard library only, like [`registry/validate.py`](../registry/validate.py).
 against.** Built: the vector schema and `lint` (issue 1), the projection
 (issue 2), the runner contract and reference stub (issue 3), `run` (issue 4),
 the determinism check (issue 5), `coverage` (issue 6), the two cross-vector
-assertions (issues 7 and 8), comparison (issue 16), and `cross` (issue 9).
+assertions (issues 7 and 8), comparison (issue 16), `cross` (issue 9), and the
+dependency assertion (issue 15).
 
 `cross` is **half of what P-001 §4.8 asks**: it compares what two runners each
 produced, and does not put A's output to B for verification, which is issue 19.
@@ -75,6 +76,14 @@ by design until Stage 1 lands, and a permanently red check trains people to
 ignore red. The rule, which
 [`.github/workflows/checks.yml`](../.github/workflows/checks.yml) carries: assert
 the expected state rather than running a check that fails.
+
+**The harness depends on neither implementation, and that is checked rather
+than trusted** — [`tests/test_dependencies.py`](tests/test_dependencies.py)
+resolves every import the harness makes and fails on anything that is not
+stdlib or a sibling module, and on any implementation path named in source.
+P-001 §9 makes the rule escalate-if-changed because shared code means shared
+bugs that cancel out; §7 asks for it *"asserted by dependency check, not by
+convention"*, and a convention is what a check like this replaces.
 
 **Three expected-state assertions are in CI**, in place of jobs that would be
 red by design: no vector in the real corpus passes against the reference stub,
@@ -127,7 +136,7 @@ expects, because an internal error is not a passing result.
 
 ## Two properties of the harness worth not losing
 
-**It imports neither implementation** (P-001 §9.2). Sharing code with one would
+**It imports neither implementation** (P-001 §9, decision 2). Sharing code with one would
 let the harness inherit a bug from it: a canonicalization or digest error
 present in both would cancel out and the suite would pass. A third language
 rules out *shared code*, and P-001 issue 15 turns that into a CI check.
