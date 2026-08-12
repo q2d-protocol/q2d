@@ -76,7 +76,7 @@ question is still fresh than after the answer arrives.
 Two further items are **coordination, not escalation** — P-001 owns both. They
 are listed in §2 because they block the same PRDs, and both are now **closed**.
 
-**E-18 … E-23 were raised while building P-001's harness and corpus**, and each
+**E-18 … E-24 were raised while building P-001's harness and corpus**, and each
 was recorded in P-001 §10 as it was raised. They are entered here late, which is
 the failure this register exists to prevent: a decision recorded only in the PRD
 that raised it is findable by someone already reading that PRD, and by nobody
