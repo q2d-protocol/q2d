@@ -225,6 +225,75 @@ def timestamp_forms(vectors) -> dict:
     return profiles
 
 
+def receipt_coherence_errors(vector: dict) -> list[str]:
+    """The receipt's class against the response's, wherever one is asserted.
+
+    Not only in `denial/`: a `registry/` rejection carrying a receipt that
+    says `escalate` behind a `deny` leaks the true outcome just as
+    completely, and is no more conforming for being in another section.
+    This lived inside the denial/-only value checks and reached nothing
+    else.
+    """
+    expect = vector.get("expect")
+    if not isinstance(expect, dict):
+        return []
+    rejection = expect.get("rejection")
+    if not isinstance(rejection, dict):
+        return []
+    wire = rejection.get("wire")
+    if not isinstance(wire, dict):
+        return []
+    receipt = wire.get("receipt")
+    if not isinstance(receipt, dict):
+        return []
+
+    errors: list[str] = []
+    status = wire.get("status")
+    # The receipt's own field values are checked by `receipt_errors`, which
+    # runs wherever a receipt is asserted rather than only here -- a
+    # registry/ vector may carry one too, and an empty digest in it is no
+    # more conforming for being in a different section.
+    #
+    # §5.3's boundary, quoted because nothing else in the specification is
+    # put this strongly: "an opaque escalation must not be distinguishable
+    # from any other outcome in that class by its receipt any more than by
+    # its response... a receipt that recorded `escalate` for an outcome the
+    # wire made uniform would defeat Q2D-C-08 through the evidence attached
+    # to it, in the one place nobody looks for a normalization leak."
+    #
+    # So the receipt's class is not free of the response's. An explicit
+    # escalation carries `decision_class: escalate` (§5.3); a denial --
+    # including an opaque escalation, which is a denial on the wire --
+    # carries the normalized class, which is what `external_reason` also
+    # carries (§5.2 "the normalized class, not the true cause"; P-011 §4.1
+    # "the normalized external class"). Two fields defined as the same
+    # value that disagree would themselves be a distinction.
+    decision = receipt.get("decision_class")
+    if isinstance(decision, str) and decision:
+        if status == "escalate":
+            if decision != "escalate":
+                errors.append(
+                    f"wire.receipt.decision_class: {decision!r} on an "
+                    f"explicit escalation — core-model.md §5.3 gives it "
+                    f"'escalate'")
+        elif decision == "escalate":
+            errors.append(
+                "wire.receipt.decision_class: 'escalate' on a response the "
+                "wire made uniform — core-model.md §5.3 calls this out by "
+                "name: it 'would defeat Q2D-C-08 through the evidence "
+                "attached to it, in the one place nobody looks for a "
+                "normalization leak'")
+        else:
+            external = wire.get("external_reason")
+            if isinstance(external, str) and external and decision != external:
+                errors.append(
+                    f"wire.receipt.decision_class: {decision!r} but "
+                    f"external_reason is {external!r} — both are defined "
+                    f"as the normalized class (core-model.md §5.2, P-011 "
+                    f"§4.1), so two values is itself a distinction")
+    return errors
+
+
 def response_shape_errors(vector: dict) -> list[str]:
     """Every rule about the *shape of an asserted response*, in one call.
 
@@ -239,7 +308,8 @@ def response_shape_errors(vector: dict) -> list[str]:
     silently fail to reach `run` -- which has now happened twice.
     """
     errors: list[str] = []
-    for rule in (denial_section_errors, receipt_errors):
+    for rule in (denial_section_errors, receipt_errors,
+                 receipt_coherence_errors):
         errors += rule(vector)
     return errors
 
@@ -470,51 +540,6 @@ def wire_value_errors(wire: dict) -> list[str]:
     errors += nonempty_string("wire.signature", wire.get("signature"))
 
     receipt = wire.get("receipt")
-    if isinstance(receipt, dict):
-        # The receipt's own field values are checked by `receipt_errors`, which
-        # runs wherever a receipt is asserted rather than only here -- a
-        # registry/ vector may carry one too, and an empty digest in it is no
-        # more conforming for being in a different section.
-        #
-        # §5.3's boundary, quoted because nothing else in the specification is
-        # put this strongly: "an opaque escalation must not be distinguishable
-        # from any other outcome in that class by its receipt any more than by
-        # its response... a receipt that recorded `escalate` for an outcome the
-        # wire made uniform would defeat Q2D-C-08 through the evidence attached
-        # to it, in the one place nobody looks for a normalization leak."
-        #
-        # So the receipt's class is not free of the response's. An explicit
-        # escalation carries `decision_class: escalate` (§5.3); a denial --
-        # including an opaque escalation, which is a denial on the wire --
-        # carries the normalized class, which is what `external_reason` also
-        # carries (§5.2 "the normalized class, not the true cause"; P-011 §4.1
-        # "the normalized external class"). Two fields defined as the same
-        # value that disagree would themselves be a distinction.
-        decision = receipt.get("decision_class")
-        if isinstance(decision, str) and decision:
-            if status == "escalate":
-                if decision != "escalate":
-                    errors.append(
-                        f"wire.receipt.decision_class: {decision!r} on an "
-                        f"explicit escalation — core-model.md §5.3 gives it "
-                        f"'escalate'")
-            elif decision == "escalate":
-                errors.append(
-                    "wire.receipt.decision_class: 'escalate' on a response the "
-                    "wire made uniform — core-model.md §5.3 calls this out by "
-                    "name: it 'would defeat Q2D-C-08 through the evidence "
-                    "attached to it, in the one place nobody looks for a "
-                    "normalization leak'")
-            else:
-                external = wire.get("external_reason")
-                if isinstance(external, str) and external and decision != external:
-                    errors.append(
-                        f"wire.receipt.decision_class: {decision!r} but "
-                        f"external_reason is {external!r} — both are defined "
-                        f"as the normalized class (core-model.md §5.2, P-011 "
-                        f"§4.1), so two values is itself a distinction")
-
-
     return errors
 
 
@@ -584,8 +609,10 @@ def vector_errors(vector, path: Path, corpus_root: Path, vector_schema: dict,
         errors += placement_errors(vector, path, corpus_root)
         errors += citation_errors(vector, claims, classes, sections)
         errors += section_errors(vector)
-        errors += receipt_errors(vector)
-        errors += denial_section_errors(vector)
+        # The same list `run` applies, from the same place. Calling the rules
+        # individually here is how the coherence rule reached `run` and not
+        # `lint` -- two call sites, one of them updated.
+        errors += response_shape_errors(vector)
     return errors
 
 

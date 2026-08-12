@@ -270,6 +270,16 @@ class MixedCompletenessTest(unittest.TestCase):
         self.assertIn("distinct wire responses", output)
 
 
+class CoherenceOutsideDenialTest(unittest.TestCase):
+    def test_a_leaking_receipt_is_caught_outside_denial_too(self):
+        # A registry/ rejection whose receipt records `escalate` behind a
+        # `deny` leaks the true outcome exactly as completely, and is no more
+        # conforming for being in another section.
+        code, output = lint(FIXTURES / "registry-escalate-in-receipt")
+        self.assertEqual(code, 1)
+        self.assertIn("nobody looks", output)
+
+
 class PairwiseComparisonTest(unittest.TestCase):
     def test_one_projection_does_not_blind_the_class(self):
         # Two whole responses whose receipts differ, plus a third vector that
