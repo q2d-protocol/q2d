@@ -175,6 +175,23 @@ class WholeResponseTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("must never be described as such", output)
 
+    def test_a_timestamp_anywhere_under_expect_is_checked(self):
+        # Not only `expires_at` and the receipt's `decided_at`. A rule enforced
+        # on two named fields is a rule the next section escapes.
+        code, output = lint(FIXTURES / "message-bad-timestamp")
+        self.assertEqual(code, 1)
+        self.assertIn("expect.output.issued_at", output)
+
+    def test_input_may_carry_a_malformed_timestamp(self):
+        # A vector testing that an implementation rejects a bad spelling has to
+        # contain one. `expect` describes conforming output; `input` describes
+        # arbitrary stimulus.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        vector = {"input": {"issued_at": "2026-01-01t00:00:00z"},
+                  "expect": {"outcome": "ok", "output": {}, "comparison": "semantic"}}
+        self.assertEqual(lint_mod.expected_timestamp_errors(vector), [])
+
     def test_only_one_spelling_is_accepted(self):
         # core-model.md §2.2: uppercase T, uppercase Z, second precision, and
         # no other spelling of the instant. RFC 3339 permits the others; §2.2

@@ -276,7 +276,7 @@ def response_shape_errors(vector: dict) -> list[str]:
     errors: list[str] = []
     for rule in (denial_section_errors, extra_wire_field_errors,
                  receipt_errors, receipt_coherence_errors,
-                 wire_value_errors):
+                 wire_value_errors, expected_timestamp_errors):
         errors += rule(vector)
     return errors
 
@@ -473,6 +473,42 @@ def valid_rfc3339(value: str) -> bool:
     except ValueError:
         return False
     return True
+
+
+def expected_timestamp_errors(vector: dict) -> list[str]:
+    """Every timestamp under `expect` uses §2.2's spelling, wherever it sits.
+
+    Not only `expires_at` and the receipt's `decided_at`: a `message/` vector's
+    `output` carries `issued_at` and `expires_at`, an `ordering/` vector may
+    carry either, and a serialized payload is a string that contains them. A
+    rule enforced on two named fields is a rule the next section escapes.
+
+    The test is not a guess at which strings are timestamps. It is: **this
+    string is a valid RFC 3339 timestamp in a spelling §2.2 does not permit.**
+    A string that parses as RFC 3339 either is a timestamp or is
+    indistinguishable from one to every implementation reading it.
+
+    **`input` is deliberately not walked.** A vector testing that an
+    implementation rejects a malformed timestamp has to contain one, and a rule
+    that forbade it would forbid the vectors that test the rule. `expect`
+    describes what a conforming implementation produces; `input` describes
+    arbitrary stimulus.
+    """
+    errors: list[str] = []
+
+    def walk(value, path: str):
+        if isinstance(value, str):
+            if valid_rfc3339(value) and not valid_timestamp(value):
+                errors.append(timestamp_error(path, value))
+        elif isinstance(value, dict):
+            for key in sorted(value):
+                walk(value[key], f"{path}.{key}")
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                walk(item, f"{path}[{index}]")
+
+    walk(vector.get("expect"), "expect")
+    return errors
 
 
 def timestamp_error(where: str, value: str) -> str:

@@ -1,0 +1,21 @@
+{
+  "id": "message/sign/query-minimal",
+  "section": "message",
+  "requirement": [
+    "Q2D-C-05",
+    "core-model.md#2.1"
+  ],
+  "description": "A timestamp in `output` rather than in a receipt. A rule enforced on two named fields is a rule the next section escapes.",
+  "operation": "sign_query",
+  "input": {
+    "key_id": "test-requester-1",
+    "query": {}
+  },
+  "expect": {
+    "outcome": "ok",
+    "output": {
+      "issued_at": "2026-01-01t00:00:00z"
+    },
+    "comparison": "semantic"
+  }
+}
