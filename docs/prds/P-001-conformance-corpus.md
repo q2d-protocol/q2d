@@ -138,12 +138,12 @@ both-verify check, and it is the property the Stage 1 gate rests on.
   "id": "message/sign/query-minimal",
   "section": "message",
   "requirement": ["Q2D-C-05", "core-model.md#2.1"],
-  "description": "A minimal signed query envelope with an advisory routing projection.",
+  "description": "A minimal signed query envelope. The output is the compact serialization itself — see the bytes rule below.",
   "operation": "sign_query",
   "input": { "key_id": "test-requester-1", "query": { } },
   "expect": {
     "outcome": "ok",
-    "output": { "signed": "…", "routing": { } },
+    "output": "eyJhbGciOiJFZERTQSIsImtp…",
     "comparison": "bytes"
   }
 }
@@ -174,14 +174,19 @@ artefact at all. Calling that a format limitation would hide an implementation
 divergence behind a corpus note. `step` and `internal_reason` are exempt: neither crosses the
 interface, so their encoding is nobody's contract.
 
-**This has a consequence past this mode, and it is in §10.** A denial's wire
-response is reported as an object, so the harness cannot check that two
+That rule is satisfiable today for `output`, which is why the example above
+carries a compact serialization. **It is not satisfiable for a denial's wire
+response, and that is §10's question.** `rejection.wire` is an object in both
+the vector and the result format, so the harness cannot check that two
 rejections in a normalized class are byte-identical — which is what
-[P-009](P-009-denial-normalization.md) requires of them. The cross-vector
-assertion compares parsed trees with authored key order preserved, which
-catches field order and content and not encoding. Closing that needs a result
-format that carries the response as its serialized string, which is a format
-change.
+[P-009](P-009-denial-normalization.md) requires of them. Those vectors are
+`UNCHECKABLE` in `cross` by design until the format changes; the finding is
+that the requirement is currently asserted by documents and by no check, not
+that the corpus is missing coverage it could have. The cross-vector assertion
+over *authored* vectors still compares their wire objects with authored key
+order preserved, which catches field order and content — that is the corpus
+agreeing with itself, and it is not the same as two implementations agreeing
+on bytes.
 
 **`semantic` is defined as parse-then-deep-equal**, and only that:
 
@@ -433,9 +438,14 @@ each is a property of the corpus rather than of one mode's code:
   produced it, so comparing whole documents would report every vector as
   divergent. The envelope's own key order and whitespace are excluded for the
   same reason: whether a runner writes `outcome` before `vector_id` is a
-  property of its JSON writer, not of Q2D. Key order *inside* `output` and
-  `wire` is compared, because those carry protocol content and two responses
-  with the same fields in a different order are different bytes on the wire.
+  property of its JSON writer, not of Q2D.
+- **Key order inside a runner-produced object is *not* compared, by either
+  mode**, and that is a gap rather than a decision. `semantic` ignores object
+  key order by definition (§4.4), and `bytes` refuses a composite value
+  outright, so there is no path on which two runners emitting the same fields
+  in a different order are reported as divergent. On the wire those are
+  different bytes. It is the same gap as the one §10 raises for denials and
+  closes the same way — a serialization the harness can compare as a string.
 - **A result carrying the wrong `vector_id` is not an answer.** The comparison
   drops `vector_id` deliberately, so without an explicit check two runners that
   both returned the same canned result for some other vector would be reported

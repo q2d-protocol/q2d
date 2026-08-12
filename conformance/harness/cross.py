@@ -46,12 +46,17 @@ an `implementation` naming who produced it, so comparing whole documents would
 report every vector as divergent.
 
 So the comparison is field by field over the *values* a result carries --
-output, and the halves of a rejection. Key order *within* a value is compared,
-because `wire` and `output` carry protocol content and two responses with the
-same fields in a different order are different bytes on the wire. Key order of
-the result envelope itself is not, because whether a runner writes `outcome`
-before `vector_id` is a property of its JSON writer; nor is its whitespace or
-number notation, for the same reason.
+output, and the halves of a rejection. The result envelope's own key order is
+not compared, because whether a runner writes `outcome` before `vector_id` is a
+property of its JSON writer; nor is its whitespace or number notation, for the
+same reason.
+
+Key order *inside* a runner-produced object is not compared either, and that
+one is a gap rather than a decision: `semantic` ignores object key order by
+definition, and `bytes` refuses a composite value outright, so nothing here
+reports two runners that emit the same fields in a different order -- which on
+the wire is different bytes. §4.8 says so, and §10 carries the format change
+that would close it.
 
 Every value the specification requires determinism over is a string -- a JWS
 compact serialization, a digest, a signature -- and for those this is exact
@@ -124,10 +129,10 @@ def comparable(result: dict) -> list[tuple[str, object]]:
     two implementations to the same one would report a divergence that is not
     about Q2D at all.
 
-    Key order *inside* a value is not excluded. `wire` and `output` carry
-    protocol content, and two responses with the same fields in a different
-    order are different bytes on the wire -- which is the divergence this mode
-    exists to find.
+    Key order *inside* a value is not excluded here, but nothing downstream
+    compares it either: `bytes` refuses a composite value and `semantic`
+    ignores object key order. See the module docstring; it is a gap, and §10
+    carries the change that closes it.
     """
     fields: list[tuple[str, object]] = [("outcome", result["outcome"])]
     if "output" in result:
