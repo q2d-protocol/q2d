@@ -321,9 +321,19 @@ def required_wire_fields(wire: dict) -> frozenset:
     One function so `lint` and `run` cannot drift about it: lint uses it to
     require a whole response in `denial/`, and run uses it to decide whether a
     vector is a projection at all.
+
+    A wire with **no `status`** has not said which response it is, so it gets
+    the union: a projection asserting `pending_token` and `expires_at` is a
+    partial explicit escalation, and measuring it against a denial's list would
+    report §5.3's own fields as forbidden extras.
     """
-    if isinstance(wire, dict) and wire.get("status") == "escalate":
+    if not isinstance(wire, dict):
+        return DENY_RESPONSE_FIELDS
+    status = wire.get("status")
+    if status == "escalate":
         return EXPLICIT_ESCALATE_FIELDS
+    if status is None:
+        return DENY_RESPONSE_FIELDS | EXPLICIT_ESCALATE_FIELDS
     return DENY_RESPONSE_FIELDS
 
 

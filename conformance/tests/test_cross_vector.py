@@ -299,6 +299,12 @@ class ValuesOutsideDenialTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("wire: carries retry_after", output)
 
+    def test_a_projection_with_no_status_is_not_held_to_one_shape(self):
+        # It has not said which response it is, so §5.3's own fields must not
+        # read as forbidden extras.
+        code, output = lint(FIXTURES / "registry-escalation-projection")
+        self.assertEqual(code, 0, output)
+
     def test_asserted_values_are_checked_outside_denial_too(self):
         # Which fields a vector must assert depends on its section; what a
         # field may contain does not. A projection asserting `status: answer`
