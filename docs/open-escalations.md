@@ -1115,6 +1115,16 @@ emits rather than of the shape.
 §6's own argument already needs it. B would weaken the one structural guarantee
 Q2D-C-08's size condition rests on, to gain a flexibility nothing has asked for.
 
+### Why this one is not cosmetic
+
+Until it is settled, **`claims.md` Q2D-C-08's size condition is not structurally
+met.** Closure bounds the field set; it does not bound the response's size while
+one field's length is a deployment's choice. Q2D-C-08's *"holds when… the
+external envelope, its size, and its retry semantics are identical"* therefore
+still rests partly on what an implementation happens to emit, which is what
+closing §5 and §6 was meant to remove. `claims.md` now says so under **Enforced
+by**, rather than claiming a bound that is not yet there.
+
 ### Interim position
 
 `harness lint` **allows any single spelling, names the one in use on every run,

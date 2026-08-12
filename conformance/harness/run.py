@@ -153,6 +153,14 @@ def judge(vector, result: dict) -> tuple[bool, str]:
     # most of the corpus, and exactly where no whole-response denial vector
     # covers the operation.
     if isinstance(actual_wire, dict):
+        # A *vector* may omit `status` -- it is projecting, and has not said
+        # which response it is. A runner's output may not: a conforming
+        # response always carries one, and without it the allowed set would be
+        # the union of both shapes, which is a wider surface than either.
+        if "status" not in actual_wire:
+            return False, ("wire response carries no `status` — core-model.md "
+                           "§5 gives every response one, and without it there "
+                           "is no shape to hold the rest of the fields to")
         forbidden = sorted(set(actual_wire)
                            - lint_module.required_wire_fields(actual_wire))
         if forbidden:
