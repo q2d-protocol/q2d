@@ -145,6 +145,22 @@ def judge(vector, result: dict) -> tuple[bool, str]:
     # must assert all four (checked above), so it is always compared exactly.
     expected_wire = expected_rejection["wire"]
     actual_wire = actual_rejection["wire"]
+
+    # Before any of that: a field §5 does not have is never "not asserted".
+    # A projection says nothing about §5's *other* fields; it says nothing at
+    # all about fields the response cannot carry, and filtering those away
+    # would let a leaky implementation past every projection vector -- which is
+    # most of the corpus, and exactly where no whole-response denial vector
+    # covers the operation.
+    if isinstance(actual_wire, dict):
+        forbidden = sorted(set(actual_wire)
+                           - lint_module.required_wire_fields(actual_wire))
+        if forbidden:
+            return False, (f"wire response carries {', '.join(forbidden)}, which "
+                           f"core-model.md §5 does not give it — a closed field "
+                           f"list, so this is a field the implementation can "
+                           f"vary by cause")
+
     if isinstance(expected_wire, dict) and isinstance(actual_wire, dict):
         # Which fields count as "the whole response" depends on the outcome:
         # §5.3's explicit escalation has no `external_reason` at all, so

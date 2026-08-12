@@ -130,6 +130,17 @@ class DenialExactnessTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("exactly five fields", output)
 
+    def test_a_forbidden_field_fails_even_a_projection(self):
+        # A projection says nothing about §5's *other* fields. It says nothing
+        # at all about fields the response cannot carry — filtering those away
+        # would let a leaky implementation past every projection vector, which
+        # is most of the corpus.
+        code, output = run(RUNNERS / "answers-denial-with-an-extra-field",
+                           FIXTURES / "registry-style-projection")
+        self.assertEqual(code, 1)
+        self.assertIn("debug_cause", output)
+        self.assertIn("closed field list", output)
+
     def test_a_lint_invalid_denial_projection_is_not_run(self):
         # `run`'s exact-comparison decision depends on a denial/ vector being
         # whole-response, which is a lint rule. A mode that never calls lint
