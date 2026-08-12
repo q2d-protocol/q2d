@@ -459,7 +459,15 @@ def main(argv: list[str]) -> int:
 
             if not check(rej is None, f"vector {name}: passes pre-access validation", rej or ""):
                 continue
-            got = fn(v["public_context"], v["private_input"])
+            try:
+                got = fn(v["public_context"], v["private_input"])
+            except NotATimestamp as exc:
+                # `private_input` is parsed here rather than above, so a
+                # malformed timestamp in it reaches this line. Named and
+                # skipped, for the reason the public-context guard exists:
+                # one bad vector must not hide the findings after it.
+                check(False, f"{name}: private input parses", str(exc))
+                continue
             check(got == exp["result"], f"vector {name}: result", f"got {got!r}, want {exp['result']!r}")
 
             want_cap = expected_capacity_mb(p, v["public_context"])
