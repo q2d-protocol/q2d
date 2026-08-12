@@ -101,7 +101,9 @@ meaning the second.
 
 The `deny` response carries a request digest, a decision class, a decision time,
 and a signature. **None of these is variable-length**: SHA-256 is 32 bytes, the
-class is a fixed enum value, RFC 3339 second-precision is fixed width, Ed25519 is
+class is a fixed enum value, a timestamp is fixed width because
+[`core-model.md`](../../spec/core-model.md) §2.2 permits one spelling of it —
+`+00:00` would be six characters where `Z` is one — Ed25519 is
 64 bytes.
 
 So byte-length uniformity falls out of the shape rather than needing to be

@@ -1120,6 +1120,12 @@ identity. §4 step 8 now says **byte for byte** explicitly. §5.3, §6 and P-002
 bound, which closure alone did not give: the field list left `decided_at` free
 to be six characters or one.
 
+Two PRDs restated the rule rather than citing it and were amended with the rest:
+[P-011](prds/P-011-receipts-audit.md) §4.1's receipt table, and
+[P-009](prds/P-009-denial-normalization.md) §4.3's fixed-width argument — which
+was the argument that motivated the whole question and was, until this cascade,
+resting on a paraphrase.
+
 ---
 
 ## E-24 — At which step is a registry-entry constraint checked, when no JSON Schema can express it?
