@@ -191,16 +191,16 @@ EXPLICIT_ESCALATE_FIELDS = frozenset({"status", "pending_token", "expires_at",
                                       "receipt", "signature"})
 
 
-def timestamp_forms(vectors) -> tuple[list[str], list[str]]:
-    """Which vectors use an offset and which use `Z`, named separately.
+def timestamp_forms(vectors) -> dict:
+    """Every RFC 3339 spelling the corpus uses, and which vectors use it.
 
-    Neither form is rejected: §6 does not say `Z`, so a vector using an offset
-    may well be conforming, and deciding that here would settle a specification
-    question in a lint rule. What *is* rejected is a corpus using both, which
-    is defective whichever way §6 goes -- no implementation emits both, so no
-    implementation can satisfy such a corpus.
+    No spelling is rejected: §6 says only "RFC 3339, second precision", so
+    deciding between them here would settle a specification question in a lint
+    rule. What *is* rejected is a corpus using more than one, which is
+    defective whichever way §6 goes -- no implementation emits several, so none
+    could satisfy such a corpus.
     """
-    offsets, zulus = [], []
+    profiles: dict = {}
     for vector in vectors:
         body = vector.body if hasattr(vector, "body") else vector
         if not isinstance(body, dict):
@@ -219,9 +219,10 @@ def timestamp_forms(vectors) -> tuple[list[str], list[str]]:
             continue
         decided = receipt.get("decided_at")
         if isinstance(decided, str) and valid_timestamp(decided):
-            (offsets if offset_form(decided) else zulus).append(
-                str(body.get("id", "?")))
-    return offsets, zulus
+            profile = timestamp_profile(decided)
+            if profile:
+                profiles.setdefault(profile, []).append(str(body.get("id", "?")))
+    return profiles
 
 
 def response_shape_errors(vector: dict) -> list[str]:
@@ -318,8 +319,13 @@ DENY_STATUS = ("deny", "escalate")
 # string, because §6 grounds the whole length guarantee in none of the reduced
 # fields being variable-length -- and a timestamp carrying sub-second precision
 # or a numeric offset is variable-length, which quietly removes it.
+# RFC 3339 permits lowercase `t` and `z`, and §6 does not define an
+# uppercase-only profile. Both are matched; which one a corpus may use is
+# P-001 §10's question, and the answer here is the same as for the offset
+# form -- allow either, report it, and fail a corpus that mixes.
 RFC3339_SECOND = re.compile(
-    r"\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(Z|[+-]\d{2}:\d{2})\Z")
+    r"\A(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})"
+    r"(Z|z|[+-]\d{2}:\d{2})\Z")
 
 
 def valid_timestamp(value: str) -> bool:
@@ -359,7 +365,7 @@ A numeric offset is **accepted** and separately reported. §6 says "RFC 3339,
     # divergence this check exists to prevent, introduced by the check.
     year, month, day, hour, minute, second, offset = matched.groups()
 
-    if offset != "Z":
+    if offset not in ("Z", "z"):
         # The regex matches the offset's *shape*; these are its ranges.
         # Discarding it and parsing only the local time accepted `+99:99`.
         offset_hour, offset_minute = int(offset[1:3]), int(offset[4:6])
@@ -373,7 +379,7 @@ A numeric offset is **accepted** and separately reported. §6 says "RFC 3339,
         # Checking the local fields rejected it. Whether *this* leap second was
         # inserted is still not knowable here -- see the docstring.
         shift = 0
-        if offset != "Z":
+        if offset not in ("Z", "z"):
             shift = (int(offset[1:3]) * 60 + int(offset[4:6])) * (
                 -1 if offset[0] == "-" else 1)
         try:
@@ -400,10 +406,24 @@ A numeric offset is **accepted** and separately reported. §6 says "RFC 3339,
     return True
 
 
-def offset_form(value: str) -> bool:
-    """Does this timestamp use a numeric offset rather than `Z`?"""
+def timestamp_profile(value: str) -> str | None:
+    """Which of RFC 3339's spellings this timestamp uses, as a label.
+
+    RFC 3339 permits several forms of the same instant -- `T` or `t`, `Z` or
+    `z` or a numeric offset -- and §6 says only "RFC 3339, second precision".
+    Which one Q2D requires is P-001 §10. Until that is settled, no form is
+    rejected and the *set in use* is what matters: a corpus carrying more than
+    one is defective whichever way §6 goes, because no implementation emits
+    more than one.
+    """
     matched = RFC3339_SECOND.match(value)
-    return bool(matched) and matched.group(7) != "Z"
+    if not matched:
+        return None
+    separator = "T" if "T" in value[:11] else "t"
+    terminator = matched.group(7)
+    if terminator in ("Z", "z"):
+        return f"…{separator}…{terminator}"
+    return f"…{separator}…±hh:mm"
 
 
 def nonempty_string(where: str, value) -> list[str]:
@@ -627,17 +647,18 @@ def lint(corpus_root: Path) -> int:
     # carrying *both* forms is defective whichever way §6 goes, because no
     # implementation can emit both -- so that fails, and either form alone is
     # reported and allowed.
-    offsets, zulus = timestamp_forms(vectors)
-    if offsets:
-        print(f"  receipt timestamps: {len(offsets)} vector(s) use a numeric "
-              f"offset rather than 'Z' — allowed, and an open question "
-              f"(P-001 §10): {', '.join(sorted(offsets))}")
-    if offsets and zulus:
+    profiles = timestamp_forms(vectors)
+    if profiles:
+        print(f"  receipt timestamps: {', '.join(sorted(profiles))} — which "
+              f"RFC 3339 spelling §6 requires is open (P-001 §10), so any one "
+              f"is allowed")
+    if len(profiles) > 1:
+        listing = "; ".join(f"{form} in {', '.join(sorted(ids))}"
+                            for form, ids in sorted(profiles.items()))
         cross_errors = list(cross_errors) + [
-            f"receipt timestamps: the corpus uses both 'Z' "
-            f"({', '.join(sorted(zulus))}) and a numeric offset "
-            f"({', '.join(sorted(offsets))}). Which §6 requires is open "
-            f"(P-001 §10); that no implementation emits both is not"]
+            f"receipt timestamps: the corpus uses {len(profiles)} spellings of "
+            f"RFC 3339 — {listing}. Which one §6 requires is open (P-001 §10); "
+            f"that no implementation emits several is not"]
     for error in cross_errors:
         print(f"  FAIL  {error}")
 

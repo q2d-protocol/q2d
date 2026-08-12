@@ -165,25 +165,27 @@ class WholeResponseTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("must never be described as such", output)
 
-    def test_a_corpus_using_both_timestamp_forms_fails(self):
-        # Neither form is rejected — §6 does not say Z, and deciding that here
-        # would settle a specification question in a lint rule. A corpus using
-        # both is defective whichever way §6 goes: no implementation emits
-        # both, so none can satisfy it.
+    def test_a_corpus_mixing_rfc3339_spellings_fails(self):
+        # No spelling is rejected — §6 says only "RFC 3339, second precision",
+        # and deciding between them here would settle a specification question
+        # in a lint rule. A corpus using several is defective whichever way §6
+        # goes: no implementation emits several, so none can satisfy it.
         code, output = lint(FIXTURES / "denial-mixed-timestamp-forms")
         self.assertEqual(code, 1)
-        self.assertIn("uses both 'Z'", output)
+        self.assertIn("spellings of RFC 3339", output)
         self.assertIn("is not", output)
 
-    def test_an_offset_timestamp_is_accepted_and_reported(self):
-        # §6 says "RFC 3339, second precision" and does not say Z. Rejecting
-        # the offset form would settle that in a lint rule and push both
-        # implementations toward an uncited profile; ignoring it would let the
-        # corpus split across two forms unnoticed.
-        code, output = lint(FIXTURES / "denial-offset-timestamp")
-        self.assertEqual(code, 0, output)
-        self.assertIn("numeric offset rather than 'Z'", output)
-        self.assertIn("open question", output)
+    def test_any_single_spelling_is_allowed_and_reported(self):
+        # RFC 3339 permits `T`/`t`, `Z`/`z`, and a numeric offset. §6 names no
+        # profile, so each is allowed on its own — and named, so a corpus
+        # cannot drift across them unnoticed.
+        for fixture in ("denial-offset-timestamp", "denial-lowercase-timestamp",
+                        "denial-whole-response"):
+            with self.subTest(fixture=fixture):
+                code, output = lint(FIXTURES / fixture)
+                self.assertEqual(code, 0, output)
+                self.assertIn("receipt timestamps:", output)
+                self.assertIn("open (P-001 §10)", output)
 
     def test_an_impossible_offset_is_rejected(self):
         # The regex matches the offset's shape; these are its ranges. Accepting
