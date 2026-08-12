@@ -161,7 +161,7 @@ def receipt_errors(vector: dict) -> list[str]:
 
     missing = sorted(REDUCED_RECEIPT_FIELDS - set(receipt))
     extra = sorted(set(receipt) - REDUCED_RECEIPT_FIELDS)
-    errors = []
+    errors = receipt_value_errors(receipt)
     if missing:
         errors.append(f"receipt: missing {', '.join(missing)} — core-model.md "
                       f"§6's reduced shape is exactly five fields. Omit "
@@ -397,8 +397,11 @@ def wire_value_errors(wire: dict) -> list[str]:
 
     receipt = wire.get("receipt")
     if isinstance(receipt, dict):
-        for field in sorted(REDUCED_RECEIPT_FIELDS & set(receipt)):
-            errors += nonempty_string(f"wire.receipt.{field}", receipt[field])
+        # The receipt's own field values are checked by `receipt_errors`, which
+        # runs wherever a receipt is asserted rather than only here -- a
+        # registry/ vector may carry one too, and an empty digest in it is no
+        # more conforming for being in a different section.
+        #
         # §5.3's boundary, quoted because nothing else in the specification is
         # put this strongly: "an opaque escalation must not be distinguishable
         # from any other outcome in that class by its receipt any more than by
@@ -437,14 +440,23 @@ def wire_value_errors(wire: dict) -> list[str]:
                         f"as the normalized class (core-model.md §5.2, P-011 "
                         f"§4.1), so two values is itself a distinction")
 
-        decided = receipt.get("decided_at")
-        if isinstance(decided, str) and not valid_timestamp(decided):
-            errors.append(
-                f"wire.receipt.decided_at: {decided!r} is not RFC 3339 at "
-                f"second precision with 'Z' — core-model.md §6 grounds the "
-                f"length guarantee in none of the reduced fields being "
-                f"variable-length, and this is the one that can vary")
 
+    return errors
+
+
+def receipt_value_errors(receipt: dict) -> list[str]:
+    """The values §6 determines for a reduced receipt, wherever one appears."""
+    errors: list[str] = []
+    for field in sorted(REDUCED_RECEIPT_FIELDS & set(receipt)):
+        errors += nonempty_string(f"wire.receipt.{field}", receipt[field])
+
+    decided = receipt.get("decided_at")
+    if isinstance(decided, str) and decided and not valid_timestamp(decided):
+        errors.append(
+            f"wire.receipt.decided_at: {decided!r} is not RFC 3339 at second "
+            f"precision — core-model.md §6 grounds the length guarantee in "
+            f"none of the reduced fields being variable-length, and this is "
+            f"the one that can vary")
     return errors
 
 

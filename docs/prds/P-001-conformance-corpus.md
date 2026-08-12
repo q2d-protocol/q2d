@@ -429,8 +429,10 @@ Two smaller decisions the implemented pair carry:
   and the comparison would disagree, and the comparison would win. It applies
   at the top level of `wire` and nowhere else: **not to `output`**, where an
   answer is bounded by the effective domain and an unasked-for field is the
-  failure Q2D-C-03 exists to catch, and not inside `receipt`, which is five
-  fields or a lint failure.
+  failure Q2D-C-03 exists to catch; not inside `receipt`, which is five fields
+  or a lint failure; and **not in `denial/` at all**, where a vector asserts
+  the whole response and a fifth field a runner added is the cause-specific
+  oracle Q2D-C-08 exists to catch.
 
 - **A receipt a vector does assert is held to §6's shape, and that is an error
   rather than a report.** Omitting `receipt` asserts nothing about it and is

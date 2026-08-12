@@ -5,7 +5,7 @@
     "Q2D-C-08",
     "core-model.md#5.2"
   ],
-  "description": "A projection, as a registry/ vector legitimately asserts. A runner returning the whole response must pass it.",
+  "description": "A registry/ vector asserting a receipt with an empty digest and an unparseable timestamp. No more conforming for being outside denial/.",
   "operation": "capacity_debit",
   "input": {
     "budget": {
@@ -19,7 +19,14 @@
       "internal_reason": "budget_exhausted",
       "wire": {
         "status": "deny",
-        "external_reason": "unavailable"
+        "external_reason": "unavailable",
+        "receipt": {
+          "request_digest": "",
+          "decision_class": "unavailable",
+          "decided_at": "not-a-timestamp",
+          "responder": "did:example:test-custodian-1",
+          "signature_suite": "eddsa-jws-2026"
+        }
       },
       "step": 15
     },

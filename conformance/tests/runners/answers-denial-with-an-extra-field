@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
-"""Answers a registry rejection with core-model.md §5.2's whole response.
+"""Adds a cause-specific field to an otherwise uniform denial.
 
-What a conforming implementation returns. The registry vectors assert two of
-those four fields, because predicate evaluation is what they test — so this
-runner must pass them, not fail for returning too much.
+The oracle Q2D-C-08 exists to catch: the four fields are right, and a fifth
+tells a requester which cause it was.
 """
 import json, sys
 
@@ -14,15 +13,12 @@ RECEIPT = {"request_digest": "sha-256:" + "0" * 64,
            "signature_suite": "eddsa-jws-2026"}
 
 vector = json.loads(open(sys.argv[1]).read())
-if vector["id"] != "registry/uniformity-c/budget-exhausted":
-    print(f"no canned answer for {vector['id']}", file=sys.stderr)
-    raise SystemExit(1)
 json.dump({"vector_id": vector["id"], "outcome": "rejected",
            "rejection": {"internal_reason": "budget_exhausted",
                          "wire": {"status": "deny",
                                   "external_reason": "unavailable",
-                                  "receipt": RECEIPT,
-                                  "signature": "z" * 86},
+                                  "receipt": RECEIPT, "signature": "z" * 86,
+                                  "debug_cause": "budget_exhausted"},
                          "step": 15},
-           "implementation": {"name": "q2d-whole", "version": "0.0.0"}},
+           "implementation": {"name": "q2d-leaky", "version": "0.0.0"}},
           sys.stdout)

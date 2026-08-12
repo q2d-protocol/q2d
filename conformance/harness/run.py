@@ -131,11 +131,16 @@ def judge(vector, result: dict) -> tuple[bool, str]:
     # ignoring it would be a subset rule quietly disabling a claim. And not
     # inside `receipt`, which is exactly five fields or a lint failure.
     #
-    # The section that tests uniformity is unaffected: a denial/ vector must
-    # assert all four fields, so nothing is dropped where it would matter.
+    # And **not in `denial/`**, which is the section that tests uniformity. A
+    # vector there asserts all four fields, so there is no subset to honour --
+    # and projecting anyway would drop a `retry_after` or a `debug_cause` a
+    # runner added, which is the cause-specific oracle Q2D-C-08 exists to
+    # catch. There it is compared exactly, extra fields included.
     expected_wire = expected_rejection["wire"]
     actual_wire = actual_rejection["wire"]
-    if isinstance(expected_wire, dict) and isinstance(actual_wire, dict):
+    projecting = (isinstance(vector.body, dict)
+                  and vector.body.get("section") != "denial")
+    if projecting and isinstance(expected_wire, dict) and isinstance(actual_wire, dict):
         actual_wire = {name: value for name, value in actual_wire.items()
                        if name in expected_wire}
 

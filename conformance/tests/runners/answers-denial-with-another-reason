@@ -17,7 +17,8 @@ RECEIPT = {"request_digest": "sha-256:000000000000000000000000000000000000000000
 SIGNATURE = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
 
 vector = json.loads(open(sys.argv[1]).read())
-if vector["id"] != "denial/uniformity-c/budget-exhausted":
+if vector["id"] not in ("denial/uniformity-c/budget-exhausted",
+                        "registry/uniformity-c/budget-exhausted"):
     print(f"no canned answer for {vector['id']}", file=sys.stderr)
     raise SystemExit(1)
 json.dump({"vector_id": vector["id"], "outcome": "rejected",

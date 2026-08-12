@@ -241,6 +241,14 @@ class ReducedReceiptShapeTest(unittest.TestCase):
         self.assertIn("receipt: carries predicate", output)
         self.assertIn("exactly five fields, and no others", output)
 
+    def test_a_receipt_is_checked_outside_denial_too(self):
+        # A registry/ vector may carry a receipt, and an empty digest in it is
+        # no more conforming for being in a different section.
+        code, output = lint(FIXTURES / "registry-bad-receipt")
+        self.assertEqual(code, 1)
+        self.assertIn("wire.receipt.request_digest: empty", output)
+        self.assertIn("not RFC 3339", output)
+
     def test_a_correct_receipt_passes(self):
         code, output = lint(FIXTURES / "denial-whole-response")
         self.assertEqual(code, 0, output)

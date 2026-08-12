@@ -101,6 +101,17 @@ class PartialWireTest(unittest.TestCase):
         self.assertIn("internal reason", output)
 
 
+class DenialExactnessTest(unittest.TestCase):
+    def test_an_extra_field_on_a_denial_fails(self):
+        # denial/ is not projected. A runner returning the four fields plus a
+        # cause-specific fifth is the oracle Q2D-C-08 exists to catch, and a
+        # subset rule applied here would drop it.
+        code, output = run(RUNNERS / "answers-denial-with-an-extra-field",
+                           FIXTURES / "denial-single")
+        self.assertEqual(code, 1)
+        self.assertIn("debug_cause", output)
+
+
 class PassingTest(unittest.TestCase):
     def test_a_correct_runner_passes_every_vector(self):
         code, output = run(RUNNERS / "answers-correctly")
