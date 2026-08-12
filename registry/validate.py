@@ -466,7 +466,11 @@ def main(argv: list[str]) -> int:
                     return (isinstance(value, (int, float))
                             and not isinstance(value, bool))
                 if keyword == "additionalProperties":
-                    return isinstance(value, bool)
+                    # §4.1 lists it as `additionalProperties: false` -- the
+                    # value is part of the keyword, so `true` is outside the
+                    # profile wherever it sits, including on a schema the
+                    # object walk below never visits.
+                    return value is False
                 return isinstance(value, {"properties": dict, "required": list,
                                           "enum": list, "items": dict,
                                           "type": (str, list), "$schema": str,
