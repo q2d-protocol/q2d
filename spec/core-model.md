@@ -379,7 +379,8 @@ A conforming responder processes in this order:
 | 9 | Replay-cache check | After signature, so unauthenticated traffic cannot pollute the cache. |
 | 9a | **Rate-limit check** (§9.1) | After the replay check, so an idempotent retry returns its cached outcome without consuming rate budget. Before registry resolution, so **every** authenticated request counts identically — see below. |
 | 10 | Registry: predicate known, version known, not revoked, digest pinned | Fails closed on anything unrecognized. |
-| 11 | Public context validated against the entry's input schema | Schema comes from the registry, not the request. |
+| 11 | Public context validated against the entry's **input schema** | Schema comes from the registry, not the request. |
+| 11a | Public context checked against the entry's **other constraints** — those its input schema cannot express | A different mechanism, so a separate step. See below. |
 | 12 | Answer contract no broader than the registry entry | Q2D-C-02. |
 | 13 | Requested assurance profile supported | Refuse rather than downgrade. |
 | 14 | Policy evaluation → `allow` / `deny` / `escalate` + modifiers | First step that consults policy authorities. |
@@ -389,9 +390,21 @@ A conforming responder processes in this order:
 | 18 | Budget debited | Once, idempotently. |
 | 19 | Receipt constructed; response signed | Q2D-C-10. |
 
-Step 9a is lettered rather than numbered because the step numbers are cited
-throughout this repository and renumbering them silently would be worse than an
-irregular label.
+Steps 9a and 11a are lettered rather than numbered because the step numbers are
+cited throughout this repository and renumbering them silently would be worse
+than an irregular label.
+
+**Step 11a is separate from 11 because they are different mechanisms.** Step 11
+runs a schema the registry supplies, and an implementation satisfies it by
+validating a document. An entry may also carry constraints no JSON Schema can
+express — a minimum duration, a relationship between two fields, a bound that
+depends on a value — and checking those is predicate-specific logic rather than
+schema validation. Folding them into one step would let an implementation
+satisfy §4 by running a validator and stopping, and would leave a conformance
+vector unable to say which of the two rejected. Its placement is not arbitrary
+either: after 11 because the schema is the cheaper check and establishes the
+shape the constraints then assume, and before 12 because both ask whether the
+request is within what the entry permits.
 
 **Its position is a security property, not a convenience.** The rate limit is
 keyed on the **relationship** the budget is keyed on — requester relationship and
@@ -409,7 +422,8 @@ becoming the thing it was introduced to close.
 
 Four invariants follow:
 
-- **Steps 1–15 complete before any private input is read.** A denial at any of
+- **Steps 1–15, and the lettered steps among them, complete before any
+  private input is read.** A denial at any of
   them is reachable without touching protected data.
 - **Rate limiting counts authenticated requests, not outcomes.** It runs before
   the responder knows what was asked, so its state cannot vary with the answer,

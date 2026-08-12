@@ -180,13 +180,24 @@ class MalformedVectorTest(unittest.TestCase):
             with self.subTest(step=step):
                 self.assert_rejected(vector, f"names step {step!r}")
 
-    def test_a_lettered_step_is_expressible(self):
-        # core-model.md §4 carries step 9a, the rate-limit check, and it is
-        # precisely the step whose ordering matters: a limiter running after
-        # registry resolution leaves unknown predicates unlimited.
+    def test_every_lettered_step_is_expressible(self):
+        # core-model.md §4 carries 9a, the rate-limit check, and 11a, the
+        # registry entry's non-schema constraints. Both are steps whose
+        # ordering is the point: a limiter running after registry resolution
+        # leaves unknown predicates unlimited, and an implementation folding
+        # 11a into 11 satisfies §4 by running a validator and stopping.
+        for step in ("9a", "11a"):
+            with self.subTest(step=step):
+                vector = self.mutate(REJECTED_VECTOR)
+                vector["expect"]["rejection"]["step"] = step
+                self.assertEqual(schema_module.validate(vector, self.schema), [])
+
+    def test_the_lettered_step_set_is_closed(self):
+        # A vector naming `12b` would assert an ordering the specification does
+        # not have.
         vector = self.mutate(REJECTED_VECTOR)
-        vector["expect"]["rejection"]["step"] = "9a"
-        self.assertEqual(schema_module.validate(vector, self.schema), [])
+        vector["expect"]["rejection"]["step"] = "12b"
+        self.assertNotEqual(schema_module.validate(vector, self.schema), [])
 
     def test_identifier_without_a_section_segment(self):
         vector = self.mutate()

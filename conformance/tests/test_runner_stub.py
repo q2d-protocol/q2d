@@ -95,10 +95,12 @@ class ResultSchemaTest(unittest.TestCase):
                             "does not name its implementation")
 
     def test_a_lettered_step_can_be_reported(self):
-        # core-model.md §4 carries step 9a, the rate-limit check. A schema that
-        # could not express it would force a conforming runner to misreport the
-        # ordering the corpus exists to assert.
-        for step in (1, 9, 19, "9a"):
+        # core-model.md §4 carries 9a and 11a. A result schema that could not
+        # express one would force a conforming runner to misreport the ordering
+        # the corpus exists to assert — and would make a corpus vector stating
+        # that step impossible to pass, since the result is rejected before it
+        # is ever compared.
+        for step in (1, 9, 19, "9a", "11a"):
             with self.subTest(step=step):
                 self.assert_valid({"vector_id": "a/b", "outcome": "rejected",
                                    "rejection": {"internal_reason": "rate_limited",
