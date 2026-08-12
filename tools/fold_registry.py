@@ -30,12 +30,11 @@ exceptions worth stating rather than burying:
   which is a stronger statement where the step is determined and no statement at
   all where it is not. `public_context_schema_violation` is step 11 — *"public
   context validated against the entry's input schema"* — and is stated as such.
-  `constraint_violation_minimum_slot_duration` is **not** determined: a minimum
-  slot duration cannot be expressed in a JSON Schema, so it is a registry-entry
-  constraint checked outside step 11's schema validation, and where it belongs
-  is a spec ambiguity. Those vectors state no step and P-001 §10 carries the
-  question. Stating a step here would be resolving a spec ambiguity in a
-  generator, which is the one thing CLAUDE.md is most explicit about.
+  `constraint_violation_minimum_slot_duration` is **step 11a** — the entry's
+  constraints that its input schema cannot express, which a minimum slot
+  duration is. That was undetermined until it was raised as an escalation and
+  §4 gained the step; the vector stated no step meanwhile, which is what §4.8
+  makes a step-less vector mean, rather than this generator picking one.
 - **The evaluation itself is not carried.** `registry/validate.py` holds a
   deliberately naive reference evaluation to pin the vectors' meaning. Nothing
   of it appears in the corpus: a vector states what a conforming implementation
@@ -52,10 +51,13 @@ REPO = Path(__file__).resolve().parent.parent
 MANIFEST = REPO / "registry" / "manifest.json"
 SECTION = REPO / "conformance" / "corpus" / "registry"
 
-# core-model.md §4 step 11: "Public context validated against the entry's input
-# schema". The manifest's other rejection reason has no determined step -- see
-# the module docstring.
-STEP_FOR_REASON = {"public_context_schema_violation": 11}
+# core-model.md §4's two public-context checks, which are two steps because they
+# are two mechanisms: step 11 runs the entry's input schema, and step 11a checks
+# the constraints that schema cannot express.
+STEP_FOR_REASON = {
+    "public_context_schema_violation": 11,
+    "constraint_violation_minimum_slot_duration": "11a",
+}
 
 # What each kind of vector demonstrates. Answers exercise the released result
 # and its debit; rejections exercise the denial the requester actually sees.
@@ -151,16 +153,16 @@ def describe(predicate: dict, vector: dict) -> str:
                 # a restatement, not a second claim.
                 detail += ", at a step before private input is read"
             else:
-                # No step, so nothing here checks the ordering -- and a
-                # description reading "before private input is read" would put
-                # an untested security property in the corpus, where a runner
-                # that read private input first would pass anyway. What the
-                # manifest asserts is named as the manifest's assertion, and
-                # what the corpus cannot yet assert is named as that.
+                # Every rejection reason the manifest carries now has a step,
+                # so this branch is unreachable today. It stays because the next
+                # predicate may add a reason before §4 has a step for it, and
+                # the right behaviour then is what it was: say what the manifest
+                # asserts, and do not let the corpus assert an ordering nothing
+                # checks.
                 detail += (". The manifest also records that this rejection "
                            "precedes private access; this vector does not "
-                           "assert it, because the step is undetermined "
-                           "(P-001 §10)")
+                           "assert it, because no §4 step is determined for "
+                           "this reason")
     else:
         detail = (f"answers {json.dumps(expect['result'])}, debiting "
                   f"{expect['capacity_debit_millibits']} millibits")

@@ -35,7 +35,7 @@ Q2D-C-03 and Q2D-C-09 both consume its output.
 | [`spec/core-model.md`](../../spec/core-model.md) §3 | `effective_domain` as **narrowing composition**, not set intersection; an unsatisfiable domain fails closed |
 | [`spec/core-model.md`](../../spec/core-model.md) §3.2 | The per-shape narrowing rules this module implements — normative there, not here |
 | [`spec/core-model.md`](../../spec/core-model.md) §2.5 | The answer contract; **coarsening only** — never an expansion and never a strict subset |
-| [`spec/core-model.md`](../../spec/core-model.md) §4 steps 11–13 | Schema validation, contract narrowing, assurance profile support |
+| [`spec/core-model.md`](../../spec/core-model.md) §4 steps 11, 11a, 12–13 | Schema validation, the entry's other constraints, contract narrowing, assurance profile support |
 | [`spec/claims.md`](../../spec/claims.md) Q2D-C-02 | The domain is resolved by the responder, never accepted from the requester |
 | [`spec/terminology.md`](../../spec/terminology.md) §4 | The eight release shapes |
 | [`spec/terminology.md`](../../spec/terminology.md) §6 | Effective answer domain; decision modifiers |
@@ -128,6 +128,13 @@ express — `minimum_slot_duration` and `maximum_horizon` on
 `availability_window` are the current two. They are anti-probing controls, not
 usability limits, and are evaluated after schema validation and before private
 access.
+
+That ordering is now **[`core-model.md`](../../spec/core-model.md) §4 step
+11a**, immediately after step 11's schema validation. This section and §5's two
+functions — `validate_schema` and `check_constraints` — had the distinction
+before §4 did: the specification had one step where this module always had two
+mechanisms, so a rejection from the second could not say where it happened.
+A `domain/constraints/` vector states `11a`.
 
 The constraint vocabulary is **closed**. Adding one is a registry format change,
 not a client change, so the two implementations cannot drift on what a constraint

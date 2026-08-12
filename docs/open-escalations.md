@@ -71,7 +71,7 @@ question is still fresh than after the answer arrives.
 | **E-21** | Which members does the signature's protected header carry? | P-001 §10 | `crypto-suites.md` §3, `core-model.md` §2.7 | **Closed** |
 | **E-22** | Are `core-model.md` §5's response field lists closed, and where does retry metadata live? | P-001 §10 | `core-model.md` §5.1, §5.2, §5.3, §9.1 | **Closed** |
 | **E-23** | Which RFC 3339 spelling may a receipt timestamp use? | P-001 §10 | `core-model.md` §2.2 (new) | **Closed** |
-| **E-24** | At which step is a registry-entry constraint checked when no JSON Schema can express it? | P-001 §10 | `core-model.md` §4 | **Open** |
+| **E-24** | At which step is a registry-entry constraint checked when no JSON Schema can express it? | P-001 §10 | `core-model.md` §4 (new step 11a) | **Closed** |
 
 Two further items are **coordination, not escalation** — P-001 owns both. They
 are listed in §2 because they block the same PRDs, and both are now **closed**.
@@ -1130,61 +1130,48 @@ resting on a paraphrase.
 
 ## E-24 — At which step is a registry-entry constraint checked, when no JSON Schema can express it?
 
-**Raised by** [P-001](prds/P-001-conformance-corpus.md) §10 ·
-**Decides** [`core-model.md`](../spec/core-model.md) §4 ·
-**Blocks** nothing today; one folded registry vector states no step because of it
+**Closed.** Raised by [P-001](prds/P-001-conformance-corpus.md) §10 ·
+**Decided** [`core-model.md`](../spec/core-model.md) §4, new step **11a**
 
-### Context
+### The gap
 
-§4 step 11 is *"public context validated against the entry's input schema"*.
-
+§4 step 11 was *"public context validated against the entry's input schema"*.
 The `availability-window` predicate also carries a **minimum slot duration**,
-which no JSON Schema can express. A rejection for it is therefore a
-registry-entry constraint checked somewhere *outside* step 11's schema
-validation, and §4 does not say where.
+which no JSON Schema expresses — so a rejection for it happened somewhere
+outside step 11 and §4 did not say where.
 
-### Concretely
+### Resolution — B, a step of its own
 
-[`registry/manifest.json`](../registry/manifest.json) has one vector rejecting
-with `constraint_violation_minimum_slot_duration` —
-`reject-slot-below-granularity-floor`. Folded into the corpus it **states no
-step**, because stating one would resolve this in a generator, and its
-`before_private_access` property — which the manifest does assert — survives
-only as prose in the vector description until this is settled.
+**11a**, immediately after 11. They are different mechanisms: step 11 runs a
+schema the registry supplies and an implementation satisfies it by validating a
+document; an entry's other constraints are predicate-specific logic. Folding
+them into one step would let an implementation satisfy §4 by running a validator
+and stopping, and would leave a conformance vector unable to say which of the
+two rejected — in the section that exists to assert exactly that.
 
-One vector is the current cost, not the scope of the question: every predicate
-carrying a constraint its input schema cannot express will produce another, and
-`availability-window` is simply the first.
+Lettered, as 9a is, because §4's numbers are cited across the repository and a
+mid-sequence insertion would otherwise renumber everything below it. Placed
+after 11 because the schema is the cheaper check and establishes the shape the
+constraints assume, and before 12 because both ask whether the request is within
+what the entry permits.
 
-### Options
+### What made the answer easy
 
-**A. Broaden step 11** to *"public context validated against the entry"*, schema
-and constraints together.
+**[P-006](prds/P-006-request-validation.md) already had the distinction.** §4.3
+is titled *"Constraints are separate from schemas"*, and §5's interface list
+carries `validate_schema` and `check_constraints` as two functions. The
+specification had one step where the module implementing it always had two
+mechanisms. That is the shape of a spec gap rather than a design choice, and it
+is why B needed no argument against A beyond naming it.
 
-*For:* one step, one place a requester's public context is checked against what
-the registry says about it. *Against:* the two are different mechanisms — one is
-a schema a validator runs, the other is arbitrary predicate-specific logic — and
-merging them hides that an implementation must do both.
+### Cascade
 
-**B. Give entry constraints their own step**, after 11.
-
-*For:* names the second mechanism, so an implementation cannot satisfy §4 by
-running a JSON Schema validator and stopping. Makes `ordering/` able to assert
-which of the two rejected. *Against:* a new step in a numbered order that
-several documents cite by number.
-
-### Recommendation — B
-
-The `ordering/` section exists to assert *which* step rejected, and A makes two
-genuinely different failures indistinguishable to it. The renumbering cost is
-real but is paid once, and §4 already carries a lettered step (9a) for exactly
-this situation — an insertion that would otherwise renumber everything below it.
-
-### Interim position
-
-The folded vector states no step and therefore asserts nothing about ordering,
-which is what §4.8 makes a step-less vector mean. Nothing is wrong; something is
-unstated.
+The folded registry vector states `11a` and no longer carries its
+`before_private_access` property as prose. `vector.schema.json`'s lettered-step
+enum holds `9a` and `11a` and stays closed. Every range that said *"steps 1–15"*
+or *"nineteen steps"* now names the lettered steps among them — P-010 in
+particular, whose acceptance was *"step orchestration, 1–19"* and would have
+been satisfiable while skipping both.
 
 ---
 
@@ -1235,13 +1222,12 @@ question 5.
 ## 3. Resolutions
 
 E-01 … E-15 were decided in one pass and cascaded in the same change; every
-recommendation was adopted. **E-16, E-17 and E-24 are open** and are not in this
+recommendation was adopted. **E-16 and E-17 are open** and are not in this
 table.
 
-E-18 … E-23 were decided one at a time while P-001's harness and corpus were
+E-18 … E-24 were decided one at a time while P-001's harness and corpus were
 built, each raised with options and a recommendation, each **adopted as
-recommended**, and each cascaded before the next was raised. E-21, E-22 and
-E-23 change `spec/`; none was settled in the implementation that raised it.
+recommended**, and each cascaded before the next was raised. E-21, E-22, E-23 and E-24 change `spec/`; none was settled in the implementation that raised it.
 
 | ID | Resolution | Landed in |
 |---|---|---|
@@ -1267,6 +1253,7 @@ E-23 change `spec/`; none was settled in the implementation that raised it.
 | **E-20** | A vector may assert a **subset** of §5.2's response where response construction is not what it tests, and asserts nothing about the fields it omits; `denial/` may not, because `status` and `external_reason` are both fixed by the normalized class, so a subset there compares two constants and cannot fail | `conformance/vector.schema.json` · P-001 §4.8 · P-009 §5 · `harness lint` and `harness run` |
 | **E-21** | The protected header carries **`suite` and `key_id`, and no others**. `suite` is the suite identifier, because P-003 §4.2 step 4 confirms it *equals* the payload's `signature.profile`. `key_id` is there because §4 resolves the key at step 4 while the payload's copy is unreadable until step 5 — a gap nothing had recorded. **No `alg`**, so `alg: none` is not a state the format can express, and a Q2D signed string is consequently **not a conformant JWS** but the JWS compact *form* | `crypto-suites.md` §3, §4 · `core-model.md` §2.7 · P-003 §4.1, §4.2, §6 · `tools/author_vectors.py` |
 | **E-22** | **Every §5 response is a closed field list** — §5.1 with `evidence` conditional on the assurance profile named in the same response, §5.2 at four fields, §5.3's explicit escalation at five. Adding one is a specification change, on the reasoning §6 already gave for the receipt. **§5.2's retry permission is dropped**: it permitted a field whose only conforming value was uniform, no conformance class allowed the transport form, and P-009 §4.4 declined to emit any — a permission with no user is a trap | `core-model.md` §5.1, §5.2, §5.3, §9.1 · `claims.md` Q2D-C-08 (enforcement description) · P-009 §4.4, P-013 §4.2 · `harness lint` |
+| **E-24** | **A step of its own: 11a**, immediately after step 11's schema validation. They are different mechanisms — step 11 runs a schema the registry supplies, and an entry's other constraints are predicate-specific logic — so folding them into one step would let an implementation satisfy §4 by running a validator and stopping, and leave a vector unable to say which rejected. Lettered as 9a is, so the numbers below do not move. **[P-006](prds/P-006-request-validation.md) already had the distinction**: §4.3 separates constraints from schemas and §5 has `validate_schema` and `check_constraints` as two functions. The specification had one step where that module always had two mechanisms | `core-model.md` §4 (step 11a), §4's invariants · P-006 §2/§4.3 · P-010 §1/§2/§4 · P-001 §4.6, §5 · `conformance/vector.schema.json`'s lettered-step enum · `tools/fold_registry.py` |
 | **E-23** | **One spelling, stated once, for every timestamp in the protocol**: uppercase `T`, uppercase `Z`, second precision. The rule already existed — in P-002 §4.2, which was the only place in the repository saying `Z` while `core-model.md` said only "RFC 3339, second precision". Relocating it to §2.2 gave it the reach it lacked: **P-002's profile covers the signed payload and not `routing`**, and §4 step 8 compares `routing` against `signed`. §4 step 8 is now stated as a **byte** comparison, which one spelling makes safe — the alternative is parsing unauthenticated data above the verification line | `core-model.md` §2.2 (new), §4 step 8, §5.3, §6 · `claims.md` Q2D-C-08 · P-002 §4.2 now cites rather than states · `harness lint` |
 
 ### What did not change, deliberately
