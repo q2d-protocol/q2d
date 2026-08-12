@@ -16,6 +16,7 @@ import json
 import math
 import re
 import sys
+from calendar import monthrange
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -197,6 +198,36 @@ def schema_values(schema):
             yield from schema_values(value)
 
 
+def q2d_timestamp(value):
+    """§2.2's spelling *and* a real instant.
+
+    Digit placement is not a date: `2026-99-99T99:99:99Z` has the spelling
+    exactly and is no time, and blessing it here would put a value in the
+    reference manifest that implementations may reject or parse differently.
+    """
+    matched = Q2D_TIMESTAMP.match(value)
+    if not matched:
+        return False
+    stamp = value[:-1]
+    if value[17:19] == "60":
+        # RFC 3339 §5.7's leap second, at 23:59 on a month end. Which ones were
+        # inserted is IERS data and not decidable here.
+        if value[11:16] != "23:59":
+            return False
+        try:
+            day = datetime.strptime(value[:10], "%Y-%m-%d")
+        except ValueError:
+            return False
+        if day.day != monthrange(day.year, day.month)[1]:
+            return False
+        stamp = value[:17] + "59"
+    try:
+        datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        return False
+    return True
+
+
 def object_schemas(schema, path):
     """Every subschema that declares `type: object`, with where it sits."""
     if not isinstance(schema, dict):
@@ -249,6 +280,16 @@ def main(argv: list[str]) -> int:
           str(manifest.get("q2d_version")))
     preds = manifest.get("predicates", [])
     check(len(preds) == 3, "three predicates", str(len(preds)))
+    # Before any loop that *parses* a timestamp. `ts()` uses `fromisoformat`,
+    # which raises on a malformed value -- so running this check after the
+    # vector evaluation meant it never ran on exactly the input it exists to
+    # reject, and the run died mid-sweep instead of reporting.
+    wrong = [f"{path}={value}" for path, value in timestamps(manifest)
+             if not q2d_timestamp(value)]
+    check(not wrong,
+          "every date-time is core-model.md §2.2's spelling (scope.md §4.1)",
+          "; ".join(wrong))
+
     ids = [p["id"] for p in preds]
     check(len(set(ids)) == len(ids), "predicate identifiers unique")
     check(all(p.get("status") == "active" for p in preds), "all entries active")
@@ -423,12 +464,6 @@ def main(argv: list[str]) -> int:
             check(not loose,
                   f"{where} sets additionalProperties: false on every object",
                   ",".join(at[0] for at in loose))
-
-    wrong = [f"{path}={value}" for path, value in timestamps(manifest)
-             if not Q2D_TIMESTAMP.match(value)]
-    check(not wrong,
-          "every date-time is core-model.md §2.2's spelling (scope.md §4.1)",
-          "; ".join(wrong))
 
     total_vectors = sum(len(p["test_vectors"]) for p in preds)
     print(f"\n{CHECKS - len(FAILURES)}/{CHECKS} checks passed  ({total_vectors} vectors across {len(preds)} predicates)")
