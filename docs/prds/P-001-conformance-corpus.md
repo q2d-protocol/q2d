@@ -512,9 +512,17 @@ at least one vector. Uncited claims are reported, not silently absent.
 ### 4.9 Test key material
 
 Fixed Ed25519 keypairs, generated once, committed, and marked test-only in the
-filename and in a header comment. Seeds from RFC 8032's test vectors where they
-fit, so key handling is checkable against an independently published source
-before any Q2D structure is involved.
+filename and **in the file's first field**. Seeds from RFC 8032's test vectors
+where they fit, so key handling is checkable against an independently published
+source before any Q2D structure is involved.
+
+This section said *"in a header comment"* until issue 10 built it. JSON has no
+comments, and the corpus parses strictly (§4.4) — a file carrying a `//` line
+would not load. The first field is the same requirement in the format the
+material is actually in: the marking is the first thing a reader or a diff
+sees. Recorded rather than satisfied quietly, because a test asserting a
+first field while the PRD asked for a comment would leave the acceptance
+criterion looking met by something else.
 
 They fit for all of them, so none are generated. Three keypairs live in
 [`conformance/keys/ed25519-test-only.json`](../../conformance/keys/ed25519-test-only.json),

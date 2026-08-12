@@ -4,7 +4,10 @@
 
 [P-001](../../docs/prds/P-001-conformance-corpus.md) §4.9: *"Fixed Ed25519
 keypairs, generated once, committed, and marked test-only in the filename and
-in a header comment. Seeds from RFC 8032's test vectors where they fit."*
+in the file's first field. Seeds from RFC 8032's test vectors where they fit."*
+(§4.9 asked for a header *comment* until issue 10 built it; JSON has none, and
+the corpus parses strictly, so §4.9 records the change rather than this test
+quietly asserting something else.)
 
 What this file can check is shape, marking, and internal consistency. What it
 cannot check is that a public key really is the one derived from its seed —
@@ -110,29 +113,40 @@ class ContainmentTest(unittest.TestCase):
         seeds = {key["seed"] for key in document["keys"].values()}
         self.assertTrue(seeds)
 
+        # Bytes, and every file. Decoding as text would skip whatever is not
+        # UTF-8, and skipping by suffix would skip whatever nobody thought of --
+        # either way the claim would be "no seed appears in the files this test
+        # chose to read", which is not the claim. A hex seed is ASCII wherever
+        # it lands, including inside a PDF or a .docx, so a byte search over
+        # everything is both simpler and the only version that is true as
+        # stated. `.git` is excluded because it holds the history of this
+        # directory, where the seeds are supposed to be.
+        needles = [form.encode("ascii")
+                   for seed in seeds
+                   for form in (seed, seed.upper())]
+
         searched = 0
         for path in sorted(REPO.rglob("*")):
-            if not path.is_file() or KEYS in path.parents or path == KEY_FILE:
+            if not path.is_file() or path.is_symlink():
                 continue
-            if ".git" in path.parts or path.suffix in (".pdf", ".docx", ".png"):
+            if ".git" in path.parts or KEYS in path.parents or path == KEY_FILE:
                 continue
             try:
-                text = path.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                # Binary or unreadable. Not a place a hex seed gets pasted by
-                # hand, and skipping it must not abort the sweep over the files
-                # that are.
-                continue
+                blob = path.read_bytes()
+            except OSError:
+                # Unreadable is not "absent". Fail rather than skip: a file the
+                # check could not open is one the claim does not cover.
+                self.fail(f"{path.relative_to(REPO)} could not be read, so the "
+                          f"containment claim cannot be made over it")
             searched += 1
-            for seed in seeds:
-                with self.subTest(path=path.relative_to(REPO)):
-                    self.assertNotIn(
-                        seed, text,
+            for needle in needles:
+                if needle in blob:
+                    self.fail(
                         f"{path.relative_to(REPO)} contains a private seed. "
                         f"Keys live in conformance/keys/ and nowhere else, so "
                         f"there is one place to look when one has to change")
 
-        self.assertGreater(searched, 20,
+        self.assertGreater(searched, 100,
                            "almost nothing was searched; this test would pass "
                            "over a repository it never read")
 
