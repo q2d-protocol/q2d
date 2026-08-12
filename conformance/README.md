@@ -95,6 +95,15 @@ ignore red. The rule, which
 [`.github/workflows/checks.yml`](../.github/workflows/checks.yml) carries: assert
 the expected state rather than running a check that fails.
 
+**Vectors are authored from the specification, not from an implementation.**
+[`tools/author_vectors.py`](../tools/author_vectors.py) produces the bytes a
+vector asserts, written from the specification text before either
+implementation exists — because a corpus derived from an implementation cannot
+check that implementation. It is not the harness, is not imported by it, and
+its output is committed and thereafter treated as authored data. Signed vectors
+are blocked on one remaining gap: the JWS protected header's member set, which
+no document specifies (P-001 §10).
+
 **Test keys are RFC 8032's, not ours** — see
 [`keys/README.md`](keys/README.md). Published seeds, so an implementation's
 Ed25519 is checkable against a source neither implementation's author wrote,
