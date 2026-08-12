@@ -1,0 +1,46 @@
+{
+  "id": "registry/availability-window/first-busy-second-free",
+  "section": "registry",
+  "requirement": [
+    "Q2D-C-03",
+    "Q2D-C-09",
+    "CC-2",
+    "core-model.md#4"
+  ],
+  "description": "Availability window (availability-window): first-busy-second-free — answers 1, debiting 1585 millibits. Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
+  "operation": "evaluate_predicate",
+  "input": {
+    "predicate": {
+      "id": "https://q2d.dev/predicates/scheduling/availability-window",
+      "version": "0.1"
+    },
+    "public_context": {
+      "candidates": [
+        {
+          "start": "2026-08-10T18:00:00Z",
+          "end": "2026-08-10T20:00:00Z"
+        },
+        {
+          "start": "2026-08-11T18:00:00Z",
+          "end": "2026-08-11T20:00:00Z"
+        }
+      ]
+    },
+    "private_input": {
+      "busy": [
+        {
+          "start": "2026-08-10T19:00:00Z",
+          "end": "2026-08-10T19:30:00Z"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "outcome": "ok",
+    "output": {
+      "result": 1,
+      "capacity_debit_millibits": 1585
+    },
+    "comparison": "semantic"
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "id": "registry/menu-compatible/no-constraints-is-always-compatible",
+  "section": "registry",
+  "requirement": [
+    "Q2D-C-03",
+    "Q2D-C-09",
+    "CC-2",
+    "core-model.md#4"
+  ],
+  "description": "Menu compatibility (menu-compatible): no-constraints-is-always-compatible — answers true, debiting 1000 millibits. Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
+  "operation": "evaluate_predicate",
+  "input": {
+    "predicate": {
+      "id": "https://q2d.dev/predicates/dietary/menu-compatible",
+      "version": "0.1"
+    },
+    "public_context": {
+      "menu": [
+        {
+          "item_id": "steak",
+          "contains": [
+            "meat"
+          ]
+        }
+      ]
+    },
+    "private_input": {
+      "excludes": []
+    }
+  },
+  "expect": {
+    "outcome": "ok",
+    "output": {
+      "result": true,
+      "capacity_debit_millibits": 1000
+    },
+    "comparison": "semantic"
+  }
+}

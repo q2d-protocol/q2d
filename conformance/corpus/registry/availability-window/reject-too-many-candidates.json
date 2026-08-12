@@ -1,0 +1,72 @@
+{
+  "id": "registry/availability-window/reject-too-many-candidates",
+  "section": "registry",
+  "requirement": [
+    "Q2D-C-08",
+    "CC-2",
+    "core-model.md#4"
+  ],
+  "description": "Availability window (availability-window): reject-too-many-candidates — rejects with public_context_schema_violation, at a step before private input is read. Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
+  "operation": "evaluate_predicate",
+  "input": {
+    "predicate": {
+      "id": "https://q2d.dev/predicates/scheduling/availability-window",
+      "version": "0.1"
+    },
+    "public_context": {
+      "candidates": [
+        {
+          "start": "2026-08-10T18:00:00Z",
+          "end": "2026-08-10T19:00:00Z"
+        },
+        {
+          "start": "2026-08-11T18:00:00Z",
+          "end": "2026-08-11T19:00:00Z"
+        },
+        {
+          "start": "2026-08-12T18:00:00Z",
+          "end": "2026-08-12T19:00:00Z"
+        },
+        {
+          "start": "2026-08-13T18:00:00Z",
+          "end": "2026-08-13T19:00:00Z"
+        },
+        {
+          "start": "2026-08-14T18:00:00Z",
+          "end": "2026-08-14T19:00:00Z"
+        },
+        {
+          "start": "2026-08-15T18:00:00Z",
+          "end": "2026-08-15T19:00:00Z"
+        },
+        {
+          "start": "2026-08-16T18:00:00Z",
+          "end": "2026-08-16T19:00:00Z"
+        },
+        {
+          "start": "2026-08-17T18:00:00Z",
+          "end": "2026-08-17T19:00:00Z"
+        },
+        {
+          "start": "2026-08-18T18:00:00Z",
+          "end": "2026-08-18T19:00:00Z"
+        }
+      ]
+    },
+    "private_input": {
+      "busy": []
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "public_context_schema_violation",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unavailable"
+      },
+      "step": 11
+    },
+    "comparison": "bytes"
+  }
+}

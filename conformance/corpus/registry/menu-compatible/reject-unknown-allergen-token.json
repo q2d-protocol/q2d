@@ -1,0 +1,44 @@
+{
+  "id": "registry/menu-compatible/reject-unknown-allergen-token",
+  "section": "registry",
+  "requirement": [
+    "Q2D-C-08",
+    "CC-2",
+    "core-model.md#4"
+  ],
+  "description": "Menu compatibility (menu-compatible): reject-unknown-allergen-token — rejects with public_context_schema_violation, at a step before private input is read. Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
+  "operation": "evaluate_predicate",
+  "input": {
+    "predicate": {
+      "id": "https://q2d.dev/predicates/dietary/menu-compatible",
+      "version": "0.1"
+    },
+    "public_context": {
+      "menu": [
+        {
+          "item_id": "x",
+          "contains": [
+            "kryptonite"
+          ]
+        }
+      ]
+    },
+    "private_input": {
+      "excludes": [
+        "nut"
+      ]
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "public_context_schema_violation",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unavailable"
+      },
+      "step": 11
+    },
+    "comparison": "bytes"
+  }
+}

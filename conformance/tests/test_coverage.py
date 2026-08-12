@@ -31,32 +31,52 @@ def coverage(corpus: Path) -> tuple[int, str]:
     return code, captured.getvalue()
 
 
+# What the real corpus covers today, and nothing more. Issue 11 folded in
+# `registry/`, which cites these three; every other claim is still uncovered,
+# and stays named in the report for that reason.
+COVERED_TODAY = ("Q2D-C-03", "Q2D-C-08", "Q2D-C-09")
+
+
 class StageZeroExpectedStateTest(unittest.TestCase):
-    def test_the_real_corpus_covers_no_claim_yet(self):
-        # The assertion .github/workflows/checks.yml prescribes instead of a
-        # red job: true while the corpus is empty, green, and red the day a
-        # vector cites a claim without this being updated.
+    """The assertion .github/workflows/checks.yml prescribes instead of a red
+    job. It is not "nothing is covered" -- that stopped being true when the
+    registry section landed -- but *exactly* what is covered, so a vector that
+    starts citing a claim without anyone updating this turns it red.
+    """
+
+    def test_the_real_corpus_covers_exactly_the_claims_it_cites(self):
         code, output = coverage(CONFORMANCE / "corpus")
         self.assertEqual(code, 0)
-        self.assertIn("0/13 claims covered", output)
-        self.assertIn("no claim is covered", output)
+        self.assertIn(f"{len(COVERED_TODAY)}/13 claims cited", output)
+        for claim in COVERED_TODAY:
+            with self.subTest(claim=claim):
+                self.assertIn(f"cited      {claim}", output)
 
-    def test_all_thirteen_claims_are_named(self):
+    def test_every_other_claim_is_named_as_uncovered(self):
         # Reported, not silently absent: a report listing only what passed is
         # a marketing document.
         _, output = coverage(CONFORMANCE / "corpus")
         for number in range(1, 14):
-            with self.subTest(claim=number):
-                self.assertIn(f"UNCOVERED  Q2D-C-{number:02d}", output)
+            claim = f"Q2D-C-{number:02d}"
+            if claim in COVERED_TODAY:
+                continue
+            with self.subTest(claim=claim):
+                self.assertIn(f"UNCOVERED  {claim}", output)
+
+    def test_ten_claims_still_have_no_vector(self):
+        # The number is worth asserting on its own. Three of thirteen is the
+        # honest Stage 0 answer and reads very differently from "covered".
+        _, output = coverage(CONFORMANCE / "corpus")
+        self.assertEqual(output.count("UNCOVERED  Q2D-C-"), 13 - len(COVERED_TODAY))
 
 
 class CountingTest(unittest.TestCase):
     def test_a_cited_claim_is_covered(self):
         code, output = coverage(FIXTURES / "valid")
         self.assertEqual(code, 0)
-        self.assertIn("covered    Q2D-C-05", output)
-        self.assertIn("covered    Q2D-C-08", output)
-        self.assertIn("2/13 claims covered", output)
+        self.assertIn("cited      Q2D-C-05", output)
+        self.assertIn("cited      Q2D-C-08", output)
+        self.assertIn("2/13 claims cited", output)
 
     def test_conformance_classes_are_reported_too(self):
         # conformance-classes.md's honesty rule needs the same instrument, and
@@ -82,8 +102,8 @@ class CountingTest(unittest.TestCase):
         # its citation would report a claim as backed by a check that cannot be
         # performed -- the overstatement this mode exists to prevent.
         _, output = coverage(FIXTURES / "schema-invalid")
-        self.assertIn("0/13 claims covered", output)
-        self.assertNotIn("covered    Q2D-C-05", output)
+        self.assertIn("0/13 claims cited", output)
+        self.assertNotIn("cited      Q2D-C-05", output)
         self.assertIn("corpus rejects it", output)
 
     def test_a_vector_the_corpus_rejects_cannot_cover_a_claim(self):
@@ -96,7 +116,7 @@ class CountingTest(unittest.TestCase):
         for fixture in ("bad-citation", "misplaced", "duplicate-id"):
             with self.subTest(fixture=fixture):
                 _, output = coverage(FIXTURES / fixture)
-                self.assertIn("0/13 claims covered", output)
+                self.assertIn("0/13 claims cited", output)
                 self.assertIn("corpus rejects it", output)
 
     def test_a_corpus_invalid_as_a_whole_covers_nothing(self):
@@ -106,7 +126,7 @@ class CountingTest(unittest.TestCase):
         for fixture in ("denial-divergent", "budget-divergent"):
             with self.subTest(fixture=fixture):
                 _, output = coverage(FIXTURES / fixture)
-                self.assertIn("0/13 claims covered", output)
+                self.assertIn("0/13 claims cited", output)
                 self.assertIn("invalid as a whole", output)
 
     def test_citation_and_demonstration_are_reported_together(self):

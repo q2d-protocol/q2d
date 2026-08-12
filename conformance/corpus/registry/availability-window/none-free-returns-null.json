@@ -1,0 +1,42 @@
+{
+  "id": "registry/availability-window/none-free-returns-null",
+  "section": "registry",
+  "requirement": [
+    "Q2D-C-03",
+    "Q2D-C-09",
+    "CC-2",
+    "core-model.md#4"
+  ],
+  "description": "Availability window (availability-window): none-free-returns-null — answers null, debiting 1000 millibits. Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
+  "operation": "evaluate_predicate",
+  "input": {
+    "predicate": {
+      "id": "https://q2d.dev/predicates/scheduling/availability-window",
+      "version": "0.1"
+    },
+    "public_context": {
+      "candidates": [
+        {
+          "start": "2026-08-10T18:00:00Z",
+          "end": "2026-08-10T20:00:00Z"
+        }
+      ]
+    },
+    "private_input": {
+      "busy": [
+        {
+          "start": "2026-08-10T17:00:00Z",
+          "end": "2026-08-10T23:00:00Z"
+        }
+      ]
+    }
+  },
+  "expect": {
+    "outcome": "ok",
+    "output": {
+      "result": null,
+      "capacity_debit_millibits": 1000
+    },
+    "comparison": "semantic"
+  }
+}

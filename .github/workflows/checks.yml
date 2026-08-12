@@ -8,18 +8,20 @@ name: checks
 # permanently red trains people to ignore red, and costs the signal exactly when
 # it starts meaning something.
 #
-# The rule for when those modes land, stated here because that is when someone
-# will reach for the wrong shape: do not add `harness run` (P-001 issue 4) or
-# `harness coverage` (P-001 issue 6) as jobs that fail. Assert the expected
-# state instead -- that the harness reports fail-all, that coverage reports
-# thirteen uncovered claims -- so the check is green while true, and turns red
-# when someone changes the thing without changing the expectation.
+# The rule, stated here because this is where someone will reach for the wrong
+# shape: do not add `harness run` (P-001 issue 4) or `harness coverage` (issue
+# 6) as jobs that fail. Assert the expected state instead -- whatever it is at
+# the time -- so the check is green while true and turns red when someone
+# changes the thing without changing the expectation. The expectation is
+# supposed to move: coverage read thirteen uncovered claims while the corpus
+# was empty and reads ten since the registry fold, and each of those was the
+# honest answer on its day.
 #
 # Every mode P-001 §4.7 lists now exists, and each carries its expected state in
 # the suite this workflow already runs rather than as a job that fails:
 #
 #   run       no vector in the real corpus passes against the reference stub
-#   coverage  all thirteen claims uncovered
+#   coverage  exactly three claims are cited by a vector; ten are not
 #   cross     the stub against itself compares nothing -- there is one runner,
 #             and it answers nothing
 #

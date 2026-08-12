@@ -1,0 +1,39 @@
+{
+  "id": "registry/availability-window/reject-slot-below-granularity-floor",
+  "section": "registry",
+  "requirement": [
+    "Q2D-C-08",
+    "CC-2",
+    "core-model.md#4"
+  ],
+  "description": "Availability window (availability-window): reject-slot-below-granularity-floor — rejects with constraint_violation_minimum_slot_duration. The manifest also records that this rejection precedes private access; this vector does not assert it, because the step is undetermined (P-001 §10). Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
+  "operation": "evaluate_predicate",
+  "input": {
+    "predicate": {
+      "id": "https://q2d.dev/predicates/scheduling/availability-window",
+      "version": "0.1"
+    },
+    "public_context": {
+      "candidates": [
+        {
+          "start": "2026-08-10T18:00:00Z",
+          "end": "2026-08-10T18:05:00Z"
+        }
+      ]
+    },
+    "private_input": {
+      "busy": []
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "constraint_violation_minimum_slot_duration",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unavailable"
+      }
+    },
+    "comparison": "bytes"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "id": "registry/menu-compatible/compatible-single-safe-item",
+  "section": "registry",
+  "requirement": [
+    "Q2D-C-03",
+    "Q2D-C-09",
+    "CC-2",
+    "core-model.md#4"
+  ],
+  "description": "Menu compatibility (menu-compatible): compatible-single-safe-item — answers true, debiting 1000 millibits. Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
+  "operation": "evaluate_predicate",
+  "input": {
+    "predicate": {
+      "id": "https://q2d.dev/predicates/dietary/menu-compatible",
+      "version": "0.1"
+    },
+    "public_context": {
+      "menu": [
+        {
+          "item_id": "risotto",
+          "contains": [
+            "milk"
+          ]
+        },
+        {
+          "item_id": "salad",
+          "contains": []
+        }
+      ]
+    },
+    "private_input": {
+      "excludes": [
+        "milk",
+        "gluten"
+      ]
+    }
+  },
+  "expect": {
+    "outcome": "ok",
+    "output": {
+      "result": true,
+      "capacity_debit_millibits": 1000
+    },
+    "comparison": "semantic"
+  }
+}
