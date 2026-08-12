@@ -200,6 +200,21 @@ class WholeResponseTest(unittest.TestCase):
                 # sends them to debug the wrong thing.
                 self.assertIn("valid RFC 3339 but not core-model.md §2.2", output)
 
+    def test_the_diagnostic_does_not_claim_a_non_instant_is_rfc_3339(self):
+        # `2026-99-99T99:99:99+99:99` has the shape of an offset timestamp and
+        # is no instant. Calling it valid RFC 3339 would assert a false fact
+        # about a specification, in output a reviewer reads.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        self.assertIn("valid RFC 3339",
+                      lint_mod.timestamp_error("x", "2026-01-01T00:00:00+00:00"))
+        for not_an_instant in ("2026-99-99T99:99:99+99:99",
+                               "2026-02-30T00:00:00+00:00",
+                               "2026-01-01T00:00:00+99:99"):
+            with self.subTest(value=not_an_instant):
+                self.assertIn("is not a timestamp",
+                              lint_mod.timestamp_error("x", not_an_instant))
+
     def test_a_leap_second_must_be_at_a_month_end(self):
         # §5.7 puts ":60" "at the end of months in which a leap second
         # occurs". The month end is fixed by the RFC and checked; *which*
