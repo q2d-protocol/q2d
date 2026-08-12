@@ -285,7 +285,12 @@ def _serialize(value) -> str:
             # `2026-1-01T00:00:00Z` has no RFC 3339 shape and is still a
             # timestamp field. §2.2, §5.3 and §6 name them, so this is a
             # citation rather than a guess.
-            if key in TIMESTAMP_FIELDS and isinstance(value[key], str):
+            if key in TIMESTAMP_FIELDS:
+                if not isinstance(value[key], str):
+                    raise ProfileError(
+                        f"{key} is a timestamp field and "
+                        f"{type(value[key]).__name__} is not a string. "
+                        f"core-model.md §2.2's timestamp is one")
                 if not valid_q2d_timestamp(value[key]):
                     raise ProfileError(
                         f"{key} is a timestamp field and {value[key]!r} is not "

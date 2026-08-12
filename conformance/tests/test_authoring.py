@@ -275,6 +275,15 @@ class JwsTest(unittest.TestCase):
         with self.assertRaises(author.ProfileError):
             self.signed({"expires_at": "soon"})
 
+    def test_a_timestamp_field_holding_a_number_is_refused(self):
+        # The JWT/DNSSEC representation, in a protocol that chose strings.
+        # Signing it would put protocol metadata into covered bytes that
+        # conforming implementations reject.
+        for value in (1767225600, None, [], {"seconds": 0}):
+            with self.subTest(value=value):
+                with self.assertRaises(author.ProfileError):
+                    self.signed({"issued_at": value})
+
     def test_a_leap_second_serializes(self):
         # RFC 3339 §5.7 permits it and §2.2 does not exclude it.
         self.assertIn(b"2016-12-31T23:59:60Z",

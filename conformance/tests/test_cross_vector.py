@@ -209,6 +209,19 @@ class WholeResponseTest(unittest.TestCase):
                                         "id": "2026-01-01"}}}
         self.assertEqual(lint_mod.expected_timestamp_errors(vector), [])
 
+    def test_a_named_timestamp_field_must_be_a_string(self):
+        # A number, a null or an object in a timestamp field is the same
+        # violation as a malformed string, and invisible to a check that only
+        # inspects strings.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        for value in (1767225600, None, [], {"seconds": 0}):
+            with self.subTest(value=value):
+                errors = lint_mod.expected_timestamp_errors(
+                    {"expect": {"output": {"issued_at": value}}})
+                self.assertEqual(len(errors), 1)
+                self.assertIn("which is a string", errors[0])
+
     def test_input_may_carry_a_malformed_timestamp(self):
         # A vector testing that an implementation rejects a bad spelling has to
         # contain one. `expect` describes conforming output; `input` describes

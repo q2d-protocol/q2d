@@ -503,6 +503,15 @@ def expected_timestamp_errors(vector: dict) -> list[str]:
     errors: list[str] = []
 
     def walk(value, path: str, named: bool = False):
+        if named and not isinstance(value, str):
+            # A named timestamp field holding a number, a null, or an object.
+            # The string branch below would skip it, and §2.2's timestamp is a
+            # string -- so this is the same violation as a malformed one, and
+            # invisible to a check that only inspects strings.
+            errors.append(f"{path}: {type(value).__name__}, but core-model.md "
+                          f"§2.2 gives this field a timestamp, which is a "
+                          f"string")
+            return
         if isinstance(value, str):
             # Two ways in, because either alone leaves a gap.
             #
