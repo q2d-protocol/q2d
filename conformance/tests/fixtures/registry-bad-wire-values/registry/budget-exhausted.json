@@ -1,0 +1,28 @@
+{
+  "id": "registry/uniformity-c/budget-exhausted",
+  "section": "registry",
+  "requirement": [
+    "Q2D-C-08",
+    "core-model.md#5.2"
+  ],
+  "description": "A registry/ projection asserting an impossible status and an empty class. Which fields it must assert depends on its section; what they may contain does not.",
+  "operation": "capacity_debit",
+  "input": {
+    "budget": {
+      "spent_millibits": 4000,
+      "limit_millibits": 4000
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "budget_exhausted",
+      "wire": {
+        "status": "answer",
+        "external_reason": ""
+      },
+      "step": 15
+    },
+    "comparison": "bytes"
+  }
+}

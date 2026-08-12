@@ -309,7 +309,7 @@ def response_shape_errors(vector: dict) -> list[str]:
     """
     errors: list[str] = []
     for rule in (denial_section_errors, receipt_errors,
-                 receipt_coherence_errors):
+                 receipt_coherence_errors, wire_value_errors):
         errors += rule(vector)
     return errors
 
@@ -378,7 +378,8 @@ def denial_section_errors(vector: dict) -> list[str]:
         return [f"wire: missing {', '.join(missing)} — a denial/ vector asserts "
                 f"core-model.md {where}.{detail}"]
 
-    return wire_value_errors(wire)
+    # Values are checked by `wire_value_errors`, which runs for every vector.
+    return []
 
 
 # §5.2 gives `status` one value on a denial; §5.3 gives an explicit escalation
@@ -506,24 +507,42 @@ def nonempty_string(where: str, value) -> list[str]:
     return []
 
 
-def wire_value_errors(wire: dict) -> list[str]:
-    """The values §5.2 and §6 determine, not only that the keys are present.
+def wire_value_errors(vector: dict) -> list[str]:
+    """The values §5.2 and §6 determine, for whatever the vector asserts.
 
-    Field presence alone would accept a vector asserting `status: "answer"` on
-    a rejection, or an empty signature -- either of which would then be scored
-    against both implementations as though it were a conforming denial.
+    Presence alone would accept a vector asserting `status: "answer"` on a
+    rejection, or an empty signature -- either of which would then be scored
+    against both implementations as though it were a conforming response.
+
+    **Only fields that are present.** Which fields a vector must assert depends
+    on its section (`denial_section_errors`); what a field must *contain* does
+    not, so a `registry/` projection asserting `status` and `external_reason`
+    is held to those two exactly as a whole response is. This ran only for
+    `denial/` and so reached neither.
     """
+    expect = vector.get("expect")
+    if not isinstance(expect, dict):
+        return []
+    rejection = expect.get("rejection")
+    if not isinstance(rejection, dict):
+        return []
+    wire = rejection.get("wire")
+    if not isinstance(wire, dict):
+        return []
+
     errors: list[str] = []
 
     status = wire.get("status")
-    if status not in DENY_STATUS:
+    if "status" in wire and status not in DENY_STATUS:
         errors.append(f"wire.status: {status!r} — core-model.md §5.2 gives a "
                       f"denial {DENY_STATUS[0]!r}, §5.3 an explicit escalation "
                       f"{DENY_STATUS[1]!r}, and a rejection asserts one of them")
 
+    for field in ("external_reason", "signature", "pending_token", "expires_at"):
+        if field in wire:
+            errors += nonempty_string(f"wire.{field}", wire[field])
+
     if status == "escalate":
-        errors += nonempty_string("wire.pending_token", wire.get("pending_token"))
-        errors += nonempty_string("wire.expires_at", wire.get("expires_at"))
         if "external_reason" in wire:
             # Determinate, unlike extra fields in general (§10): §5.3 says an
             # explicit escalation "is **not** denial-normalized and must never
@@ -534,10 +553,6 @@ def wire_value_errors(wire: dict) -> list[str]:
                 "core-model.md §5.3 says one is 'not denial-normalized and "
                 "must never be described as such', and this is the field that "
                 "would describe it as such")
-    else:
-        errors += nonempty_string("wire.external_reason",
-                                  wire.get("external_reason"))
-    errors += nonempty_string("wire.signature", wire.get("signature"))
 
     receipt = wire.get("receipt")
     return errors

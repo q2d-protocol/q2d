@@ -280,6 +280,17 @@ class CoherenceOutsideDenialTest(unittest.TestCase):
         self.assertIn("nobody looks", output)
 
 
+class ValuesOutsideDenialTest(unittest.TestCase):
+    def test_asserted_values_are_checked_outside_denial_too(self):
+        # Which fields a vector must assert depends on its section; what a
+        # field may contain does not. A projection asserting `status: answer`
+        # would otherwise be scored against a conforming runner.
+        code, output = lint(FIXTURES / "registry-bad-wire-values")
+        self.assertEqual(code, 1)
+        self.assertIn("wire.status: 'answer'", output)
+        self.assertIn("wire.external_reason: empty", output)
+
+
 class PairwiseComparisonTest(unittest.TestCase):
     def test_one_projection_does_not_blind_the_class(self):
         # Two whole responses whose receipts differ, plus a third vector that
