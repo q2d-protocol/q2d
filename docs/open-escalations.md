@@ -1005,10 +1005,11 @@ out-of-profile schema) · `registry/validate.py` enforces it · P-001 corpus
 
 **Closed — A, declared.** Raised by [P-006](prds/P-006-request-validation.md) §4.5 ·
 **Decides** [`core-model.md`](../spec/core-model.md) §2.5 ·
-**Blocks** nothing. [`core-model.md`](../spec/core-model.md) §3.2 states a
-conservative `enum` rule — a requested domain must equal the registered one —
-that is conforming today and implementable now. This escalation decides whether
-to **widen** it, so P-006 is Ready for decomposition and issue 4 can be built.
+**Blocked** nothing while open: §3.2 stated a conservative `enum` rule — a
+requested domain must equal the registered one — which was conforming and
+implementable, so P-006 stayed Ready for decomposition. **That rule is now
+superseded**, and an implementation still enforcing it rejects requests §3.2
+admits.
 
 ### Context
 

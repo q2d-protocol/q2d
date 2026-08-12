@@ -56,7 +56,8 @@ The capacity for an effective domain is **looked up**, never computed:
 
 | Domain kind | Source |
 |---|---|
-| Enumerated | the entry's `capacity.millibits` |
+| Enumerated, no coarsening requested | the entry's `capacity.millibits` |
+| Enumerated, coarsened per [`core-model.md`](../../spec/core-model.md) §3.2 | the entry's `capacity.table`, keyed by the **label count** — and an entry carrying only `millibits` admits no coarsening, because the debit for a smaller count is unauthored |
 | Computed | the entry's `capacity.table`, keyed by effective cardinality |
 | Cardinality absent from the table | **reject** — a registry error, not a fallback |
 

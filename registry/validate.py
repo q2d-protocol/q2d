@@ -195,11 +195,34 @@ def main(argv: list[str]) -> int:
             check(dom["cardinality"] == len(dom["values"]),
                   "declared cardinality matches enumerated values",
                   f"{dom['cardinality']} vs {len(dom['values'])}")
-            declared = p["capacity"]["millibits"]
-            actual = math.ceil(1000 * math.log2(dom["cardinality"]))
-            check(declared == actual, "declared capacity equals ceil(1000*log2(cardinality))",
-                  f"{declared} vs {actual}")
-            check(isinstance(declared, int), "capacity is an integer")
+            # An enumerated entry may carry a single value or a table.
+            # core-model.md §3.2 admits a *coarsened* enum request, whose label
+            # count is smaller than the registered cardinality -- and the debit
+            # for that count has to be authored, because a responder may not
+            # compute one. A single value is still valid and simply admits no
+            # coarsening; a table is what makes coarsening available.
+            capacity = p["capacity"]
+            check("millibits" in capacity or "table" in capacity,
+                  "enumerated entry carries a capacity value or a table")
+            if "table" in capacity:
+                tbl = capacity["table"]
+                bad = [k for k, v in tbl.items()
+                       if v != math.ceil(1000 * math.log2(int(k)))]
+                check(not bad, "every capacity-table entry is correct", ",".join(bad))
+                check(all(isinstance(v, int) for v in tbl.values()),
+                      "capacity table holds integers")
+                # Every label count a coarsening could ask for: 2 up to the
+                # registered cardinality. Below 2 is not a domain.
+                check(set(tbl) == {str(k) for k in range(2, dom["cardinality"] + 1)},
+                      "capacity table covers every coarsening of this enum",
+                      f"{sorted(tbl)} vs 2..{dom['cardinality']}")
+            else:
+                declared = capacity["millibits"]
+                actual = math.ceil(1000 * math.log2(dom["cardinality"]))
+                check(declared == actual,
+                      "declared capacity equals ceil(1000*log2(cardinality))",
+                      f"{declared} vs {actual}")
+                check(isinstance(declared, int), "capacity is an integer")
         else:
             tbl = p["capacity"]["table"]
             bad = [k for k, v in tbl.items() if v != math.ceil(1000 * math.log2(int(k)))]
