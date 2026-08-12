@@ -194,6 +194,16 @@ class WholeResponseTest(unittest.TestCase):
         self.assertFalse(lint_mod.valid_timestamp("2026-01-01T00:00:00+99:99"))
         self.assertFalse(lint_mod.valid_timestamp("2026-01-01T00:00:00+24:00"))
 
+    def test_a_leap_second_under_an_offset_is_accepted(self):
+        # RFC 3339 §5.7 puts a leap second at 23:59 *UTC*, which is a different
+        # wall time under an offset. Checking the local fields rejected the
+        # same instant written a different way.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        self.assertTrue(lint_mod.valid_timestamp("2016-12-31T15:59:60-08:00"))
+        self.assertTrue(lint_mod.valid_timestamp("2017-01-01T08:59:60+09:00"))
+        self.assertFalse(lint_mod.valid_timestamp("2026-01-01T12:00:60+00:00"))
+
     def test_a_leap_second_is_accepted(self):
         # RFC 3339 permits second 60 and §6 asks for RFC 3339. Excluding it
         # would be narrowing the specification in harness code — and it is a

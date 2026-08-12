@@ -335,9 +335,17 @@ A numeric offset is **accepted** and separately reported. §6 says "RFC 3339,
             return False
 
     if second == "60":
-        # RFC 3339 §5.7 puts a leap second at 23:59. Whether *this* one was
-        # inserted is not knowable here -- see the docstring.
-        if (hour, minute) != ("23", "59"):
+        # RFC 3339 §5.7 puts a leap second at 23:59 **UTC**, which is a
+        # different wall time under an offset: `2016-12-31T15:59:60-08:00` is
+        # the same instant as `2016-12-31T23:59:60Z` and is equally valid.
+        # Checking the local fields rejected it. Whether *this* leap second was
+        # inserted is still not knowable here -- see the docstring.
+        local = int(hour) * 60 + int(minute)
+        shift = 0
+        if offset != "Z":
+            shift = (int(offset[1:3]) * 60 + int(offset[4:6])) * (
+                -1 if offset[0] == "-" else 1)
+        if (local - shift) % (24 * 60) != 23 * 60 + 59:
             return False
         second = "59"
     try:
