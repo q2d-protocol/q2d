@@ -270,6 +270,17 @@ class MixedCompletenessTest(unittest.TestCase):
         self.assertIn("distinct wire responses", output)
 
 
+class PairwiseComparisonTest(unittest.TestCase):
+    def test_one_projection_does_not_blind_the_class(self):
+        # Two whole responses whose receipts differ, plus a third vector that
+        # omits the receipt. Intersecting across the class would drop `receipt`
+        # and report agreement — the receipt-level oracle Q2D-C-08 exists to
+        # catch, discarded because an unrelated vector said nothing about it.
+        code, output = lint(FIXTURES / "denial-blinded-by-projection")
+        self.assertEqual(code, 1)
+        self.assertIn("distinct wire responses", output)
+
+
 class ReducedReceiptShapeTest(unittest.TestCase):
     """§6: "exactly five fields, and no others".
 

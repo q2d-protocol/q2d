@@ -70,6 +70,29 @@ EXPLICIT_ESCALATE_FIELDS = frozenset({"status", "pending_token", "expires_at",
                                       "receipt", "signature"})
 
 
+def pair_diverges(left: dict, right: dict) -> bool:
+    """Do two wire responses in one class disagree?
+
+    **Both whole: compared whole.** A field present in one and absent in the
+    other is then the divergence it is -- a `retry_after` on one cause and not
+    another is exactly the cause-specific leak Q2D-C-08 forbids, and
+    intersecting it away would be the check discarding its own finding.
+
+    **Either a projection: compared on what both assert.** A projection asserts
+    nothing about the fields it omits (vector.schema.json on `wire`), so it
+    cannot disagree about them.
+
+    Pairwise rather than across the class, because intersecting group-wide lets
+    one projection blind it: two vectors asserting different receipts would
+    agree because a third omitted `receipt`.
+    """
+    if whole_response(left) and whole_response(right):
+        return as_authored(left) != as_authored(right)
+    shared = set(left) & set(right)
+    return (as_authored({k: v for k, v in left.items() if k in shared})
+            != as_authored({k: v for k, v in right.items() if k in shared}))
+
+
 def whole_response(wire) -> bool:
     """Does this wire assert a whole response, or a projection of one?"""
     if not isinstance(wire, dict):
@@ -146,14 +169,22 @@ def denial_uniformity(vectors) -> tuple[list[str], str]:
         # Authored key order is preserved when projecting: a wire's own order
         # is part of its bytes (§4.8), and sorting here would normalise away
         # the thing being compared.
-        projecting = any(not whole_response(wire) for _, wire, _ in members)
-        if projecting:
-            shared = set.intersection(*(set(wire) for _, wire, _ in members))
-            wires = {as_authored({k: v for k, v in wire.items() if k in shared})
-                     for _, wire, _ in members}
-        else:
-            wires = {as_authored(wire) for _, wire, _ in members}
-        if len(wires) > 1:
+        # **Pairwise**, not group-wide. Intersecting across the whole class
+        # would let one projection blind it: two vectors asserting different
+        # receipts would agree because a third omitted `receipt`. Each pair is
+        # compared on what both assert, so a field two members both assert is
+        # always compared, whatever a third does.
+        divergent_pair = False
+        for i, (_, left, _) in enumerate(members):
+            for _, right, _ in members[i + 1:]:
+                if pair_diverges(left, right):
+                    divergent_pair = True
+                    break
+            if divergent_pair:
+                break
+
+        wires = {as_authored(wire) for _, wire, _ in members}
+        if divergent_pair:
             listing = ", ".join(sorted(v for v, _, _ in members))
             errors.append(
                 f"denial uniformity: {len(wires)} distinct wire responses claim "

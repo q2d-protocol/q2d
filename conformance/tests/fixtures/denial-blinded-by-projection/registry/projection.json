@@ -1,0 +1,28 @@
+{
+  "id": "registry/uniformity-c/projection",
+  "section": "registry",
+  "requirement": [
+    "Q2D-C-08",
+    "core-model.md#5.2"
+  ],
+  "description": "A projection in the same class, omitting the receipt.",
+  "operation": "capacity_debit",
+  "input": {
+    "budget": {
+      "spent_millibits": 4000,
+      "limit_millibits": 4000
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "cause_third",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unavailable"
+      },
+      "step": 15
+    },
+    "comparison": "bytes"
+  }
+}
