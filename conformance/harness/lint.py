@@ -451,8 +451,11 @@ def valid_rfc3339(value: str) -> bool:
         # not, so saying so would assert a false fact about the RFC.
         shift = 0
         if offset_hour is not None:
-            shift = (int(offset_hour) * 60 + int(offset_minute)) * (
-                -1 if value[19 if matched.group(7) is None else 21] == "-" else 1)
+            # The sign comes from the captured offset, not from an index into
+            # the string: with fractional seconds present the offset starts at a
+            # different position, and the arithmetic read a digit as the sign.
+            sign = -1 if matched.group(8).startswith("-") else 1
+            shift = (int(offset_hour) * 60 + int(offset_minute)) * sign
         try:
             local = datetime(int(year), int(month), int(day),
                              int(hour), int(minute))

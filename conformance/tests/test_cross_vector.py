@@ -223,8 +223,12 @@ class WholeResponseTest(unittest.TestCase):
         # spelling it permits and §2.2 does not is named as such.
         for other in ("2026-01-01t00:00:00Z", "2026-01-01T00:00:00.5Z",
                       "2026-01-01t00:00:00z", "2026-01-01T00:00:00-05:30",
-                      # A real leap second, spelled two ways §2.2 rejects.
-                      "2016-12-31T23:59:60z", "2016-12-31T15:59:60-08:00"):
+                      # A real leap second, spelled several ways §2.2 rejects
+                      # -- including with fractional seconds and a negative
+                      # offset, where the sign is not at a fixed index.
+                      "2016-12-31T23:59:60z", "2016-12-31T15:59:60-08:00",
+                      "2016-12-31T15:59:60.123-08:00",
+                      "2017-01-01T08:59:60.5+09:00"):
             with self.subTest(value=other):
                 self.assertIn("valid RFC 3339",
                               lint_mod.timestamp_error("x", other))
