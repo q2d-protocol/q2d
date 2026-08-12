@@ -262,6 +262,12 @@ class JwsTest(unittest.TestCase):
                 with self.assertRaises(author.ProfileError):
                     self.signed({"issued_at": wrong})
 
+    def test_a_named_timestamp_field_is_checked_however_malformed(self):
+        with self.assertRaises(author.ProfileError):
+            self.signed({"issued_at": "2026-1-01T00:00:00Z"})
+        with self.assertRaises(author.ProfileError):
+            self.signed({"expires_at": "soon"})
+
     def test_a_leap_second_serializes(self):
         # RFC 3339 §5.7 permits it and §2.2 does not exclude it.
         self.assertIn(b"2016-12-31T23:59:60Z",

@@ -141,6 +141,10 @@ def json_type(value) -> str:
 # from `conformance/harness/lint.py`, which reads the same section: two
 # independent readings is the arrangement this tool exists for, and a
 # disagreement between them is a specification ambiguity found.
+# Fields core-model.md gives a timestamp: §2.2's `issued_at` and `expires_at`,
+# §5.3's `expires_at`, §6's `decided_at`.
+TIMESTAMP_FIELDS = frozenset({"issued_at", "expires_at", "decided_at"})
+
 Q2D_TIMESTAMP = re.compile(
     r"\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z\Z")
 RFC3339_ANY = re.compile(
@@ -274,7 +278,19 @@ def _serialize(value) -> str:
         # Duplicate keys cannot occur in a Python dict, so §4.2's production
         # rule is structurally satisfied. Parsing is where it has to be
         # enforced, and conformance/harness/corpus.py does that.
-        keys = sorted(value, key=sort_key)
+            keys = sorted(value, key=sort_key)
+        for key in keys:
+            # By name as well as by shape: core-model.md gives these fields
+            # timestamps, so a malformed one is caught however malformed --
+            # `2026-1-01T00:00:00Z` has no RFC 3339 shape and is still a
+            # timestamp field. §2.2, §5.3 and §6 name them, so this is a
+            # citation rather than a guess.
+            if key in TIMESTAMP_FIELDS and isinstance(value[key], str):
+                if not valid_q2d_timestamp(value[key]):
+                    raise ProfileError(
+                        f"{key} is a timestamp field and {value[key]!r} is not "
+                        f"core-model.md §2.2's timestamp — uppercase `T`, "
+                        f"uppercase `Z`, second precision, and a real instant")
         return "{" + ",".join(f"{escape_string(k)}:{_serialize(value[k])}"
                               for k in keys) + "}"
 

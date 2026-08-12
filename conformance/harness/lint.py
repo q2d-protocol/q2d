@@ -475,6 +475,12 @@ def valid_rfc3339(value: str) -> bool:
     return True
 
 
+# Fields core-model.md gives a timestamp: §2.2's `issued_at` and `expires_at`,
+# §5.3's `expires_at`, §6's `decided_at`. Named rather than guessed, so a
+# malformed value is caught however malformed.
+TIMESTAMP_FIELDS = frozenset({"issued_at", "expires_at", "decided_at"})
+
+
 def expected_timestamp_errors(vector: dict) -> list[str]:
     """Every timestamp under `expect` uses §2.2's spelling, wherever it sits.
 
@@ -496,20 +502,27 @@ def expected_timestamp_errors(vector: dict) -> list[str]:
     """
     errors: list[str] = []
 
-    def walk(value, path: str):
+    def walk(value, path: str, named: bool = False):
         if isinstance(value, str):
-            # Anything with a timestamp's *shape* and not §2.2's meaning --
-            # which includes `2026-99-99T99:99:99Z`, right spelling and no
-            # instant. Checking only the wrong spellings would have let an
-            # impossible date through in the correct one.
-            if RFC3339_ANY.match(value) and not valid_timestamp(value):
-                errors.append(timestamp_error(path, value))
+            # Two ways in, because either alone leaves a gap.
+            #
+            # **By name**: core-model.md gives these fields timestamps, so a
+            # malformed one is caught however malformed -- `2026-1-01T00:00:00Z`
+            # has no RFC 3339 shape at all and is still a timestamp field.
+            # This is not a guess; §2.2, §5.3 and §6 name them.
+            #
+            # **By shape**: a timestamp somewhere those names do not reach is
+            # caught if it looks like one, which covers a field a later section
+            # adds without this list being updated.
+            if named or RFC3339_ANY.match(value):
+                if not valid_timestamp(value):
+                    errors.append(timestamp_error(path, value))
         elif isinstance(value, dict):
             for key in sorted(value):
-                walk(value[key], f"{path}.{key}")
+                walk(value[key], f"{path}.{key}", key in TIMESTAMP_FIELDS)
         elif isinstance(value, list):
             for index, item in enumerate(value):
-                walk(item, f"{path}[{index}]")
+                walk(item, f"{path}[{index}]", named)
 
     walk(vector.get("expect"), "expect")
     return errors

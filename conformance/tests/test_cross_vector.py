@@ -190,6 +190,25 @@ class WholeResponseTest(unittest.TestCase):
         self.assertEqual(len(errors), 1)
         self.assertIn("is not a timestamp", errors[0])
 
+    def test_a_named_timestamp_field_is_checked_however_malformed(self):
+        # `2026-1-01T00:00:00Z` has no RFC 3339 shape at all, so the shape test
+        # alone misses it — and it is unmistakably a timestamp field. §2.2,
+        # §5.3 and §6 name these fields, so this is a citation not a guess.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        vector = {"expect": {"output": {"issued_at": "2026-1-01T00:00:00Z"}}}
+        errors = lint_mod.expected_timestamp_errors(vector)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("expect.output.issued_at", errors[0])
+
+    def test_an_ordinary_string_is_not_mistaken_for_a_timestamp(self):
+        # The shape test must not reach for strings that merely mention a year.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        vector = {"expect": {"output": {"note": "2026 was a good year",
+                                        "id": "2026-01-01"}}}
+        self.assertEqual(lint_mod.expected_timestamp_errors(vector), [])
+
     def test_input_may_carry_a_malformed_timestamp(self):
         # A vector testing that an implementation rejects a bad spelling has to
         # contain one. `expect` describes conforming output; `input` describes
