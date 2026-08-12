@@ -79,7 +79,12 @@ import schema as schema_module
 # Distinct from 1, which means the two runners disagreed. This means they did
 # not, and the mode still cannot establish what §4.8 asks of it -- two facts a
 # caller has to be able to tell apart.
-EXIT_CLAUSE_INCOMPLETE = 2
+#
+# 3 rather than 2: the CLI already exits 2 for a usage error, an unknown mode,
+# an unreadable corpus, or a missing runner, none of which involve running
+# anything. A status meaning "the runners agreed" must not collide with one
+# meaning "nothing ran".
+EXIT_CLAUSE_INCOMPLETE = 3
 
 # Fields that carry protocol content, and so are what a `bytes` comparison is
 # about. `rejection.step` and `rejection.internal_reason` are the harness's own

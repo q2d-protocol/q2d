@@ -29,9 +29,12 @@ python3 conformance/harness lint                    # corpus self-checks
 python3 conformance/harness run --impl PATH         # a corpus against one runner
 python3 conformance/harness coverage                # claims with no citing vector
 python3 conformance/harness cross --a P --b P       # two runners, held to agreeing
-                                                   #   0 never: see below
-                                                   #   1 they diverged
-                                                   #   2 they agreed, and §4.8's
+                                                   #   0 never, today: see below
+                                                   #   1 they diverged, or a vector
+                                                   #     could not be compared
+                                                   #   2 nothing ran — bad usage,
+                                                   #     missing runner, bad corpus
+                                                   #   3 they agreed, and §4.8's
                                                    #     second clause is issue 19
 python3 -m unittest discover -s conformance/tests   # the harness's own tests
 ```

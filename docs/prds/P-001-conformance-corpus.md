@@ -496,13 +496,15 @@ each is a property of the corpus rather than of one mode's code:
   protocol logic outside the harness explicitly. Making it real needs a vector
   to declare its companion, which is a format change. Until then `cross` says
   on every run — including a clean one — that it compared what each runner
-  produced and did not put A's output to B — **and exits 2 rather than 0 when
+  produced and did not put A's output to B — **and exits 3 rather than 0 when
   the runners agree**, because the exit status is the only part of the report a
   CI gate reads, and every sentence above it could be perfect while the status
-  still said the clause holds. 2 is distinct from 1: 1 means the two runners
-  disagreed, 2 means they did not and the mode still cannot establish what §4.8
-  asks. If §10's open question is decided the other way, this becomes 0 and the
-  reason line stays.
+  still said the clause holds. The statuses are distinct on purpose: 1 means the
+  two runners disagreed or a vector could not be compared, 2 means nothing ran
+  at all (bad usage, missing runner, unreadable corpus — the CLI's own code),
+  and 3 means they agreed and the mode still cannot establish what §4.8 asks. If
+  §10's open question is decided the other way, 3 becomes 0 and the reason line
+  stays.
 
 **Coverage:** every claim in [`spec/claims.md`](../../spec/claims.md) is cited by
 at least one vector. Uncited claims are reported, not silently absent.

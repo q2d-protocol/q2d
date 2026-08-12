@@ -11,6 +11,7 @@ they simulate is one that has to be reported rather than absorbed.
 from __future__ import annotations
 
 import io
+import subprocess
 import sys
 import unittest
 from contextlib import redirect_stdout
@@ -30,8 +31,9 @@ VALID = FIXTURES / "valid"
 CORRECT = RUNNERS / "answers-correctly"
 
 # `cross` exits this when the runners agreed and the mode still cannot
-# establish §4.8's second clause. See cross.EXIT_CLAUSE_INCOMPLETE.
-INCOMPLETE = 2
+# establish §4.8's second clause. See cross.EXIT_CLAUSE_INCOMPLETE -- and note
+# it is not 2, which the CLI uses for a usage error or an unreadable corpus.
+INCOMPLETE = 3
 OTHER_KEY_ORDER = RUNNERS / "answers-correctly-other-key-order"
 DIVERGENT = RUNNERS / "answers-with-a-different-signature"
 
@@ -224,6 +226,21 @@ class PartialCorpusTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("INVALID", output)
         self.assertIn("were not compared", output)
+
+
+class ExitStatusTest(unittest.TestCase):
+    def test_a_usage_error_is_not_the_incomplete_status(self):
+        # 2 means nothing ran. A caller must not read "the runners agreed" off
+        # a status the CLI also uses for a missing runner or a bad corpus. Run
+        # through the CLI, because that is where the mapping lives and where a
+        # caller reads the status from.
+        result = subprocess.run(
+            [sys.executable, str(CONFORMANCE / "harness"), "cross",
+             "--a", str(CORRECT), "--b", str(RUNNERS / "no-such-runner"),
+             "--corpus", str(FIXTURES / "message-only")],
+            capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertNotEqual(result.returncode, INCOMPLETE)
 
 
 class StageZeroExpectedStateTest(unittest.TestCase):
