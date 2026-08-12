@@ -254,6 +254,24 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
             fields_a = dict(comparable(result_a))
             fields_b = dict(comparable(result_b))
 
+            # Disagreements that need no byte comparison come first. Two
+            # runners that reached different outcomes, or that reported
+            # different fields, have diverged whatever the encoding -- and
+            # asking whether their bytes are comparable before noticing that
+            # would file a divergence under the format's limits.
+            if result_a["outcome"] != result_b["outcome"]:
+                divergent += 1
+                print(f"  DIFFER  {vector.id}\n          outcome: A says "
+                      f"{result_a['outcome']!r}, B says {result_b['outcome']!r}")
+                continue
+
+            only_one = sorted(set(fields_a) ^ set(fields_b))
+            if only_one:
+                divergent += 1
+                print(f"  DIFFER  {vector.id}\n          "
+                      f"{only_one[0]}: present in only one result")
+                continue
+
             # Both sides, not just A: checking only A would make the verdict
             # depend on which runner was passed as --a. But *which* side is
             # composite decides what the vector is. One string and one object
@@ -298,10 +316,7 @@ def cross(corpus_root: Path, runner_a: Path, runner_b: Path) -> int:
                 continue
 
             difference = None
-            for label in sorted(set(fields_a) | set(fields_b)):
-                if label not in fields_a or label not in fields_b:
-                    difference = f"{label}: present in only one result"
-                    break
+            for label in sorted(fields_a):
                 if mode == "bytes":
                     # The string itself, not its JSON encoding: the artefact is
                     # the string, so an offset must count into the signature a

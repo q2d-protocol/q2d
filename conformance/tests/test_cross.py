@@ -156,6 +156,18 @@ class UncheckableBytesTest(unittest.TestCase):
         self.assertEqual(swapped[0], 1)
         self.assertIn("disagree on the shape of the answer", swapped[1])
 
+    def test_a_different_outcome_is_reported_before_uncheckability(self):
+        # `ok` against `rejected` is a divergence whatever the encoding, and
+        # the rejecting side's wire response is an object -- so asking whether
+        # the bytes are comparable first would file the clearest divergence
+        # there is under the format's limits.
+        code, output = cross(CORRECT, RUNNERS / "answers-rejected-not-ok",
+                             FIXTURES / "message-only")
+        self.assertEqual(code, 1)
+        self.assertIn("DIFFER", output)
+        self.assertIn("outcome: A says 'ok', B says 'rejected'", output)
+        self.assertNotIn("UNCHECKABLE", output)
+
     def test_a_string_bytes_value_is_comparable(self):
         # A JWS compact serialization, a digest, a signature: the artefact *is*
         # the string, so the comparison over it is exact.

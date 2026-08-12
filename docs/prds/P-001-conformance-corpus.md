@@ -451,6 +451,12 @@ each is a property of the corpus rather than of one mode's code:
   both returned the same canned result for some other vector would be reported
   as agreeing across the whole corpus. The mode that has two runners to be
   wrong at once needs that check more than `run` does, not less.
+- **A divergence that needs no byte comparison is reported before the question
+  of whether the bytes are comparable is asked.** Two runners reaching
+  different outcomes, or reporting different fields, have diverged whatever the
+  encoding — and a rejection's wire response is an object, so asking about
+  comparability first would file the clearest divergence there is under the
+  format's limits.
 - **`outcome: "error"` is not an answer.** It is the contract's way of saying
   the runner faulted internally, a vector cannot expect one (§4.6 admits `ok`
   and `rejected` only), and the only field two errors share is the word
