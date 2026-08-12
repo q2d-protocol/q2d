@@ -49,10 +49,10 @@
             "internal_reason": { "type": "string", "minLength": 1 },
             "wire": { "type": "object" },
             "step": {
-              "description": "The core-model.md §4 step at which rejection occurred, and how ordering is asserted without instrumenting the implementation. An integer for a numbered step, or one of the lettered steps §4's table defines -- today only 9a, the rate-limit check. A schema that could not express 9a would force a conforming runner to misreport where it rejected; one that accepted 12b would let it report a step the specification does not have.",
+              "description": "The core-model.md §4 step at which rejection occurred, and how ordering is asserted without instrumenting the implementation. An integer for a numbered step, or one of the lettered steps §4's table defines -- today 9a, the rate-limit check, and 11a, the registry entry's non-schema constraints. A schema that could not express 9a would force a conforming runner to misreport where it rejected; one that accepted 12b would let it report a step the specification does not have.",
               "oneOf": [
                 { "type": "integer", "minimum": 1, "maximum": 19 },
-                { "enum": ["9a"] }
+                { "enum": ["9a", "11a"] }
               ]
             }
           }
