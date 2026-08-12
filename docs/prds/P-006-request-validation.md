@@ -214,11 +214,19 @@ are not requirements:
 - **`object` recurses**, and the field-level rule must not be skipped because the
   object-level check passed. This is where the per-shape table is easiest to
   implement wrongly, because the outer check looks complete.
-- **`enum` rejects any requested domain not equal to the registered one**, per
-  §3.2's interim rule, until [`open-escalations.md`](../open-escalations.md)
-  **E-17** decides whether a coarsening mapping is declared or inferred. The
-  conservative rule is implementable now and is not a placeholder to be relaxed
-  locally: relaxing it is what E-17 decides.
+- **`enum` coarsens by a mapping the requester declares**, in
+  `answer_contract.coarsening`, which this module validates against §3.2's four
+  conditions: total, image exactly equal to the requested domain,
+  non-expanding, and a function. All four are set
+  comparisons and counts — **this module makes no judgement about what a label
+  means**. A mapping a human would call wrong is admissible; Q2D-C-01 binds the
+  requester to the commitment it made, and what a responder guarantees is that
+  the answer lies inside the requested domain, not that the question was
+  sensible.
+
+  Capacity comes from the label count, looked up in the entry's capacity table
+  as any varying cardinality is. A count the table does not cover is a registry
+  defect and a `blocker`, per [P-008](P-008-capacity-accounting.md) §4.
 
 Each rule is a total function from registered domain and requested domain to
 admissible or reject, so a shape with no rule is a compile error rather than a
@@ -253,7 +261,7 @@ validated value is the only one it gets.
 |---|---|
 | `domain/schema/` | Valid context; each profile keyword; a schema using a forbidden keyword rejects |
 | `domain/constraints/` | Slot below floor; horizon beyond limit; both boundaries exact |
-| `domain/narrowing/` | Per shape in §4.5: valid coarsening, attempted expansion, and attempted strict subset — the last two both reject |
+| `domain/narrowing/` | Per shape in §4.5: valid coarsening, attempted expansion, and attempted strict subset — the last two both reject. For `enum`, one vector per §3.2 condition: a mapping that is not total, whose image omits a requested label, whose image carries a label outside the requested domain, that is not non-expanding, and that is not a function |
 | `domain/compose/` | Admissible from `narrow(registry, requested)`; effective from `narrow(admissible, modifiers)`; two coarsenings of different granularity compose to the coarser rather than to nothing; an unsatisfiable domain at either phase fails closed |
 | `domain/profile/` | Supported profile passes; unsupported rejects without downgrade |
 
@@ -314,7 +322,7 @@ and the other does not.
 | ~~§4.4 — subset narrowing is a free oracle~~ | **Resolved as (A).** Spec amended; see §4.4 |
 | ~~Does an unsatisfiable domain reject before or after policy?~~ | **Resolved: before**, at step 12. An inadmissible request must not consult policy authorities: doing so would send the purpose, recipient, and sink set of a request that was never admissible to every configured authority, some of which are people. It also keeps the two phases in §4.1 honest — the admissible domain is computed and checked before policy runs, so a modifier can never rescue a contract the registry already rejected |
 | Should the schema profile be stated in `spec/` rather than only here? Proposed: yes — it constrains what a registry may contain, which is protocol surface | **Escalation** — [`open-escalations.md`](../open-escalations.md) **E-16**. A `spec/` addition that carries meaning: it would make a manifest using an unlisted keyword non-conforming. **Does not block** — see §4.2 for what may be built meanwhile |
-| Does a coarsening mapping need to be declared by the requester, or inferred? Proposed: declared, so the responder validates a stated mapping rather than guessing one | **Escalation** — [`open-escalations.md`](../open-escalations.md) **E-17**. Declaring it adds a field to the answer contract, which is a [`core-model.md`](../../spec/core-model.md) §2.5 change. **Does not block**: §3.2 states a conservative `enum` rule that is conforming today, and E-17 decides whether to widen it |
+| ~~Does a coarsening mapping need to be declared by the requester, or inferred?~~ | **Resolved: declared** ([`open-escalations.md`](../open-escalations.md) E-17). `answer_contract.coarsening` carries it, and this module validates it against [`core-model.md`](../../spec/core-model.md) §3.2's four conditions — total, image exactly equal to the requested domain, non-expanding, a function. All are set comparisons and counts; §4.5 records that no judgement about a label's *meaning* is made here |
 
 ## 11. Issues
 
@@ -323,7 +331,7 @@ and the other does not.
 | 1 | ~~Escalate §4.4~~ — **done** | Resolved as (A); `core-model.md` §2.5, `terminology.md` §6, `claims.md` Q2D-C-09 amended |
 | 2 | JSON Schema profile validator | Forbidden keywords rejected as registry errors; `domain/schema/` passes |
 | 3 | Constraint evaluation, closed vocabulary | `domain/constraints/` passes; unknown key errors |
-| 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape, `enum` included under §3.2's conservative rule — a requested `enum` domain not equal to the registered one rejects. **Not blocked by E-17**, which decides whether to widen that rule later |
+| 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape, `enum` included: a declared mapping that is total, whose image equals the requested domain, non-expanding and a function is admitted, and one failing any of the four is rejected. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
 | 5 | `object` recursion in narrowing | Nested invalid narrowing rejects |
 | 6 | `apply_modifiers` and the two-phase narrowing composition | `domain/compose/` passes; ordering vector passes; two coarsenings compose to the coarser |
 | 7 | `supports_profile` | `domain/profile/` passes; no downgrade path exists |
@@ -331,8 +339,9 @@ and the other does not.
 | 9 | Author `domain/` corpus section | Five groups; `harness lint` clean |
 
 Issue 1 is complete. Issue 4 is implementable for every shape:
-[`core-model.md`](../../spec/core-model.md) §3.2 now carries the rules, including
-a conservative `enum` rule — reject any requested domain not equal to the
-registered one — that holds until **E-17** decides whether a coarsening mapping
-is declared or inferred. E-17 therefore widens what `enum` permits later; it does
-not block building the check now.
+[`core-model.md`](../../spec/core-model.md) §3.2 now carries the rules for every
+shape, `enum` included: a coarsening mapping is **declared** by the requester and
+validated here. **E-17** decided that, replacing the interim rule this section
+used to carry — reject any requested domain not equal to the registered one —
+which was conforming meanwhile precisely so that no implementation settled the
+question by accident.

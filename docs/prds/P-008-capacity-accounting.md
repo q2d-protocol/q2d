@@ -56,7 +56,8 @@ The capacity for an effective domain is **looked up**, never computed:
 
 | Domain kind | Source |
 |---|---|
-| Enumerated | the entry's `capacity.millibits` |
+| Enumerated, entry carries `capacity.millibits` | that value. The entry admits no coarsening ([`core-model.md`](../../spec/core-model.md) §3.2), so there is one debit and this is it |
+| Enumerated, entry carries `capacity.table` | the table, keyed by the **label count** — which is the registered cardinality when nothing is coarsened. The table is the entry's only capacity source, and `registry/validate.py` rejects an entry carrying both |
 | Computed | the entry's `capacity.table`, keyed by effective cardinality |
 | Cardinality absent from the table | **reject** — a registry error, not a fallback |
 

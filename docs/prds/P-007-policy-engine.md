@@ -144,7 +144,11 @@ temptation is to derive `external` from `reason` at the end; that is how an
 internal reason reaches the wire. Keeping them apart means a leak requires
 someone to deliberately copy one into the other.
 
-Modifiers may only coarsen ([`core-model.md`](../../spec/core-model.md) §2.5). A
+Modifiers may only coarsen ([`core-model.md`](../../spec/core-model.md) §2.5),
+and **not an `enum`**: §3.2's `enum` rule rests on a mapping the requester
+declares in its answer contract, and a modifier has none. Rejecting it is the
+conservative position while [E-25](../open-escalations.md) decides whether
+modifiers gain one. A
 modifier producing a strict subset of the admissible domain is rejected by
 [P-006](P-006-request-validation.md)'s `apply_modifiers`, and that rejection is
 an implementation error rather than a policy outcome — a policy engine that emits
@@ -240,7 +244,7 @@ discover the problem on a live request.
 | `policy/outcome/` | Each of the three outcomes from an explicit rule |
 | `policy/compose/` | Every pair and triple over `{allow, deny, escalate}`; modifier union |
 | `policy/failclosed/` | F1–F6, each as a property over generated inputs |
-| `policy/modifiers/` | Valid coarsening; an attempted subset is an implementation error |
+| `policy/modifiers/` | Valid coarsening; an attempted subset is an implementation error; **an attempted `enum` coarsening likewise**, per [`core-model.md`](../../spec/core-model.md) §3.2 — a modifier has no answer contract to declare a mapping in, and E-25 decides whether that changes |
 | `policy/determinism/` | Same input twice; permuted authority order; permuted rule-set map order |
 | `policy/separation/` | An audit reason never appears in `external` |
 | `policy/rules/` | A rule set overriding an invariant fails at load |
@@ -311,7 +315,7 @@ the value it would need.
 | 5 | `validate_rules` at load | `policy/rules/` passes; invariant override refuses to start |
 | 6 | Determinism: explicit rule ordering, no clock, no map iteration | `policy/determinism/` passes; dependency check clean |
 | 7 | Audit/external separation | `policy/separation/` passes |
-| 8 | Modifier emission constrained to coarsening | Subset attempt errors as an implementation fault |
+| 8 | Modifier emission constrained to coarsening, and to shapes other than `enum` | Subset attempt errors as an implementation fault; so does an `enum` narrowing, since §3.2 gives a modifier nowhere to declare the mapping one needs |
 | 9 | Author `policy/` corpus section | Seven groups; `harness lint` clean |
 | 10 | Resolve open questions 1 and 3 | Written into §4.4 and §5 before issues 4 and 5 |
 

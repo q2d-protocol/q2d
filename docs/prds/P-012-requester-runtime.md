@@ -208,12 +208,15 @@ which is the only direction that matters.
 
 Two limits, stated rather than left to be found:
 
-**`enum` is not checkable at all.** A coarsened enum answer carries labels from
-a mapping the responder applied and the requester never saw, so there is no
-membership test and no ordering to compare against. The check degrades to shape
-identity for that release shape, and stays there until
-[P-006](P-006-request-validation.md)'s open question 4 settles whether a
-coarsening mapping is declared.
+**`enum` is checkable, because the requester declared the mapping.**
+[`core-model.md`](../../spec/core-model.md) §3.2 puts the coarsening in
+`answer_contract.coarsening`, so a requester holds the label set it asked for
+and can test membership directly — the result must be one of its own labels.
+That was not true while the mapping was inferred: the answer carried labels from
+a mapping the responder applied and the requester never saw, so there was no
+membership test and the check degraded to shape identity. **E-17 removed that
+degradation**, which was the downstream consequence this section recorded when
+it was still open.
 
 **"Finer than requested" is a directional comparison, and that is now what the
 model describes.** [`core-model.md`](../../spec/core-model.md) §3 previously

@@ -196,6 +196,7 @@ The requester's pre-evaluation commitment (Q2D-C-01).
 | `answer_contract.maximum_cardinality` | shape-dependent | For `set` and `object`. |
 | `answer_contract.allowed_detail_fields` | yes | May be empty. Never unconstrained — every disclosed field is part of the contract and the capacity calculation. |
 | `answer_contract.precision` | shape-dependent | Granularity for `scalar` and `interval`. |
+| `answer_contract.coarsening` | shape-dependent | Required for an `enum` request whose domain is coarser than the registered one; prohibited otherwise. The mapping, §3.2. |
 | `answer_contract.disclosure_class` | no | Requester's sensitivity assertion; advisory only. |
 
 **A requester may request a coarser form of the registered domain. It may never
@@ -205,6 +206,16 @@ is a request, not an assertion the responder honours (Q2D-C-02).
 *Coarsening* maps every registered value onto a smaller set — exact time to a
 two-hour band, fifteen values to three. Every possible result has an image in
 the requested domain.
+
+For every shape but `enum` that mapping is implied by the request: a coarser
+precision, a wider granularity, a lower cardinality each determine it. For an
+`enum` it does not exist until someone supplies it, and **the requester supplies
+it** — `answer_contract.coarsening`, validated by the responder under §3.2. It
+is not inferred. Inferring would put a semantic judgement about the predicate
+into code, and two responders judging differently would return different answers
+to one query while both stayed inside the requested domain — a disagreement
+invisible from the wire, in the one place where it produces a wrong answer
+rather than an error.
 
 *Subsetting* would select some registered values and discard the rest, and is
 prohibited because a result among the discarded values would fall outside the
@@ -332,7 +343,7 @@ a policy modifier (§2.5).
 | Shape | Narrowing permitted |
 |---|---|
 | `boolean` | none — the requested domain must equal the registered one |
-| `enum` | coarsening only: a **total** mapping of registered values onto a smaller label set — **open, see below** |
+| `enum` | coarsening only, by a mapping the **requester declares** in `answer_contract.coarsening` — see below |
 | `scalar` | reduced precision; a range no wider than registered |
 | `interval` | coarser granularity, at or above any registered `minimum_slot_duration`; horizon no longer than registered |
 | `set` | `maximum_cardinality` at or below registered |
@@ -348,15 +359,74 @@ narrowing because a two-valued or single-valued domain has no coarser form that
 is not the empty request — and a "narrowed" boolean is the subsetting §2.5
 prohibits, wearing different words.
 
-> **`enum` is not yet settled.** Coarsening an enum requires a mapping from
-> registered values onto requested labels, and this document does not yet say
-> whether the requester declares that mapping or the responder infers it.
-> Inference is a semantic judgement, and two responders inferring differently
-> would return different answers to one query while both stayed inside the
-> requested domain. **Until this is decided, a conforming responder rejects an
-> `enum` request whose domain is not equal to the registered one** — the
-> `boolean` rule, applied conservatively, so that no implementation settles the
-> question by accident.
+**The `enum` mapping is declared, and the responder validates it.** It is
+carried in `answer_contract.coarsening` as an **array of two-element arrays** —
+`[[registered_value, label], …]` — and it is admissible only when all four hold:
+
+An array of pairs rather than an object, because **a registered enum value need
+not be a string**: `dietary/menu-compatible` registers `true` and `false`, and a
+JSON object can key only on strings. Stringifying them would put a
+number-to-string convention in the middle of a signed structure, which is the
+class of divergence [`crypto-suites.md`](crypto-suites.md) §3 declines a
+canonicalization suite to avoid. Pair order is not significant and does not
+affect admissibility; the array's *serialized* order is fixed by the production
+profile like any other array, so two implementations still produce identical
+bytes.
+
+1. **Total** — every registered value appears as a key. A missing value is a
+   result with no image in the requested domain, which is the subsetting §2.5
+   prohibits, arrived at by omission.
+2. **Exactly the requested labels** — the mapping's image *equals*
+   `answer_contract.domain`, in both directions. No requested label may be
+   unreachable: one no registered value maps to is an answer the predicate
+   cannot return, and its presence inflates the cardinality the capacity debit
+   is computed from. And no other label may be produced: a mapping whose image
+   contains a label outside the requested domain can return a result outside
+   the domain the requester asked for, which is what Q2D-C-02 and Q2D-C-03
+   exist to prevent. Containment in one direction is not enough — a mapping of
+   `{a,b,c,d}` onto `{x,y,z}` against a requested domain of `{x,y}` satisfies
+   every other condition here and returns `z`.
+3. **Non-expanding** — the label set is strictly smaller than the registered
+   value set. Equal is not a coarsening and needs no mapping; larger is the
+   expansion §2.5 forbids.
+4. **A function** — each registered value appears as a first element exactly
+   once. Two pairs sharing a value give two labels for one result and a
+   responder cannot choose between them. This condition is the reason the
+   format is an array: an object could not express the violation, so a rule
+   against it would be unenforceable and therefore not worth stating.
+
+All four are checkable by comparing two sets and counting, which is the point:
+the responder makes no judgement about what the labels *mean*. A mapping that
+says `via-assistant → not-reachable` is admissible even if a human would call it
+wrong, because the requester declared what it wanted and Q2D-C-01 binds it to
+that commitment. What the responder guarantees is that the answer it returns is
+inside the domain the requester asked for, not that the requester asked a
+sensible question.
+
+**A policy modifier may not coarsen an `enum` in 0.1.** The rule above is the
+requester's, and it rests on a mapping the requester declares in its answer
+contract. A modifier has no answer contract, so it has nowhere to declare one —
+and the three ways an implementation might fill that gap (reject the modifier,
+infer a mapping, invent a policy-side field) are three different behaviours from
+one specification. A modifier narrowing an `enum` is therefore rejected as an
+implementation error, exactly as a modifier that subsets is, until the question
+is decided. Every other shape's modifier rule is unaffected.
+
+**Capacity comes from the coarsened cardinality**, which is the label set's
+size, looked up in the registry entry's capacity table as any varying
+cardinality is ([`registry/README.md`](../registry/README.md)). A responder
+never computes it, and never takes it from the request. An entry whose `enum`
+domain may be coarsened therefore carries a table over every reachable label
+count, not a single value — a registry-format consequence of this rule, not a
+new mechanism.
+
+**An entry that carries a single capacity value admits no coarsening**, because
+there is no authored debit for the smaller label count and a responder may not
+compute one. Such a request is rejected, and it is a registry defect rather than
+a requester error: the entry has not published what a coarsened answer would
+cost. Every `enum` entry in the reference manifest is in that state today, so
+coarsening becomes available one predicate at a time, as each entry gains a
+table.
 
 ## 4. Processing order
 
