@@ -157,11 +157,20 @@ DIALECT = "https://json-schema.org/draft/2020-12/schema"
 def schema_keywords(schema, path):
     """Every keyword a schema uses, with where it sits.
 
+    A boolean subschema yields a name no profile contains, so it is rejected
+    rather than passed over: `true` and `false` are schemas that accept or deny
+    everything, with no authored vocabulary to check.
+
     Only the schema's own keywords -- the *names* under `properties` are the
     author's field names, not JSON Schema vocabulary, so they are walked into
     rather than checked.
     """
     if not isinstance(schema, dict):
+        # `true` and `false` are valid JSON Schema subschemas, accepting or
+        # denying everything with no keyword to check. §4.1's profile is a list
+        # of keywords, so a schema with none is outside it -- reported under a
+        # name no profile contains rather than skipped.
+        yield "<boolean subschema>", path
         return
     for key, value in schema.items():
         if key == "properties" and isinstance(value, dict):
