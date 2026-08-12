@@ -325,8 +325,12 @@ def main(argv: list[str]) -> int:
     # non-conformance -- the distinction matters, because narrowing §2.2 to
     # what this file can parse would be a specification change made by a
     # convenience.
+    # Only a `:60` that is otherwise conforming. One at the wrong hour or on a
+    # wrong date is non-conforming outright, `wrong` above already holds it,
+    # and calling that indeterminate would classify a registry error as
+    # something this tool cannot judge.
     leap = [f"{path}={value}" for path, value in timestamps(manifest)
-            if value[17:19] == "60"]
+            if value[17:19] == "60" and q2d_timestamp(value)]
     if leap:
         # Exit 2, not 1: 1 means the manifest is wrong, and this manifest may
         # be right. A caller has to be able to tell "non-conforming" from
