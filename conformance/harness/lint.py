@@ -173,6 +173,46 @@ def receipt_errors(vector: dict) -> list[str]:
     return errors
 
 
+# core-model.md §5.2's deny response, in full.
+DENY_RESPONSE_FIELDS = frozenset({"status", "external_reason", "receipt",
+                                  "signature"})
+
+
+def denial_section_errors(vector: dict) -> list[str]:
+    """A `denial/` vector asserts the whole response, never a projection.
+
+    Elsewhere a subset is legitimate: a `registry/` vector exercises whether a
+    predicate evaluates and rejects correctly, and the envelope around the
+    rejection is not its subject. Here it is the *only* subject, and a subset
+    is not a narrower test but a vacuous one -- `status` and `external_reason`
+    are both fixed by the normalized class, so a vector asserting only those
+    compares two constants across every cause and cannot fail.
+
+    core-model.md §5.3 puts the leak where a projection is silent: "a receipt
+    that recorded escalate for an outcome the wire made uniform would defeat
+    Q2D-C-08 through the evidence attached to it, in the one place nobody looks
+    for a normalization leak."
+    """
+    if vector.get("section") != "denial":
+        return []
+    expect = vector.get("expect")
+    if not isinstance(expect, dict) or expect.get("outcome") != "rejected":
+        return []
+    rejection = expect.get("rejection")
+    if not isinstance(rejection, dict):
+        return []
+    wire = rejection.get("wire")
+    if not isinstance(wire, dict):
+        return []
+
+    missing = sorted(DENY_RESPONSE_FIELDS - set(wire))
+    if not missing:
+        return []
+    return [f"wire: missing {', '.join(missing)} — a denial/ vector asserts "
+            f"core-model.md §5.2's whole response. A subset compares only "
+            f"fields the normalized class already fixes, so it cannot fail"]
+
+
 def section_errors(vector: dict) -> list[str]:
     """Rules a section carries that the schema cannot express.
 
@@ -224,6 +264,7 @@ def vector_errors(vector, path: Path, corpus_root: Path, vector_schema: dict,
         errors += citation_errors(vector, claims, classes, sections)
         errors += section_errors(vector)
         errors += receipt_errors(vector)
+        errors += denial_section_errors(vector)
     return errors
 
 

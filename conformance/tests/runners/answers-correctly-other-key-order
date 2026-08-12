@@ -6,16 +6,27 @@ divergent for one writing `outcome` before `vector_id`.
 """
 import json, sys
 
+# core-model.md §5.2's whole deny response. Placeholder signature: a
+# real one is blocked on P-001 §10, and this is a fixture runner.
+RECEIPT = {"request_digest": "sha-256:0000000000000000000000000000000000000000000000000000000000000000",
+           "decision_class": "unavailable",
+           "decided_at": "2026-01-01T00:00:00Z",
+           "responder": "did:example:test-custodian-1",
+           "signature_suite": "eddsa-jws-2026"}
+SIGNATURE = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+
 ANSWERS = {
     "message/sign/query-minimal": {
         "outcome": "ok", "output": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtcmVxdWVzdGVyLTEifQ.eyJxdWVyeSI6e319.c2lnbmF0dXJlLXBsYWNlaG9sZGVyLW5vdC1hLXJlYWwtc2lnbmF0dXJl"},
     "denial/uniformity-c/unknown-predicate": {
         "outcome": "rejected",
-        "rejection": {"wire": {"status": "deny", "external_reason": "unavailable"},
+        "rejection": {"wire": {"status": "deny", "external_reason": "unavailable",
+                                "receipt": RECEIPT, "signature": SIGNATURE},
                       "step": 10, "internal_reason": "unknown_predicate"}},
     "denial/uniformity-c/budget-exhausted": {
         "outcome": "rejected",
-        "rejection": {"wire": {"status": "deny", "external_reason": "unavailable"},
+        "rejection": {"wire": {"status": "deny", "external_reason": "unavailable",
+                                "receipt": RECEIPT, "signature": SIGNATURE},
                       "step": 15, "internal_reason": "budget_exhausted"}},
 }
 

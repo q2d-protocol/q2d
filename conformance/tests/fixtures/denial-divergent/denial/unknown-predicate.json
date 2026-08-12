@@ -1,15 +1,28 @@
 {
   "id": "denial/uniformity-c/unknown-predicate",
   "section": "denial",
-  "requirement": ["Q2D-C-08"],
-  "description": "One Tier C cause.",
+  "requirement": [
+    "Q2D-C-08"
+  ],
+  "description": "One Tier C cause. The signature and receipt digest are placeholders: this is a harness fixture, not a corpus vector, and authoring a real signature is blocked on P-001 §10.",
   "operation": "resolve_predicate",
   "input": {},
   "expect": {
     "outcome": "rejected",
     "rejection": {
       "internal_reason": "unknown_predicate",
-      "wire": { "status": "deny", "external_reason": "unavailable" }
+      "wire": {
+        "status": "deny",
+        "external_reason": "unavailable",
+        "receipt": {
+          "request_digest": "sha-256:0000000000000000000000000000000000000000000000000000000000000000",
+          "decision_class": "unavailable",
+          "decided_at": "2026-01-01T00:00:00Z",
+          "responder": "did:example:test-custodian-1",
+          "signature_suite": "eddsa-jws-2026"
+        },
+        "signature": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+      }
     },
     "comparison": "bytes"
   }

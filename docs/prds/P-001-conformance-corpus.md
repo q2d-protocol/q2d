@@ -666,6 +666,8 @@ What must fail, and how the failure is observed.
 | Two rejections in one normalized class with differing `wire` objects | Cross-vector denial-uniformity assertion fails |
 | A budget permutation reaching a different total | Cross-vector accumulation assertion fails |
 | A `bytes` vector where two implementations differ by one byte | Cross-implementation comparison fails, naming the offset |
+| A `denial/` vector asserting a projection rather than §5.2's whole response | `harness lint` rejects it. Enforced rather than documented: the two fields such a vector would carry are both fixed by the normalized class, so the comparison cannot fail, and a rule with nothing behind it is how a corpus comes to look like it verifies Q2D-C-08 |
+| A `denial/` vector asserting a projection rather than §5.2's whole response | `harness lint` rejects it. Enforced rather than documented: the two fields such a vector would carry are both fixed by the normalized class, so the comparison cannot fail, and a rule with nothing behind it is how a corpus comes to look like it verifies Q2D-C-08 |
 | A denial vector asserting a receipt that is not §6's five fields | `harness lint` rejects it — too few or too many. Omitting `receipt` is legitimate and reported as a partial comparison instead |
 | A `bytes` vector whose compared value is an object rather than a string | `harness cross` reports it `UNCHECKABLE` and fails — the bytes never reached the harness, so calling it agreement would assert what was never checked |
 | A corpus where the two runners agree on everything comparable | `harness cross` still exits non-zero — §4.8's second clause is issue 19, and the exit status must not say a half-checked clause holds |

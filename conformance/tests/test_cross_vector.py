@@ -84,7 +84,11 @@ class PartialResponseTest(unittest.TestCase):
     """
 
     def test_a_partial_wire_is_named_in_the_summary(self):
-        _, output = lint(FIXTURES / "denial-thin")
+        # Only reachable outside `denial/` now, since a denial/ vector
+        # asserting a projection is rejected outright. The real corpus is
+        # exactly this case: registry/ rejections, which test predicate
+        # evaluation rather than response construction.
+        _, output = lint(CONFORMANCE / "corpus")
         self.assertIn("compared a partial response", output)
         self.assertIn("receipt", output)
         self.assertIn("cannot detect a receipt-level divergence", output)
@@ -103,6 +107,29 @@ class PartialResponseTest(unittest.TestCase):
         code, output = lint(FIXTURES / "denial-whole-response")
         self.assertEqual(code, 0, output)
         self.assertNotIn("compared a partial response", output)
+
+
+class WholeResponseTest(unittest.TestCase):
+    """A denial/ vector asserts core-model.md §5.2's whole response.
+
+    Enforced rather than documented, because the rule's whole content is that a
+    projection here *cannot fail*: `status` and `external_reason` are both
+    fixed by the normalized class, so a vector asserting only those compares
+    two constants across every cause. A prose rule with nothing behind it would
+    be a corpus that looks like it verifies Q2D-C-08.
+    """
+
+    def test_a_denial_vector_asserting_a_projection_is_rejected(self):
+        code, output = lint(FIXTURES / "denial-projection")
+        self.assertEqual(code, 1)
+        self.assertIn("wire: missing receipt, signature", output)
+        self.assertIn("cannot fail", output)
+
+    def test_other_sections_may_assert_a_projection(self):
+        # The real corpus is registry/ rejections, which test predicate
+        # evaluation rather than response construction.
+        code, _ = lint(CONFORMANCE / "corpus")
+        self.assertEqual(code, 0)
 
 
 class ReducedReceiptShapeTest(unittest.TestCase):
