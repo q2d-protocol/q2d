@@ -1168,10 +1168,15 @@ is why B needed no argument against A beyond naming it.
 
 The folded registry vector states `11a` and no longer carries its
 `before_private_access` property as prose. `vector.schema.json`'s lettered-step
-enum holds `9a` and `11a` and stays closed. Every range that said *"steps 1–15"*
-or *"nineteen steps"* now names the lettered steps among them — P-010 in
-particular, whose acceptance was *"step orchestration, 1–19"* and would have
-been satisfiable while skipping both.
+enum holds `9a` and `11a` and stays closed. Every range whose span contains a lettered step now names it —
+[`mvp-scope.md`](mvp-scope.md) Stage 4, which defines the stage as *"steps
+1–19"* and outranks every PRD; CC-2 and P-010's paraphrase of it; P-010's
+acceptance, which was *"step orchestration, 1–19"*; and §4's own invariant about
+steps 1–15 preceding private access. Each would have been satisfiable while
+skipping both lettered steps. Ranges that end before a lettered step —
+[P-013](prds/P-013-https-binding.md)'s *"steps 1–2"*,
+[P-012](prds/P-012-requester-runtime.md)'s requester order — are correct as
+written and left alone.
 
 ---
 

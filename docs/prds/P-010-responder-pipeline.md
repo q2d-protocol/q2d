@@ -34,7 +34,7 @@ first module where they can fail in combination rather than in isolation.
 | [`spec/core-model.md`](../../spec/core-model.md) §5.1 | The `answer` response shape |
 | [`spec/claims.md`](../../spec/claims.md) Q2D-C-03 | Bounded output, and what it does not claim |
 | [`spec/claims.md`](../../spec/claims.md) Q2D-C-04 | Private input is not serialized into the response |
-| [`spec/conformance-classes.md`](../../spec/conformance-classes.md) CC-2 | Must not read private input before step 16; must not reorder steps 1–16 |
+| [`spec/conformance-classes.md`](../../spec/conformance-classes.md) CC-2 | Must not read private input before step 16; must not reorder steps 1–16, **or 9a and 11a among them** |
 | [`threat-model/trust-matrix.md`](../../threat-model/trust-matrix.md) §3 | The computation executor is the trusted component for C-03 and C-04 |
 | [`registry/manifest.json`](../../registry/manifest.json) | The three predicates and their vectors |
 

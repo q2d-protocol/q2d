@@ -223,8 +223,11 @@ class produces a byte-identical response — the same cross-vector invariant
 
 Where the previous stages become a responder.
 
-- The [`core-model.md`](../spec/core-model.md) §4 processing order, steps 1–19,
-  in order, with the ordering itself asserted by test.
+- The [`core-model.md`](../spec/core-model.md) §4 processing order, steps 1–19
+  **and the lettered steps 9a and 11a**, in order, with the ordering itself
+  asserted by test. A pipeline that runs the numbered steps and skips the
+  lettered ones is unlimited probing (9a) and an unchecked registry constraint
+  (11a), and would satisfy a stage defined as "1–19".
 - The three registry predicates evaluated locally.
 - Output validation against the effective domain; fail-closed on violation; no
   private input in any error path.
