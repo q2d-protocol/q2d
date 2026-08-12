@@ -214,6 +214,13 @@ def q2d_timestamp(value):
         # inserted is IERS data and not decidable here.
         if value[11:16] != "23:59":
             return False
+        # Whether a leap second was *inserted* at this particular month end is
+        # IERS data that changes after this file is written. It is deliberately
+        # not checked: no static checker can decide it correctly, and a table
+        # baked in here would be wrong within a few years. What is checked is
+        # RFC 3339 §5.7's placement -- 23:59 at a month end -- which is fixed by
+        # the grammar. The same choice, for the same reason, as
+        # `conformance/harness/lint.py`.
         try:
             day = datetime.strptime(value[:10], "%Y-%m-%d")
         except ValueError:
@@ -443,6 +450,23 @@ def main(argv: list[str]) -> int:
                               if k not in SCHEMA_PROFILE})
             check(not outside,
                   f"{where} uses only scope.md §4.1's profile", ",".join(outside))
+
+            # A permitted keyword carrying the wrong kind of value is not JSON
+            # Schema at all -- `properties: []`, `required: "id"` -- and two
+            # libraries would reject or reinterpret it differently, which is
+            # what the profile exists to prevent. The keyword filter above sees
+            # names only.
+            SHAPES = {"properties": dict, "required": list, "enum": list,
+                      "items": dict, "type": (str, list),
+                      "additionalProperties": bool, "$schema": str,
+                      "format": str, "minItems": int, "maxItems": int,
+                      "minLength": int, "maxLength": int}
+            misshapen = sorted(
+                f"{k}={type(v).__name__}" for k, v in schema_values(schema)
+                if k in SHAPES and not isinstance(v, SHAPES[k]))
+            check(not misshapen,
+                  f"{where} gives every keyword a value of its own kind",
+                  ",".join(misshapen))
             check(schema.get("$schema") == DIALECT,
                   f"{where} declares §4.1's dialect", str(schema.get("$schema")))
             # And nowhere else: JSON Schema lets a nested `$schema` switch
