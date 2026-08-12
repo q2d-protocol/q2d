@@ -218,11 +218,66 @@ def denial_section_errors(vector: dict) -> list[str]:
     # field that *differs* between causes is a different wire response, and the
     # denial-uniformity assertion fails the corpus for it.
     missing = sorted(DENY_RESPONSE_FIELDS - set(wire))
-    if not missing:
-        return []
-    return [f"wire: missing {', '.join(missing)} — a denial/ vector asserts "
-            f"core-model.md §5.2's whole response. A subset compares only "
-            f"fields the normalized class already fixes, so it cannot fail"]
+    if missing:
+        return [f"wire: missing {', '.join(missing)} — a denial/ vector asserts "
+                f"core-model.md §5.2's whole response. A subset compares only "
+                f"fields the normalized class already fixes, so it cannot fail"]
+
+    return wire_value_errors(wire)
+
+
+# §5.2 gives `status` one value on a denial; §5.3 gives an explicit escalation
+# the other. Nothing else is an outcome a rejection vector can assert.
+DENY_STATUS = ("deny", "escalate")
+
+# §6: "RFC 3339, second precision". Checked as a format, not merely as a
+# string, because §6 grounds the whole length guarantee in none of the reduced
+# fields being variable-length -- and a timestamp carrying sub-second precision
+# or a numeric offset is variable-length, which quietly removes it.
+RFC3339_SECOND_Z = re.compile(r"\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\Z")
+
+
+def nonempty_string(where: str, value) -> list[str]:
+    if not isinstance(value, str):
+        return [f"{where}: {type(value).__name__}, but core-model.md gives it a "
+                f"string value"]
+    if not value:
+        return [f"{where}: empty — a vector asserting an empty value asserts "
+                f"that a conforming implementation emits one"]
+    return []
+
+
+def wire_value_errors(wire: dict) -> list[str]:
+    """The values §5.2 and §6 determine, not only that the keys are present.
+
+    Field presence alone would accept a vector asserting `status: "answer"` on
+    a rejection, or an empty signature -- either of which would then be scored
+    against both implementations as though it were a conforming denial.
+    """
+    errors: list[str] = []
+
+    status = wire.get("status")
+    if status not in DENY_STATUS:
+        errors.append(f"wire.status: {status!r} — core-model.md §5.2 gives a "
+                      f"denial {DENY_STATUS[0]!r}, §5.3 an explicit escalation "
+                      f"{DENY_STATUS[1]!r}, and a rejection asserts one of them")
+
+    errors += nonempty_string("wire.external_reason", wire.get("external_reason"))
+    errors += nonempty_string("wire.signature", wire.get("signature"))
+
+    receipt = wire.get("receipt")
+    if isinstance(receipt, dict):
+        for field in sorted(REDUCED_RECEIPT_FIELDS & set(receipt)):
+            errors += nonempty_string(f"wire.receipt.{field}", receipt[field])
+        decided = receipt.get("decided_at")
+        if isinstance(decided, str) and not RFC3339_SECOND_Z.match(decided):
+            errors.append(
+                f"wire.receipt.decided_at: {decided!r} is not RFC 3339 at "
+                f"second precision with 'Z' — core-model.md §6 grounds the "
+                f"length guarantee in none of the reduced fields being "
+                f"variable-length, and this is the one that can vary")
+
+    return errors
 
 
 def section_errors(vector: dict) -> list[str]:

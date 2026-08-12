@@ -125,6 +125,23 @@ class WholeResponseTest(unittest.TestCase):
         self.assertIn("wire: missing receipt, signature", output)
         self.assertIn("cannot fail", output)
 
+    def test_the_values_5_2_determines_are_checked_not_only_the_keys(self):
+        # Presence alone would accept a vector asserting `status: "answer"` on
+        # a rejection, or an empty signature — either then scored against both
+        # implementations as though it were a conforming denial.
+        code, output = lint(FIXTURES / "denial-bad-values")
+        self.assertEqual(code, 1)
+        self.assertIn("wire.status: 'answer'", output)
+        self.assertIn("wire.signature: empty", output)
+
+    def test_a_variable_length_timestamp_is_rejected(self):
+        # §6's length guarantee rests on none of the reduced fields being
+        # variable-length, and `decided_at` is the one that can vary. A vector
+        # asserting sub-second precision asserts away the property.
+        _, output = lint(FIXTURES / "denial-bad-values")
+        self.assertIn("not RFC 3339 at second precision", output)
+        self.assertIn("variable-length", output)
+
     def test_other_sections_may_assert_a_projection(self):
         # The real corpus is registry/ rejections, which test predicate
         # evaluation rather than response construction.
