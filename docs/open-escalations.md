@@ -1238,9 +1238,10 @@ E-01 … E-15 were decided in one pass and cascaded in the same change; every
 recommendation was adopted. **E-16, E-17 and E-24 are open** and are not in this
 table.
 
-E-18 … E-22 were decided one at a time while P-001's harness and corpus were
-built, each cascaded before the next was raised. Every recommendation was
-adopted.
+E-18 … E-23 were decided one at a time while P-001's harness and corpus were
+built, each raised with options and a recommendation, each **adopted as
+recommended**, and each cascaded before the next was raised. E-21, E-22 and
+E-23 change `spec/`; none was settled in the implementation that raised it.
 
 | ID | Resolution | Landed in |
 |---|---|---|
