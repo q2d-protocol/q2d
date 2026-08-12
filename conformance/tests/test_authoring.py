@@ -241,6 +241,90 @@ class JwsTest(unittest.TestCase):
                                    {"type": "query"})
         self.assertNotEqual(self.signed().split(".")[2], other.split(".")[2])
 
+    def test_a_timestamp_in_the_wrong_spelling_is_refused(self):
+        # The last point a value can be rejected before it becomes bytes
+        # somebody signs. Inside a signed payload it is past the reach of
+        # anything that reads the vector as text — `harness lint` walks the
+        # vector's strings, and a compact serialization is one opaque string
+        # to it.
+        for wrong in ("2026-01-01t00:00:00z", "2026-01-01T00:00:00+00:00",
+                      "2026-01-01T00:00:00.5Z"):
+            with self.subTest(value=wrong):
+                with self.assertRaises(author.ProfileError):
+                    self.signed({"issued_at": wrong})
+
+    def test_a_right_shaped_non_instant_is_refused(self):
+        # §2.2's spelling exactly, and no date. Checking the spelling alone
+        # would have signed it into a payload nothing downstream reads as text.
+        for wrong in ("2026-99-99T99:99:99Z", "2026-02-30T00:00:00Z",
+                      "2026-01-01T00:00:60Z"):
+            with self.subTest(value=wrong):
+                with self.assertRaises(author.ProfileError):
+                    self.signed({"issued_at": wrong})
+
+    def test_empty_objects_and_arrays_serialize(self):
+        # A `query` is legitimately empty in the minimal message vector, and a
+        # serializer that crashed on one could author no signed vector at all.
+        self.assertEqual(author.serialize({}), b"{}")
+        self.assertEqual(author.serialize([]), b"[]")
+        self.assertEqual(author.serialize({"query": {}}), b'{"query":{}}')
+
+    def test_a_named_timestamp_field_is_checked_however_malformed(self):
+        with self.assertRaises(author.ProfileError):
+            self.signed({"issued_at": "2026-1-01T00:00:00Z"})
+        with self.assertRaises(author.ProfileError):
+            self.signed({"expires_at": "soon"})
+
+    def test_a_timestamp_field_holding_a_number_is_refused(self):
+        # The JWT/DNSSEC representation, in a protocol that chose strings.
+        # Signing it would put protocol metadata into covered bytes that
+        # conforming implementations reject.
+        for value in (1767225600, None, [], {"seconds": 0}):
+            with self.subTest(value=value):
+                with self.assertRaises(author.ProfileError):
+                    self.signed({"issued_at": value})
+
+    def test_the_name_rule_does_not_reach_operation_defined_objects(self):
+        # core-model.md gives those names a timestamp's meaning at the top
+        # level of a core object or response, and inside `receipt`. A
+        # `public_context` field called `expires_at` is the predicate's, and
+        # may mean anything.
+        author.serialize({"public_context": {"expires_at": "never"}})
+        with self.assertRaises(author.ProfileError):
+            author.serialize({"receipt": {"decided_at": "never"}})
+        with self.assertRaises(author.ProfileError):
+            author.serialize({"issued_at": "never"})
+
+    def test_a_predicate_may_have_its_own_receipt(self):
+        # `receipt` re-enters protocol level only from protocol level. A
+        # predicate's own structure called `receipt` is not §6's.
+        author.serialize({"public_context": {"receipt": {"decided_at": "never"}}})
+        with self.assertRaises(author.ProfileError):
+            author.serialize({"receipt": {"decided_at": "never"}})
+
+    def test_routing_timestamps_are_checked(self):
+        # §2.2 covers "the core object, `routing`, and a receipt", and routing
+        # is where the spelling matters most: §4 step 8 compares its fields
+        # against the verified object's.
+        with self.assertRaises(author.ProfileError):
+            author.serialize({"routing": {"expires_at": "soon"}})
+        author.serialize({"routing": {"expires_at": "2026-01-01T00:00:00Z"}})
+
+    def test_the_shape_rule_still_reaches_everywhere(self):
+        # A wrong spelling is a wrong spelling wherever it sits, and needs no
+        # knowledge of what the field means.
+        with self.assertRaises(author.ProfileError):
+            author.serialize({"public_context": {"a": "2026-01-01t00:00:00z"}})
+
+    def test_a_leap_second_serializes(self):
+        # RFC 3339 §5.7 permits it and §2.2 does not exclude it.
+        self.assertIn(b"2016-12-31T23:59:60Z",
+                      author.serialize({"t": "2016-12-31T23:59:60Z"}))
+
+    def test_the_one_permitted_spelling_serializes(self):
+        self.assertIn(b'"2026-01-01T00:00:00Z"',
+                      author.serialize({"issued_at": "2026-01-01T00:00:00Z"}))
+
     def test_a_float_in_the_payload_is_refused(self):
         with self.assertRaises(author.ProfileError):
             self.signed({"capacity": 1.5})

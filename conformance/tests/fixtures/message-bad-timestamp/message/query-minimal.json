@@ -1,0 +1,21 @@
+{
+  "id": "message/sign/query-minimal",
+  "section": "message",
+  "requirement": [
+    "Q2D-C-05",
+    "core-model.md#2.2"
+  ],
+  "description": "A timestamp in `output`, in a spelling §2.2 forbids. Caught by shape rather than by name, since output's shape is the operation's.",
+  "operation": "sign_query",
+  "input": {
+    "key_id": "test-requester-1",
+    "query": {}
+  },
+  "expect": {
+    "outcome": "ok",
+    "output": {
+      "issued_at": "2026-01-01t00:00:00z"
+    },
+    "comparison": "semantic"
+  }
+}

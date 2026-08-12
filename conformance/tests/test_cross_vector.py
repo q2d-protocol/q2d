@@ -149,7 +149,7 @@ class WholeResponseTest(unittest.TestCase):
         # variable-length, and `decided_at` is the one that can vary. A vector
         # asserting sub-second precision asserts away the property.
         _, output = lint(FIXTURES / "denial-bad-values")
-        self.assertIn("not RFC 3339 at second precision", output)
+        self.assertIn("core-model.md §2.2", output)
         self.assertIn("variable-length", output)
 
     def test_an_explicit_escalation_is_held_to_its_own_shape(self):
@@ -175,36 +175,144 @@ class WholeResponseTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("must never be described as such", output)
 
-    def test_a_corpus_mixing_rfc3339_spellings_fails(self):
-        # No spelling is rejected — §6 says only "RFC 3339, second precision",
-        # and deciding between them here would settle a specification question
-        # in a lint rule. A corpus using several is defective whichever way §6
-        # goes: no implementation emits several, so none can satisfy it.
-        code, output = lint(FIXTURES / "denial-mixed-timestamp-forms")
+    def test_a_timestamp_anywhere_under_expect_is_checked(self):
+        # Not only `expires_at` and the receipt's `decided_at`. A rule enforced
+        # on two named fields is a rule the next section escapes.
+        code, output = lint(FIXTURES / "message-bad-timestamp")
         self.assertEqual(code, 1)
-        self.assertIn("spellings of RFC 3339", output)
-        self.assertIn("is not", output)
+        self.assertIn("expect.output.issued_at", output)
 
-    def test_any_single_spelling_is_allowed_and_reported(self):
-        # RFC 3339 permits `T`/`t`, `Z`/`z`, and a numeric offset. §6 names no
-        # profile, so each is allowed on its own — and named, so a corpus
-        # cannot drift across them unnoticed.
-        for fixture in ("denial-offset-timestamp", "denial-lowercase-timestamp",
-                        "denial-whole-response"):
-            with self.subTest(fixture=fixture):
-                code, output = lint(FIXTURES / fixture)
-                self.assertEqual(code, 0, output)
-                self.assertIn("response timestamps:", output)
-                self.assertIn("open (P-001 §10)", output)
-
-    def test_an_impossible_offset_is_rejected(self):
-        # The regex matches the offset's shape; these are its ranges. Accepting
-        # the form is a specification question and validating its syntax is not.
+    def test_a_right_shaped_non_instant_under_expect_is_rejected(self):
         sys.path.insert(0, str(CONFORMANCE / "harness"))
         import lint as lint_mod
-        self.assertTrue(lint_mod.valid_timestamp("2026-01-01T00:00:00-05:30"))
-        self.assertFalse(lint_mod.valid_timestamp("2026-01-01T00:00:00+99:99"))
-        self.assertFalse(lint_mod.valid_timestamp("2026-01-01T00:00:00+24:00"))
+        vector = {"expect": {"output": {"issued_at": "2026-99-99T99:99:99Z"}}}
+        errors = lint_mod.expected_timestamp_errors(vector)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("is not a timestamp", errors[0])
+
+    def test_a_named_timestamp_field_is_checked_however_malformed(self):
+        # `2026-1-01T00:00:00Z` has no RFC 3339 shape at all, so the shape test
+        # alone misses it — and it is unmistakably a timestamp field. §2.2,
+        # §5.3 and §6 name these fields, so this is a citation not a guess.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        vector = {"expect": {"rejection": {"wire": {"receipt": {
+            "decided_at": "2026-1-01T00:00:00Z"}}}}}
+        errors = lint_mod.expected_timestamp_errors(vector)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("decided_at", errors[0])
+
+    def test_the_name_rule_does_not_reach_operation_defined_output(self):
+        # §4.4: output's "shape is the operation's, not this schema's". A
+        # predicate answer may carry a field called `expires_at` meaning
+        # something else, and knowing which one is §2.2's would mean knowing
+        # the operation — protocol knowledge §3 puts outside this module.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        for output in ({"expires_at": "never"},
+                       {"menu": [{"expires_at": "2026-01-01T00:00:00Z"}]}):
+            with self.subTest(output=output):
+                self.assertEqual(
+                    lint_mod.expected_timestamp_errors({"expect": {"output": output}}),
+                    [])
+
+    def test_output_still_gets_the_shape_rule(self):
+        # Which needs no such knowledge: a string that is a valid RFC 3339
+        # timestamp in a forbidden spelling is a finding wherever it sits.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        errors = lint_mod.expected_timestamp_errors(
+            {"expect": {"output": {"anything": "2026-01-01t00:00:00z"}}})
+        self.assertEqual(len(errors), 1)
+
+    def test_an_ordinary_string_is_not_mistaken_for_a_timestamp(self):
+        # The shape test must not reach for strings that merely mention a year.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        vector = {"expect": {"output": {"note": "2026 was a good year",
+                                        "id": "2026-01-01"}}}
+        self.assertEqual(lint_mod.expected_timestamp_errors(vector), [])
+
+    def test_a_named_timestamp_field_must_be_a_string(self):
+        # A number, a null or an object in a timestamp field is the same
+        # violation as a malformed string, and invisible to a check that only
+        # inspects strings.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        for value in (1767225600, None, [], {"seconds": 0}):
+            with self.subTest(value=value):
+                errors = lint_mod.expected_timestamp_errors(
+                    {"expect": {"rejection": {"wire": {"expires_at": value}}}})
+                self.assertEqual(len(errors), 1)
+                self.assertIn("which is a string", errors[0])
+
+    def test_input_may_carry_a_malformed_timestamp(self):
+        # A vector testing that an implementation rejects a bad spelling has to
+        # contain one. `expect` describes conforming output; `input` describes
+        # arbitrary stimulus.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        vector = {"input": {"issued_at": "2026-01-01t00:00:00z"},
+                  "expect": {"outcome": "ok", "output": {}, "comparison": "semantic"}}
+        self.assertEqual(lint_mod.expected_timestamp_errors(vector), [])
+
+    def test_only_one_spelling_is_accepted(self):
+        # core-model.md §2.2: uppercase T, uppercase Z, second precision, and
+        # no other spelling of the instant. RFC 3339 permits the others; §2.2
+        # does not, because a choice of spelling is one two implementations can
+        # make differently while both believing they conform.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        self.assertTrue(lint_mod.valid_timestamp("2026-01-01T00:00:00Z"))
+        for rejected in ("2026-01-01t00:00:00z", "2026-01-01T00:00:00+00:00",
+                         "2026-01-01T00:00:00-05:00", "2026-01-01T00:00:00.5Z"):
+            with self.subTest(value=rejected):
+                self.assertFalse(lint_mod.valid_timestamp(rejected))
+
+    def test_a_vector_using_another_spelling_is_rejected(self):
+        for fixture in ("denial-offset-timestamp", "denial-lowercase-timestamp",
+                        "denial-mixed-timestamp-forms",
+                        "denial-mixed-across-fields"):
+            with self.subTest(fixture=fixture):
+                code, output = lint(FIXTURES / fixture)
+                self.assertEqual(code, 1)
+                # Named as the §2.2 rule it misses, not as invalid RFC 3339 —
+                # `+00:00` is valid RFC 3339, and telling an author otherwise
+                # sends them to debug the wrong thing.
+                self.assertIn("valid RFC 3339 but not core-model.md §2.2", output)
+
+    def test_the_diagnostic_does_not_claim_a_non_instant_is_rfc_3339(self):
+        # `2026-99-99T99:99:99+99:99` has the shape of an offset timestamp and
+        # is no instant. Calling it valid RFC 3339 would assert a false fact
+        # about a specification, in output a reviewer reads.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        self.assertIn("valid RFC 3339",
+                      lint_mod.timestamp_error("x", "2026-01-01T00:00:00+00:00"))
+        for not_an_instant in ("2026-99-99T99:99:99+99:99",
+                               "2026-02-30T00:00:00+00:00",
+                               "2026-01-01T00:00:00+99:99",
+                               # §5.7 puts a leap second at 23:59 UTC at a
+                               # month end; this is neither, in any spelling.
+                               "2026-01-01T00:00:60Z",
+                               "2026-01-01T00:00:60+00:00"):
+            with self.subTest(value=not_an_instant):
+                self.assertIn("is not a timestamp",
+                              lint_mod.timestamp_error("x", not_an_instant))
+
+        # RFC 3339 §5.6's grammar, not the cases I happened to think of: every
+        # spelling it permits and §2.2 does not is named as such.
+        for other in ("2026-01-01t00:00:00Z", "2026-01-01T00:00:00.5Z",
+                      "2026-01-01t00:00:00z", "2026-01-01T00:00:00-05:30",
+                      # A real leap second, spelled several ways §2.2 rejects
+                      # -- including with fractional seconds and a negative
+                      # offset, where the sign is not at a fixed index.
+                      "2016-12-31T23:59:60z", "2016-12-31T15:59:60-08:00",
+                      "2016-12-31T15:59:60.123-08:00",
+                      "2017-01-01T08:59:60.5+09:00"):
+            with self.subTest(value=other):
+                self.assertIn("valid RFC 3339",
+                              lint_mod.timestamp_error("x", other))
 
     def test_a_leap_second_must_be_at_a_month_end(self):
         # §5.7 puts ":60" "at the end of months in which a leap second
@@ -214,16 +322,6 @@ class WholeResponseTest(unittest.TestCase):
         import lint as lint_mod
         self.assertTrue(lint_mod.valid_timestamp("2017-06-30T23:59:60Z"))
         self.assertFalse(lint_mod.valid_timestamp("2026-01-01T23:59:60Z"))
-
-    def test_a_leap_second_under_an_offset_is_accepted(self):
-        # RFC 3339 §5.7 puts a leap second at 23:59 *UTC*, which is a different
-        # wall time under an offset. Checking the local fields rejected the
-        # same instant written a different way.
-        sys.path.insert(0, str(CONFORMANCE / "harness"))
-        import lint as lint_mod
-        self.assertTrue(lint_mod.valid_timestamp("2016-12-31T15:59:60-08:00"))
-        self.assertTrue(lint_mod.valid_timestamp("2017-01-01T08:59:60+09:00"))
-        self.assertFalse(lint_mod.valid_timestamp("2026-01-01T12:00:60+00:00"))
 
     def test_a_leap_second_is_accepted(self):
         # RFC 3339 permits second 60 and §6 asks for RFC 3339. Excluding it
@@ -312,18 +410,11 @@ class ValuesOutsideDenialTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("subset of neither", output)
 
-    def test_a_spelling_mixed_across_fields_is_caught(self):
-        # §5.3's `expires_at` is the same kind of value under the same open
-        # question as the receipt's `decided_at`. A response spelling one with
-        # `Z` and the other with an offset is mixed inside itself.
-        code, output = lint(FIXTURES / "denial-mixed-across-fields")
-        self.assertEqual(code, 1)
-        self.assertIn("spellings of RFC 3339", output)
-
     def test_an_escalation_expiry_must_be_a_time(self):
         code, output = lint(FIXTURES / "denial-bad-expires")
         self.assertEqual(code, 1)
         self.assertIn("wire.expires_at:", output)
+        self.assertIn("is not a timestamp", output)
 
     def test_asserted_values_are_checked_outside_denial_too(self):
         # Which fields a vector must assert depends on its section; what a
@@ -378,7 +469,7 @@ class ReducedReceiptShapeTest(unittest.TestCase):
         code, output = lint(FIXTURES / "registry-bad-receipt")
         self.assertEqual(code, 1)
         self.assertIn("wire.receipt.request_digest: empty", output)
-        self.assertIn("not RFC 3339", output)
+        self.assertIn("is not a timestamp", output)
 
     def test_a_correct_receipt_passes(self):
         code, output = lint(FIXTURES / "denial-whole-response")

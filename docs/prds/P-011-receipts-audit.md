@@ -61,7 +61,7 @@ interface CC-11 needs.
 | `assurance_profile` | the profile actually used | answer |
 | `signature_suite` | the suite the response was signed under | answer, deny, escalate |
 | `disclosure_capacity_debit_millibits` | integer ([P-008](P-008-capacity-accounting.md)) | answer |
-| `decided_at` | RFC 3339, second precision | answer, deny, escalate |
+| `decided_at` | A timestamp — [`core-model.md`](../../spec/core-model.md) §2.2 | answer, deny, escalate |
 | `responder` | the computation executor's identity | answer, deny, escalate |
 | `decision_class` | the normalized external class, or `escalate` — see below | deny, escalate |
 | `requester_acknowledgment` | **reserved, not implemented** — §4.6 | — |

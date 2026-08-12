@@ -87,6 +87,9 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from calendar import monthrange
+from datetime import datetime
+import re
 import sys
 from pathlib import Path
 
@@ -133,6 +136,54 @@ def json_type(value) -> str:
     return "unsupported"
 
 
+# core-model.md §2.2's timestamp, and RFC 3339 §5.6's grammar for the spellings
+# it forbids. Written here from the specification text rather than imported
+# from `conformance/harness/lint.py`, which reads the same section: two
+# independent readings is the arrangement this tool exists for, and a
+# disagreement between them is a specification ambiguity found.
+# Fields core-model.md gives a timestamp: §2.2's `issued_at` and `expires_at`,
+# §5.3's `expires_at`, §6's `decided_at`.
+TIMESTAMP_FIELDS = frozenset({"issued_at", "expires_at", "decided_at"})
+
+Q2D_TIMESTAMP = re.compile(
+    r"\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z\Z")
+RFC3339_ANY = re.compile(
+    r"\A\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?"
+    r"([Zz]|[+-]\d{2}:\d{2})\Z")
+
+
+def valid_q2d_timestamp(value: str) -> bool:
+    """core-model.md §2.2's timestamp: the one spelling, and a real instant.
+
+    Shape *and* meaning. `2026-99-99T99:99:99Z` has §2.2's spelling exactly and
+    is no date, so a check on the spelling alone would sign it into a payload
+    that nothing downstream can read as text.
+    """
+    matched = Q2D_TIMESTAMP.match(value)
+    if not matched:
+        return False
+    year, month, day, hour, minute, second = matched.groups()
+    if second == "60":
+        # RFC 3339 §5.7: 23:59 at a month end. Which leap seconds were actually
+        # inserted is IERS data and not statically decidable -- see the harness,
+        # which reaches the same conclusion from the same section.
+        if (hour, minute) != ("23", "59"):
+            return False
+        try:
+            date = datetime(int(year), int(month), int(day))
+        except ValueError:
+            return False
+        if date.day != monthrange(date.year, date.month)[1]:
+            return False
+        second = "59"
+    try:
+        datetime.strptime(f"{year}-{month}-{day}T{hour}:{minute}:{second}",
+                          "%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        return False
+    return True
+
+
 def sort_key(key: str) -> bytes:
     """§4.2: object keys sorted ascending by **UTF-16 code unit**.
 
@@ -173,16 +224,27 @@ def escape_string(value: str) -> str:
     return "".join(out)
 
 
+# Where core-model.md gives those names a timestamp's meaning: the top level of
+# the object being serialized -- a core object (§2.2) or a response (§5.3) --
+# and the `receipt` inside it (§6). Nowhere else: `public_context` and a
+# predicate's own structures are operation-defined, and a field called
+# `expires_at` in one may mean anything at all.
+# `routing` is here as well as `receipt`, because §2.2 covers "the core object,
+# `routing`, and a receipt" -- and `routing` is where the spelling matters most,
+# since §4 step 8 compares its fields against the verified object's.
+PROTOCOL_SUBOBJECTS = frozenset({"receipt", "routing"})
+
+
 def serialize(value) -> bytes:
     """A value as P-002 §4.2's profile produces it. UTF-8, no BOM.
 
     Returns bytes rather than a string, because the profile is about bytes and
     a caller that wants to sign them must not have to guess an encoding.
     """
-    return _serialize(value).encode("utf-8")
+    return _serialize(value, protocol_level=True).encode("utf-8")
 
 
-def _serialize(value) -> str:
+def _serialize(value, protocol_level: bool = False) -> str:
     kind = json_type(value)
 
     if kind == "float":
@@ -205,6 +267,18 @@ def _serialize(value) -> str:
         # a JCS-based suite.
         return str(value)
     if kind == "string":
+        # §2.2 permits one spelling of a timestamp, and P-002 §4.2's profile
+        # cites it. Enforced here for the same reason §4.3's float ban is: this
+        # is the last point at which a value can be rejected before it becomes
+        # bytes somebody signs, and inside a signed payload it is past the
+        # reach of anything that reads the vector as text.
+        if RFC3339_ANY.match(value) and not valid_q2d_timestamp(value):
+            raise ProfileError(
+                f"timestamp {value!r} is not core-model.md §2.2's — uppercase "
+                f"`T`, uppercase `Z`, second precision, and a real instant. "
+                f"Checking the spelling alone would pass "
+                f"'2026-99-99T99:99:99Z', which has the right shape and is no "
+                f"date")
         return escape_string(value)
     if kind == "array":
         return "[" + ",".join(_serialize(item) for item in value) + "]"
@@ -216,8 +290,31 @@ def _serialize(value) -> str:
         # rule is structurally satisfied. Parsing is where it has to be
         # enforced, and conformance/harness/corpus.py does that.
         keys = sorted(value, key=sort_key)
-        return "{" + ",".join(f"{escape_string(k)}:{_serialize(value[k])}"
-                              for k in keys) + "}"
+        for key in keys:
+            # By name as well as by shape: core-model.md gives these fields
+            # timestamps, so a malformed one is caught however malformed --
+            # `2026-1-01T00:00:00Z` has no RFC 3339 shape and is still a
+            # timestamp field. §2.2, §5.3 and §6 name them, so this is a
+            # citation rather than a guess.
+            if protocol_level and key in TIMESTAMP_FIELDS:
+                if not isinstance(value[key], str):
+                    raise ProfileError(
+                        f"{key} is a timestamp field and "
+                        f"{type(value[key]).__name__} is not a string. "
+                        f"core-model.md §2.2's timestamp is one")
+                if not valid_q2d_timestamp(value[key]):
+                    raise ProfileError(
+                        f"{key} is a timestamp field and {value[key]!r} is not "
+                        f"core-model.md §2.2's timestamp — uppercase `T`, "
+                        f"uppercase `Z`, second precision, and a real instant")
+        # `receipt` re-enters protocol level only from protocol level. A
+        # `public_context` carrying a field called `receipt` is the predicate's
+        # own structure, and promoting it would enforce §6's field meanings
+        # inside data the previous line says may mean anything.
+        return "{" + ",".join(
+            f"{escape_string(k)}:"
+            f"{_serialize(value[k], protocol_level=protocol_level and k in PROTOCOL_SUBOBJECTS)}"
+            for k in keys) + "}"
 
     raise ProfileError(
         f"{type(value).__name__} is not a JSON value: {value!r}. The profile "

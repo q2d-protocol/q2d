@@ -191,48 +191,6 @@ EXPLICIT_ESCALATE_FIELDS = frozenset({"status", "pending_token", "expires_at",
                                       "receipt", "signature"})
 
 
-def timestamp_forms(vectors) -> dict:
-    """Every RFC 3339 spelling the corpus uses, and which vectors use it.
-
-    No spelling is rejected: §6 says only "RFC 3339, second precision", so
-    deciding between them here would settle a specification question in a lint
-    rule. What *is* rejected is a corpus using more than one, which is
-    defective whichever way §6 goes -- no implementation emits several, so none
-    could satisfy such a corpus.
-    """
-    profiles: dict = {}
-    for vector in vectors:
-        body = vector.body if hasattr(vector, "body") else vector
-        if not isinstance(body, dict):
-            continue
-        expect = body.get("expect")
-        if not isinstance(expect, dict):
-            continue
-        rejection = expect.get("rejection")
-        if not isinstance(rejection, dict):
-            continue
-        wire = rejection.get("wire")
-        if not isinstance(wire, dict):
-            continue
-        # Every timestamp a response carries, not only the receipt's. §5.3's
-        # `expires_at` is the same kind of value under the same open question,
-        # and a corpus whose escalations spell it one way while its receipts
-        # spell it another is mixed just as surely.
-        found = []
-        receipt = wire.get("receipt")
-        if isinstance(receipt, dict):
-            found.append(receipt.get("decided_at"))
-        found.append(wire.get("expires_at"))
-
-        for value in found:
-            if isinstance(value, str) and valid_timestamp(value):
-                profile = timestamp_profile(value)
-                if profile:
-                    profiles.setdefault(profile, []).append(
-                        str(body.get("id", "?")))
-    return profiles
-
-
 def receipt_coherence_errors(vector: dict) -> list[str]:
     """The receipt's class against the response's, wherever one is asserted.
 
@@ -318,7 +276,7 @@ def response_shape_errors(vector: dict) -> list[str]:
     errors: list[str] = []
     for rule in (denial_section_errors, extra_wire_field_errors,
                  receipt_errors, receipt_coherence_errors,
-                 wire_value_errors):
+                 wire_value_errors, expected_timestamp_errors):
         errors += rule(vector)
     return errors
 
@@ -450,82 +408,62 @@ DENY_STATUS = ("deny", "escalate")
 # string, because §6 grounds the whole length guarantee in none of the reduced
 # fields being variable-length -- and a timestamp carrying sub-second precision
 # or a numeric offset is variable-length, which quietly removes it.
-# RFC 3339 permits lowercase `t` and `z`, and §6 does not define an
-# uppercase-only profile. Both are matched; which one a corpus may use is
-# P-001 §10's question, and the answer here is the same as for the offset
-# form -- allow either, report it, and fail a corpus that mixes.
+# core-model.md §2.2: uppercase `T`, uppercase `Z`, second precision, and no
+# other spelling of the instant. This was an inference from §6's length argument
+# until §2.2 stated it; it is now a citation.
 RFC3339_SECOND = re.compile(
-    r"\A(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})"
-    r"(Z|z|[+-]\d{2}:\d{2})\Z")
+    r"\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z\Z")
+
+# RFC 3339 §5.6's grammar, as written rather than as the cases I thought of:
+#
+#   date-time    = full-date ("T" / "t") full-time
+#   full-time    = partial-time time-offset
+#   partial-time = HH ":" MM ":" SS [ "." 1*DIGIT ]
+#   time-offset  = "Z" / "z" / ("+" / "-") HH ":" MM
+#
+# Matched so a diagnostic can say *which* rule a value missed. Two rounds of
+# patching individual spellings -- lowercase `t` with uppercase `Z`, fractional
+# seconds -- is what a grammar is for.
+RFC3339_ANY = re.compile(
+    r"\A(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(\.\d+)?"
+    r"([Zz]|[+-](\d{2}):(\d{2}))\Z")
 
 
-def valid_timestamp(value: str) -> bool:
-    """RFC 3339, second precision, `Z` -- as a shape *and* as a real instant.
+def valid_rfc3339(value: str) -> bool:
+    """Is this a real instant in *any* RFC 3339 spelling?
 
-    The shape carries §6's length argument: fixed width, which
-    `2026-1-1T0:0:0Z` is not. Parsing carries the rest, because a regex over
-    digit placement accepts `2026-99-99T99:99:99Z`, which no implementation
-    emits and a vector must not assert.
-
-    Second 60 at 23:59 is **accepted**, and no attempt is made to decide
-    whether that particular leap second was really inserted. It cannot be
-    decided statically -- which leap seconds exist is IERS data that changes
-    after this file is written -- and it is the wrong question anyway: a vector
-    *supplies* `decided_at`, no implementation's clock produces it, so what
-    conformance turns on is whether an implementation parses RFC 3339, not
-    whether the instant occurred.
-
-A numeric offset is **accepted** and separately reported. §6 says "RFC 3339,
-    second precision" and does not say `Z`; it also grounds the length
-    guarantee in none of the reduced fields being variable-length, and
-    `+00:00` is six characters where `Z` is one. So §6 arguably requires `Z` by
-    implication while not saying it -- which is an open question (P-001 §10),
-    and rejecting the offset form here would settle it in a lint rule and push
-    both implementations toward an uncited profile. Reporting keeps it visible
-    without deciding it, and makes a corpus split across the two forms
-    impossible to author unnoticed.
+    Validated, not merely matched: `2026-99-99T99:99:99+99:99` has the shape and
+    is no instant, and a diagnostic calling it valid RFC 3339 would assert a
+    false fact about a specification in output a reviewer reads.
     """
-    matched = RFC3339_SECOND.match(value)
+    matched = RFC3339_ANY.match(value)
     if not matched:
         return False
-    # strptime has no leap second, so the date is checked with the second
-    # clamped. Everything else about the value is still validated -- and `:60`
-    # is accepted only at 23:59, which is where RFC 3339 §5.7 puts it. Clamping
-    # unconditionally would have blessed `00:00:60Z`, which is not an instant
-    # and which one implementation could accept while another rejects: the
-    # divergence this check exists to prevent, introduced by the check.
-    year, month, day, hour, minute, second, offset = matched.groups()
-
-    if offset not in ("Z", "z"):
-        # The regex matches the offset's *shape*; these are its ranges.
-        # Discarding it and parsing only the local time accepted `+99:99`.
-        offset_hour, offset_minute = int(offset[1:3]), int(offset[4:6])
-        if offset_hour > 23 or offset_minute > 59:
+    year, month, day, hour, minute, second = matched.group(1, 2, 3, 4, 5, 6)
+    offset_hour, offset_minute = matched.group(9), matched.group(10)
+    if offset_hour is not None:
+        if int(offset_hour) > 23 or int(offset_minute) > 59:
             return False
-
     if second == "60":
-        # RFC 3339 §5.7 puts a leap second at 23:59 **UTC**, which is a
-        # different wall time under an offset: `2016-12-31T15:59:60-08:00` is
-        # the same instant as `2016-12-31T23:59:60Z` and is equally valid.
-        # Checking the local fields rejected it. Whether *this* leap second was
-        # inserted is still not knowable here -- see the docstring.
+        # §5.7 puts a leap second at 23:59 UTC at a month end. Checked here as
+        # well as in `valid_timestamp`, because this function's answer becomes
+        # the sentence "is valid RFC 3339" -- and `2026-01-01T00:00:60Z` is
+        # not, so saying so would assert a false fact about the RFC.
         shift = 0
-        if offset not in ("Z", "z"):
-            shift = (int(offset[1:3]) * 60 + int(offset[4:6])) * (
-                -1 if offset[0] == "-" else 1)
+        if offset_hour is not None:
+            # The sign comes from the captured offset, not from an index into
+            # the string: with fractional seconds present the offset starts at a
+            # different position, and the arithmetic read a digit as the sign.
+            sign = -1 if matched.group(8).startswith("-") else 1
+            shift = (int(offset_hour) * 60 + int(offset_minute)) * sign
         try:
-            local_dt = datetime(int(year), int(month), int(day),
-                                int(hour), int(minute))
+            local = datetime(int(year), int(month), int(day),
+                             int(hour), int(minute))
         except ValueError:
             return False
-        utc = local_dt - timedelta(minutes=shift)
+        utc = local - timedelta(minutes=shift)
         if (utc.hour, utc.minute) != (23, 59):
             return False
-        # §5.7: ":60" occurs "at the end of months in which a leap second
-        # occurs". The month end is fixed by the RFC and checked; *which*
-        # months is IERS data that changes after this file is written, is not
-        # statically decidable, and is deliberately not checked. That is the
-        # line: what the grammar fixes, not what an announcement decides.
         if utc.day != monthrange(utc.year, utc.month)[1]:
             return False
         second = "59"
@@ -537,24 +475,145 @@ A numeric offset is **accepted** and separately reported. §6 says "RFC 3339,
     return True
 
 
-def timestamp_profile(value: str) -> str | None:
-    """Which of RFC 3339's spellings this timestamp uses, as a label.
+# Fields core-model.md gives a timestamp: §2.2's `issued_at` and `expires_at`,
+# §5.3's `expires_at`, §6's `decided_at`. Named rather than guessed, so a
+# malformed value is caught however malformed.
+TIMESTAMP_FIELDS = frozenset({"issued_at", "expires_at", "decided_at"})
 
-    RFC 3339 permits several forms of the same instant -- `T` or `t`, `Z` or
-    `z` or a numeric offset -- and §6 says only "RFC 3339, second precision".
-    Which one Q2D requires is P-001 §10. Until that is settled, no form is
-    rejected and the *set in use* is what matters: a corpus carrying more than
-    one is defective whichever way §6 goes, because no implementation emits
-    more than one.
+
+def expected_timestamp_errors(vector: dict) -> list[str]:
+    """Every timestamp under `expect` uses §2.2's spelling, wherever it sits.
+
+    Not only `expires_at` and the receipt's `decided_at`: a `message/` vector's
+    `output` carries `issued_at` and `expires_at`, an `ordering/` vector may
+    carry either, and a serialized payload is a string that contains them. A
+    rule enforced on two named fields is a rule the next section escapes.
+
+    The test is not a guess at which strings are timestamps. It is: **this
+    string is a valid RFC 3339 timestamp in a spelling §2.2 does not permit.**
+    A string that parses as RFC 3339 either is a timestamp or is
+    indistinguishable from one to every implementation reading it.
+
+    **`input` is deliberately not walked.** A vector testing that an
+    implementation rejects a malformed timestamp has to contain one, and a rule
+    that forbade it would forbid the vectors that test the rule. `expect`
+    describes what a conforming implementation produces; `input` describes
+    arbitrary stimulus.
+    """
+    errors: list[str] = []
+
+    def walk(value, path: str, named: bool = False, use_names: bool = True):
+        if named and not isinstance(value, str):
+            # A named timestamp field holding a number, a null, or an object.
+            # The string branch below would skip it, and §2.2's timestamp is a
+            # string -- so this is the same violation as a malformed one, and
+            # invisible to a check that only inspects strings.
+            errors.append(f"{path}: {type(value).__name__}, but core-model.md "
+                          f"§2.2 gives this field a timestamp, which is a "
+                          f"string")
+            return
+        if isinstance(value, str):
+            # Two ways in, because either alone leaves a gap.
+            #
+            # **By name**: core-model.md gives these fields timestamps, so a
+            # malformed one is caught however malformed -- `2026-1-01T00:00:00Z`
+            # has no RFC 3339 shape at all and is still a timestamp field.
+            # This is not a guess; §2.2, §5.3 and §6 name them.
+            #
+            # **By shape**: a timestamp somewhere those names do not reach is
+            # caught if it looks like one, which covers a field a later section
+            # adds without this list being updated.
+            if named or RFC3339_ANY.match(value):
+                if not valid_timestamp(value):
+                    errors.append(timestamp_error(path, value))
+        elif isinstance(value, dict):
+            for key in sorted(value):
+                walk(value[key], f"{path}.{key}",
+                     use_names and key in TIMESTAMP_FIELDS, use_names)
+        elif isinstance(value, list):
+            for index, item in enumerate(value):
+                walk(item, f"{path}[{index}]", named, use_names)
+
+    # The **name** rule runs only where the harness structurally knows what it
+    # is looking at: the rejection's wire response and its receipt, whose
+    # shapes core-model.md §5.2, §5.3 and §6 define and which lint already
+    # validates field by field.
+    #
+    # It does **not** run over `expect.output`, which is operation-defined --
+    # §4.4 says "its shape is the operation's, not this schema's". A predicate
+    # answer may legitimately carry a field called `expires_at` meaning
+    # something else entirely, and rejecting it would keep valid predicate
+    # shapes out of the corpus. Knowing which `expires_at` is §2.2's would mean
+    # knowing the operation, which is protocol knowledge §3 puts outside this
+    # module.
+    #
+    # `output` still gets the **shape** rule, which needs no such knowledge: a
+    # string that is a valid RFC 3339 timestamp in a spelling §2.2 forbids is a
+    # finding wherever it sits. A malformed one inside operation-defined output
+    # is `tools/author_vectors.py`'s to refuse, as a malformed one inside signed
+    # bytes already is.
+    expect = vector.get("expect")
+    walk(expect.get("output") if isinstance(expect, dict) else None,
+         "expect.output", use_names=False)
+    if isinstance(expect, dict):
+        walk(expect.get("rejection"), "expect.rejection")
+    return errors
+
+
+def timestamp_error(where: str, value: str) -> str:
+    """Why this value is not a §2.2 timestamp, in the terms the author needs."""
+    if valid_rfc3339(value):
+        return (f"{where}: {value!r} is valid RFC 3339 but not core-model.md "
+                f"§2.2's spelling — uppercase `T`, uppercase `Z`, second "
+                f"precision, and no other spelling of the instant")
+    return (f"{where}: {value!r} is not a timestamp — core-model.md §2.2 asks "
+            f"for RFC 3339 at second precision, as `2026-01-01T00:00:00Z`")
+
+
+def valid_timestamp(value: str) -> bool:
+    """core-model.md §2.2's timestamp: `2026-01-01T00:00:00Z`, and no other
+    spelling of that instant.
+
+    RFC 3339 permits lowercase `t` and `z` and a numeric offset; §2.2 permits
+    none of them, and gives three reasons that all reduce to the same one: a
+    choice of spelling is a choice two implementations can make differently
+    while both believing they conform. §4 step 8 compares `routing` against
+    `signed` byte for byte, §6's length guarantee rests on `decided_at` being
+    fixed-width, and `crypto-suites.md` §3 requires identical bytes from both
+    implementations.
+
+    The shape is checked *and* the value is parsed: digit placement is not a
+    date, and `2026-99-99T99:99:99Z` matches the first while being no instant.
+
+    Second 60 at 23:59 is accepted, at a month end, which is where RFC 3339
+    §5.7 puts a leap second. Whether that particular leap second was inserted
+    is IERS data that changes after this file is written, is not statically
+    decidable, and is the wrong question anyway: a vector *supplies*
+    `decided_at`, so what conformance turns on is whether an implementation
+    parses RFC 3339, not whether the instant occurred.
     """
     matched = RFC3339_SECOND.match(value)
     if not matched:
-        return None
-    separator = "T" if "T" in value[:11] else "t"
-    terminator = matched.group(7)
-    if terminator in ("Z", "z"):
-        return f"…{separator}…{terminator}"
-    return f"…{separator}…±hh:mm"
+        return False
+
+    year, month, day, hour, minute, second = matched.groups()
+    if second == "60":
+        if (hour, minute) != ("23", "59"):
+            return False
+        try:
+            date = datetime(int(year), int(month), int(day))
+        except ValueError:
+            return False
+        if date.day != monthrange(date.year, date.month)[1]:
+            return False
+        second = "59"
+
+    try:
+        datetime.strptime(f"{year}-{month}-{day}T{hour}:{minute}:{second}",
+                          "%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        return False
+    return True
 
 
 def nonempty_string(where: str, value) -> list[str]:
@@ -607,9 +666,7 @@ def wire_value_errors(vector: dict) -> list[str]:
     # cannot assert a time no implementation would emit.
     expires = wire.get("expires_at")
     if isinstance(expires, str) and expires and not valid_timestamp(expires):
-        errors.append(
-            f"wire.expires_at: {expires!r} is not RFC 3339 at second precision "
-            f"— core-model.md §5.3")
+        errors.append(timestamp_error("wire.expires_at", expires))
 
     if status == "escalate":
         if "external_reason" in wire:
@@ -635,11 +692,10 @@ def receipt_value_errors(receipt: dict) -> list[str]:
 
     decided = receipt.get("decided_at")
     if isinstance(decided, str) and decided and not valid_timestamp(decided):
-        errors.append(
-            f"wire.receipt.decided_at: {decided!r} is not RFC 3339 at second "
-            f"precision — core-model.md §6 grounds the length guarantee in "
-            f"none of the reduced fields being variable-length, and this is "
-            f"the one that can vary")
+        errors.append(timestamp_error("wire.receipt.decided_at", decided)
+                      + ". §6 grounds the reduced receipt's length guarantee "
+                        "in none of its fields being variable-length, and this "
+                        "is the one that could")
     return errors
 
 
@@ -758,18 +814,10 @@ def lint(corpus_root: Path) -> int:
     # carrying *both* forms is defective whichever way §6 goes, because no
     # implementation can emit both -- so that fails, and either form alone is
     # reported and allowed.
-    profiles = timestamp_forms(vectors)
-    if profiles:
-        print(f"  response timestamps: {', '.join(sorted(profiles))} — which "
-              f"RFC 3339 spelling §6 requires is open (P-001 §10), so any one "
-              f"is allowed")
-    if len(profiles) > 1:
-        listing = "; ".join(f"{form} in {', '.join(sorted(ids))}"
-                            for form, ids in sorted(profiles.items()))
-        cross_errors = list(cross_errors) + [
-            f"response timestamps: the corpus uses {len(profiles)} spellings of "
-            f"RFC 3339 — {listing}. Which one §6 requires is open (P-001 §10); "
-            f"that no implementation emits several is not"]
+    # A mixed-spelling assertion lived here while core-model.md permitted
+    # more than one spelling. §2.2 now permits exactly one, so a corpus
+    # cannot mix -- and every timestamp is checked per vector instead,
+    # which is the stronger place for it: it names the file, not the corpus.
     for error in cross_errors:
         print(f"  FAIL  {error}")
 
