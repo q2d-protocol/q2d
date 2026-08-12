@@ -65,8 +65,9 @@ assertions (issues 7 and 8), comparison (issue 16), and `cross` (issue 9).
 
 `cross` is **half of what P-001 §4.8 asks**: it compares what two runners each
 produced, and does not put A's output to B for verification, which is issue 19.
-It says so on every run and exits 2 — not 0 — when the runners agree, so nothing
-can read the clause off its status. Whether that split is accepted is an open
+It says so on every run and exits 3 — not 0 — when the runners agree, so nothing
+can read the clause off its status. (3, not 2: 2 is the status for nothing
+having run at all.) Whether that split is accepted is an open
 question in P-001 §10, awaiting a decision.
 
 That has a consequence for CI worth stating before someone hits it. `run` is red
