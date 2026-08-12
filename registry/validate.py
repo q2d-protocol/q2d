@@ -143,6 +143,38 @@ def expected_capacity_mb(p, public):
 Q2D_TIMESTAMP = re.compile(r"\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\Z")
 
 
+# scope.md §4.1's profile, entire. Enforced here because the reference manifest
+# is the artifact every implementation reads as an example, and an example that
+# drifts from the specification teaches the drift.
+SCHEMA_PROFILE = frozenset({
+    "$schema", "type", "required", "properties", "additionalProperties",
+    "enum", "items", "minItems", "maxItems", "minLength", "maxLength",
+    "minimum", "maximum", "format",
+})
+DIALECT = "https://json-schema.org/draft/2020-12/schema"
+
+
+def schema_keywords(schema, path):
+    """Every keyword a schema uses, with where it sits.
+
+    Only the schema's own keywords -- the *names* under `properties` are the
+    author's field names, not JSON Schema vocabulary, so they are walked into
+    rather than checked.
+    """
+    if not isinstance(schema, dict):
+        return
+    for key, value in schema.items():
+        if key == "properties" and isinstance(value, dict):
+            yield key, path
+            for name, sub in value.items():
+                yield from schema_keywords(sub, f"{path}.properties.{name}")
+        elif key == "items":
+            yield key, path
+            yield from schema_keywords(value, f"{path}.items")
+        else:
+            yield key, path
+
+
 def timestamps(value, path="manifest"):
     """Every string in the manifest that is shaped like a date-time."""
     if isinstance(value, str):
@@ -312,6 +344,22 @@ def main(argv: list[str]) -> int:
         check(len(internal) > 1,
               "distinct internal reasons exist behind that single wire response",
               f"{len(internal)}: {sorted(internal)}")
+
+    for p in preds:
+        schema = p.get("public_context_schema")
+        where = f"{p['id'].rsplit('/', 1)[-1]}.public_context_schema"
+        if not isinstance(schema, dict):
+            check(False, f"{where} is a schema")
+            continue
+        outside = sorted({k for k, _ in schema_keywords(schema, where)
+                          if k not in SCHEMA_PROFILE})
+        check(not outside,
+              f"{where} uses only scope.md §4.1's profile", ",".join(outside))
+        check(schema.get("$schema") == DIALECT,
+              f"{where} declares §4.1's dialect", str(schema.get("$schema")))
+        check(schema.get("additionalProperties") is False,
+              f"{where} sets additionalProperties: false",
+              str(schema.get("additionalProperties")))
 
     wrong = [f"{path}={value}" for path, value in timestamps(manifest)
              if not Q2D_TIMESTAMP.match(value)]

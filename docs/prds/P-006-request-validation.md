@@ -104,11 +104,14 @@ from `spec/` alone accepts manifests this PRD specifies ours to reject —
 neither wrong by the document it was built from, which is the divergence the
 context hierarchy exists to prevent, with the rule one level too low.
 
-Moving it surfaced one thing the list had missed: **every entry in
-[`registry/manifest.json`](../../registry/manifest.json) uses `$schema`**, which
-the old list did not include, so the claim that every entry already fitted was
-not quite true. §4.1 includes it and requires it, because two implementations
-validating against different dialects is the same divergence one level up.
+Moving it surfaced **two keywords the list had missed**, both used by every
+relevant entry in [`registry/manifest.json`](../../registry/manifest.json):
+`$schema`, and `items` for array element schemas. The claim here that every
+entry already fitted the profile was therefore not true of the list as written.
+§4.1 carries both — `$schema` required, because two implementations validating
+against different dialects is the same divergence one level up — and
+`registry/validate.py` now enforces the profile over the manifest rather than
+leaving it to the implementations.
 
 ### 4.3 Constraints are separate from schemas
 

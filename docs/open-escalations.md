@@ -1015,11 +1015,21 @@ oversight rather than a decision.
 
 ### What moving it found
 
-**`$schema` appears in every entry of the reference manifest and was not in the
-list.** P-006 §4.2 claimed every entry already fitted the profile; strictly it
-did not. §4.1 includes `$schema`, requires it, and pins the dialect — because
-two implementations validating against different JSON Schema dialects is the
-same divergence the profile exists to prevent, one level up.
+**Two keywords were in the manifest and not in the list** — `$schema`, and
+`items` for array element schemas. P-006 §4.2 claimed every entry already fitted
+the profile; of the list as written, none did. §4.1 carries both, requires
+`$schema`, and pins the dialect, because two implementations validating against
+different JSON Schema dialects is the same divergence the profile exists to
+prevent, one level up.
+
+`format: date-time` needed saying too: in 2020-12 `format` is an annotation
+unless the Format-Assertion vocabulary is in force, so a validator could accept
+any string for it. §4.1 makes it an assertion over §2.2's timestamp.
+
+`registry/validate.py` enforces the whole profile — keywords, dialect,
+`additionalProperties: false`, and the timestamp form — because the reference
+manifest is what every implementation reads as an example, and an example that
+drifts teaches the drift.
 
 That is the argument for moving a rule into `spec/` in miniature: the list had
 been read as complete for as long as it lived beside the implementation that
