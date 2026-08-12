@@ -38,6 +38,7 @@ from pathlib import Path
 
 import compare as compare_module
 import corpus as corpus_module
+import lint as lint_module
 import projection as projection_module
 import schema as schema_module
 
@@ -174,6 +175,18 @@ def run_vector(vector, runner: Path, result_schema: dict, vector_schema: dict,
         return Outcome(vector, False,
                        f"vector does not conform to the schema: {errors[0]} "
                        f"(run `harness lint` for the whole picture)")
+
+    # The one lint rule this mode's own logic depends on. Everything below
+    # projects a non-denial/ vector's wire and compares a denial/ one exactly,
+    # which is only safe while a denial/ vector really does assert the whole
+    # response -- and that is a lint rule, not a schema one. Relying on "lint
+    # would have caught it" in a mode that never calls lint is how the
+    # safeguard goes missing exactly when someone runs a corpus without
+    # linting it first.
+    errors = lint_module.denial_section_errors(vector.body)
+    if errors:
+        return Outcome(vector, False,
+                       f"{errors[0]} (run `harness lint` for the whole picture)")
 
     try:
         projected = projection_module.project(vector.body)

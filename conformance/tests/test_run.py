@@ -102,6 +102,15 @@ class PartialWireTest(unittest.TestCase):
 
 
 class DenialExactnessTest(unittest.TestCase):
+    def test_a_lint_invalid_denial_projection_is_not_run(self):
+        # `run`'s exact-comparison decision depends on a denial/ vector being
+        # whole-response, which is a lint rule. A mode that never calls lint
+        # cannot rely on lint having been called.
+        code, output = run(RUNNERS / "answers-correctly",
+                           FIXTURES / "denial-projection")
+        self.assertEqual(code, 1)
+        self.assertIn("whole response", output)
+
     def test_an_extra_field_on_a_denial_fails(self):
         # denial/ is not projected. A runner returning the four fields plus a
         # cause-specific fifth is the oracle Q2D-C-08 exists to catch, and a

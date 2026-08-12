@@ -16,7 +16,8 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from calendar import monthrange
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import cross_vector
@@ -340,12 +341,24 @@ A numeric offset is **accepted** and separately reported. §6 says "RFC 3339,
         # the same instant as `2016-12-31T23:59:60Z` and is equally valid.
         # Checking the local fields rejected it. Whether *this* leap second was
         # inserted is still not knowable here -- see the docstring.
-        local = int(hour) * 60 + int(minute)
         shift = 0
         if offset != "Z":
             shift = (int(offset[1:3]) * 60 + int(offset[4:6])) * (
                 -1 if offset[0] == "-" else 1)
-        if (local - shift) % (24 * 60) != 23 * 60 + 59:
+        try:
+            local_dt = datetime(int(year), int(month), int(day),
+                                int(hour), int(minute))
+        except ValueError:
+            return False
+        utc = local_dt - timedelta(minutes=shift)
+        if (utc.hour, utc.minute) != (23, 59):
+            return False
+        # §5.7: ":60" occurs "at the end of months in which a leap second
+        # occurs". The month end is fixed by the RFC and checked; *which*
+        # months is IERS data that changes after this file is written, is not
+        # statically decidable, and is deliberately not checked. That is the
+        # line: what the grammar fixes, not what an announcement decides.
+        if utc.day != monthrange(utc.year, utc.month)[1]:
             return False
         second = "59"
     try:
