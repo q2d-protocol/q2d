@@ -69,7 +69,6 @@ question is still fresh than after the answer arrives.
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
 | **E-20** | What does a vector's `wire` field assert? | P-001 §10 | `conformance/vector.schema.json`, P-009 §5 | **Closed** |
 | **E-21** | Which members does the signature's protected header carry? | P-001 §10 | `crypto-suites.md` §3, `core-model.md` §2.7 | **Closed** |
-| **E-23** | **One spelling, stated once, for every timestamp in the protocol**: uppercase `T`, uppercase `Z`, second precision. The rule already existed — in P-002 §4.2, which was the only place in the repository saying `Z` while `core-model.md` said only "RFC 3339, second precision". Relocating it to §2.2 gave it the reach it lacked: **P-002's profile covers the signed payload and not `routing`**, and §4 step 8 compares `routing` against `signed`. §4 step 8 is now stated as a **byte** comparison, which one spelling makes safe — the alternative is parsing unauthenticated data above the verification line | `core-model.md` §2.2 (new), §4 step 8, §5.3, §6 · `claims.md` Q2D-C-08 · P-002 §4.2 now cites rather than states · `harness lint` |
 | **E-22** | Are `core-model.md` §5's response field lists closed, and where does retry metadata live? | P-001 §10 | `core-model.md` §5.1, §5.2, §5.3, §9.1 | **Closed** |
 | **E-23** | Which RFC 3339 spelling may a receipt timestamp use? | P-001 §10 | `core-model.md` §2.2 (new) | **Closed** |
 | **E-24** | At which step is a registry-entry constraint checked when no JSON Schema can express it? | P-001 §10 | `core-model.md` §4 | **Open** |
@@ -1123,6 +1122,66 @@ to be six characters or one.
 
 ---
 
+## E-24 — At which step is a registry-entry constraint checked, when no JSON Schema can express it?
+
+**Raised by** [P-001](prds/P-001-conformance-corpus.md) §10 ·
+**Decides** [`core-model.md`](../spec/core-model.md) §4 ·
+**Blocks** nothing today; one folded registry vector states no step because of it
+
+### Context
+
+§4 step 11 is *"public context validated against the entry's input schema"*.
+
+The `availability-window` predicate also carries a **minimum slot duration**,
+which no JSON Schema can express. A rejection for it is therefore a
+registry-entry constraint checked somewhere *outside* step 11's schema
+validation, and §4 does not say where.
+
+### Concretely
+
+[`registry/manifest.json`](../registry/manifest.json) has one vector rejecting
+with `constraint_violation_minimum_slot_duration` —
+`reject-slot-below-granularity-floor`. Folded into the corpus it **states no
+step**, because stating one would resolve this in a generator, and its
+`before_private_access` property — which the manifest does assert — survives
+only as prose in the vector description until this is settled.
+
+One vector is the current cost, not the scope of the question: every predicate
+carrying a constraint its input schema cannot express will produce another, and
+`availability-window` is simply the first.
+
+### Options
+
+**A. Broaden step 11** to *"public context validated against the entry"*, schema
+and constraints together.
+
+*For:* one step, one place a requester's public context is checked against what
+the registry says about it. *Against:* the two are different mechanisms — one is
+a schema a validator runs, the other is arbitrary predicate-specific logic — and
+merging them hides that an implementation must do both.
+
+**B. Give entry constraints their own step**, after 11.
+
+*For:* names the second mechanism, so an implementation cannot satisfy §4 by
+running a JSON Schema validator and stopping. Makes `ordering/` able to assert
+which of the two rejected. *Against:* a new step in a numbered order that
+several documents cite by number.
+
+### Recommendation — B
+
+The `ordering/` section exists to assert *which* step rejected, and A makes two
+genuinely different failures indistinguishable to it. The renumbering cost is
+real but is paid once, and §4 already carries a lettered step (9a) for exactly
+this situation — an insertion that would otherwise renumber everything below it.
+
+### Interim position
+
+The folded vector states no step and therefore asserts nothing about ordering,
+which is what §4.8 makes a step-less vector mean. Nothing is wrong; something is
+unstated.
+
+---
+
 ## 2. Coordination items — P-001 decides, no escalation needed
 
 Listed here because they block the same PRDs and would otherwise be tracked
@@ -1201,6 +1260,7 @@ adopted.
 | **E-20** | A vector may assert a **subset** of §5.2's response where response construction is not what it tests, and asserts nothing about the fields it omits; `denial/` may not, because `status` and `external_reason` are both fixed by the normalized class, so a subset there compares two constants and cannot fail | `conformance/vector.schema.json` · P-001 §4.8 · P-009 §5 · `harness lint` and `harness run` |
 | **E-21** | The protected header carries **`suite` and `key_id`, and no others**. `suite` is the suite identifier, because P-003 §4.2 step 4 confirms it *equals* the payload's `signature.profile`. `key_id` is there because §4 resolves the key at step 4 while the payload's copy is unreadable until step 5 — a gap nothing had recorded. **No `alg`**, so `alg: none` is not a state the format can express, and a Q2D signed string is consequently **not a conformant JWS** but the JWS compact *form* | `crypto-suites.md` §3, §4 · `core-model.md` §2.7 · P-003 §4.1, §4.2, §6 · `tools/author_vectors.py` |
 | **E-22** | **Every §5 response is a closed field list** — §5.1 with `evidence` conditional on the assurance profile named in the same response, §5.2 at four fields, §5.3's explicit escalation at five. Adding one is a specification change, on the reasoning §6 already gave for the receipt. **§5.2's retry permission is dropped**: it permitted a field whose only conforming value was uniform, no conformance class allowed the transport form, and P-009 §4.4 declined to emit any — a permission with no user is a trap | `core-model.md` §5.1, §5.2, §5.3, §9.1 · `claims.md` Q2D-C-08 (enforcement description) · P-009 §4.4, P-013 §4.2 · `harness lint` |
+| **E-23** | **One spelling, stated once, for every timestamp in the protocol**: uppercase `T`, uppercase `Z`, second precision. The rule already existed — in P-002 §4.2, which was the only place in the repository saying `Z` while `core-model.md` said only "RFC 3339, second precision". Relocating it to §2.2 gave it the reach it lacked: **P-002's profile covers the signed payload and not `routing`**, and §4 step 8 compares `routing` against `signed`. §4 step 8 is now stated as a **byte** comparison, which one spelling makes safe — the alternative is parsing unauthenticated data above the verification line | `core-model.md` §2.2 (new), §4 step 8, §5.3, §6 · `claims.md` Q2D-C-08 · P-002 §4.2 now cites rather than states · `harness lint` |
 
 ### What did not change, deliberately
 
