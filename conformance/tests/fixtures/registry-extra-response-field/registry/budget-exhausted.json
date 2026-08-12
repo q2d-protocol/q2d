@@ -1,0 +1,29 @@
+{
+  "id": "registry/uniformity-c/budget-exhausted",
+  "section": "registry",
+  "requirement": [
+    "Q2D-C-08",
+    "core-model.md#5.2"
+  ],
+  "description": "A registry/ projection carrying retry metadata. Which fields a vector must assert depends on what it tests; which fields exist does not.",
+  "operation": "capacity_debit",
+  "input": {
+    "budget": {
+      "spent_millibits": 4000,
+      "limit_millibits": 4000
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "budget_exhausted",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unavailable",
+        "retry_after": 40
+      },
+      "step": 15
+    },
+    "comparison": "bytes"
+  }
+}

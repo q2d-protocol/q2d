@@ -291,6 +291,14 @@ class CoherenceOutsideDenialTest(unittest.TestCase):
 
 
 class ValuesOutsideDenialTest(unittest.TestCase):
+    def test_extra_fields_are_rejected_outside_denial_too(self):
+        # §5's closure is a property of the response, not of a section. Which
+        # fields a vector must assert depends on what it tests; which fields
+        # exist does not.
+        code, output = lint(FIXTURES / "registry-extra-response-field")
+        self.assertEqual(code, 1)
+        self.assertIn("wire: carries retry_after", output)
+
     def test_asserted_values_are_checked_outside_denial_too(self):
         # Which fields a vector must assert depends on its section; what a
         # field may contain does not. A projection asserting `status: answer`

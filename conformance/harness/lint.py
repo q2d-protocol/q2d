@@ -308,8 +308,9 @@ def response_shape_errors(vector: dict) -> list[str]:
     silently fail to reach `run` -- which has now happened twice.
     """
     errors: list[str] = []
-    for rule in (denial_section_errors, receipt_errors,
-                 receipt_coherence_errors, wire_value_errors):
+    for rule in (denial_section_errors, extra_wire_field_errors,
+                 receipt_errors, receipt_coherence_errors,
+                 wire_value_errors):
         errors += rule(vector)
     return errors
 
@@ -366,20 +367,46 @@ def denial_section_errors(vector: dict) -> list[str]:
         return [f"wire: missing {', '.join(missing)} — a denial/ vector asserts "
                 f"core-model.md {where}.{detail}"]
 
-    # An extra field is rejected too, which it was not until §5.2 was closed.
-    # §5.2 is now "exactly four fields, and no others" and §5.3's explicit
-    # escalation exactly five, on the reasoning §6 already gave for the
-    # receipt: a field present for some causes and absent for others
-    # reintroduces the distinction normalization removes, and a field set that
-    # is not enumerated cannot be size-bounded.
-    extra = sorted(set(wire) - required)
-    if extra:
-        return [f"wire: carries {', '.join(extra)} — core-model.md {where} is "
-                f"exactly {len(required)} fields and no others, so a response "
-                f"that can grow one has a field a producer can vary by cause"]
-
-    # Values are checked by `wire_value_errors`, which runs for every vector.
+    # Extra fields are `extra_wire_field_errors`, which runs for every vector:
+    # §5's closure is a property of the response, not of this section. Values
+    # likewise, in `wire_value_errors`.
     return []
+
+
+def extra_wire_field_errors(vector: dict) -> list[str]:
+    """A response may carry no field §5 does not list, in any section.
+
+    §5.2 is "exactly four fields, and no others" and §5.3's explicit escalation
+    exactly five, on the reasoning §6 already gave for the receipt: a field
+    present for some causes and absent for others reintroduces the distinction
+    normalization removes, and a field set that is not enumerated cannot be
+    size-bounded.
+
+    **Not scoped to `denial/`,** unlike the rule that a whole response must be
+    asserted. Which fields a vector must assert depends on what it is testing;
+    which fields *exist* does not. A `registry/` vector asserting a projection
+    plus a `retry_after` is asserting a field the response does not have, and
+    an implementation would be scored against it.
+    """
+    expect = vector.get("expect")
+    if not isinstance(expect, dict):
+        return []
+    rejection = expect.get("rejection")
+    if not isinstance(rejection, dict):
+        return []
+    wire = rejection.get("wire")
+    if not isinstance(wire, dict):
+        return []
+
+    allowed = required_wire_fields(wire)
+    extra = sorted(set(wire) - allowed)
+    if not extra:
+        return []
+    where = ("§5.3's explicit escalation" if wire.get("status") == "escalate"
+             else "§5.2's response")
+    return [f"wire: carries {', '.join(extra)} — core-model.md {where} is "
+            f"exactly {len(allowed)} fields and no others, so a response that "
+            f"can grow one has a field a producer can vary by cause"]
 
 
 # §5.2 gives `status` one value on a denial; §5.3 gives an explicit escalation
