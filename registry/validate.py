@@ -202,8 +202,13 @@ def main(argv: list[str]) -> int:
             # compute one. A single value is still valid and simply admits no
             # coarsening; a table is what makes coarsening available.
             capacity = p["capacity"]
-            check("millibits" in capacity or "table" in capacity,
-                  "enumerated entry carries a capacity value or a table")
+            # Exactly one, never both. Two sources for one entry's debit is two
+            # answers an implementation can pick between, and a stale
+            # `millibits` beside a table would pass every other check here
+            # while making two responders disagree on the same request.
+            check(("millibits" in capacity) != ("table" in capacity),
+                  "enumerated entry carries a capacity value or a table, not both",
+                  ",".join(sorted(set(capacity) & {"millibits", "table"})))
             if "table" in capacity:
                 tbl = capacity["table"]
                 bad = [k for k, v in tbl.items()
@@ -213,8 +218,11 @@ def main(argv: list[str]) -> int:
                       "capacity table holds integers")
                 # Every label count a coarsening could ask for: 2 up to the
                 # registered cardinality. Below 2 is not a domain.
+                # Through the registered cardinality inclusive: the table is
+                # the entry's only capacity source, so it answers the
+                # uncoarsened request as well as every coarsening.
                 check(set(tbl) == {str(k) for k in range(2, dom["cardinality"] + 1)},
-                      "capacity table covers every coarsening of this enum",
+                      "capacity table covers the registered cardinality and every coarsening",
                       f"{sorted(tbl)} vs 2..{dom['cardinality']}")
             else:
                 declared = capacity["millibits"]
