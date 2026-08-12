@@ -324,6 +324,44 @@ def wire_value_errors(wire: dict) -> list[str]:
     if isinstance(receipt, dict):
         for field in sorted(REDUCED_RECEIPT_FIELDS & set(receipt)):
             errors += nonempty_string(f"wire.receipt.{field}", receipt[field])
+        # §5.3's boundary, quoted because nothing else in the specification is
+        # put this strongly: "an opaque escalation must not be distinguishable
+        # from any other outcome in that class by its receipt any more than by
+        # its response... a receipt that recorded `escalate` for an outcome the
+        # wire made uniform would defeat Q2D-C-08 through the evidence attached
+        # to it, in the one place nobody looks for a normalization leak."
+        #
+        # So the receipt's class is not free of the response's. An explicit
+        # escalation carries `decision_class: escalate` (§5.3); a denial --
+        # including an opaque escalation, which is a denial on the wire --
+        # carries the normalized class, which is what `external_reason` also
+        # carries (§5.2 "the normalized class, not the true cause"; P-011 §4.1
+        # "the normalized external class"). Two fields defined as the same
+        # value that disagree would themselves be a distinction.
+        decision = receipt.get("decision_class")
+        if isinstance(decision, str) and decision:
+            if status == "escalate":
+                if decision != "escalate":
+                    errors.append(
+                        f"wire.receipt.decision_class: {decision!r} on an "
+                        f"explicit escalation — core-model.md §5.3 gives it "
+                        f"'escalate'")
+            elif decision == "escalate":
+                errors.append(
+                    "wire.receipt.decision_class: 'escalate' on a response the "
+                    "wire made uniform — core-model.md §5.3 calls this out by "
+                    "name: it 'would defeat Q2D-C-08 through the evidence "
+                    "attached to it, in the one place nobody looks for a "
+                    "normalization leak'")
+            else:
+                external = wire.get("external_reason")
+                if isinstance(external, str) and external and decision != external:
+                    errors.append(
+                        f"wire.receipt.decision_class: {decision!r} but "
+                        f"external_reason is {external!r} — both are defined "
+                        f"as the normalized class (core-model.md §5.2, P-011 "
+                        f"§4.1), so two values is itself a distinction")
+
         decided = receipt.get("decided_at")
         if isinstance(decided, str) and not valid_timestamp(decided):
             errors.append(

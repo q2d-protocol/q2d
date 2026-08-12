@@ -172,6 +172,13 @@ class WholeResponseTest(unittest.TestCase):
         self.assertIn("impossible-timestamp", output)
         self.assertIn("2026-99-99T99:99:99Z", output)
 
+    def test_a_receipt_recording_escalate_behind_a_uniform_wire_is_rejected(self):
+        # The case §5.3 names outright, and the one this whole section exists
+        # for: the response is uniform and the receipt attached to it is not.
+        code, output = lint(FIXTURES / "denial-escalate-in-receipt")
+        self.assertEqual(code, 1)
+        self.assertIn("in the one place nobody looks", output)
+
     def test_other_sections_may_assert_a_projection(self):
         # The real corpus is registry/ rejections, which test predicate
         # evaluation rather than response construction.
