@@ -69,8 +69,9 @@ question is still fresh than after the answer arrives.
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
 | **E-20** | What does a vector's `wire` field assert? | P-001 §10 | `conformance/vector.schema.json`, P-009 §5 | **Closed** |
 | **E-21** | Which members does the signature's protected header carry? | P-001 §10 | `crypto-suites.md` §3, `core-model.md` §2.7 | **Closed** |
+| **E-23** | **One spelling, stated once, for every timestamp in the protocol**: uppercase `T`, uppercase `Z`, second precision. The rule already existed — in P-002 §4.2, which was the only place in the repository saying `Z` while `core-model.md` said only "RFC 3339, second precision". Relocating it to §2.2 gave it the reach it lacked: **P-002's profile covers the signed payload and not `routing`**, and §4 step 8 compares `routing` against `signed`. §4 step 8 is now stated as a **byte** comparison, which one spelling makes safe — the alternative is parsing unauthenticated data above the verification line | `core-model.md` §2.2 (new), §4 step 8, §5.3, §6 · `claims.md` Q2D-C-08 · P-002 §4.2 now cites rather than states · `harness lint` |
 | **E-22** | Are `core-model.md` §5's response field lists closed, and where does retry metadata live? | P-001 §10 | `core-model.md` §5.1, §5.2, §5.3, §9.1 | **Closed** |
-| **E-23** | Which RFC 3339 spelling may a receipt timestamp use? | P-001 §10 | `core-model.md` §6 | **Open** |
+| **E-23** | Which RFC 3339 spelling may a receipt timestamp use? | P-001 §10 | `core-model.md` §2.2 (new) | **Closed** |
 | **E-24** | At which step is a registry-entry constraint checked when no JSON Schema can express it? | P-001 §10 | `core-model.md` §4 | **Open** |
 
 Two further items are **coordination, not escalation** — P-001 owns both. They
@@ -1083,119 +1084,42 @@ P-008 — capacity for a declared coarsening · corpus `domain/narrowing/`.
 
 ## E-23 — Which RFC 3339 spelling may a receipt timestamp use?
 
-**Raised by** [P-001](prds/P-001-conformance-corpus.md) §10 ·
-**Decides** [`core-model.md`](../spec/core-model.md) §6 ·
-**Blocks** P-001 issues 12–14's `denial/` vectors, P-009's whole section
+**Closed.** Raised by [P-001](prds/P-001-conformance-corpus.md) §10 ·
+**Decided** [`core-model.md`](../spec/core-model.md) §2.2
 
-### Context
+### What it turned out to be
 
-§6 says `decided_at` is *"RFC 3339, second precision"*. RFC 3339 permits several
-spellings of one instant: `T` or `t`, `Z` or `z`, and a numeric offset such as
-`+00:00` instead of `Z`.
+Not an open choice. **P-002 §4.2 already said "RFC 3339 with `Z`, second
+precision"** — and was the only place in the repository that said `Z`, while
+`core-model.md` §6 said only "RFC 3339, second precision". A PRD held a rule
+`spec/` needed, which is the second source of truth
+[CLAUDE.md](../CLAUDE.md)'s hierarchy exists to prevent.
 
-§6 names no profile among them — **and it also grounds the reduced receipt's
-whole length guarantee in none of its fields being variable-length.** `+00:00` is
-six characters where `Z` is one. So the same section appears to require `Z` by
-implication while not saying it.
+### Why relocating it mattered more than stating it
 
-### Concretely
+P-002 §4.2's profile applies *"to the JWS payload and to every sub-object that
+is digested"*. **`routing` is neither** — it is the outer envelope — and §2.1
+lists `expires_at` among the fields it may carry.
 
-Every `denial/` vector will carry a receipt. Settling this after they are
-authored means regenerating them; settling it before costs one sentence.
+§4 step 8 compares `routing` against `signed` and rejects any disagreement as
+tampering. With two spellings of one instant available, either a conforming
+producer's own message reads as tampered, or a verifier compares parsed
+*instants* — which moves parsing of unauthenticated data above the verification
+line §2.1 exists to keep it below. Two implementations could land on different
+readings, so the same message is tampering to one and conforming to the other,
+in the check whose entire job is detecting tampering.
 
-### Options
+### Resolution
 
-**A. State the profile in §6** — `Z`, second precision, uppercase `T`.
+§2.2 states one spelling for every timestamp in the protocol — core object,
+`routing`, and receipt alike — with the three things that depend on it named:
+step 8's byte comparison, §6's length guarantee, and cross-implementation byte
+identity. §4 step 8 now says **byte for byte** explicitly. §5.3, §6 and P-002
+§4.2 cite §2.2 rather than restating it.
 
-**B. Drop the length argument's dependence on this field**, and accept that
-byte-length uniformity across causes is a property of the *values* a deployment
-emits rather than of the shape.
-
-### Recommendation — A
-
-§6's own argument already needs it. B would weaken the one structural guarantee
-Q2D-C-08's size condition rests on, to gain a flexibility nothing has asked for.
-
-### Why this one is not cosmetic
-
-Until it is settled, **`claims.md` Q2D-C-08's size condition is not structurally
-met.** Closure bounds the field set; it does not bound the response's size while
-one field's length is a deployment's choice. Q2D-C-08's *"holds when… the
-external envelope, its size, and its retry semantics are identical"* therefore
-still rests partly on what an implementation happens to emit, which is what
-closing §5 and §6 was meant to remove. `claims.md` now says so under **Enforced
-by**, rather than claiming a bound that is not yet there.
-
-### Interim position
-
-`harness lint` **allows any single spelling, names the one in use on every run,
-and fails a corpus that mixes them** — across every timestamp a response
-carries, the receipt's `decided_at` and §5.3's `expires_at` alike. The mixing rule is decidable without
-settling the question: no implementation emits several spellings, so a corpus
-carrying more than one cannot be satisfied by any implementation, whichever way
-§6 goes. Rejecting a spelling would settle the question in a lint rule and push
-both implementations toward an uncited profile — which was tried, twice, in
-opposite directions.
-
----
-
-## E-24 — At which step is a registry-entry constraint checked, when no JSON Schema can express it?
-
-**Raised by** [P-001](prds/P-001-conformance-corpus.md) §10 ·
-**Decides** [`core-model.md`](../spec/core-model.md) §4 ·
-**Blocks** nothing today; one folded registry vector states no step because of it
-
-### Context
-
-§4 step 11 is *"public context validated against the entry's input schema"*.
-
-The `availability-window` predicate also carries a **minimum slot duration**,
-which no JSON Schema can express. A rejection for it is therefore a
-registry-entry constraint checked somewhere *outside* step 11's schema
-validation, and §4 does not say where.
-
-### Concretely
-
-[`registry/manifest.json`](../registry/manifest.json) has one vector rejecting
-with `constraint_violation_minimum_slot_duration` —
-`reject-slot-below-granularity-floor`. Folded into the corpus it **states no
-step**, because stating one would resolve this in a generator, and its
-`before_private_access` property — which the manifest does assert — survives
-only as prose in the vector description until this is settled.
-
-One vector is the current cost, not the scope of the question: every predicate
-carrying a constraint its input schema cannot express will produce another, and
-`availability-window` is simply the first.
-
-### Options
-
-**A. Broaden step 11** to *"public context validated against the entry"*, schema
-and constraints together.
-
-*For:* one step, one place a requester's public context is checked against what
-the registry says about it. *Against:* the two are different mechanisms — one is
-a schema a validator runs, the other is arbitrary predicate-specific logic — and
-merging them hides that an implementation must do both.
-
-**B. Give entry constraints their own step**, after 11.
-
-*For:* names the second mechanism, so an implementation cannot satisfy §4 by
-running a JSON Schema validator and stopping. Makes `ordering/` able to assert
-which of the two rejected. *Against:* a new step in a numbered order that
-several documents cite by number.
-
-### Recommendation — B
-
-The `ordering/` section exists to assert *which* step rejected, and A makes two
-genuinely different failures indistinguishable to it. The renumbering cost is
-real but is paid once, and §4 already carries a lettered step (9a) for exactly
-this situation — an insertion that would otherwise renumber everything below it.
-
-### Interim position
-
-The folded vector states no step and therefore asserts nothing about
-ordering, which is what §4.8 makes a step-less vector mean. Nothing is wrong;
-something is unstated.
+`claims.md` Q2D-C-08's enforcement description is restored to claiming a size
+bound, which closure alone did not give: the field list left `decided_at` free
+to be six characters or one.
 
 ---
 
@@ -1246,7 +1170,7 @@ question 5.
 ## 3. Resolutions
 
 E-01 … E-15 were decided in one pass and cascaded in the same change; every
-recommendation was adopted. **E-16, E-17, E-23 and E-24 are open** and are not in this
+recommendation was adopted. **E-16, E-17 and E-24 are open** and are not in this
 table.
 
 E-18 … E-22 were decided one at a time while P-001's harness and corpus were

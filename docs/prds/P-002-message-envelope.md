@@ -87,9 +87,16 @@ Applies to the JWS payload and to every sub-object that is digested.
 | Absent optional fields | omitted, never `null` |
 | Integers | no exponent, no leading `+`, no leading zeros |
 | **Floats** | **prohibited — see §4.3** |
-| Timestamps | RFC 3339 with `Z`, second precision |
+| Timestamps | [`core-model.md`](../../spec/core-model.md) §2.2 |
 | Strings | minimal escaping; no `\uXXXX` for characters representable directly |
 | Duplicate keys | prohibited on production, rejected on parse |
+
+The timestamp row **cites rather than states**. This table used to carry the
+rule itself — "RFC 3339 with `Z`, second precision" — and was the only place in
+the repository that said `Z`, while `core-model.md` said only "RFC 3339, second
+precision". A PRD holding a rule `spec/` needs is the second source of truth
+CLAUDE.md's hierarchy exists to prevent, and it showed: the rule did not reach
+`routing`, which this profile does not cover and which §4 step 8 compares.
 
 Key ordering is lexicographic rather than schema-declaration order because
 declaration order is brittle as fields are added and produces no compile-time

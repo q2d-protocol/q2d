@@ -254,13 +254,12 @@ where two exchanges differ in exactly those two fields. **Which one §7 means is
 a question for this PRD**, and the corpus enforces the achievable reading
 meanwhile: identical, because the vector fixes both fields.
 
-A signature can now be produced — the protected header it needs is
-[`crypto-suites.md`](../../spec/crypto-suites.md) §3's — and §5.2's field list
-is closed at four, so the shape of these vectors is settled. **One open question
-in [P-001](P-001-conformance-corpus.md) §10 still decides bytes they would
-carry:** which RFC 3339 spelling a receipt timestamp uses. Authoring these
-vectors before it is settled would settle it by example, in the section whose
-whole purpose is demonstrating Q2D-C-08.
+**Nothing now blocks authoring these vectors.** A signature is producible
+([`crypto-suites.md`](../../spec/crypto-suites.md) §3 defines the protected
+header), §5.2's field list is closed at four, and
+[`core-model.md`](../../spec/core-model.md) §2.2 fixes one timestamp spelling —
+which together mean the bytes of a whole-response denial vector are determined
+rather than chosen.
 
 Meanwhile the corpus's existing rejection vectors assert projections, and the
 harness names every one of them on every run, so nothing reads a partial

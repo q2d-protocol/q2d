@@ -175,36 +175,27 @@ class WholeResponseTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("must never be described as such", output)
 
-    def test_a_corpus_mixing_rfc3339_spellings_fails(self):
-        # No spelling is rejected — §6 says only "RFC 3339, second precision",
-        # and deciding between them here would settle a specification question
-        # in a lint rule. A corpus using several is defective whichever way §6
-        # goes: no implementation emits several, so none can satisfy it.
-        code, output = lint(FIXTURES / "denial-mixed-timestamp-forms")
-        self.assertEqual(code, 1)
-        self.assertIn("spellings of RFC 3339", output)
-        self.assertIn("is not", output)
-
-    def test_any_single_spelling_is_allowed_and_reported(self):
-        # RFC 3339 permits `T`/`t`, `Z`/`z`, and a numeric offset. §6 names no
-        # profile, so each is allowed on its own — and named, so a corpus
-        # cannot drift across them unnoticed.
-        for fixture in ("denial-offset-timestamp", "denial-lowercase-timestamp",
-                        "denial-whole-response"):
-            with self.subTest(fixture=fixture):
-                code, output = lint(FIXTURES / fixture)
-                self.assertEqual(code, 0, output)
-                self.assertIn("response timestamps:", output)
-                self.assertIn("open (P-001 §10)", output)
-
-    def test_an_impossible_offset_is_rejected(self):
-        # The regex matches the offset's shape; these are its ranges. Accepting
-        # the form is a specification question and validating its syntax is not.
+    def test_only_one_spelling_is_accepted(self):
+        # core-model.md §2.2: uppercase T, uppercase Z, second precision, and
+        # no other spelling of the instant. RFC 3339 permits the others; §2.2
+        # does not, because a choice of spelling is one two implementations can
+        # make differently while both believing they conform.
         sys.path.insert(0, str(CONFORMANCE / "harness"))
         import lint as lint_mod
-        self.assertTrue(lint_mod.valid_timestamp("2026-01-01T00:00:00-05:30"))
-        self.assertFalse(lint_mod.valid_timestamp("2026-01-01T00:00:00+99:99"))
-        self.assertFalse(lint_mod.valid_timestamp("2026-01-01T00:00:00+24:00"))
+        self.assertTrue(lint_mod.valid_timestamp("2026-01-01T00:00:00Z"))
+        for rejected in ("2026-01-01t00:00:00z", "2026-01-01T00:00:00+00:00",
+                         "2026-01-01T00:00:00-05:00", "2026-01-01T00:00:00.5Z"):
+            with self.subTest(value=rejected):
+                self.assertFalse(lint_mod.valid_timestamp(rejected))
+
+    def test_a_vector_using_another_spelling_is_rejected(self):
+        for fixture in ("denial-offset-timestamp", "denial-lowercase-timestamp",
+                        "denial-mixed-timestamp-forms",
+                        "denial-mixed-across-fields"):
+            with self.subTest(fixture=fixture):
+                code, output = lint(FIXTURES / fixture)
+                self.assertEqual(code, 1)
+                self.assertIn("not RFC 3339 at second precision", output)
 
     def test_a_leap_second_must_be_at_a_month_end(self):
         # §5.7 puts ":60" "at the end of months in which a leap second
@@ -214,16 +205,6 @@ class WholeResponseTest(unittest.TestCase):
         import lint as lint_mod
         self.assertTrue(lint_mod.valid_timestamp("2017-06-30T23:59:60Z"))
         self.assertFalse(lint_mod.valid_timestamp("2026-01-01T23:59:60Z"))
-
-    def test_a_leap_second_under_an_offset_is_accepted(self):
-        # RFC 3339 §5.7 puts a leap second at 23:59 *UTC*, which is a different
-        # wall time under an offset. Checking the local fields rejected the
-        # same instant written a different way.
-        sys.path.insert(0, str(CONFORMANCE / "harness"))
-        import lint as lint_mod
-        self.assertTrue(lint_mod.valid_timestamp("2016-12-31T15:59:60-08:00"))
-        self.assertTrue(lint_mod.valid_timestamp("2017-01-01T08:59:60+09:00"))
-        self.assertFalse(lint_mod.valid_timestamp("2026-01-01T12:00:60+00:00"))
 
     def test_a_leap_second_is_accepted(self):
         # RFC 3339 permits second 60 and §6 asks for RFC 3339. Excluding it
@@ -311,14 +292,6 @@ class ValuesOutsideDenialTest(unittest.TestCase):
         code, output = lint(FIXTURES / "registry-mixed-shape")
         self.assertEqual(code, 1)
         self.assertIn("subset of neither", output)
-
-    def test_a_spelling_mixed_across_fields_is_caught(self):
-        # §5.3's `expires_at` is the same kind of value under the same open
-        # question as the receipt's `decided_at`. A response spelling one with
-        # `Z` and the other with an offset is mixed inside itself.
-        code, output = lint(FIXTURES / "denial-mixed-across-fields")
-        self.assertEqual(code, 1)
-        self.assertIn("spellings of RFC 3339", output)
 
     def test_an_escalation_expiry_must_be_a_time(self):
         code, output = lint(FIXTURES / "denial-bad-expires")

@@ -85,6 +85,28 @@ implementations from the start.
 | `nonce` | yes | High-entropy; replay context. |
 | `correlation_id` | no | For asynchronous escalation. |
 
+**Every timestamp in Q2D — in the core object, in `routing`, and in a receipt —
+is RFC 3339 with an uppercase `T`, an uppercase `Z`, and second precision.**
+`2026-01-01T00:00:00Z`, and no other spelling of that instant.
+
+RFC 3339 permits lowercase `t` and `z` and a numeric offset such as `+00:00`.
+None of those is permitted here, and the narrowing is not fussiness — it is the
+same reason RFC 3339 exists as a narrowing of ISO 8601. Three things in this
+document depend on one spelling:
+
+- **§4 step 8 compares `routing` against `signed` byte for byte**, and rejects
+  any disagreement as tampering. With two spellings of one instant, a
+  conforming producer's own message reads as tampered — or a verifier must
+  parse and compare *instants*, which moves parsing of unauthenticated data
+  above the verification line that §2.1 exists to keep it below.
+- **§6 grounds the reduced receipt's length guarantee** in none of its fields
+  being variable-length. `+00:00` is six characters where `Z` is one, so
+  `decided_at` is the one field that could otherwise vary, and Q2D-C-08's size
+  condition rests on it not doing so.
+- **Two implementations must produce identical bytes** for the same message
+  (`crypto-suites.md` §3). A choice of spelling is a choice they can make
+  differently while both believing they conform.
+
 ### 2.3 Principals and authority
 
 | Field | Required | Meaning |
@@ -353,7 +375,7 @@ A conforming responder processes in this order:
 | 5 | Parse the verified core object | Parsing happens *after* verification, so parser behaviour is outside the security boundary. |
 | 6 | Expiry and clock-skew check — authoritative | The signed value governs; step 2 was advisory. |
 | 7 | Delegation verification | Establishes the agent acts for the principal. |
-| 8 | `routing` / `signed` consistency | Any disagreement is tampering. Reject; do not reconcile. |
+| 8 | `routing` / `signed` consistency | Compared **byte for byte**, field by field — not as parsed values, which would move parsing of unauthenticated data above step 4. §2.2's single timestamp spelling is what makes that safe. Any disagreement is tampering. Reject; do not reconcile. |
 | 9 | Replay-cache check | After signature, so unauthenticated traffic cannot pollute the cache. |
 | 9a | **Rate-limit check** (§9.1) | After the replay check, so an idempotent retry returns its cached outcome without consuming rate budget. Before registry resolution, so **every** authenticated request counts identically — see below. |
 | 10 | Registry: predicate known, version known, not revoked, digest pinned | Fails closed on anything unrecognized. |
@@ -509,7 +531,7 @@ and the choice is itself a policy decision.
 |---|---|
 | `status` | `escalate` |
 | `pending_token` | Opaque. Carries no information about the decision pending. |
-| `expires_at` | RFC 3339, second precision. |
+| `expires_at` | A timestamp — §2.2. |
 | `receipt` | The **reduced shape** — §6, with `decision_class: escalate`. |
 | `signature` | Covers all of the above. |
 
@@ -593,7 +615,7 @@ field list**; where any other document disagrees, this one governs.
 | `assurance_profile` | the profile actually used |
 | `signature_suite` | so the receipt stays assessable after that suite is deprecated |
 | `disclosure_capacity_debit_millibits` | integer |
-| `decided_at` | RFC 3339, second precision |
+| `decided_at` | A timestamp — §2.2 |
 | `responder` | the computation executor's identity |
 
 **Reduced**, on a `deny` and on an explicit `escalate` — exactly five fields, and
@@ -603,7 +625,8 @@ no others:
 `signature_suite`
 
 The reduced shape is short by design, and its length is load-bearing: none of its
-fields is variable-length, so byte-length uniformity across every cause in a
+fields is variable-length — `decided_at` included, which is why §2.2 fixes one
+timestamp spelling — so byte-length uniformity across every cause in a
 normalized class follows from the shape rather than from a check (Q2D-C-08).
 **Adding a field to it — even an optional one — is a specification change**, since
 a field present for some causes and absent for others reintroduces the
