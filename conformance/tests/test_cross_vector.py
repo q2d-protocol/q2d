@@ -149,7 +149,7 @@ class WholeResponseTest(unittest.TestCase):
         # variable-length, and `decided_at` is the one that can vary. A vector
         # asserting sub-second precision asserts away the property.
         _, output = lint(FIXTURES / "denial-bad-values")
-        self.assertIn("not RFC 3339 at second precision", output)
+        self.assertIn("core-model.md §2.2", output)
         self.assertIn("variable-length", output)
 
     def test_an_explicit_escalation_is_held_to_its_own_shape(self):
@@ -195,7 +195,10 @@ class WholeResponseTest(unittest.TestCase):
             with self.subTest(fixture=fixture):
                 code, output = lint(FIXTURES / fixture)
                 self.assertEqual(code, 1)
-                self.assertIn("not RFC 3339 at second precision", output)
+                # Named as the §2.2 rule it misses, not as invalid RFC 3339 —
+                # `+00:00` is valid RFC 3339, and telling an author otherwise
+                # sends them to debug the wrong thing.
+                self.assertIn("valid RFC 3339 but not core-model.md §2.2", output)
 
     def test_a_leap_second_must_be_at_a_month_end(self):
         # §5.7 puts ":60" "at the end of months in which a leap second
@@ -297,6 +300,7 @@ class ValuesOutsideDenialTest(unittest.TestCase):
         code, output = lint(FIXTURES / "denial-bad-expires")
         self.assertEqual(code, 1)
         self.assertIn("wire.expires_at:", output)
+        self.assertIn("is not a timestamp", output)
 
     def test_asserted_values_are_checked_outside_denial_too(self):
         # Which fields a vector must assert depends on its section; what a
@@ -351,7 +355,7 @@ class ReducedReceiptShapeTest(unittest.TestCase):
         code, output = lint(FIXTURES / "registry-bad-receipt")
         self.assertEqual(code, 1)
         self.assertIn("wire.receipt.request_digest: empty", output)
-        self.assertIn("not RFC 3339", output)
+        self.assertIn("is not a timestamp", output)
 
     def test_a_correct_receipt_passes(self):
         code, output = lint(FIXTURES / "denial-whole-response")

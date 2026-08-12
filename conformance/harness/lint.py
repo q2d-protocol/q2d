@@ -414,6 +414,24 @@ DENY_STATUS = ("deny", "escalate")
 RFC3339_SECOND = re.compile(
     r"\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z\Z")
 
+# The same instant in the spellings RFC 3339 allows and §2.2 does not. Matched
+# separately so a diagnostic can tell an author *which* rule they missed: a
+# value that is valid RFC 3339 in another spelling is a different mistake from
+# one that is not a timestamp, and saying "not RFC 3339" about the first sends
+# them to debug the wrong thing.
+RFC3339_OTHER_SPELLING = re.compile(
+    r"\A\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(z|[+-]\d{2}:\d{2})\Z")
+
+
+def timestamp_error(where: str, value: str) -> str:
+    """Why this value is not a §2.2 timestamp, in the terms the author needs."""
+    if RFC3339_OTHER_SPELLING.match(value):
+        return (f"{where}: {value!r} is valid RFC 3339 but not core-model.md "
+                f"§2.2's spelling — uppercase `T`, uppercase `Z`, second "
+                f"precision, and no other spelling of the instant")
+    return (f"{where}: {value!r} is not a timestamp — core-model.md §2.2 asks "
+            f"for RFC 3339 at second precision, as `2026-01-01T00:00:00Z`")
+
 
 def valid_timestamp(value: str) -> bool:
     """core-model.md §2.2's timestamp: `2026-01-01T00:00:00Z`, and no other
@@ -531,9 +549,7 @@ def wire_value_errors(vector: dict) -> list[str]:
     # cannot assert a time no implementation would emit.
     expires = wire.get("expires_at")
     if isinstance(expires, str) and expires and not valid_timestamp(expires):
-        errors.append(
-            f"wire.expires_at: {expires!r} is not RFC 3339 at second precision "
-            f"— core-model.md §5.3")
+        errors.append(timestamp_error("wire.expires_at", expires))
 
     if status == "escalate":
         if "external_reason" in wire:
@@ -559,11 +575,10 @@ def receipt_value_errors(receipt: dict) -> list[str]:
 
     decided = receipt.get("decided_at")
     if isinstance(decided, str) and decided and not valid_timestamp(decided):
-        errors.append(
-            f"wire.receipt.decided_at: {decided!r} is not RFC 3339 at second "
-            f"precision — core-model.md §6 grounds the length guarantee in "
-            f"none of the reduced fields being variable-length, and this is "
-            f"the one that can vary")
+        errors.append(timestamp_error("wire.receipt.decided_at", decided)
+                      + ". §6 grounds the reduced receipt's length guarantee "
+                        "in none of its fields being variable-length, and this "
+                        "is the one that could")
     return errors
 
 
