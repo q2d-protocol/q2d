@@ -3,11 +3,15 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready. Two escalations are open — **E-16** and **E-17**, both
-raised by P-006 — and neither blocks decomposition:
-[`core-model.md`](../../spec/core-model.md) §3.2 carries a conservative `enum`
-rule until E-17 widens it, and E-16 decides where the registry schema profile
-lives rather than what it says. See
+All sixteen are ready. Two escalations are open — **E-16**, raised by P-006, and
+**E-25**, raised by E-17's resolution — and neither blocks decomposition. E-16
+decides where the registry schema profile lives rather than what it says; E-25
+decides whether a policy modifier may coarsen an `enum`, and
+[`core-model.md`](../../spec/core-model.md) §3.2 states a conservative rule
+meanwhile. **E-17 is closed**: an `enum` coarsening mapping is declared by the
+requester, so §3.2's old rule — reject any requested `enum` domain not equal to
+the registered one — is superseded and an implementation still enforcing it
+rejects requests the specification admits. See
 [`../open-escalations.md`](../open-escalations.md), which is where every
 escalation is recorded and where a new one goes.
 

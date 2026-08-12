@@ -18,7 +18,7 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-16 is the only one still open**, and it does not block decomposition. It
+> **E-16 and E-25 are open**, and it does not block decomposition. It
 > was found while checking that every PRD is decomposable, was sitting in
 > P-006's open-question table marked *"This PRD"*, and is not a PRD's to decide
 > — it changes `spec/`. It decides *where* the registry schema profile lives
@@ -69,6 +69,7 @@ question is still fresh than after the answer arrives.
 | **E-14** | Should the requester's response processing order be normative? | P-012 | `core-model.md` | **Closed** |
 | **E-15** | `mvp-scope.md` §1 reads as though MVP completion is Phase 1 completion | P-016 | `mvp-scope.md` §1 | **Closed** |
 | **E-16** | Should the registry's JSON Schema profile be normative in `spec/`? | P-006 | `scope.md` | **Open** |
+| **E-25** | May a policy modifier coarsen an `enum`, and if so where does its mapping live? | E-17's resolution | `core-model.md` §3.2 | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1079,6 +1080,60 @@ value; a count the table does not cover is a registry defect and a blocker
 was open. That was conforming and implementable, and its purpose was precisely
 that no implementation would settle the question by accident before it was
 asked.
+
+## E-25 — May a policy modifier coarsen an `enum`, and where would its mapping live?
+
+**Raised by** E-17's resolution ·
+**Decides** [`core-model.md`](../spec/core-model.md) §3.2 ·
+**Blocks** nothing. §3.2 states a conservative rule — a modifier narrowing an
+`enum` is an implementation error — that is conforming today.
+
+### Context
+
+E-17 settled that a requester's `enum` coarsening is a mapping it **declares**,
+in `answer_contract.coarsening`. §3.2 also says a responder applies the same
+narrowing rules to a **policy modifier**.
+
+A modifier has no answer contract. So it has nowhere to declare a mapping, and
+the rule E-17 wrote does not reach it.
+
+### Concretely
+
+A policy authority wants a denial-sensitive predicate returned only as
+`reachable` / `not-reachable`, whatever the requester asked for. Under §3.2 as
+written before this note, an implementation could reject the modifier, infer a
+mapping, or invent a policy-side field — three behaviours from one document, and
+the second is the inference E-17 rejected for the requester.
+
+### Options
+
+**A. A modifier carries its own mapping**, validated by the same four
+conditions against the domain it narrows.
+
+*For:* consistent with E-17; the responder still makes no semantic judgement.
+*Against:* a field added to the modifier structure ([P-007](prds/P-007-policy-engine.md)
+§4), and modifiers compose — two authorities coarsening one `enum` differently
+needs a composition rule §3 does not currently have for mappings.
+
+**B. A modifier may not coarsen an `enum`** — the current conservative rule,
+made permanent.
+
+*For:* no new field, no composition question, and policy retains every other
+lever it has over an `enum` (deny, escalate, or coarsen a different dimension).
+*Against:* a policy authority cannot reduce an enum's disclosure without denying
+outright, which is a blunt instrument where a coarsening would have been
+proportionate.
+
+### Recommendation — B for 0.1, with A named as the widening
+
+The composition problem is the deciding factor: two authorities coarsening one
+`enum` by different mappings is a case §3's narrowing composition has no answer
+for, and inventing one is a larger change than this gap justifies. B is what
+§3.2 already says, it forecloses nothing, and A remains available when a
+deployment actually needs it — the same shape as E-17's own interim rule, which
+was conforming for as long as it took to ask the question properly.
+
+---
 
 ## 2. Coordination items — P-001 decides, no escalation needed
 

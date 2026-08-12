@@ -390,6 +390,15 @@ that commitment. What the responder guarantees is that the answer it returns is
 inside the domain the requester asked for, not that the requester asked a
 sensible question.
 
+**A policy modifier may not coarsen an `enum` in 0.1.** The rule above is the
+requester's, and it rests on a mapping the requester declares in its answer
+contract. A modifier has no answer contract, so it has nowhere to declare one —
+and the three ways an implementation might fill that gap (reject the modifier,
+infer a mapping, invent a policy-side field) are three different behaviours from
+one specification. A modifier narrowing an `enum` is therefore rejected as an
+implementation error, exactly as a modifier that subsets is, until the question
+is decided. Every other shape's modifier rule is unaffected.
+
 **Capacity comes from the coarsened cardinality**, which is the label set's
 size, looked up in the registry entry's capacity table as any varying
 cardinality is ([`registry/README.md`](../registry/README.md)). A responder
