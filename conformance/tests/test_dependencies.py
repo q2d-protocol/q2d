@@ -48,11 +48,19 @@ STDLIB = Path(sysconfig.get_paths()["stdlib"]).resolve()
 # Origins `importlib` reports for modules with no file of their own.
 NOT_A_FILE = ("built-in", "frozen", None)
 
-# Paths that belong to an implementation rather than to the corpus. A harness
-# that names one has coupled itself to a build layout at best, and to an
+# Path components that belong to an implementation rather than to the corpus. A
+# harness that names one has coupled itself to a build layout at best, and to an
 # implementation's internals at worst.
-IMPLEMENTATION_PATHS = ("target/debug", "target/release", "/src/", "go.mod",
-                        "q2d-core", "github.com/q2d-protocol")
+#
+# Matched as *components* of a string literal rather than as substrings of the
+# file: `src/lib.rs`, `../src`, and `Path("src")` are the same coupling written
+# three ways, and a substring search for `/src/` finds none of them. Prose in a
+# comment is not a dependency, so only string literals are examined.
+IMPLEMENTATION_COMPONENTS = {"src", "target", "go.mod", "q2d-core"}
+
+# And suffixes: a harness naming a file of either implementation is coupled to
+# it whatever directory it sits in.
+IMPLEMENTATION_SUFFIXES = (".rs", ".go", ".toml")
 
 
 def harness_modules() -> list[Path]:
@@ -125,10 +133,11 @@ class ImportTest(unittest.TestCase):
                               "    except ImportError:\n"
                               "        from cryptography import x\n")
         self.assertEqual(names, {"json", "q2d_core", "cryptography"})
-        # And the verdict the check would reach on the one that matters: a
-        # binding built from an implementation does not resolve on a bare
-        # Python, so the check fails rather than passing it as unknown.
-        self.assertIsNone(importlib.util.find_spec("q2d_core"))
+        # Deliberately no assertion about whether those modules are installed.
+        # A contributor may legitimately have an implementation binding on their
+        # machine; what this check forbids is the *harness* importing one, and a
+        # test that also failed on what happens to be installed would be red for
+        # a reason that is nobody's mistake.
 
 
 class PathTest(unittest.TestCase):
@@ -138,18 +147,29 @@ class PathTest(unittest.TestCase):
         # path, is the same coupling with no import statement to find. The
         # runner path is an argument for this reason (§4.7).
         for module in harness_modules():
-            source = module.read_text(encoding="utf-8")
-            for fragment in IMPLEMENTATION_PATHS:
-                with self.subTest(module=module.name, path=fragment):
-                    # `assertNotIn` would print the whole module as the
-                    # container, burying the one line that matters. The line
-                    # number is what a reader needs.
-                    for number, line in enumerate(source.splitlines(), start=1):
-                        self.assertNotIn(
-                            fragment, line,
-                            f"{module.name}:{number} names {fragment!r}. The "
-                            f"harness takes a runner as an argument and knows "
-                            f"nothing about where one is built (P-001 §4.7)")
+            tree = ast.parse(module.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Constant) or not isinstance(node.value, str):
+                    continue
+                literal = node.value
+                components = {part for part in literal.replace("\\", "/").split("/")
+                              if part not in ("", ".", "..")}
+                named = sorted(components & IMPLEMENTATION_COMPONENTS)
+                if literal.endswith(IMPLEMENTATION_SUFFIXES):
+                    named.append(literal)
+                if not named:
+                    continue
+                # `self.fail` rather than `assertEqual(named, [], message)`: an
+                # f-string message is built before the assertion runs, so a
+                # message naming `named[0]` raises IndexError on every literal
+                # that passes. A check must not crash on the input it exists to
+                # accept any more than on the input it exists to reject.
+                with self.subTest(module=module.name, line=node.lineno):
+                    self.fail(
+                        f"{module.name}:{node.lineno} names {named[0]!r} in "
+                        f"{literal!r}. The harness takes a runner as an "
+                        f"argument and knows nothing about where one is built "
+                        f"or what it is written in (P-001 §4.7)")
 
     def test_every_path_the_harness_holds_is_under_conformance_or_spec(self):
         # `lint` and `coverage` read `spec/claims.md` and
