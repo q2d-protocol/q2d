@@ -71,11 +71,12 @@ question is still fresh than after the answer arrives.
 | **E-21** | Which members does the signature's protected header carry? | P-001 §10 | `crypto-suites.md` §3, `core-model.md` §2.7 | **Closed** |
 | **E-22** | Are `core-model.md` §5's response field lists closed, and where does retry metadata live? | P-001 §10 | `core-model.md` §5.1, §5.2, §5.3, §9.1 | **Closed** |
 | **E-23** | Which RFC 3339 spelling may a receipt timestamp use? | P-001 §10 | `core-model.md` §6 | **Open** |
+| **E-24** | At which step is a registry-entry constraint checked when no JSON Schema can express it? | P-001 §10 | `core-model.md` §4 | **Open** |
 
 Two further items are **coordination, not escalation** — P-001 owns both. They
 are listed in §2 because they block the same PRDs, and both are now **closed**.
 
-**E-18 … E-23 were raised while building P-001's harness and corpus**, and each
+**E-18 … E-24 were raised while building P-001's harness and corpus**, and each
 was recorded in P-001 §10 as it was raised. They are entered here late, which is
 the failure this register exists to prevent: a decision recorded only in the PRD
 that raised it is findable by someone already reading that PRD, and by nobody
@@ -1138,6 +1139,66 @@ opposite directions.
 
 ---
 
+## E-24 — At which step is a registry-entry constraint checked, when no JSON Schema can express it?
+
+**Raised by** [P-001](prds/P-001-conformance-corpus.md) §10 ·
+**Decides** [`core-model.md`](../spec/core-model.md) §4 ·
+**Blocks** nothing today; one folded registry vector states no step because of it
+
+### Context
+
+§4 step 11 is *"public context validated against the entry's input schema"*.
+
+The `availability-window` predicate also carries a **minimum slot duration**,
+which no JSON Schema can express. A rejection for it is therefore a
+registry-entry constraint checked somewhere *outside* step 11's schema
+validation, and §4 does not say where.
+
+### Concretely
+
+[`registry/manifest.json`](../registry/manifest.json) has one vector rejecting
+with `constraint_violation_minimum_slot_duration` —
+`reject-slot-below-granularity-floor`. Folded into the corpus it **states no
+step**, because stating one would resolve this in a generator, and its
+`before_private_access` property — which the manifest does assert — survives
+only as prose in the vector description until this is settled.
+
+One vector is the current cost, not the scope of the question: every predicate
+carrying a constraint its input schema cannot express will produce another, and
+`availability-window` is simply the first.
+
+### Options
+
+**A. Broaden step 11** to *"public context validated against the entry"*, schema
+and constraints together.
+
+*For:* one step, one place a requester's public context is checked against what
+the registry says about it. *Against:* the two are different mechanisms — one is
+a schema a validator runs, the other is arbitrary predicate-specific logic — and
+merging them hides that an implementation must do both.
+
+**B. Give entry constraints their own step**, after 11.
+
+*For:* names the second mechanism, so an implementation cannot satisfy §4 by
+running a JSON Schema validator and stopping. Makes `ordering/` able to assert
+which of the two rejected. *Against:* a new step in a numbered order that
+several documents cite by number.
+
+### Recommendation — B
+
+The `ordering/` section exists to assert *which* step rejected, and A makes two
+genuinely different failures indistinguishable to it. The renumbering cost is
+real but is paid once, and §4 already carries a lettered step (9a) for exactly
+this situation — an insertion that would otherwise renumber everything below it.
+
+### Interim position
+
+The folded vector states no step and therefore asserts nothing about
+ordering, which is what §4.8 makes a step-less vector mean. Nothing is wrong;
+something is unstated.
+
+---
+
 ## 2. Coordination items — P-001 decides, no escalation needed
 
 Listed here because they block the same PRDs and would otherwise be tracked
@@ -1185,7 +1246,7 @@ question 5.
 ## 3. Resolutions
 
 E-01 … E-15 were decided in one pass and cascaded in the same change; every
-recommendation was adopted. **E-16, E-17 and E-23 are open** and are not in this
+recommendation was adopted. **E-16, E-17, E-23 and E-24 are open** and are not in this
 table.
 
 E-18 … E-22 were decided one at a time while P-001's harness and corpus were
