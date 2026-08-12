@@ -57,12 +57,20 @@ Standard library only, like [`registry/validate.py`](../registry/validate.py).
 
 ## State
 
-**Every mode exists; the corpus is empty and there is nothing to run it
-against.** Built: the vector schema and `lint` (issue 1), the projection
+**Every mode exists. The corpus holds the folded `registry/` section and
+nothing else, and there is no implementation to run it against.** Built: the vector schema and `lint` (issue 1), the projection
 (issue 2), the runner contract and reference stub (issue 3), `run` (issue 4),
 the determinism check (issue 5), `coverage` (issue 6), the two cross-vector
 assertions (issues 7 and 8), comparison (issue 16), `cross` (issue 9), the
-dependency assertion (issue 15), and the test key material (issue 10).
+dependency assertion (issue 15), the test key material (issue 10), and the
+`registry/` section (issue 11).
+
+**`conformance/corpus/registry/` is generated, not written.**
+[`tools/fold_registry.py`](../tools/fold_registry.py) derives it from
+[`registry/manifest.json`](../registry/manifest.json), which outranks the corpus
+— edit the manifest and re-run the tool. `--check` runs in the suite, so a
+divergence fails the build rather than leaving the corpus asserting last month's
+registry.
 
 `cross` is **half of what P-001 §4.8 asks**: it compares what two runners each
 produced, and does not put A's output to B for verification, which is issue 19.
@@ -94,7 +102,8 @@ convention"*, and a convention is what a check like this replaces.
 
 **Three expected-state assertions are in CI**, in place of jobs that would be
 red by design: no vector in the real corpus passes against the reference stub,
-all thirteen claims are uncovered, and the stub against itself compares nothing.
+exactly the three claims `registry/` cites are covered and ten are not, and the
+stub against itself compares nothing.
 Each is green while true and red the day it stops being — which is the day
 someone should be adding a real assertion in its place.
 
