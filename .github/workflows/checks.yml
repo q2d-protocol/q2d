@@ -19,7 +19,7 @@ name: checks
 # the suite this workflow already runs rather than as a job that fails:
 #
 #   run       no vector in the real corpus passes against the reference stub
-#   coverage  exactly the three claims registry/ cites are covered; ten are not
+#   coverage  exactly three claims are cited by a vector; ten are not
 #   cross     the stub against itself compares nothing -- there is one runner,
 #             and it answers nothing
 #

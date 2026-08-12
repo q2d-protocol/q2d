@@ -6,7 +6,7 @@
     "CC-2",
     "core-model.md#4"
   ],
-  "description": "Menu compatibility (menu-compatible): reject-unknown-allergen-token — rejects with public_context_schema_violation, before private input is read. Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
+  "description": "Menu compatibility (menu-compatible): reject-unknown-allergen-token — rejects with public_context_schema_violation, at a step before private input is read. Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
   "operation": "evaluate_predicate",
   "input": {
     "predicate": {

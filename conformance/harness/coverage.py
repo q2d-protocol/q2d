@@ -72,7 +72,7 @@ def report_block(title: str, identifiers: list[str], cited: dict[str, list[str]]
     for identifier in identifiers:
         citing = cited.get(identifier, [])
         if citing:
-            print(f"  covered    {identifier}  ({len(citing)} vector"
+            print(f"  cited      {identifier}  ({len(citing)} vector"
                   f"{'s' if len(citing) > 1 else ''})")
         else:
             uncovered += 1
@@ -153,7 +153,11 @@ def coverage(corpus_root: Path) -> int:
     for summary in cross_summaries:
         print(f"  {summary}")
 
-    print(f"\n{len(claims) - uncovered}/{len(claims)} claims covered by at least one vector")
+    print(f"\n{len(claims) - uncovered}/{len(claims)} claims cited by at least "
+          f"one vector — §4.8 defines coverage as citation, so this counts "
+          f"claims a vector points at, not claims a vector demonstrates in "
+          f"full. What a claim rests on beyond its vectors is in claims.md "
+          f"under Holds when.")
 
     if cross_errors:
         print("\nnothing was counted: the corpus fails a cross-vector assertion, "

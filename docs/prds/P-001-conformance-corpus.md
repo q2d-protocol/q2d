@@ -509,6 +509,14 @@ each is a property of the corpus rather than of one mode's code:
 **Coverage:** every claim in [`spec/claims.md`](../../spec/claims.md) is cited by
 at least one vector. Uncited claims are reported, not silently absent.
 
+**Cited is not demonstrated, and the report says so in those words.** A claim
+usually rests on more than any one vector shows — Q2D-C-08 needs identical
+response size and retry semantics as well as a common external class — so a
+count of cited claims would be read as a count of verified ones. `coverage`
+says *cited*, per line and in its total, and points at `claims.md`'s **Holds
+when** for the rest. `Verified by` in `claims.md` names the specific checks;
+this mode is the traceability index, not the verdict.
+
 ### 4.9 Test key material
 
 Fixed Ed25519 keypairs, obtained once, committed, and marked test-only in the

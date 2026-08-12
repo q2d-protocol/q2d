@@ -102,7 +102,7 @@ convention"*, and a convention is what a check like this replaces.
 
 **Three expected-state assertions are in CI**, in place of jobs that would be
 red by design: no vector in the real corpus passes against the reference stub,
-exactly the three claims `registry/` cites are covered and ten are not, and the
+exactly three claims are cited by a vector and ten are not, and the
 stub against itself compares nothing.
 Each is green while true and red the day it stops being — which is the day
 someone should be adding a real assertion in its place.

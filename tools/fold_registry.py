@@ -128,11 +128,21 @@ def describe(predicate: dict, vector: dict) -> str:
     if expect["outcome"] == "reject":
         detail = f"rejects with {expect['internal_reason']}"
         if expect.get("before_private_access"):
-            # Carried in prose because the format has no field for it, and
-            # dropping it silently would lose the property the manifest vector
-            # exists to pin. Where the step is determined it is also stated as
-            # a step, which is machine-checked; this sentence is not.
-            detail += ", before private input is read"
+            if expect["internal_reason"] in STEP_FOR_REASON:
+                # The step says it and is checked. Saying it again in prose is
+                # a restatement, not a second claim.
+                detail += ", at a step before private input is read"
+            else:
+                # No step, so nothing here checks the ordering -- and a
+                # description reading "before private input is read" would put
+                # an untested security property in the corpus, where a runner
+                # that read private input first would pass anyway. What the
+                # manifest asserts is named as the manifest's assertion, and
+                # what the corpus cannot yet assert is named as that.
+                detail += (". The manifest also records that this rejection "
+                           "precedes private access; this vector does not "
+                           "assert it, because the step is undetermined "
+                           "(P-001 §10)")
     else:
         detail = (f"answers {json.dumps(expect['result'])}, debiting "
                   f"{expect['capacity_debit_millibits']} millibits")

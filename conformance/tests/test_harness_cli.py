@@ -67,7 +67,7 @@ class BuiltModeTest(unittest.TestCase):
     def test_coverage_runs(self):
         result = harness("coverage")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("claims covered", result.stdout)
+        self.assertIn("claims cited", result.stdout)
 
     def test_run_requires_something_to_run_against(self):
         # Not an unbuilt mode: it is built, and refuses to guess which runner
