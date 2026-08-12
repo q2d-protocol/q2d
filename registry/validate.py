@@ -153,6 +153,8 @@ SCHEMA_PROFILE = frozenset({
     "minimum", "maximum", "format",
 })
 DIALECT = "https://json-schema.org/draft/2020-12/schema"
+JSON_TYPES = frozenset({"null", "boolean", "object", "array", "number",
+                        "string", "integer"})
 
 
 def schema_keywords(schema, path):
@@ -257,7 +259,10 @@ def timestamps(value, path="manifest"):
         # Any date-prefixed string, whatever separator follows. Matching only
         # `T`/`t` would skip `2026-01-01 00:00:00Z`, which Python's
         # `fromisoformat` accepts and §2.2 does not.
-        if re.match(r"\A\d{4}-\d{2}-\d{2}[^0-9]", value):
+        # A date *and* a time. Matching a date prefix alone would reject prose
+        # or a label that happens to begin with one -- "2026-01-01 draft" is
+        # not a timestamp, and §4.1 constrains values, not sentences.
+        if re.match(r"\A\d{4}-\d{2}-\d{2}[^0-9]\d{2}:\d{2}", value):
             yield path, value
     elif isinstance(value, dict):
         for key, item in value.items():
@@ -461,7 +466,11 @@ def main(argv: list[str]) -> int:
             # explicitly, and booleans excluded from them.
             def shaped(keyword, value):
                 if keyword in ("minItems", "maxItems", "minLength", "maxLength"):
-                    return isinstance(value, int) and not isinstance(value, bool)
+                    # Non-negative: JSON Schema defines these over
+                    # `nonNegativeInteger`, and a negative bound is a schema two
+                    # libraries may reject differently.
+                    return (isinstance(value, int) and not isinstance(value, bool)
+                            and value >= 0)
                 if keyword in ("minimum", "maximum"):
                     return (isinstance(value, (int, float))
                             and not isinstance(value, bool))
@@ -471,9 +480,17 @@ def main(argv: list[str]) -> int:
                     # profile wherever it sits, including on a schema the
                     # object walk below never visits.
                     return value is False
-                return isinstance(value, {"properties": dict, "required": list,
-                                          "enum": list, "items": dict,
-                                          "type": (str, list), "$schema": str,
+                if keyword == "required":
+                    return (isinstance(value, list)
+                            and all(isinstance(x, str) for x in value))
+                if keyword == "type":
+                    names = [value] if isinstance(value, str) else value
+                    return (isinstance(names, list) and names
+                            and all(n in JSON_TYPES for n in names))
+                if keyword == "enum":
+                    return isinstance(value, list) and len(value) > 0
+                return isinstance(value, {"properties": dict, "items": dict,
+                                          "$schema": str,
                                           "format": str}[keyword])
 
             KNOWN = {"properties", "required", "enum", "items", "type",
