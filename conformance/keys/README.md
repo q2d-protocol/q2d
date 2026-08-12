@@ -49,12 +49,13 @@ Seeds and public keys are 32 bytes, signatures 64, all lowercase hex. The
 `seed` is RFC 8032's "secret key": the 32-byte seed, not an expanded private
 key.
 
-## What is not here, and cannot be yet
+## What is not here, and why
 
-**No signature over a Q2D structure.** Producing one means canonicalizing a Q2D
-envelope, which is [P-002](../../docs/prds/P-002-message-envelope.md)'s
-definition and does not exist. Any signature written here today would be over
-bytes nobody has specified.
+**No signature over a Q2D structure.** Not because one cannot be produced —
+[`tools/author_vectors.py`](../../tools/author_vectors.py) produces them — but
+because a signature belongs in the vector that asserts it, not in the key file.
+This directory holds keys and the RFC's own known answers; anything signed over
+a Q2D structure is corpus data.
 
 That was [P-001](../../docs/prds/P-001-conformance-corpus.md) §10's question
 about how signed vectors get authored at all, and it is a real problem rather
@@ -68,5 +69,6 @@ Its Ed25519 comes from RFC 8032 §5.1 and it refuses to run until it reproduces
 the `known_answers` in this directory — which is what those are for, beyond
 documenting the source of the keys.
 
-What is still missing is the JWS protected header's member set, which no
-document specifies. §10 carries it.
+The protected header that string needs is
+[`crypto-suites.md`](../../spec/crypto-suites.md) §3's, which was the last thing
+missing and is now specified. Nothing blocks authoring a signed vector.

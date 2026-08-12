@@ -17,6 +17,8 @@ answer two implementations are held to.
 
 from __future__ import annotations
 
+import base64
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -187,16 +189,63 @@ class ProfileShapeTest(unittest.TestCase):
                     author.serialize(value)
 
 
-class BlockedTest(unittest.TestCase):
-    def test_jws_assembly_refuses_rather_than_guessing(self):
-        # The protected header's member set is unspecified. A guess here would
-        # resolve a specification ambiguity in a generator, and every signed
-        # vector in the corpus would then assert it.
-        with self.assertRaises(NotImplementedError) as raised:
-            author.jws_compact()
-        self.assertIn("protected header", str(raised.exception))
+class JwsTest(unittest.TestCase):
+    """crypto-suites.md §3's protected header, and the signed string over it."""
 
-    def test_running_without_self_test_explains_the_block(self):
+    def setUp(self):
+        key = author.known_answers()[0]
+        self.seed = bytes.fromhex(key["seed"])
+        self.key_id = key["key"]
+
+    def signed(self, payload=None):
+        return author.jws_compact(self.seed, self.key_id,
+                                  {"type": "query"} if payload is None else payload)
+
+    def test_the_header_carries_exactly_suite_and_key_id(self):
+        header = self.signed().split(".")[0]
+        decoded = json.loads(base64.urlsafe_b64decode(header + "=="))
+        self.assertEqual(set(decoded), {"suite", "key_id"})
+        self.assertEqual(decoded["suite"], author.SUITE)
+        self.assertEqual(decoded["key_id"], self.key_id)
+
+    def test_the_header_carries_no_alg(self):
+        # §3: a header a general-purpose JOSE library can process is one where
+        # that library selects the verification algorithm from data nobody has
+        # authenticated yet. `alg: none` is not a state this format can express.
+        header = base64.urlsafe_b64decode(self.signed().split(".")[0] + "==")
+        self.assertNotIn(b"alg", header)
+
+    def test_the_header_members_are_in_the_profile_s_order(self):
+        # P-002 §4.2 sorts keys ascending by UTF-16 code unit, so `key_id`
+        # precedes `suite`. Two implementations disagreeing here produce
+        # different bytes for the same message.
+        header = base64.urlsafe_b64decode(self.signed().split(".")[0] + "==")
+        self.assertLess(header.index(b"key_id"), header.index(b"suite"))
+
+    def test_the_signed_string_has_three_parts_and_no_padding(self):
+        parts = self.signed().split(".")
+        self.assertEqual(len(parts), 3)
+        for part in parts:
+            self.assertNotIn("=", part)
+            self.assertNotIn("+", part)
+            self.assertNotIn("/", part)
+
+    def test_signing_is_deterministic_end_to_end(self):
+        # What makes a message/sign/ vector a byte-exact assertion.
+        self.assertEqual(self.signed(), self.signed())
+
+    def test_the_signature_covers_the_header_and_payload(self):
+        # RFC 7515's signing input, so a changed header changes the signature
+        # even when the payload is identical.
+        other = author.jws_compact(self.seed, "test-custodian-1",
+                                   {"type": "query"})
+        self.assertNotEqual(self.signed().split(".")[2], other.split(".")[2])
+
+    def test_a_float_in_the_payload_is_refused(self):
+        with self.assertRaises(author.ProfileError):
+            self.signed({"capacity": 1.5})
+
+    def test_running_without_self_test_explains_usage(self):
         self.assertEqual(author.main(["author_vectors.py"]), 2)
 
 

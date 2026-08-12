@@ -100,9 +100,10 @@ the expected state rather than running a check that fails.
 vector asserts, written from the specification text before either
 implementation exists — because a corpus derived from an implementation cannot
 check that implementation. It is not the harness, is not imported by it, and
-its output is committed and thereafter treated as authored data. Signed vectors
-are blocked on one remaining gap: the JWS protected header's member set, which
-no document specifies (P-001 §10).
+its output is committed and thereafter treated as authored data. Signed vectors are no longer
+blocked: [`crypto-suites.md`](../spec/crypto-suites.md) §3 defines the protected
+header — `suite` and `key_id`, and no `alg` — so `jws_compact()` produces a
+signed string that a `message/sign/` vector can assert byte for byte.
 
 **Test keys are RFC 8032's, not ours** — see
 [`keys/README.md`](keys/README.md). Published seeds, so an implementation's

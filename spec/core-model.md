@@ -230,6 +230,15 @@ envelope. An intermediary rewriting the envelope therefore cannot change which
 suite a verifier believes was used. A verifier applies its own minimum
 acceptable policy and rejects suites below it, whatever the sender selected.
 
+Both `signature.profile` and `signature.key_id` are also carried in the
+signature's protected header, which §4 step 3 and step 4 read *before* the
+payload can be parsed — a verifier cannot choose a policy check or resolve a key
+from fields it is not yet allowed to read.
+[`crypto-suites.md`](crypto-suites.md) §3 defines that header and why it is
+closed. The header's copies are pre-authentication and untrusted; **these are the
+authoritative ones**, and a verifier confirms the pairs agree once the signature
+verifies.
+
 ## 3. Effective answer domain
 
 The responder computes, and never accepts:
