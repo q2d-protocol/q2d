@@ -6,13 +6,17 @@ counts what exists cannot tell you what is missing, which is the only thing it
 is for.
 
 This is the instrument by which `claims.md`'s `Verified by: planned` entries
-close. Today it reports thirteen uncovered, which is the correct Stage 0 answer
-and not a failure -- the corpus is empty, and saying so precisely is more useful
-than a number that could be read as progress.
+close. Today it reports ten uncovered and three cited -- the three the folded
+`registry/` section points at -- which is the correct Stage 0 answer and not a
+failure. Saying it precisely is more useful than a number that could be read as
+progress, and *cited* is the word for the same reason: §4.8 defines coverage as
+citation, a claim rests on more than any one vector shows, and a count of cited
+claims read as a count of verified ones would be the overstatement this whole
+mode exists to prevent.
 
-**It reports; it does not gate.** Exiting non-zero while the corpus is
-deliberately empty would put a permanently red check in CI, which trains
-everyone to ignore red. The expected state is asserted in the test suite
+**It reports; it does not gate.** Exiting non-zero because most claims have no
+vector yet -- which is the expected state for most of the MVP -- would put a
+permanently red check in CI, and that trains everyone to ignore red. The expected state is asserted in the test suite
 instead, which is green while true and turns red when it stops being true.
 P-016 issue 8 extends this into the traceability matrix, where the three claims
 that will still have no passing test at the end of MVP are named in the same
