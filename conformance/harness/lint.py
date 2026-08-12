@@ -408,6 +408,21 @@ def extra_wire_field_errors(vector: dict) -> list[str]:
     if not isinstance(wire, dict):
         return []
 
+    # With no `status` the vector has not said which response it is, so it must
+    # be a projection of *one* of them -- not a mixture. The union would accept
+    # `external_reason` beside `pending_token`, which is a subset of neither
+    # shape and which every conforming runner would fail.
+    if wire.get("status") is None:
+        shapes = {"§5.2's response": DENY_RESPONSE_FIELDS,
+                  "§5.3's explicit escalation": EXPLICIT_ESCALATE_FIELDS}
+        if not any(set(wire) <= fields for fields in shapes.values()):
+            return [f"wire: {', '.join(sorted(wire))} is a subset of neither "
+                    f"core-model.md §5.2's response nor §5.3's explicit "
+                    f"escalation. A projection that names no `status` must "
+                    f"project one of them; this one could not be satisfied by "
+                    f"any conforming response"]
+        return []
+
     allowed = required_wire_fields(wire)
     extra = sorted(set(wire) - allowed)
     if not extra:
@@ -578,6 +593,15 @@ def wire_value_errors(vector: dict) -> list[str]:
     for field in ("external_reason", "signature", "pending_token", "expires_at"):
         if field in wire:
             errors += nonempty_string(f"wire.{field}", wire[field])
+
+    # §5.3 gives `expires_at` the same form as the receipt's `decided_at`:
+    # RFC 3339, second precision. Checked the same way, so an escalation vector
+    # cannot assert a time no implementation would emit.
+    expires = wire.get("expires_at")
+    if isinstance(expires, str) and expires and not valid_timestamp(expires):
+        errors.append(
+            f"wire.expires_at: {expires!r} is not RFC 3339 at second precision "
+            f"— core-model.md §5.3")
 
     if status == "escalate":
         if "external_reason" in wire:

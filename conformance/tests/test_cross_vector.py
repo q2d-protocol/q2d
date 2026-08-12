@@ -305,6 +305,18 @@ class ValuesOutsideDenialTest(unittest.TestCase):
         code, output = lint(FIXTURES / "registry-escalation-projection")
         self.assertEqual(code, 0, output)
 
+    def test_a_projection_mixing_two_shapes_is_rejected(self):
+        # A subset of neither §5.2 nor §5.3, so no conforming response could
+        # satisfy it — it would fail every runner, for the corpus's mistake.
+        code, output = lint(FIXTURES / "registry-mixed-shape")
+        self.assertEqual(code, 1)
+        self.assertIn("subset of neither", output)
+
+    def test_an_escalation_expiry_must_be_a_time(self):
+        code, output = lint(FIXTURES / "denial-bad-expires")
+        self.assertEqual(code, 1)
+        self.assertIn("wire.expires_at:", output)
+
     def test_asserted_values_are_checked_outside_denial_too(self):
         # Which fields a vector must assert depends on its section; what a
         # field may contain does not. A projection asserting `status: answer`
