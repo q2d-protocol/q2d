@@ -215,6 +215,14 @@ class WholeResponseTest(unittest.TestCase):
                 self.assertIn("is not a timestamp",
                               lint_mod.timestamp_error("x", not_an_instant))
 
+        # RFC 3339 §5.6's grammar, not the cases I happened to think of: every
+        # spelling it permits and §2.2 does not is named as such.
+        for other in ("2026-01-01t00:00:00Z", "2026-01-01T00:00:00.5Z",
+                      "2026-01-01t00:00:00z", "2026-01-01T00:00:00-05:30"):
+            with self.subTest(value=other):
+                self.assertIn("valid RFC 3339",
+                              lint_mod.timestamp_error("x", other))
+
     def test_a_leap_second_must_be_at_a_month_end(self):
         # §5.7 puts ":60" "at the end of months in which a leap second
         # occurs". The month end is fixed by the RFC and checked; *which*

@@ -414,34 +414,39 @@ DENY_STATUS = ("deny", "escalate")
 RFC3339_SECOND = re.compile(
     r"\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z\Z")
 
-# The same instant in the spellings RFC 3339 allows and §2.2 does not. Matched
-# separately so a diagnostic can tell an author *which* rule they missed: a
-# value that is valid RFC 3339 in another spelling is a different mistake from
-# one that is not a timestamp, and saying "not RFC 3339" about the first sends
-# them to debug the wrong thing.
-RFC3339_OTHER_SPELLING = re.compile(
-    r"\A(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})"
-    r"(z|[+-](\d{2}):(\d{2}))\Z")
+# RFC 3339 §5.6's grammar, as written rather than as the cases I thought of:
+#
+#   date-time    = full-date ("T" / "t") full-time
+#   full-time    = partial-time time-offset
+#   partial-time = HH ":" MM ":" SS [ "." 1*DIGIT ]
+#   time-offset  = "Z" / "z" / ("+" / "-") HH ":" MM
+#
+# Matched so a diagnostic can say *which* rule a value missed. Two rounds of
+# patching individual spellings -- lowercase `t` with uppercase `Z`, fractional
+# seconds -- is what a grammar is for.
+RFC3339_ANY = re.compile(
+    r"\A(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(\.\d+)?"
+    r"([Zz]|[+-](\d{2}):(\d{2}))\Z")
 
 
-def other_spelling_of_a_real_instant(value: str) -> bool:
-    """Is this a genuine RFC 3339 timestamp in a spelling §2.2 does not permit?
+def valid_rfc3339(value: str) -> bool:
+    """Is this a real instant in *any* RFC 3339 spelling?
 
-    Validated, not merely matched. `2026-99-99T99:99:99+99:99` has the shape of
-    an offset timestamp and is no instant, and a diagnostic that called it valid
-    RFC 3339 would assert a false fact about a specification in the output a
-    reviewer reads.
+    Validated, not merely matched: `2026-99-99T99:99:99+99:99` has the shape and
+    is no instant, and a diagnostic calling it valid RFC 3339 would assert a
+    false fact about a specification in output a reviewer reads.
     """
-    matched = RFC3339_OTHER_SPELLING.match(value)
+    matched = RFC3339_ANY.match(value)
     if not matched:
         return False
     year, month, day, hour, minute, second = matched.group(1, 2, 3, 4, 5, 6)
-    if matched.group(8) is not None:
-        if int(matched.group(8)) > 23 or int(matched.group(9)) > 59:
+    offset_hour, offset_minute = matched.group(9), matched.group(10)
+    if offset_hour is not None:
+        if int(offset_hour) > 23 or int(offset_minute) > 59:
             return False
     if second == "60":
-        # Not resolved to UTC here: this decides only which diagnostic to
-        # print, and a leap second in either spelling is a real instant.
+        # Not resolved to UTC: this decides which diagnostic to print, and a
+        # leap second in any spelling is a real instant.
         second = "59"
     try:
         datetime.strptime(f"{year}-{month}-{day}T{hour}:{minute}:{second}",
@@ -453,7 +458,7 @@ def other_spelling_of_a_real_instant(value: str) -> bool:
 
 def timestamp_error(where: str, value: str) -> str:
     """Why this value is not a §2.2 timestamp, in the terms the author needs."""
-    if other_spelling_of_a_real_instant(value):
+    if valid_rfc3339(value):
         return (f"{where}: {value!r} is valid RFC 3339 but not core-model.md "
                 f"§2.2's spelling — uppercase `T`, uppercase `Z`, second "
                 f"precision, and no other spelling of the instant")
