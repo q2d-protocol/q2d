@@ -253,6 +253,20 @@ class JwsTest(unittest.TestCase):
                 with self.assertRaises(author.ProfileError):
                     self.signed({"issued_at": wrong})
 
+    def test_a_right_shaped_non_instant_is_refused(self):
+        # §2.2's spelling exactly, and no date. Checking the spelling alone
+        # would have signed it into a payload nothing downstream reads as text.
+        for wrong in ("2026-99-99T99:99:99Z", "2026-02-30T00:00:00Z",
+                      "2026-01-01T00:00:60Z"):
+            with self.subTest(value=wrong):
+                with self.assertRaises(author.ProfileError):
+                    self.signed({"issued_at": wrong})
+
+    def test_a_leap_second_serializes(self):
+        # RFC 3339 §5.7 permits it and §2.2 does not exclude it.
+        self.assertIn(b"2016-12-31T23:59:60Z",
+                      author.serialize({"t": "2016-12-31T23:59:60Z"}))
+
     def test_the_one_permitted_spelling_serializes(self):
         self.assertIn(b'"2026-01-01T00:00:00Z"',
                       author.serialize({"issued_at": "2026-01-01T00:00:00Z"}))

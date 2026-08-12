@@ -182,6 +182,14 @@ class WholeResponseTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("expect.output.issued_at", output)
 
+    def test_a_right_shaped_non_instant_under_expect_is_rejected(self):
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        vector = {"expect": {"output": {"issued_at": "2026-99-99T99:99:99Z"}}}
+        errors = lint_mod.expected_timestamp_errors(vector)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("is not a timestamp", errors[0])
+
     def test_input_may_carry_a_malformed_timestamp(self):
         # A vector testing that an implementation rejects a bad spelling has to
         # contain one. `expect` describes conforming output; `input` describes

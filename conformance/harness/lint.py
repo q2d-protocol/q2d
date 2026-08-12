@@ -498,7 +498,11 @@ def expected_timestamp_errors(vector: dict) -> list[str]:
 
     def walk(value, path: str):
         if isinstance(value, str):
-            if valid_rfc3339(value) and not valid_timestamp(value):
+            # Anything with a timestamp's *shape* and not §2.2's meaning --
+            # which includes `2026-99-99T99:99:99Z`, right spelling and no
+            # instant. Checking only the wrong spellings would have let an
+            # impossible date through in the correct one.
+            if RFC3339_ANY.match(value) and not valid_timestamp(value):
                 errors.append(timestamp_error(path, value))
         elif isinstance(value, dict):
             for key in sorted(value):

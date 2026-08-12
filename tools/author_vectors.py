@@ -87,6 +87,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+from calendar import monthrange
+from datetime import datetime
 import re
 import sys
 from pathlib import Path
@@ -139,10 +141,43 @@ def json_type(value) -> str:
 # from `conformance/harness/lint.py`, which reads the same section: two
 # independent readings is the arrangement this tool exists for, and a
 # disagreement between them is a specification ambiguity found.
-Q2D_TIMESTAMP = re.compile(r"\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\Z")
+Q2D_TIMESTAMP = re.compile(
+    r"\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z\Z")
 RFC3339_ANY = re.compile(
     r"\A\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?"
     r"([Zz]|[+-]\d{2}:\d{2})\Z")
+
+
+def valid_q2d_timestamp(value: str) -> bool:
+    """core-model.md §2.2's timestamp: the one spelling, and a real instant.
+
+    Shape *and* meaning. `2026-99-99T99:99:99Z` has §2.2's spelling exactly and
+    is no date, so a check on the spelling alone would sign it into a payload
+    that nothing downstream can read as text.
+    """
+    matched = Q2D_TIMESTAMP.match(value)
+    if not matched:
+        return False
+    year, month, day, hour, minute, second = matched.groups()
+    if second == "60":
+        # RFC 3339 §5.7: 23:59 at a month end. Which leap seconds were actually
+        # inserted is IERS data and not statically decidable -- see the harness,
+        # which reaches the same conclusion from the same section.
+        if (hour, minute) != ("23", "59"):
+            return False
+        try:
+            date = datetime(int(year), int(month), int(day))
+        except ValueError:
+            return False
+        if date.day != monthrange(date.year, date.month)[1]:
+            return False
+        second = "59"
+    try:
+        datetime.strptime(f"{year}-{month}-{day}T{hour}:{minute}:{second}",
+                          "%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        return False
+    return True
 
 
 def sort_key(key: str) -> bytes:
@@ -222,11 +257,13 @@ def _serialize(value) -> str:
         # is the last point at which a value can be rejected before it becomes
         # bytes somebody signs, and inside a signed payload it is past the
         # reach of anything that reads the vector as text.
-        if RFC3339_ANY.match(value) and not Q2D_TIMESTAMP.match(value):
+        if RFC3339_ANY.match(value) and not valid_q2d_timestamp(value):
             raise ProfileError(
-                f"timestamp {value!r} is valid RFC 3339 but not core-model.md "
-                f"§2.2's spelling — uppercase `T`, uppercase `Z`, second "
-                f"precision, and no other spelling of the instant")
+                f"timestamp {value!r} is not core-model.md §2.2's — uppercase "
+                f"`T`, uppercase `Z`, second precision, and a real instant. "
+                f"Checking the spelling alone would pass "
+                f"'2026-99-99T99:99:99Z', which has the right shape and is no "
+                f"date")
         return escape_string(value)
     if kind == "array":
         return "[" + ",".join(_serialize(item) for item in value) + "]"
