@@ -205,6 +205,18 @@ def denial_section_errors(vector: dict) -> list[str]:
     if not isinstance(wire, dict):
         return []
 
+    # Missing fields only. An *extra* top-level field is deliberately not
+    # rejected here, and the asymmetry with `receipt_errors` is the
+    # specification's rather than an oversight: §6 closes the receipt's list --
+    # "the authoritative field list", "exactly five fields, and no others" --
+    # and §5.2 says nothing of the kind about the response, while contemplating
+    # a field outside its own table: "if retry metadata is present, its value
+    # is identical across every cause mapped to that class".
+    #
+    # Whether §5.2's list is closed is P-001 §10, raised and not decided.
+    # Meanwhile the case that actually threatens Q2D-C-08 is covered: an extra
+    # field that *differs* between causes is a different wire response, and the
+    # denial-uniformity assertion fails the corpus for it.
     missing = sorted(DENY_RESPONSE_FIELDS - set(wire))
     if not missing:
         return []
