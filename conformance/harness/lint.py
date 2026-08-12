@@ -264,14 +264,21 @@ def valid_timestamp(value: str) -> bool:
     digit placement accepts `2026-99-99T99:99:99Z`, which no implementation
     emits and a vector must not assert.
 
-    Second 60 -- a leap second -- is **accepted**, because RFC 3339 permits it
-    and §6 asks for RFC 3339. An earlier version rejected it on the reasoning
-    that a corpus should not assert one; that reasoning may even be right, but
-    narrowing the specification in harness code is not how it would become
-    true. If leap seconds should be excluded, `spec/` says so and this follows.
-    Meanwhile it is a boundary two implementations could genuinely disagree
-    about -- whether a clock library emits `:60`, whether a parser accepts it
-    -- which makes it worth a vector rather than worth banning.
+    Second 60 at 23:59 is **accepted**, and no attempt is made to decide
+    whether that particular leap second was really inserted. It cannot be
+    decided statically -- which leap seconds exist is IERS data that changes
+    after this file is written -- and it is the wrong question anyway: a vector
+    *supplies* `decided_at`, no implementation's clock produces it, so what
+    conformance turns on is whether an implementation parses RFC 3339, not
+    whether the instant occurred.
+
+    `Z` is required rather than a numeric offset, and that one is an inference
+    rather than a quotation: §6 says "RFC 3339, second precision" and does not
+    say `Z`, but it grounds the length guarantee in none of the reduced fields
+    being variable-length, and `+00:00` is six characters where `Z` is one.
+    The inference is recorded as an open question in P-001 §10 rather than
+    treated as settled -- three rounds of this check were spent resolving
+    specification choices in a lint rule, which is the wrong place for them.
     """
     if not RFC3339_SECOND_Z.match(value):
         return False
@@ -282,6 +289,8 @@ def valid_timestamp(value: str) -> bool:
     # and which one implementation could accept while another rejects: the
     # divergence this check exists to prevent, introduced by the check.
     if value[17:19] == "60":
+        # RFC 3339 §5.7 puts a leap second at 23:59. Whether *this* one was
+        # inserted is not knowable here -- see the docstring.
         if value[11:16] != "23:59":
             return False
         checkable = value[:17] + "59Z"
