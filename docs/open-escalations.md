@@ -1143,7 +1143,7 @@ opposite directions.
 
 **Raised by** [P-001](prds/P-001-conformance-corpus.md) §10 ·
 **Decides** [`core-model.md`](../spec/core-model.md) §4 ·
-**Blocks** nothing today; two folded registry vectors state no step because of it
+**Blocks** nothing today; one folded registry vector states no step because of it
 
 ### Context
 
@@ -1156,11 +1156,16 @@ validation, and §4 does not say where.
 
 ### Concretely
 
-[`registry/manifest.json`](../registry/manifest.json) has two vectors rejecting
-with `constraint_violation_minimum_slot_duration`. Folded into the corpus, they
-**state no step**, because stating one would resolve this in a generator. Their
-`before_private_access` property — which the manifest does assert — survives only
-as prose in the vector description until this is settled.
+[`registry/manifest.json`](../registry/manifest.json) has one vector rejecting
+with `constraint_violation_minimum_slot_duration` —
+`reject-slot-below-granularity-floor`. Folded into the corpus it **states no
+step**, because stating one would resolve this in a generator, and its
+`before_private_access` property — which the manifest does assert — survives
+only as prose in the vector description until this is settled.
+
+One vector is the current cost, not the scope of the question: every predicate
+carrying a constraint its input schema cannot express will produce another, and
+`availability-window` is simply the first.
 
 ### Options
 
@@ -1188,7 +1193,7 @@ this situation — an insertion that would otherwise renumber everything below i
 
 ### Interim position
 
-The two folded vectors state no step and therefore assert nothing about
+The folded vector states no step and therefore asserts nothing about
 ordering, which is what §4.8 makes a step-less vector mean. Nothing is wrong;
 something is unstated.
 
