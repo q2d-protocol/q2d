@@ -14,6 +14,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import re
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -133,6 +134,26 @@ def expected_capacity_mb(p, public):
     dom = p["answer_domain"]
     n = dom["cardinality"] if dom["kind"] == "enumerated" else len(public["candidates"]) + 1
     return math.ceil(1000 * math.log2(n))
+
+
+# scope.md §4.1: `format: date-time` asserts, and the value it asserts is
+# core-model.md §2.2's timestamp. Checked here so the reference manifest cannot
+# drift from a rule spec/ now states -- the manifest is the one artifact every
+# implementation will read as an example.
+Q2D_TIMESTAMP = re.compile(r"\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\Z")
+
+
+def timestamps(value, path="manifest"):
+    """Every string in the manifest that is shaped like a date-time."""
+    if isinstance(value, str):
+        if re.match(r"\A\d{4}-\d{2}-\d{2}[Tt]", value):
+            yield path, value
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            yield from timestamps(item, f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            yield from timestamps(item, f"{path}[{index}]")
 
 
 def main(argv: list[str]) -> int:
@@ -291,6 +312,12 @@ def main(argv: list[str]) -> int:
         check(len(internal) > 1,
               "distinct internal reasons exist behind that single wire response",
               f"{len(internal)}: {sorted(internal)}")
+
+    wrong = [f"{path}={value}" for path, value in timestamps(manifest)
+             if not Q2D_TIMESTAMP.match(value)]
+    check(not wrong,
+          "every date-time is core-model.md §2.2's spelling (scope.md §4.1)",
+          "; ".join(wrong))
 
     total_vectors = sum(len(p["test_vectors"]) for p in preds)
     print(f"\n{CHECKS - len(FAILURES)}/{CHECKS} checks passed  ({total_vectors} vectors across {len(preds)} predicates)")

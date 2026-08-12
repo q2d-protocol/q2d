@@ -100,7 +100,7 @@ restating it.
 
 It was here, and E-16 moved it. The reason is worth keeping: a rejection rule
 about *registry content* stated only in a PRD means a third implementation built
-from `spec/` alone accepts manifests both reference implementations reject —
+from `spec/` alone accepts manifests this PRD specifies ours to reject —
 neither wrong by the document it was built from, which is the divergence the
 context hierarchy exists to prevent, with the rule one level too low.
 

@@ -88,6 +88,16 @@ An entry's schemas are JSON Schema, and **only this subset of it**:
 `enum` · `items` · `minItems` / `maxItems` · `minLength` / `maxLength` ·
 `minimum` / `maximum` · `format: date-time`
 
+**`format: date-time` asserts.** In JSON Schema 2020-12 `format` is an
+annotation unless the Format-Assertion vocabulary is in force, so a validator
+may accept any string for it — which would make request validity depend on which
+library a responder chose, the divergence this profile exists to prevent, hiding
+inside the profile. Here it is a constraint, and the value it constrains is
+[`core-model.md`](core-model.md) §2.2's timestamp: uppercase `T`, uppercase `Z`,
+second precision. Public context travels inside the signed core object, so §2.2
+reaches it like any other timestamp, and a validator implementing this profile
+checks that form rather than deferring to a library's idea of a date.
+
 `$schema` is required and declares the dialect —
 `https://json-schema.org/draft/2020-12/schema` for 0.1. It is a declaration
 rather than an assertion, and it is in the profile because two implementations
