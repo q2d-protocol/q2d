@@ -68,6 +68,43 @@ class DenialUniformityTest(unittest.TestCase):
         self.assertIn("distinct wire responses", output)
 
 
+class PartialResponseTest(unittest.TestCase):
+    """A comparison over part of a response is reported as one.
+
+    core-model.md §5.2's deny response is four fields, and the two every corpus
+    vector currently asserts -- `status` and `external_reason` -- are both fixed
+    by the normalized class. So comparing them compares two constants and cannot
+    fail, and a summary that said "1 external class, 5 vectors" and stopped
+    would read as evidence of uniformity while proving nothing about it.
+
+    §5.3 puts the leak exactly where the vectors are silent: *"a receipt that
+    recorded escalate for an outcome the wire made uniform would defeat
+    Q2D-C-08 through the evidence attached to it, in the one place nobody looks
+    for a normalization leak."*
+    """
+
+    def test_a_partial_wire_is_named_in_the_summary(self):
+        _, output = lint(FIXTURES / "denial-thin")
+        self.assertIn("compared a partial response", output)
+        self.assertIn("receipt", output)
+        self.assertIn("cannot detect a receipt-level divergence", output)
+
+    def test_the_real_corpus_still_compares_partial_responses(self):
+        # The Stage 0 expected state, asserted rather than assumed: every
+        # denial vector in the corpus is a projection today, because a whole
+        # response carries a signature and the JWS protected header's member
+        # set is unspecified (P-001 §10). This turns red on the first
+        # whole-response denial vector -- which is when vector.schema.json's
+        # `wire` rule should tighten from prose into a schema requirement.
+        _, output = lint(CONFORMANCE / "corpus")
+        self.assertIn("compared a partial response", output)
+
+    def test_a_whole_response_is_not_reported_as_partial(self):
+        code, output = lint(FIXTURES / "denial-whole-response")
+        self.assertEqual(code, 0, output)
+        self.assertNotIn("compared a partial response", output)
+
+
 class BudgetAccumulationTest(unittest.TestCase):
     """P-001 issue 8: a debit sequence and its permutations agree."""
 

@@ -228,6 +228,23 @@ denial-uniformity assertion applied to this module — the same check
 [`registry/validate.py`](../../registry/validate.py) already performs over
 registry rejections.
 
+**Every vector in this section asserts the whole response**, meaning
+[`core-model.md`](../../spec/core-model.md) §5.2's four fields including the
+reduced receipt — not a projection of them.
+[`conformance/vector.schema.json`](../../conformance/vector.schema.json) states
+that rule on `wire`, and it is not a formality here: `status` and
+`external_reason` are both fixed by the normalized class, so a vector asserting
+only those two compares two constants and cannot fail. §7's requirement that
+*"the receipt attached to a Tier C denial is byte-identical across causes"*
+is unverifiable by a vector that omits the receipt, and §5.3 puts the leak
+exactly there — *"in the one place nobody looks for a normalization leak."*
+
+No such vector can be authored yet: a response carries a signature, and the JWS
+protected header's member set is unspecified
+([P-001](P-001-conformance-corpus.md) §10). Until it is settled, the corpus's
+existing rejection vectors assert projections and the harness names every one
+of them on every run, so nothing reads a partial comparison as uniformity.
+
 ## 7. Acceptance
 
 - [ ] Every Tier C cause produces a **byte-identical** response in both

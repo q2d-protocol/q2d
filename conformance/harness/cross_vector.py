@@ -56,6 +56,13 @@ def multiset_key(value) -> str:
                       ensure_ascii=False, allow_nan=False)
 
 
+# core-model.md §5.2's deny response, in full. A vector asserting fewer of these
+# asserts nothing about the ones it omits, and for a normalized class that
+# matters more than it looks: `status` and `external_reason` are fixed by the
+# class, so comparing only those two compares two constants.
+DENY_RESPONSE_FIELDS = ("status", "external_reason", "receipt", "signature")
+
+
 def rejection_vectors(vectors):
     for vector in vectors:
         if not isinstance(vector.body, dict):
@@ -80,6 +87,7 @@ def denial_uniformity(vectors) -> tuple[list[str], str]:
     """
     errors: list[str] = []
     groups: dict[str, list[tuple[str, str, str]]] = defaultdict(list)
+    partial: dict[str, set] = {}
 
     for vector, rejection in rejection_vectors(vectors):
         wire = rejection["wire"]
@@ -90,6 +98,9 @@ def denial_uniformity(vectors) -> tuple[list[str], str]:
             continue
         groups[str(external)].append(
             (vector.id, as_authored(wire), str(rejection.get("internal_reason", ""))))
+        absent = {f for f in DENY_RESPONSE_FIELDS if f not in wire}
+        if absent:
+            partial.setdefault(str(external), set()).update(absent)
 
     thin = []
 
@@ -119,6 +130,20 @@ def denial_uniformity(vectors) -> tuple[list[str], str]:
 
     summary = (f"{len(groups)} external class(es) across "
                f"{sum(len(m) for m in groups.values())} rejection vector(s)")
+
+    if partial:
+        # Said every run, because the alternative is a confident line over a
+        # comparison that could not have failed. Where every wire in a class is
+        # a proper subset of §5.2's response, the fields actually compared are
+        # `status` and `external_reason` -- both fixed by the class -- so the
+        # check is a tautology unless the receipt is present. §5.3 puts the
+        # leak precisely there.
+        for external in sorted(partial):
+            missing = ", ".join(sorted(partial[external]))
+            summary += (f"; {external!r} compared a partial response (no "
+                        f"{missing}), which cannot detect a receipt-level "
+                        f"divergence — see vector.schema.json on `wire`")
+
     if thin:
         summary += (f"; {len(thin)} with a single cause, which show nothing about "
                     f"indistinguishability and may simply be Tier A: "

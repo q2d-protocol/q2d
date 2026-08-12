@@ -106,7 +106,11 @@
               "required": ["internal_reason", "wire"],
               "properties": {
                 "internal_reason": { "type": "string", "minLength": 1 },
-                "wire": { "type": "object" },
+                "wire": {
+                  "description": "What a requester receives. For a denial that is core-model.md \u00a75.2's response object -- status, external_reason, receipt, signature -- where the receipt is the reduced shape \u00a76 defines, exactly five fields.\\n\\nA vector MAY assert a subset of those fields where response construction is not what it tests: a registry/ vector exercises whether a predicate evaluates and rejects correctly, and the envelope around the rejection is not its subject. **A vector asserting a subset asserts nothing about the fields it omits**, and `harness lint` reports which fields each comparison covered so that is visible rather than assumed.\\n\\ndenial/ is the exception and may not use a subset, because uniformity over part of a response is not uniformity. Comparing status and external_reason alone cannot fail -- both are fixed by the class -- so a subset there is a tautology dressed as a test. \u00a75.3 says where the leak actually hides: 'a receipt that recorded escalate for an outcome the wire made uniform would defeat Q2D-C-08 through the evidence attached to it, in the one place nobody looks for a normalization leak'.\\n\\nNo denial/ vector carries a whole response today, because a response carries a signature and the JWS protected header's member set is unspecified (P-001 \u00a710). This becomes a schema requirement when that lands.",
+                  "type": "object",
+                  "minProperties": 1
+                },
                 "step": {
                   "description": "The core-model.md §4 step at which rejection occurred. Optional in general, and how the ordering/ section asserts ordering without instrumenting the implementation. An integer for a numbered step, or one of the lettered steps §4's table defines -- today only 9a, the rate-limit check. Closed rather than patterned, for the reason the operation vocabulary is closed: a vector citing step 12b would otherwise assert an ordering the specification does not have.",
                   "oneOf": [
