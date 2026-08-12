@@ -20,10 +20,12 @@ real needs a vector to declare its companion, which is a format change. It is
 P-001 issue 19, and this mode exits 3 rather than 0 until it lands.
 
 It is not the same check written twice. Byte agreement compares A's *signer*
-against B's signer; neither **verifier** is exercised at all, and verification
-is the path core-model.md §4 step 4 gates the whole pipeline on. An
-implementation with a lenient verifier passes every byte-comparison vector
-there is. mvp-scope.md's Stage 1 gate is cross-verification for that reason.
+against B's signer; neither **verifier** is exercised at all. Verification is
+core-model.md §4 step 4, and everything from step 5 down is gated on it --
+steps 1 to 3 run before it deliberately, on envelope size and the declared
+suite, which is the most attacker-exposed code there is. An implementation with
+a lenient verifier passes every byte-comparison vector there is. mvp-scope.md's
+Stage 1 gate is cross-verification for that reason.
 
 ## What "identical bytes" can mean here
 

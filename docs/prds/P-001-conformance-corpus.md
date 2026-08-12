@@ -509,10 +509,13 @@ each is a property of the corpus rather than of one mode's code:
   identical bytes look as though they must accept each other's output: byte
   agreement compares A's *signer* against B's signer, and says nothing about
   either **verifier**. Signing and verifying are separate code paths, and
-  verification is the one [`core-model.md`](../../spec/core-model.md) §4 step 4
-  gates the whole pipeline on — *"nothing below this line runs for an
-  unauthenticated request"*. An implementation with a lenient verifier passes
-  every byte-comparison vector in the corpus. This is also why issue 19 is
+  verification is [`core-model.md`](../../spec/core-model.md) §4 step 4, which
+  every step from 5 down is gated on — *"nothing below this line runs for an
+  unauthenticated request"*. Steps 1 to 3 run before it by design, on envelope
+  size and the declared suite; those are the most attacker-exposed lines in the
+  protocol and are equally untouched by a signer-to-signer comparison. An
+  implementation with a lenient verifier passes every byte-comparison vector in
+  the corpus. This is also why issue 19 is
   load-bearing rather than tidy-up: [`mvp-scope.md`](../mvp-scope.md) Stage 1's
   gate **is** cross-verification — *"the Rust implementation verifies signatures
   produced by Go and vice versa"* — and `mvp-scope.md` outranks this PRD.
@@ -701,7 +704,7 @@ Decomposition into tracked work. Each names its acceptance.
 | 16 | `semantic` comparison implemented per §4.4 | Array order significant; absent ≠ null; no coercion; both runners agree on a differing-tree report |
 | 17 | **Settle the §4.5 operation vocabulary for Stages 5–8, as one change** | Every operation named, with its owning PRD; no later PRD introduces one unilaterally. Closes after the endpoint drop and the requester-order addition, both already reflected in §4.5 |
 | 18 | Minimal timing capability, available at Stage 7 | A vector can assert two response paths fall within a band; [P-015](P-015-escalation-lifecycle.md) issue 4 can be written against it |
-| 19 | **Cross-verification: put A's output to B** | §4.8's second cross-implementation clause, split out of issue 9 by §10's resolution. Three PRDs have an acceptance criterion that needs it: [P-003](P-003-crypto-suites.md) §7, [P-012](P-012-requester-runtime.md) §7, and — for the byte half only — [P-002](P-002-message-envelope.md) §7. Needs a vector to name its companion artefact and the field that consumes it — a format change, and protocol knowledge §3 places outside the harness. Blocked on [P-002](P-002-message-envelope.md) and [P-003](P-003-crypto-suites.md) settling which operation consumes a signed envelope. **Not optional:** [`mvp-scope.md`](../mvp-scope.md) Stage 1's gate is cross-verification, so this is what makes that gate real. `cross` exits 3 on agreement until it lands |
+| 19 | **Cross-verification: put A's output to B** | §4.8's second cross-implementation clause, split out of issue 9 by §10's resolution. Two PRDs have an acceptance criterion that needs it: [P-003](P-003-crypto-suites.md) §7 and [P-012](P-012-requester-runtime.md) §7. [P-002](P-002-message-envelope.md) §7 does **not** — it asks for byte agreement over `message/`, which issue 9 delivers. Needs a vector to name its companion artefact and the field that consumes it — a format change, and protocol knowledge §3 places outside the harness. Blocked on [P-002](P-002-message-envelope.md) and [P-003](P-003-crypto-suites.md) settling which operation consumes a signed envelope. **Not optional:** [`mvp-scope.md`](../mvp-scope.md) Stage 1's gate is cross-verification, so this is what makes that gate real. `cross` exits 3 on agreement until it lands |
 
 Issue 16 blocks 12 — `message/` cannot be authored until `semantic` behaves
 identically in both runners. Issue 17 blocks the corpus sections of
