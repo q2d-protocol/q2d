@@ -1047,7 +1047,13 @@ and its conformance check degrades to shape identity.
 
 ### Resolution — A, declared
 
-`answer_contract.coarsening` carries the mapping. §3.2 states the four
+`answer_contract.coarsening` carries the mapping, as an **array of pairs** —
+`[[registered_value, label], …]` — rather than an object. A registered enum
+value need not be a string (`menu-compatible` registers `true` and `false`), and
+an object can key only on strings; stringifying would put a conversion
+convention inside a signed structure. The array form also makes the
+*function* condition expressible, which an object could not: two pairs sharing a
+value is a violation an object cannot represent. §3.2 states the four
 conditions a responder validates it against — total, onto, non-expanding, and a
 function — all of which are set comparisons and counts.
 

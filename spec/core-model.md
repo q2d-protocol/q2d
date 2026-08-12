@@ -360,8 +360,18 @@ is not the empty request — and a "narrowed" boolean is the subsetting §2.5
 prohibits, wearing different words.
 
 **The `enum` mapping is declared, and the responder validates it.** It is
-carried in `answer_contract.coarsening` as a map from every registered value to
-a requested label, and it is admissible only when all four hold:
+carried in `answer_contract.coarsening` as an **array of two-element arrays** —
+`[[registered_value, label], …]` — and it is admissible only when all four hold:
+
+An array of pairs rather than an object, because **a registered enum value need
+not be a string**: `dietary/menu-compatible` registers `true` and `false`, and a
+JSON object can key only on strings. Stringifying them would put a
+number-to-string convention in the middle of a signed structure, which is the
+class of divergence [`crypto-suites.md`](crypto-suites.md) §3 declines a
+canonicalization suite to avoid. Pair order is not significant and does not
+affect admissibility; the array's *serialized* order is fixed by the production
+profile like any other array, so two implementations still produce identical
+bytes.
 
 1. **Total** — every registered value appears as a key. A missing value is a
    result with no image in the requested domain, which is the subsetting §2.5
@@ -379,8 +389,11 @@ a requested label, and it is admissible only when all four hold:
 3. **Non-expanding** — the label set is strictly smaller than the registered
    value set. Equal is not a coarsening and needs no mapping; larger is the
    expansion §2.5 forbids.
-4. **A function** — one label per registered value. Two labels for one value is
-   not a mapping, and a responder cannot choose between them.
+4. **A function** — each registered value appears as a first element exactly
+   once. Two pairs sharing a value give two labels for one result and a
+   responder cannot choose between them. This condition is the reason the
+   format is an array: an object could not express the violation, so a rule
+   against it would be unenforceable and therefore not worth stating.
 
 All four are checkable by comparing two sets and counting, which is the point:
 the responder makes no judgement about what the labels *mean*. A mapping that
