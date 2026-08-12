@@ -239,6 +239,16 @@ only those two compares two constants and cannot fail. §7's requirement that
 is unverifiable by a vector that omits the receipt, and §5.3 puts the leak
 exactly there — *"in the one place nobody looks for a normalization leak."*
 
+**§7 says two things about this and they do not agree.** Its first line allows a
+Tier C response to differ *"only in `request_digest` and `decided_at`"*; its
+receipt line asks for byte-identity with no such carve-out. Both are satisfiable
+in the corpus, where §4.3 requires every varying input to come from the vector,
+so two causes over one request share a digest and a decision time and the
+receipts are identical outright. They are not both satisfiable in production,
+where two exchanges differ in exactly those two fields. **Which one §7 means is
+a question for this PRD**, and the corpus enforces the achievable reading
+meanwhile: identical, because the vector fixes both fields.
+
 No such vector can be authored yet: a response carries a signature, and the JWS
 protected header's member set is unspecified
 ([P-001](P-001-conformance-corpus.md) §10). Until it is settled, the corpus's

@@ -276,8 +276,17 @@ def valid_timestamp(value: str) -> bool:
     if not RFC3339_SECOND_Z.match(value):
         return False
     # strptime has no leap second, so the date is checked with the second
-    # clamped. Everything else about the value is still validated.
-    checkable = value[:17] + "59Z" if value[17:19] == "60" else value
+    # clamped. Everything else about the value is still validated -- and `:60`
+    # is accepted only at 23:59, which is where RFC 3339 §5.7 puts it. Clamping
+    # unconditionally would have blessed `00:00:60Z`, which is not an instant
+    # and which one implementation could accept while another rejects: the
+    # divergence this check exists to prevent, introduced by the check.
+    if value[17:19] == "60":
+        if value[11:16] != "23:59":
+            return False
+        checkable = value[:17] + "59Z"
+    else:
+        checkable = value
     try:
         datetime.strptime(checkable, "%Y-%m-%dT%H:%M:%SZ")
     except ValueError:
