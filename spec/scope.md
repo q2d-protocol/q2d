@@ -107,6 +107,19 @@ prevent, arrived at one level up.
 **Nothing else.** No `$ref`, no `oneOf` / `anyOf` / `allOf` / `not`, no
 `patternProperties`, no regular expressions, no remote schema resolution.
 
+Three rules about how the profile is used, not only which keywords it contains:
+
+- **Every object schema sets `additionalProperties: false`** — every one, not
+  only the outermost. An object that omits it accepts fields the entry never
+  declared, which is unvalidated input reaching a predicate, and a nested object
+  is where that is easiest to miss.
+- **`$schema` appears once, at the root.** JSON Schema lets a nested `$schema`
+  switch dialects for that subschema, which would reintroduce the divergence
+  pinning the dialect prevents, one level down.
+- **A schema is an object.** JSON Schema permits `true` and `false` as
+  subschemas, accepting or denying everything with no keyword to check; a
+  profile that is a list of keywords does not admit a schema that has none.
+
 The reason is not economy. **Two JSON Schema libraries disagree on edge cases**,
 and a disagreement here is a disagreement about whether a request is valid at
 all — one responder accepting what another rejects, with neither wrong by the
