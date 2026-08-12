@@ -502,7 +502,7 @@ def expected_timestamp_errors(vector: dict) -> list[str]:
     """
     errors: list[str] = []
 
-    def walk(value, path: str, named: bool = False):
+    def walk(value, path: str, named: bool = False, use_names: bool = True):
         if named and not isinstance(value, str):
             # A named timestamp field holding a number, a null, or an object.
             # The string branch below would skip it, and §2.2's timestamp is a
@@ -528,12 +528,35 @@ def expected_timestamp_errors(vector: dict) -> list[str]:
                     errors.append(timestamp_error(path, value))
         elif isinstance(value, dict):
             for key in sorted(value):
-                walk(value[key], f"{path}.{key}", key in TIMESTAMP_FIELDS)
+                walk(value[key], f"{path}.{key}",
+                     use_names and key in TIMESTAMP_FIELDS, use_names)
         elif isinstance(value, list):
             for index, item in enumerate(value):
-                walk(item, f"{path}[{index}]", named)
+                walk(item, f"{path}[{index}]", named, use_names)
 
-    walk(vector.get("expect"), "expect")
+    # The **name** rule runs only where the harness structurally knows what it
+    # is looking at: the rejection's wire response and its receipt, whose
+    # shapes core-model.md §5.2, §5.3 and §6 define and which lint already
+    # validates field by field.
+    #
+    # It does **not** run over `expect.output`, which is operation-defined --
+    # §4.4 says "its shape is the operation's, not this schema's". A predicate
+    # answer may legitimately carry a field called `expires_at` meaning
+    # something else entirely, and rejecting it would keep valid predicate
+    # shapes out of the corpus. Knowing which `expires_at` is §2.2's would mean
+    # knowing the operation, which is protocol knowledge §3 puts outside this
+    # module.
+    #
+    # `output` still gets the **shape** rule, which needs no such knowledge: a
+    # string that is a valid RFC 3339 timestamp in a spelling §2.2 forbids is a
+    # finding wherever it sits. A malformed one inside operation-defined output
+    # is `tools/author_vectors.py`'s to refuse, as a malformed one inside signed
+    # bytes already is.
+    expect = vector.get("expect")
+    walk(expect.get("output") if isinstance(expect, dict) else None,
+         "expect.output", use_names=False)
+    if isinstance(expect, dict):
+        walk(expect.get("rejection"), "expect.rejection")
     return errors
 
 

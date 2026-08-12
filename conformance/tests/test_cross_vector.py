@@ -196,10 +196,34 @@ class WholeResponseTest(unittest.TestCase):
         # §5.3 and §6 name these fields, so this is a citation not a guess.
         sys.path.insert(0, str(CONFORMANCE / "harness"))
         import lint as lint_mod
-        vector = {"expect": {"output": {"issued_at": "2026-1-01T00:00:00Z"}}}
+        vector = {"expect": {"rejection": {"wire": {"receipt": {
+            "decided_at": "2026-1-01T00:00:00Z"}}}}}
         errors = lint_mod.expected_timestamp_errors(vector)
         self.assertEqual(len(errors), 1)
-        self.assertIn("expect.output.issued_at", errors[0])
+        self.assertIn("decided_at", errors[0])
+
+    def test_the_name_rule_does_not_reach_operation_defined_output(self):
+        # §4.4: output's "shape is the operation's, not this schema's". A
+        # predicate answer may carry a field called `expires_at` meaning
+        # something else, and knowing which one is §2.2's would mean knowing
+        # the operation — protocol knowledge §3 puts outside this module.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        for output in ({"expires_at": "never"},
+                       {"menu": [{"expires_at": "2026-01-01T00:00:00Z"}]}):
+            with self.subTest(output=output):
+                self.assertEqual(
+                    lint_mod.expected_timestamp_errors({"expect": {"output": output}}),
+                    [])
+
+    def test_output_still_gets_the_shape_rule(self):
+        # Which needs no such knowledge: a string that is a valid RFC 3339
+        # timestamp in a forbidden spelling is a finding wherever it sits.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        errors = lint_mod.expected_timestamp_errors(
+            {"expect": {"output": {"anything": "2026-01-01t00:00:00z"}}})
+        self.assertEqual(len(errors), 1)
 
     def test_an_ordinary_string_is_not_mistaken_for_a_timestamp(self):
         # The shape test must not reach for strings that merely mention a year.
@@ -218,7 +242,7 @@ class WholeResponseTest(unittest.TestCase):
         for value in (1767225600, None, [], {"seconds": 0}):
             with self.subTest(value=value):
                 errors = lint_mod.expected_timestamp_errors(
-                    {"expect": {"output": {"issued_at": value}}})
+                    {"expect": {"rejection": {"wire": {"expires_at": value}}}})
                 self.assertEqual(len(errors), 1)
                 self.assertIn("which is a string", errors[0])
 

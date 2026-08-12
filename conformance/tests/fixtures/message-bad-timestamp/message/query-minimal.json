@@ -3,9 +3,9 @@
   "section": "message",
   "requirement": [
     "Q2D-C-05",
-    "core-model.md#2.1"
+    "core-model.md#2.2"
   ],
-  "description": "A timestamp in `output` rather than in a receipt. A rule enforced on two named fields is a rule the next section escapes.",
+  "description": "A timestamp in `output`, in a spelling §2.2 forbids. Caught by shape rather than by name, since output's shape is the operation's.",
   "operation": "sign_query",
   "input": {
     "key_id": "test-requester-1",
