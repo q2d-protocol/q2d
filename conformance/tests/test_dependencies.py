@@ -71,6 +71,17 @@ def harness_modules() -> list[Path]:
     return modules
 
 
+def under(path: Path, root: Path) -> bool:
+    """Is `path` inside `root`?
+
+    By path components, not by string prefix: `spec-backup` starts with `spec`
+    and is a different directory, and a check that could not tell them apart
+    would accept the one thing it exists to reject.
+    """
+    resolved = path.resolve()
+    return resolved == root or root in resolved.parents
+
+
 def imported_names(source: str) -> set[str]:
     """Every module a file imports, at any depth.
 
@@ -83,9 +94,16 @@ def imported_names(source: str) -> set[str]:
         if isinstance(node, ast.Import):
             names.update(alias.name.split(".")[0] for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
-            if node.level:
-                # A relative import can only reach a sibling, which is covered
-                # by the sibling rule below.
+            if node.level == 1:
+                # `from . import x` reaches a sibling, which the sibling rule
+                # below covers.
+                continue
+            if node.level > 1:
+                # `from .. import x` reaches *outside* the harness directory,
+                # which is the thing this file exists to forbid. Reported under
+                # a name no resolver will accept, so it fails loudly rather
+                # than being dropped as unrecognised.
+                names.add("." * node.level + (node.module or ""))
                 continue
             if node.module:
                 names.add(node.module.split(".")[0])
@@ -102,7 +120,18 @@ class ImportTest(unittest.TestCase):
                     if name in siblings:
                         continue
 
-                    spec = importlib.util.find_spec(name)
+                    try:
+                        spec = importlib.util.find_spec(name)
+                    except (ImportError, ValueError) as exc:
+                        # A relative import reaching outside the harness, or a
+                        # name no resolver will take. Caught rather than left to
+                        # raise: this file reports on the harness, and a check
+                        # that dies mid-sweep hides every module after the one
+                        # that broke it.
+                        spec = None
+                        self.fail(f"{module.name} imports {name!r}, which does "
+                                  f"not resolve ({exc}). Every import must be "
+                                  f"stdlib or a sibling module (P-001 §9.2)")
                     self.assertIsNotNone(
                         spec, f"{module.name} imports {name!r}, which does not "
                               f"resolve — the harness must run on a bare Python")
@@ -112,7 +141,7 @@ class ImportTest(unittest.TestCase):
 
                     origin = Path(spec.origin).resolve()
                     self.assertTrue(
-                        str(origin).startswith(str(STDLIB)),
+                        under(origin, STDLIB),
                         f"{module.name} imports {name!r} from {origin}, which is "
                         f"outside the standard library. The harness is "
                         f"stdlib-only: a package shared with one implementation "
@@ -131,8 +160,13 @@ class ImportTest(unittest.TestCase):
                               "    try:\n"
                               "        import q2d_core\n"
                               "    except ImportError:\n"
-                              "        from cryptography import x\n")
-        self.assertEqual(names, {"json", "q2d_core", "cryptography"})
+                              "        from cryptography import x\n"
+                              "from .. import bindings\n"
+                              "from . import corpus\n")
+        # `from . import corpus` is a sibling and absent. `from .. import` is
+        # not: it reaches outside the harness directory, and is reported under a
+        # name that resolves to nothing so it fails rather than being dropped.
+        self.assertEqual(names, {"json", "q2d_core", "cryptography", ".."})
         # Deliberately no assertion about whether those modules are installed.
         # A contributor may legitimately have an implementation binding on their
         # machine; what this check forbids is the *harness* importing one, and a
@@ -195,7 +229,16 @@ class PathTest(unittest.TestCase):
             for module_file in harness_modules():
                 if module_file.stem == "__main__":
                     continue
-                module = importlib.import_module(module_file.stem)
+                try:
+                    module = importlib.import_module(module_file.stem)
+                except Exception as exc:
+                    # A module that will not import has a problem the import
+                    # test above names precisely. Reported here rather than
+                    # raised, so this sweep still covers every other module --
+                    # one broken file must not hide the rest.
+                    self.fail(f"{module_file.name} could not be imported "
+                              f"({exc}); see test_every_import_is_stdlib_or_a_"
+                              f"sibling for what it depends on")
                 for name, value in vars(module).items():
                     if not isinstance(value, Path):
                         continue
@@ -207,8 +250,7 @@ class PathTest(unittest.TestCase):
                             # checked on its own line.
                             continue
                         self.assertTrue(
-                            any(str(value.resolve()).startswith(str(root))
-                                for root in allowed),
+                            any(under(value, root) for root in allowed),
                             f"{module_file.name}.{name} is {value}, outside "
                             f"conformance/ and the citable directories "
                             f"({', '.join(lint_module.CITABLE_DIRS)}) — "
