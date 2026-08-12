@@ -241,6 +241,22 @@ class JwsTest(unittest.TestCase):
                                    {"type": "query"})
         self.assertNotEqual(self.signed().split(".")[2], other.split(".")[2])
 
+    def test_a_timestamp_in_the_wrong_spelling_is_refused(self):
+        # The last point a value can be rejected before it becomes bytes
+        # somebody signs. Inside a signed payload it is past the reach of
+        # anything that reads the vector as text — `harness lint` walks the
+        # vector's strings, and a compact serialization is one opaque string
+        # to it.
+        for wrong in ("2026-01-01t00:00:00z", "2026-01-01T00:00:00+00:00",
+                      "2026-01-01T00:00:00.5Z"):
+            with self.subTest(value=wrong):
+                with self.assertRaises(author.ProfileError):
+                    self.signed({"issued_at": wrong})
+
+    def test_the_one_permitted_spelling_serializes(self):
+        self.assertIn(b'"2026-01-01T00:00:00Z"',
+                      author.serialize({"issued_at": "2026-01-01T00:00:00Z"}))
+
     def test_a_float_in_the_payload_is_refused(self):
         with self.assertRaises(author.ProfileError):
             self.signed({"capacity": 1.5})

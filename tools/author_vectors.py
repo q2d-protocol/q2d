@@ -87,6 +87,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -131,6 +132,17 @@ def json_type(value) -> str:
     # object as though it were a mapping. A check must not crash on the input
     # it exists to reject.
     return "unsupported"
+
+
+# core-model.md §2.2's timestamp, and RFC 3339 §5.6's grammar for the spellings
+# it forbids. Written here from the specification text rather than imported
+# from `conformance/harness/lint.py`, which reads the same section: two
+# independent readings is the arrangement this tool exists for, and a
+# disagreement between them is a specification ambiguity found.
+Q2D_TIMESTAMP = re.compile(r"\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\Z")
+RFC3339_ANY = re.compile(
+    r"\A\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?"
+    r"([Zz]|[+-]\d{2}:\d{2})\Z")
 
 
 def sort_key(key: str) -> bytes:
@@ -205,6 +217,16 @@ def _serialize(value) -> str:
         # a JCS-based suite.
         return str(value)
     if kind == "string":
+        # §2.2 permits one spelling of a timestamp, and P-002 §4.2's profile
+        # cites it. Enforced here for the same reason §4.3's float ban is: this
+        # is the last point at which a value can be rejected before it becomes
+        # bytes somebody signs, and inside a signed payload it is past the
+        # reach of anything that reads the vector as text.
+        if RFC3339_ANY.match(value) and not Q2D_TIMESTAMP.match(value):
+            raise ProfileError(
+                f"timestamp {value!r} is valid RFC 3339 but not core-model.md "
+                f"§2.2's spelling — uppercase `T`, uppercase `Z`, second "
+                f"precision, and no other spelling of the instant")
         return escape_string(value)
     if kind == "array":
         return "[" + ",".join(_serialize(item) for item in value) + "]"
