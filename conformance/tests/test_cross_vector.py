@@ -142,6 +142,21 @@ class WholeResponseTest(unittest.TestCase):
         self.assertIn("not RFC 3339 at second precision", output)
         self.assertIn("variable-length", output)
 
+    def test_an_explicit_escalation_is_held_to_its_own_shape(self):
+        # §5.3's explicit escalation is a different response, not a denial with
+        # optional parts: `status: escalate`, `pending_token`, `expires_at`,
+        # and no external_reason, because it is "not denial-normalized and must
+        # never be described as such". Holding it to §5.2's list would reject a
+        # correct vector.
+        code, output = lint(FIXTURES / "denial-explicit-escalation")
+        self.assertEqual(code, 0, output)
+
+    def test_an_explicit_escalation_missing_its_own_fields_is_rejected(self):
+        code, output = lint(FIXTURES / "denial-escalation-incomplete")
+        self.assertEqual(code, 1)
+        self.assertIn("missing expires_at, pending_token", output)
+        self.assertIn("explicit escalation", output)
+
     def test_other_sections_may_assert_a_projection(self):
         # The real corpus is registry/ rejections, which test predicate
         # evaluation rather than response construction.

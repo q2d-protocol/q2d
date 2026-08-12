@@ -173,9 +173,20 @@ def receipt_errors(vector: dict) -> list[str]:
     return errors
 
 
-# core-model.md §5.2's deny response, in full.
+# core-model.md §5.2's deny response, in full. An *opaque* escalation is here
+# too, not in the escalate set below: §5.3 says it "returns the same normalized
+# envelope as §5.2 — including its receipt", and being indistinguishable from a
+# denial is the entire point of it.
 DENY_RESPONSE_FIELDS = frozenset({"status", "external_reason", "receipt",
                                   "signature"})
+
+# §5.3's *explicit* escalation: "returns `status: escalate` with an opaque
+# `pending_token` and `expires_at`", and "carries a receipt: the reduced shape
+# §5.2 defines, with `decision_class: escalate`". It has no external_reason --
+# it is "not denial-normalized and must never be described as such" -- so
+# holding it to §5.2's field list would reject a correct vector.
+EXPLICIT_ESCALATE_FIELDS = frozenset({"status", "pending_token", "expires_at",
+                                      "receipt", "signature"})
 
 
 def denial_section_errors(vector: dict) -> list[str]:
@@ -217,11 +228,18 @@ def denial_section_errors(vector: dict) -> list[str]:
     # Meanwhile the case that actually threatens Q2D-C-08 is covered: an extra
     # field that *differs* between causes is a different wire response, and the
     # denial-uniformity assertion fails the corpus for it.
-    missing = sorted(DENY_RESPONSE_FIELDS - set(wire))
+    # Which whole response depends on which outcome the vector asserts, and
+    # the two are different shapes rather than one with optional parts.
+    escalating = wire.get("status") == "escalate"
+    required = EXPLICIT_ESCALATE_FIELDS if escalating else DENY_RESPONSE_FIELDS
+    where = "§5.3's explicit escalation" if escalating else "§5.2's whole response"
+
+    missing = sorted(required - set(wire))
     if missing:
+        detail = (" A subset compares only fields the normalized class already "
+                  "fixes, so it cannot fail." if not escalating else "")
         return [f"wire: missing {', '.join(missing)} — a denial/ vector asserts "
-                f"core-model.md §5.2's whole response. A subset compares only "
-                f"fields the normalized class already fixes, so it cannot fail"]
+                f"core-model.md {where}.{detail}"]
 
     return wire_value_errors(wire)
 
@@ -262,7 +280,12 @@ def wire_value_errors(wire: dict) -> list[str]:
                       f"denial {DENY_STATUS[0]!r}, §5.3 an explicit escalation "
                       f"{DENY_STATUS[1]!r}, and a rejection asserts one of them")
 
-    errors += nonempty_string("wire.external_reason", wire.get("external_reason"))
+    if status == "escalate":
+        errors += nonempty_string("wire.pending_token", wire.get("pending_token"))
+        errors += nonempty_string("wire.expires_at", wire.get("expires_at"))
+    else:
+        errors += nonempty_string("wire.external_reason",
+                                  wire.get("external_reason"))
     errors += nonempty_string("wire.signature", wire.get("signature"))
 
     receipt = wire.get("receipt")
