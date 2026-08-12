@@ -407,6 +407,14 @@ domain may be coarsened therefore carries a table over every reachable label
 count, not a single value — a registry-format consequence of this rule, not a
 new mechanism.
 
+**An entry that carries a single capacity value admits no coarsening**, because
+there is no authored debit for the smaller label count and a responder may not
+compute one. Such a request is rejected, and it is a registry defect rather than
+a requester error: the entry has not published what a coarsened answer would
+cost. Every `enum` entry in the reference manifest is in that state today, so
+coarsening becomes available one predicate at a time, as each entry gains a
+table.
+
 ## 4. Processing order
 
 Order is a security property, not an implementation detail. It determines what

@@ -1019,10 +1019,11 @@ fifteen values onto three. **Nothing says who supplies that mapping.**
 
 [`core-model.md`](../spec/core-model.md) §3.2's per-shape table is settled for
 every other shape: `scalar` reduces precision, `interval` widens granularity,
-`set` lowers cardinality. Each is checkable by comparing two numbers. `enum` is
+`set` lowers cardinality. Each is checkable by comparing two numbers. `enum` was
 not — "is this label a coarsening of those values?" has no answer without the
-mapping, so §3.2 currently states the conservative rule (an `enum` request must
-equal the registered domain) and this escalation decides whether to widen it.
+mapping, so §3.2 **stated** a conservative rule (an `enum` request must equal
+the registered domain) while this was open. That rule is superseded; the
+resolution below is what §3.2 says now.
 
 ### Concretely
 
@@ -1036,8 +1037,8 @@ equal the registered domain) and this escalation decides whether to widen it.
   answers from two conforming responders, and the disagreement is invisible
   because both are inside their requested domain.
 - **Declared:** the requester states the mapping in the answer contract, the
-  responder validates that it is total and non-expanding, and both
-  implementations check the same thing.
+  responder validates it mechanically, and both implementations check the same
+  thing. This is what was chosen.
 
 [P-012](prds/P-012-requester-runtime.md) §4.5 already records the downstream
 consequence: under inference, a requester cannot check an `enum` result at all,
@@ -1073,6 +1074,13 @@ entry's capacity table exactly as any varying cardinality is
 coarsened carries a table over every reachable label count rather than a single
 value; a count the table does not cover is a registry defect and a blocker
 ([P-008](prds/P-008-capacity-accounting.md) §4), not something to compute.
+
+**So coarsening is available per predicate, not immediately.** Every `enum`
+entry in the reference manifest carries a single capacity value today, and §3.2
+says such an entry admits no coarsening — there is no authored debit for the
+smaller label count, and a responder may not compute one. Adding those tables is
+registry data work, and `registry/manifest.json` semantics is its own escalation
+gate, so it is deliberately not done here.
 
 ### What the interim rule was for
 
