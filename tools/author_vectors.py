@@ -229,7 +229,10 @@ def escape_string(value: str) -> str:
 # and the `receipt` inside it (§6). Nowhere else: `public_context` and a
 # predicate's own structures are operation-defined, and a field called
 # `expires_at` in one may mean anything at all.
-PROTOCOL_SUBOBJECTS = frozenset({"receipt"})
+# `routing` is here as well as `receipt`, because §2.2 covers "the core object,
+# `routing`, and a receipt" -- and `routing` is where the spelling matters most,
+# since §4 step 8 compares its fields against the verified object's.
+PROTOCOL_SUBOBJECTS = frozenset({"receipt", "routing"})
 
 
 def serialize(value) -> bytes:

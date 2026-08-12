@@ -302,6 +302,14 @@ class JwsTest(unittest.TestCase):
         with self.assertRaises(author.ProfileError):
             author.serialize({"receipt": {"decided_at": "never"}})
 
+    def test_routing_timestamps_are_checked(self):
+        # §2.2 covers "the core object, `routing`, and a receipt", and routing
+        # is where the spelling matters most: §4 step 8 compares its fields
+        # against the verified object's.
+        with self.assertRaises(author.ProfileError):
+            author.serialize({"routing": {"expires_at": "soon"}})
+        author.serialize({"routing": {"expires_at": "2026-01-01T00:00:00Z"}})
+
     def test_the_shape_rule_still_reaches_everywhere(self):
         # A wrong spelling is a wrong spelling wherever it sits, and needs no
         # knowledge of what the field means.
