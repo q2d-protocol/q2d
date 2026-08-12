@@ -194,7 +194,7 @@ class WholeResponseTest(unittest.TestCase):
             with self.subTest(fixture=fixture):
                 code, output = lint(FIXTURES / fixture)
                 self.assertEqual(code, 0, output)
-                self.assertIn("receipt timestamps:", output)
+                self.assertIn("response timestamps:", output)
                 self.assertIn("open (P-001 §10)", output)
 
     def test_an_impossible_offset_is_rejected(self):
