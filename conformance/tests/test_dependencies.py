@@ -36,6 +36,7 @@ import importlib
 import importlib.util
 import sys
 import sysconfig
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -110,6 +111,45 @@ def imported_names(source: str) -> set[str]:
     return names
 
 
+def import_problem(name: str, siblings: set[str]) -> str | None:
+    """Why the harness may not import `name`, or None if it may.
+
+    A function rather than assertions inline in a test, so the negative test
+    below can run the same code over a module that *should* be rejected. A
+    negative test that only checks the name extraction would keep passing if
+    this rule were relaxed, which is the failure mode of a check nobody
+    exercises.
+    """
+    if name in siblings:
+        return None
+
+    try:
+        spec = importlib.util.find_spec(name)
+    except (ImportError, ValueError) as exc:
+        # A relative import reaching outside the harness, or a name no resolver
+        # will take. Returned rather than raised: this sweep reports on every
+        # module, and one that dies partway hides the rest.
+        return (f"imports {name!r}, which does not resolve ({exc}). Every "
+                f"import must be stdlib or a sibling module")
+
+    if spec is None:
+        return (f"imports {name!r}, which does not resolve — the harness must "
+                f"run on a bare Python")
+
+    if spec.origin in NOT_A_FILE:
+        return None
+
+    origin = Path(spec.origin).resolve()
+    if "site-packages" in origin.parts:
+        return f"imports {name!r} from site-packages ({origin})"
+    if not under(origin, STDLIB):
+        return (f"imports {name!r} from {origin}, which is outside the standard "
+                f"library. The harness is stdlib-only: a package shared with one "
+                f"implementation and not the other reintroduces the common-mode "
+                f"bug the third language rules out")
+    return None
+
+
 class ImportTest(unittest.TestCase):
     def test_every_import_is_stdlib_or_a_sibling(self):
         siblings = {path.stem for path in harness_modules()}
@@ -117,44 +157,40 @@ class ImportTest(unittest.TestCase):
         for module in harness_modules():
             for name in sorted(imported_names(module.read_text(encoding="utf-8"))):
                 with self.subTest(module=module.name, imports=name):
-                    if name in siblings:
-                        continue
+                    problem = import_problem(name, siblings)
+                    self.assertIsNone(
+                        problem,
+                        f"{module.name} {problem} (P-001 §9, decision 2)")
 
-                    try:
-                        spec = importlib.util.find_spec(name)
-                    except (ImportError, ValueError) as exc:
-                        # A relative import reaching outside the harness, or a
-                        # name no resolver will take. Caught rather than left to
-                        # raise: this file reports on the harness, and a check
-                        # that dies mid-sweep hides every module after the one
-                        # that broke it.
-                        spec = None
-                        self.fail(f"{module.name} imports {name!r}, which does "
-                                  f"not resolve ({exc}). Every import must be "
-                                  f"stdlib or a sibling module (P-001 §9.2)")
-                    self.assertIsNotNone(
-                        spec, f"{module.name} imports {name!r}, which does not "
-                              f"resolve — the harness must run on a bare Python")
+    def test_an_added_dependency_is_rejected(self):
+        # The real rejection path, over a real module outside the standard
+        # library -- written to a temporary directory and put on the path,
+        # which is what installing a binding built from an implementation would
+        # amount to. Asserting only that the *name* was extracted would keep
+        # passing if this rule were later relaxed.
+        with tempfile.TemporaryDirectory(prefix="q2d-dep-") as tmp:
+            (Path(tmp) / "q2d_pretend_binding.py").write_text("", encoding="utf-8")
+            sys.path.insert(0, tmp)
+            importlib.invalidate_caches()
+            try:
+                problem = import_problem("q2d_pretend_binding", set())
+            finally:
+                sys.path.remove(tmp)
+                importlib.invalidate_caches()
 
-                    if spec.origin in NOT_A_FILE:
-                        continue
+        self.assertIsNotNone(problem, "a module outside the standard library "
+                                      "was accepted; the check is not checking")
+        self.assertIn("outside the standard library", problem)
 
-                    origin = Path(spec.origin).resolve()
-                    self.assertTrue(
-                        under(origin, STDLIB),
-                        f"{module.name} imports {name!r} from {origin}, which is "
-                        f"outside the standard library. The harness is "
-                        f"stdlib-only: a package shared with one implementation "
-                        f"and not the other reintroduces the common-mode bug "
-                        f"the third language rules out (P-001 §9.2)")
-                    self.assertNotIn(
-                        "site-packages", origin.parts,
-                        f"{module.name} imports {name!r} from site-packages")
+    def test_a_name_that_resolves_to_nothing_is_rejected(self):
+        problem = import_problem("q2d_core_binding_that_does_not_exist", set())
+        self.assertIsNotNone(problem)
+        self.assertIn("does not resolve", problem)
 
-    def test_the_check_would_notice_an_added_dependency(self):
-        # The check above passes on a harness that imports nothing at all, so
-        # it is worth showing it fails on something. Not a mock: the same
-        # function, over a file that does what a future contributor would do.
+    def test_an_import_is_found_wherever_it_is_written(self):
+        # Extraction, separately from the verdict: an import inside a function
+        # or a `try` block is the same dependency, and is where one would end
+        # up if somebody wanted it to look optional.
         names = imported_names("import json\n"
                               "def f():\n"
                               "    try:\n"
@@ -167,11 +203,6 @@ class ImportTest(unittest.TestCase):
         # not: it reaches outside the harness directory, and is reported under a
         # name that resolves to nothing so it fails rather than being dropped.
         self.assertEqual(names, {"json", "q2d_core", "cryptography", ".."})
-        # Deliberately no assertion about whether those modules are installed.
-        # A contributor may legitimately have an implementation binding on their
-        # machine; what this check forbids is the *harness* importing one, and a
-        # test that also failed on what happens to be installed would be red for
-        # a reason that is nobody's mistake.
 
 
 class PathTest(unittest.TestCase):

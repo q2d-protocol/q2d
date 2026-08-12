@@ -136,7 +136,7 @@ expects, because an internal error is not a passing result.
 
 ## Two properties of the harness worth not losing
 
-**It imports neither implementation** (P-001 §9.2). Sharing code with one would
+**It imports neither implementation** (P-001 §9, decision 2). Sharing code with one would
 let the harness inherit a bug from it: a canonicalization or digest error
 present in both would cancel out and the suite would pass. A third language
 rules out *shared code*, and P-001 issue 15 turns that into a CI check.
