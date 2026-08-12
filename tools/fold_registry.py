@@ -101,11 +101,23 @@ def translate(predicate: dict, vector: dict) -> dict:
         body["expect"] = {
             "outcome": "rejected",
             "rejection": rejection,
-            # `semantic`, not `bytes`: nothing here is a signed artefact, so
-            # the specification requires no determinism over its serialized
-            # form (P-001 §4.4). The values still have to match exactly --
-            # `semantic` is parse-then-deep-equal with no coercion.
-            "comparison": "semantic",
+            # `bytes`, and it is not currently checkable. §4.4 says `bytes`
+            # "where the spec requires determinism", and a normalized denial is
+            # the clearest case in the protocol: Q2D-C-08 holds only when the
+            # external envelope and its size are *identical* for every internal
+            # cause in the class, which is a statement about serialized bytes.
+            # Declaring `semantic` would say the specification requires no
+            # determinism here, which is false, and §4.4 warns that this is
+            # exactly how a determinism requirement gets quietly dropped.
+            #
+            # `harness cross` cannot make that comparison, because a runner
+            # reports `wire` as a parsed object and the bytes are gone before
+            # the harness sees them -- so it reports these five UNCHECKABLE and
+            # fails. That is the intended outcome: P-001 §10 asks whether the
+            # result format should carry the serialization, and until it is
+            # answered the gap belongs in every cross run rather than hidden
+            # behind a mode declaration that understates the requirement.
+            "comparison": "bytes",
         }
     else:
         body["expect"] = {
@@ -113,6 +125,12 @@ def translate(predicate: dict, vector: dict) -> dict:
             # The manifest's own field names, kept. Renaming them here would
             # make the corpus and the registry describe one value two ways,
             # and the registry is the one that governs.
+            #
+            # `semantic` below, unlike the rejections: an evaluation result is
+            # not a signed artefact and no part of the specification requires
+            # determinism over how it is serialized. The values still have to
+            # match exactly -- `semantic` is parse-then-deep-equal with no
+            # coercion.
             "output": {
                 "result": expect["result"],
                 "capacity_debit_millibits": expect["capacity_debit_millibits"],

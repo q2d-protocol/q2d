@@ -39,6 +39,6 @@
       },
       "step": 11
     },
-    "comparison": "semantic"
+    "comparison": "bytes"
   }
 }
