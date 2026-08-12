@@ -1,12 +1,15 @@
 {
-  "id": "denial/uniformity-c/budget-exhausted",
+  "id": "denial/uniformity-c/extra-response-field",
   "section": "denial",
   "requirement": [
-    "Q2D-C-08"
+    "Q2D-C-08",
+    "core-model.md#5.2"
   ],
-  "description": "One cause of a normalized class, stamped at a different instant from the other. Individually valid; the pair is not, because a requester who saw both would have two responses the class says are one.",
-  "operation": "capacity_debit",
-  "input": {},
+  "description": "A denial carrying retry metadata. §5.2 has no field for one — a limiter's natural output is cause-specific by construction, and this is the value it would put there.",
+  "operation": "process_query",
+  "input": {
+    "cause": "budget_exhausted"
+  },
   "expect": {
     "outcome": "rejected",
     "rejection": {
@@ -17,11 +20,12 @@
         "receipt": {
           "request_digest": "sha-256:0000000000000000000000000000000000000000000000000000000000000000",
           "decision_class": "unavailable",
-          "decided_at": "2026-01-01T00:00:41Z",
+          "decided_at": "2026-01-01T00:00:00Z",
           "responder": "did:example:test-custodian-1",
           "signature_suite": "eddsa-jws-2026"
         },
-        "signature": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+        "signature": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+        "retry_after": 40
       }
     },
     "comparison": "bytes"

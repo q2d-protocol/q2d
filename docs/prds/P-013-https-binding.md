@@ -125,10 +125,11 @@ unwrapping anything, and where it lands in an ordinary access log by default.
 Two consequences follow, and both are load-bearing:
 
 - **No `429`, no `503`, and no `Retry-After` on any Q2D outcome.**
-  [P-009](P-009-denial-normalization.md) §4.4 emits no retry metadata precisely
-  because a value computed from a rate limiter is cause-specific by
-  construction. A `Retry-After` header is retry metadata wearing a different
-  hat.
+  [`core-model.md`](../../spec/core-model.md) §5.2's response has no field for
+  retry metadata, precisely because a value computed from a rate limiter is
+  cause-specific by construction. A `Retry-After` header is retry metadata
+  wearing a different hat, and this binding is where it would otherwise get in —
+  the response object cannot carry it, so the transport must not either.
 
   **The rate limiter is inside the exchange, not in front of it.**
   [`core-model.md`](../../spec/core-model.md) §9.1 makes a rate limit required —

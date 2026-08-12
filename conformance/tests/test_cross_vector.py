@@ -125,6 +125,16 @@ class WholeResponseTest(unittest.TestCase):
         self.assertIn("wire: missing receipt, signature", output)
         self.assertIn("cannot fail", output)
 
+    def test_a_denial_carrying_an_extra_field_is_rejected(self):
+        # §5.2 is "exactly four fields, and no others". The fixture uses the
+        # field that would actually appear — a rate limiter's retry value,
+        # which core-model.md §9.1 makes every deployment capable of producing
+        # and which is cause-specific by construction.
+        code, output = lint(FIXTURES / "denial-extra-response-field")
+        self.assertEqual(code, 1)
+        self.assertIn("wire: carries retry_after", output)
+        self.assertIn("vary by cause", output)
+
     def test_the_values_5_2_determines_are_checked_not_only_the_keys(self):
         # Presence alone would accept a vector asserting `status: "answer"` on
         # a rejection, or an empty signature — either then scored against both

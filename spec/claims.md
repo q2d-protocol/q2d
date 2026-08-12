@@ -162,8 +162,11 @@ predicate, failed freshness, and internal escalation onto one external class,
 reducing explicit existence and policy oracles.
 **Holds when.** The external envelope, its size, and its retry semantics are
 identical for every internal cause in the class.
-**Enforced by.** Common external schema; bounded response size; no
-cause-specific retry text; no private values in error strings.
+**Enforced by.** A **closed** external schema — `core-model.md` §5.2's four
+fields and §6's five-field receipt, both of which state that adding a field is a
+specification change — so bounded response size follows from the shape rather
+than from care; no retry metadata, because there is no field for one; no private
+values in error strings.
 **Fails if.** Timing, traffic volume, consent notifications, rate limits, or
 later state changes distinguish causes; a distinct `escalate` response is
 returned inside a class requiring normalization.

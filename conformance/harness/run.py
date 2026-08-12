@@ -135,9 +135,11 @@ def judge(vector, result: dict) -> tuple[bool, str]:
     # And **only where the vector is actually a projection** -- decided by what
     # it asserts, not by which section it sits in. A vector carrying all four
     # of §5.2's fields is asserting the whole response wherever it lives, so a
-    # `retry_after` or a `debug_cause` the runner added is a divergence from
+    # `retry_after` or a `debug_cause` the *runner* added is a divergence from
     # what it asserted, and dropping it would be the cause-specific oracle
-    # Q2D-C-08 exists to catch, discarded by the comparison.
+    # Q2D-C-08 exists to catch, discarded by the comparison. A runner is not
+    # lint-checked -- it is compared -- so this is where a field §5.2 does not
+    # have gets caught coming from an implementation rather than a vector.
     #
     # This subsumes the section rule rather than replacing it: a denial/ vector
     # must assert all four (checked above), so it is always compared exactly.

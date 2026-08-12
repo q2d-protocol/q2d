@@ -462,6 +462,14 @@ applied.
 | `receipt` | §6. |
 | `signature` | Covers all of the above. |
 
+**Exactly these fields, and no others**, with one conditional: `evidence` is
+present where the assurance profile in force carries one and absent where it
+does not. That conditionality is part of the enumeration rather than an
+exception to it — the profile is named in the same response, in
+`assurance.profile`, so the field set is determined by something the recipient
+can already see. Adding a field, or making an existing one conditional on
+anything else, is a specification change.
+
 ### 5.2 deny
 
 | Field | Meaning |
@@ -469,24 +477,51 @@ applied.
 | `status` | `deny` |
 | `external_reason` | The **normalized class**, not the true cause. |
 | `receipt` | The **reduced shape** — §6 is the authoritative field list. |
-| `signature` | |
+| `signature` | Covers all of the above. |
+
+**Exactly four fields, and no others.** Adding one — even an optional one — is a
+specification change, for the reason §6 gives about the receipt this response
+carries: a field present for some causes and absent for others reintroduces the
+distinction normalization removes, and the presence pattern alone is enough to
+partition the class.
+
+The closure is what makes the size requirement below structural rather than
+aspirational. A field set that is not enumerated cannot be size-bounded, and
+uniformity that rests on every implementer's care is not uniformity.
 
 Within a sensitivity class configured for normalization, `external_reason`,
 response size, and retry semantics are identical for absent data, policy
 refusal, budget exhaustion, rate-limit rejection (§9.1), unsupported predicate,
-failed freshness, and internal escalation. **No cause-specific retry guidance.**
-If retry metadata is present, its value is identical across every cause mapped to
-that class — including any value a rate limiter could otherwise supply.
+failed freshness, and internal escalation. **A denial carries no retry metadata,
+from any source, for any cause.** There is no field for it, so a value a rate
+limiter could otherwise supply has nowhere to go — which is stronger than a rule
+requiring such a value to be uniform, and removes what would otherwise be a
+correct-but-fragile path one commit away from partitioning the class.
 
 ### 5.3 escalate
 
 An authorized human or policy authority must decide before release. Two modes,
 and the choice is itself a policy decision.
 
-**Explicit escalation** returns `status: escalate` with an opaque
-`pending_token` and `expires_at`. This reveals that a relationship, record, or
-applicable policy path may exist. Use only where that disclosure is acceptable.
-It is **not** denial-normalized and must never be described as such.
+**Explicit escalation** returns exactly five fields, and no others:
+
+| Field | Meaning |
+|---|---|
+| `status` | `escalate` |
+| `pending_token` | Opaque. Carries no information about the decision pending. |
+| `expires_at` | RFC 3339, second precision. |
+| `receipt` | The **reduced shape** — §6, with `decision_class: escalate`. |
+| `signature` | Covers all of the above. |
+
+It carries **no `external_reason`**: that field names a normalized class, and an
+explicit escalation is **not** denial-normalized and must never be described as
+such. Adding a field here is a specification change, as it is for §5.2 — the
+reasoning is weaker for this shape, since it is not in a normalized class, but
+having one response in §5 that may grow arbitrary fields defeats the enumeration
+for the others by giving a producer somewhere to put them.
+
+This reveals that a relationship, record, or applicable policy path may exist.
+Use only where that disclosure is acceptable.
 
 An explicit escalation **carries a receipt**: the reduced shape §5.2 defines,
 with `decision_class: escalate`. Q2D-C-10 binds every exchange, and an escalated
@@ -494,9 +529,11 @@ exchange that produced no evidence it happened would be an unstated exception to
 it. There is no uniformity cost, because explicit escalation is not in a
 normalized class.
 
-**Opaque escalation** returns the same normalized envelope as §5.2 — **including
-its receipt**, which is the ordinary deny receipt and carries the ordinary deny
-`decision_class`. An opaque escalation must not be distinguishable from any other
+**Opaque escalation** returns the same normalized envelope as §5.2 — the same
+four fields, `status: deny` among them, and **including its receipt**, which is
+the ordinary deny receipt and carries the ordinary deny `decision_class`. It is a
+denial on the wire in every respect, which is the whole of what makes it
+opaque. An opaque escalation must not be distinguishable from any other
 outcome in that class by its receipt any more than by its response. This is the
 boundary to get right: a receipt that recorded `escalate` for an outcome the wire
 made uniform would defeat Q2D-C-08 through the evidence attached to it, in the
@@ -682,9 +719,12 @@ Two requirements come with this, and without them the decision is unsafe:
    whose rate limit is unset does not conform. Not debiting denials while also
    not limiting them is unbounded free probing.
 2. **A rate-limit rejection is normalized**, indistinguishable from every other
-   outcome in its class, and carries no cause-specific retry metadata (§5.2,
-   Q2D-C-08). A distinguishable rate-limit response is the oracle the limit was
-   introduced to prevent; it would move the leak rather than close it.
+   outcome in its class. It carries no retry metadata at all, because §5.2's
+   response has no field for one — which matters most here: a limiter's natural
+   output is a time to wait, that value is cause-specific by construction, and
+   this is the one cause that always has such a value available. A
+   distinguishable rate-limit response is the oracle the limit was introduced to
+   prevent; it would move the leak rather than close it.
 
    A rejection at step 9a precedes registry resolution, so the responder does not
    yet know the predicate's sensitivity class and cannot select a per-class

@@ -353,18 +353,6 @@ def denial_section_errors(vector: dict) -> list[str]:
     if not isinstance(wire, dict):
         return []
 
-    # Missing fields only. An *extra* top-level field is deliberately not
-    # rejected here, and the asymmetry with `receipt_errors` is the
-    # specification's rather than an oversight: §6 closes the receipt's list --
-    # "the authoritative field list", "exactly five fields, and no others" --
-    # and §5.2 says nothing of the kind about the response, while contemplating
-    # a field outside its own table: "if retry metadata is present, its value
-    # is identical across every cause mapped to that class".
-    #
-    # Whether §5.2's list is closed is P-001 §10, raised and not decided.
-    # Meanwhile the case that actually threatens Q2D-C-08 is covered: an extra
-    # field that *differs* between causes is a different wire response, and the
-    # denial-uniformity assertion fails the corpus for it.
     # Which whole response depends on which outcome the vector asserts, and
     # the two are different shapes rather than one with optional parts.
     escalating = wire.get("status") == "escalate"
@@ -377,6 +365,18 @@ def denial_section_errors(vector: dict) -> list[str]:
                   "fixes, so it cannot fail." if not escalating else "")
         return [f"wire: missing {', '.join(missing)} — a denial/ vector asserts "
                 f"core-model.md {where}.{detail}"]
+
+    # An extra field is rejected too, which it was not until §5.2 was closed.
+    # §5.2 is now "exactly four fields, and no others" and §5.3's explicit
+    # escalation exactly five, on the reasoning §6 already gave for the
+    # receipt: a field present for some causes and absent for others
+    # reintroduces the distinction normalization removes, and a field set that
+    # is not enumerated cannot be size-bounded.
+    extra = sorted(set(wire) - required)
+    if extra:
+        return [f"wire: carries {', '.join(extra)} — core-model.md {where} is "
+                f"exactly {len(required)} fields and no others, so a response "
+                f"that can grow one has a field a producer can vary by cause"]
 
     # Values are checked by `wire_value_errors`, which runs for every vector.
     return []
