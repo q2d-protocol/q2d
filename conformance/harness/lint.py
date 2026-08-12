@@ -264,14 +264,22 @@ def valid_timestamp(value: str) -> bool:
     digit placement accepts `2026-99-99T99:99:99Z`, which no implementation
     emits and a vector must not assert.
 
-    Second 60 -- a leap second, which RFC 3339 permits -- is rejected here. A
-    test corpus asserting one would be asserting an instant that depends on
-    when it was authored, and §4.3 puts every varying input in the vector.
+    Second 60 -- a leap second -- is **accepted**, because RFC 3339 permits it
+    and §6 asks for RFC 3339. An earlier version rejected it on the reasoning
+    that a corpus should not assert one; that reasoning may even be right, but
+    narrowing the specification in harness code is not how it would become
+    true. If leap seconds should be excluded, `spec/` says so and this follows.
+    Meanwhile it is a boundary two implementations could genuinely disagree
+    about -- whether a clock library emits `:60`, whether a parser accepts it
+    -- which makes it worth a vector rather than worth banning.
     """
     if not RFC3339_SECOND_Z.match(value):
         return False
+    # strptime has no leap second, so the date is checked with the second
+    # clamped. Everything else about the value is still validated.
+    checkable = value[:17] + "59Z" if value[17:19] == "60" else value
     try:
-        datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+        datetime.strptime(checkable, "%Y-%m-%dT%H:%M:%SZ")
     except ValueError:
         return False
     return True

@@ -165,6 +165,16 @@ class WholeResponseTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("must never be described as such", output)
 
+    def test_a_leap_second_is_accepted(self):
+        # RFC 3339 permits second 60 and §6 asks for RFC 3339. Excluding it
+        # would be narrowing the specification in harness code — and it is a
+        # boundary two implementations could genuinely disagree about, which
+        # makes it worth a vector rather than worth banning.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        self.assertTrue(lint_mod.valid_timestamp("2016-12-31T23:59:60Z"))
+        self.assertFalse(lint_mod.valid_timestamp("2026-02-30T00:00:00Z"))
+
     def test_a_timestamp_with_no_real_instant_behind_it_is_rejected(self):
         # Digit placement is not a date. The shape carries §6's length
         # argument; parsing carries the rest.
