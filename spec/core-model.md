@@ -94,11 +94,11 @@ None of those is permitted here, and the narrowing is not fussiness — it is th
 same reason RFC 3339 exists as a narrowing of ISO 8601. Three things in this
 document depend on one spelling:
 
-- **§4 step 8 compares `routing` against `signed` byte for byte**, and rejects
-  any disagreement as tampering. With two spellings of one instant, a
+- **§4 step 8 compares `routing` against the verified object exactly**, and
+  rejects any difference as tampering. With two spellings of one instant, a
   conforming producer's own message reads as tampered — or a verifier must
-  parse and compare *instants*, which moves parsing of unauthenticated data
-  above the verification line that §2.1 exists to keep it below.
+  compare *instants* rather than values, which means normalizing a projection
+  it has no reason to trust in order to decide whether to trust it.
 - **§6 grounds the reduced receipt's length guarantee** in none of its fields
   being variable-length. `+00:00` is six characters where `Z` is one, so
   `decided_at` is the one field that could otherwise vary, and Q2D-C-08's size
@@ -375,7 +375,7 @@ A conforming responder processes in this order:
 | 5 | Parse the verified core object | Parsing happens *after* verification, so parser behaviour is outside the security boundary. |
 | 6 | Expiry and clock-skew check — authoritative | The signed value governs; step 2 was advisory. |
 | 7 | Delegation verification | Establishes the agent acts for the principal. |
-| 8 | `routing` / `signed` consistency | Compared **byte for byte**, field by field — not as parsed values, which would move parsing of unauthenticated data above step 4. §2.2's single timestamp spelling is what makes that safe. Any disagreement is tampering. Reject; do not reconcile. |
+| 8 | `routing` / `signed` consistency | Each projected field must equal the verified object's **exactly, with no coercion** — same type, same value, and for a string the same characters. No normalizing, no re-parsing a value into another form to decide it matches. §2.2's single timestamp spelling is what makes that decidable for `expires_at`, which would otherwise be two spellings of one instant and a disagreement about whether they disagree. Any difference is tampering. Reject; do not reconcile. |
 | 9 | Replay-cache check | After signature, so unauthenticated traffic cannot pollute the cache. |
 | 9a | **Rate-limit check** (§9.1) | After the replay check, so an idempotent retry returns its cached outcome without consuming rate budget. Before registry resolution, so **every** authenticated request counts identically — see below. |
 | 10 | Registry: predicate known, version known, not revoked, digest pinned | Fails closed on anything unrecognized. |
