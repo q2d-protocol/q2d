@@ -24,8 +24,10 @@ from pathlib import Path
 
 HARNESS = Path(__file__).resolve().parents[1] / "harness"
 
-# Mode, and the issue that owns building it.
-UNBUILT = [("cross", "issue 9")]
+# Every mode P-001 §4.7 lists now exists. The list is kept, empty, because the
+# test below is what turned red each time one was built -- which was the moment
+# to add that mode's expected-state assertion to the suite.
+UNBUILT: list[tuple[str, str]] = []
 
 
 def harness(*args: str) -> subprocess.CompletedProcess:
@@ -35,6 +37,8 @@ def harness(*args: str) -> subprocess.CompletedProcess:
 
 class UnbuiltModeTest(unittest.TestCase):
     def test_unbuilt_modes_fail_loudly(self):
+        if not UNBUILT:
+            self.skipTest("every mode P-001 §4.7 lists is built")
         for mode, issue in UNBUILT:
             with self.subTest(mode=mode):
                 result = harness(mode)
@@ -54,6 +58,11 @@ class BuiltModeTest(unittest.TestCase):
     def test_lint_runs(self):
         result = harness("lint")
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_cross_requires_two_runners(self):
+        result = harness("cross")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--a and --b are both required", result.stderr)
 
     def test_coverage_runs(self):
         result = harness("coverage")

@@ -1,0 +1,19 @@
+#!/usr/bin/env python3
+"""Answers correctly except for one byte of the signature.
+
+Ed25519 signing is deterministic (RFC 8032), so two conforming implementations
+produce the same signature for the same key and message. One byte apart is what
+a canonicalization difference upstream actually looks like by the time it
+reaches the wire, and finding it by eye is what `cross` exists to spare
+somebody.
+"""
+import json, sys
+
+vector = json.loads(open(sys.argv[1]).read())
+if vector["id"] != "message/sign/query-minimal":
+    print(f"no canned answer for {vector['id']}", file=sys.stderr)
+    raise SystemExit(1)
+json.dump({"vector_id": vector["id"], "outcome": "ok",
+           "output": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtcmVxdWVzdGVyLTEifQ.eyJxdWVyeSI6e319.c2lnbmF0dXJlLXBsYWNlaG9sZGVyLW5vdC1hLXJlYWwtc2lnXmF0dXJl",
+           "implementation": {"name": "q2d-divergent", "version": "0.0.0"}},
+          sys.stdout)

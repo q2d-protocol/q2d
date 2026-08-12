@@ -1,0 +1,30 @@
+#!/usr/bin/env python3
+"""Same answers as `answers-correctly`, written in a different key order.
+
+A runner's JSON writer is not Q2D. Two implementations must not be reported as
+divergent for one writing `outcome` before `vector_id`.
+"""
+import json, sys
+
+ANSWERS = {
+    "message/sign/query-minimal": {
+        "outcome": "ok", "output": "eyJhbGciOiJFZERTQSIsImtpZCI6InRlc3QtcmVxdWVzdGVyLTEifQ.eyJxdWVyeSI6e319.c2lnbmF0dXJlLXBsYWNlaG9sZGVyLW5vdC1hLXJlYWwtc2lnbmF0dXJl"},
+    "denial/uniformity-c/unknown-predicate": {
+        "outcome": "rejected",
+        "rejection": {"wire": {"status": "deny", "external_reason": "unavailable"},
+                      "step": 10, "internal_reason": "unknown_predicate"}},
+    "denial/uniformity-c/budget-exhausted": {
+        "outcome": "rejected",
+        "rejection": {"wire": {"status": "deny", "external_reason": "unavailable"},
+                      "step": 15, "internal_reason": "budget_exhausted"}},
+}
+
+vector = json.loads(open(sys.argv[1]).read())
+answer = ANSWERS.get(vector["id"])
+if answer is None:
+    print(f"no canned answer for {vector['id']}", file=sys.stderr)
+    raise SystemExit(1)
+out = {"implementation": {"name": "q2d-other", "version": "0.0.0"}}
+out.update(answer)
+out["vector_id"] = vector["id"]
+json.dump(out, sys.stdout)

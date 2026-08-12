@@ -28,6 +28,14 @@ test fails naming the stale one if you do not.
 python3 conformance/harness lint                    # corpus self-checks
 python3 conformance/harness run --impl PATH         # a corpus against one runner
 python3 conformance/harness coverage                # claims with no citing vector
+python3 conformance/harness cross --a P --b P       # two runners, held to agreeing
+                                                   #   0 never, today: see below
+                                                   #   1 they diverged, or a vector
+                                                   #     could not be compared
+                                                   #   2 nothing ran — bad usage,
+                                                   #     missing runner, bad corpus
+                                                   #   3 they agreed, and §4.8's
+                                                   #     second clause is issue 19
 python3 -m unittest discover -s conformance/tests   # the harness's own tests
 ```
 
@@ -49,28 +57,30 @@ Standard library only, like [`registry/validate.py`](../registry/validate.py).
 
 ## State
 
-**The corpus is empty and part of the harness does not exist yet.** Built so far:
-the vector schema and `lint` (issue 1), the projection (issue 2), the runner
-contract and reference stub (issue 3), comparison (issue 16), and `run`
-(issue 4). `cross` and `coverage` exit non-zero saying which issue owns them — P-001 §7 asks for a harness that
-reports fail because no implementation exists, and a mode that silently
-succeeded would be worse than one that is missing.
+**Every mode exists; the corpus is empty and there is nothing to run it
+against.** Built: the vector schema and `lint` (issue 1), the projection
+(issue 2), the runner contract and reference stub (issue 3), `run` (issue 4),
+the determinism check (issue 5), `coverage` (issue 6), the two cross-vector
+assertions (issues 7 and 8), comparison (issue 16), and `cross` (issue 9).
 
-That has a consequence for CI worth stating before someone hits it. When `run`
-lands it is red by design until Stage 1 does, and a permanently red check trains
-people to ignore red. The rule, which
-[`.github/workflows/checks.yml`](../.github/workflows/checks.yml) carries: when
-those modes exist, assert the expected state — *the harness reports fail-all*,
-*coverage reports thirteen uncovered claims* — rather than running a check that
-fails.
+`cross` is **half of what P-001 §4.8 asks**: it compares what two runners each
+produced, and does not put A's output to B for verification, which is issue 19.
+It says so on every run and exits 3 — not 0 — when the runners agree, so nothing
+can read the clause off its status. (3, not 2: 2 is the status for nothing
+having run at all.) Whether that split is accepted is an open
+question in P-001 §10, awaiting a decision.
 
-**Two expected-state assertions are in CI**, in place of jobs that would be red
-by design: [`tests/test_run.py`](tests/test_run.py) holds the real corpus to *no
-vector passing against the reference stub*, and
-[`tests/test_coverage.py`](tests/test_coverage.py) holds it to *all thirteen
-claims uncovered*. Both are green while true and red the day they stop being.
-`cross`'s waits on `cross`, and [`tests/test_harness_cli.py`](tests/test_harness_cli.py)
-holds it to exiting non-zero until then.
+That has a consequence for CI worth stating before someone hits it. `run` is red
+by design until Stage 1 lands, and a permanently red check trains people to
+ignore red. The rule, which
+[`.github/workflows/checks.yml`](../.github/workflows/checks.yml) carries: assert
+the expected state rather than running a check that fails.
+
+**Three expected-state assertions are in CI**, in place of jobs that would be
+red by design: no vector in the real corpus passes against the reference stub,
+all thirteen claims are uncovered, and the stub against itself compares nothing.
+Each is green while true and red the day it stops being — which is the day
+someone should be adding a real assertion in its place.
 
 ## What a vector looks like
 

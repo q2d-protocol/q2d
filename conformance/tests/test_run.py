@@ -51,7 +51,7 @@ class TheStageZeroGateTest(unittest.TestCase):
 
     def test_an_empty_corpus_proves_nothing_and_says_so(self):
         code, output = run(STUB, FIXTURES / "empty")
-        self.assertEqual(code, 0)
+        self.assertEqual(code, 1)
         self.assertIn("nothing is proven", output)
 
 
@@ -70,7 +70,7 @@ class StageZeroExpectedStateTest(unittest.TestCase):
         code, output = run(STUB, corpus)
         vectors, _ = corpus_module.load(corpus)
         if not vectors:
-            self.assertEqual(code, 0)
+            self.assertEqual(code, 1)
             self.assertIn("nothing is proven", output)
         else:
             self.assertEqual(code, 1, output)
