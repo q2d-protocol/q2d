@@ -284,6 +284,23 @@ class JwsTest(unittest.TestCase):
                 with self.assertRaises(author.ProfileError):
                     self.signed({"issued_at": value})
 
+    def test_the_name_rule_does_not_reach_operation_defined_objects(self):
+        # core-model.md gives those names a timestamp's meaning at the top
+        # level of a core object or response, and inside `receipt`. A
+        # `public_context` field called `expires_at` is the predicate's, and
+        # may mean anything.
+        author.serialize({"public_context": {"expires_at": "never"}})
+        with self.assertRaises(author.ProfileError):
+            author.serialize({"receipt": {"decided_at": "never"}})
+        with self.assertRaises(author.ProfileError):
+            author.serialize({"issued_at": "never"})
+
+    def test_the_shape_rule_still_reaches_everywhere(self):
+        # A wrong spelling is a wrong spelling wherever it sits, and needs no
+        # knowledge of what the field means.
+        with self.assertRaises(author.ProfileError):
+            author.serialize({"public_context": {"a": "2026-01-01t00:00:00z"}})
+
     def test_a_leap_second_serializes(self):
         # RFC 3339 §5.7 permits it and §2.2 does not exclude it.
         self.assertIn(b"2016-12-31T23:59:60Z",

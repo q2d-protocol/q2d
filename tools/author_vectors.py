@@ -224,16 +224,24 @@ def escape_string(value: str) -> str:
     return "".join(out)
 
 
+# Where core-model.md gives those names a timestamp's meaning: the top level of
+# the object being serialized -- a core object (§2.2) or a response (§5.3) --
+# and the `receipt` inside it (§6). Nowhere else: `public_context` and a
+# predicate's own structures are operation-defined, and a field called
+# `expires_at` in one may mean anything at all.
+PROTOCOL_SUBOBJECTS = frozenset({"receipt"})
+
+
 def serialize(value) -> bytes:
     """A value as P-002 §4.2's profile produces it. UTF-8, no BOM.
 
     Returns bytes rather than a string, because the profile is about bytes and
     a caller that wants to sign them must not have to guess an encoding.
     """
-    return _serialize(value).encode("utf-8")
+    return _serialize(value, protocol_level=True).encode("utf-8")
 
 
-def _serialize(value) -> str:
+def _serialize(value, protocol_level: bool = False) -> str:
     kind = json_type(value)
 
     if kind == "float":
@@ -285,7 +293,7 @@ def _serialize(value) -> str:
             # `2026-1-01T00:00:00Z` has no RFC 3339 shape and is still a
             # timestamp field. §2.2, §5.3 and §6 name them, so this is a
             # citation rather than a guess.
-            if key in TIMESTAMP_FIELDS:
+            if protocol_level and key in TIMESTAMP_FIELDS:
                 if not isinstance(value[key], str):
                     raise ProfileError(
                         f"{key} is a timestamp field and "
@@ -296,8 +304,10 @@ def _serialize(value) -> str:
                         f"{key} is a timestamp field and {value[key]!r} is not "
                         f"core-model.md §2.2's timestamp — uppercase `T`, "
                         f"uppercase `Z`, second precision, and a real instant")
-        return "{" + ",".join(f"{escape_string(k)}:{_serialize(value[k])}"
-                              for k in keys) + "}"
+        return "{" + ",".join(
+            f"{escape_string(k)}:"
+            f"{_serialize(value[k], protocol_level=k in PROTOCOL_SUBOBJECTS)}"
+            for k in keys) + "}"
 
     raise ProfileError(
         f"{type(value).__name__} is not a JSON value: {value!r}. The profile "
