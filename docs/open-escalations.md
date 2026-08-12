@@ -18,7 +18,7 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-16 and E-25 are open**, and it does not block decomposition. It
+> **E-25 is the only one open**, and it does not block decomposition. It
 > was found while checking that every PRD is decomposable, was sitting in
 > P-006's open-question table marked *"This PRD"*, and is not a PRD's to decide
 > — it changes `spec/`. It decides *where* the registry schema profile lives
@@ -68,7 +68,7 @@ question is still fresh than after the answer arrives.
 | **E-13** | Should the `answer` response carry the effective answer domain? | P-012 | `core-model.md` §5.1 | **Closed** |
 | **E-14** | Should the requester's response processing order be normative? | P-012 | `core-model.md` | **Closed** |
 | **E-15** | `mvp-scope.md` §1 reads as though MVP completion is Phase 1 completion | P-016 | `mvp-scope.md` §1 | **Closed** |
-| **E-16** | Should the registry's JSON Schema profile be normative in `spec/`? | P-006 | `scope.md` | **Open** |
+| **E-16** | Should the registry's JSON Schema profile be normative in `spec/`? | P-006 | `scope.md` §4.1 (new) | **Closed** |
 | **E-25** | May a policy modifier coarsen an `enum`, and if so where does its mapping live? | E-17's resolution | `core-model.md` §3.2 | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
@@ -940,9 +940,9 @@ completion.
 
 ## E-16 — Should the registry's JSON Schema profile be normative in `spec/`?
 
-**Raised by** [P-006](prds/P-006-request-validation.md) §4.2 ·
+**Closed — A.** Raised by [P-006](prds/P-006-request-validation.md) §4.2 ·
 **Decides** [`scope.md`](../spec/scope.md), or nothing ·
-**Blocks** nothing today; it decides where a rule lives, not what it is
+**Blocked** nothing; it decided where a rule lives, not what it is
 
 ### Context
 
@@ -955,7 +955,7 @@ date-time`. No `$ref`, no `oneOf` / `anyOf` / `allOf` / `not`, no
 
 The restriction exists because two JSON Schema libraries disagree on edge cases,
 and a disagreement here is a cross-implementation divergence in what counts as a
-valid request. It is currently stated **only in a PRD**.
+valid request. It **was** stated only in a PRD.
 
 ### Concretely
 
@@ -1000,6 +1000,39 @@ out-of-profile schema) · `registry/validate.py` enforces it · P-001 corpus
 `domain/schema/` cites the spec identifier rather than the PRD.
 
 ---
+
+### Resolution — A, [`scope.md`](../spec/scope.md) §4.1
+
+§4 is where `spec/` already enumerates what a registry entry carries, and where
+requester-supplied expressions are already out of scope, so a keyword
+restriction sits beside a boundary the document had drawn.
+
+Stated as **principle then list**. A list alone reads as arbitrary, and the next
+person with a predicate needing `patternProperties` would treat it as an
+oversight rather than a decision.
+
+### What moving it found
+
+**`$schema` appears in every entry of the reference manifest and was not in the
+list.** P-006 §4.2 claimed every entry already fitted the profile; strictly it
+did not. §4.1 includes `$schema`, requires it, and pins the dialect — because
+two implementations validating against different JSON Schema dialects is the
+same divergence the profile exists to prevent, one level up.
+
+That is the argument for moving a rule into `spec/` in miniature: the list had
+been read as complete for as long as it lived beside the implementation that
+satisfied it.
+
+### Two options considered and not taken
+
+**Leave it in P-006.** The arrangement E-23 turned out to be: a rule living
+where it does not govern.
+
+**Put it in a registry format document.** There isn't one.
+[`registry/manifest.json`](../registry/manifest.json) is data and
+[`registry/README.md`](../registry/README.md) opens by saying no deployment may
+pin the manifest it describes. Creating a normative format document to hold one
+keyword list is a larger change than the rule warrants.
 
 ## E-17 — Is a coarsening mapping declared by the requester, or inferred?
 
@@ -1223,6 +1256,7 @@ recommended**, and each cascaded before the next was raised. E-21, E-22, E-23 an
 | **E-15** | §1 states that MVP completion is not Phase 1 completion, **naming the three claims** | `mvp-scope.md` §1 · P-016 §4.6 |
 | **C-01** | Minimal timing capability **pulled forward to Stage 7** | P-001 §4.5, §10, issue 18 · P-016 open question 2 |
 | **C-02** | Operation vocabulary settled as one issue before Stage 5, **after** E-06 and E-14, both of which change the list | P-001 §4.5, issue 17 |
+| **E-16** | **Yes — [`scope.md`](../spec/scope.md) §4.1**, stating the principle and then the list, in that order: a list alone reads as arbitrary and invites a later reader to treat it as an oversight. The deciding question was what an implementer building only from `spec/` produces, and under "leave it in the PRD" the answer is a validator that accepts manifests both reference implementations reject. Moving it found that **`$schema` was in every entry and not in the list**, so the PRD's claim that every entry already fitted was not quite true; §4.1 includes and requires it, and pins the dialect | `scope.md` §4.1 (new) · P-006 §4.2 now cites rather than states |
 | **E-17** | **Declared.** The requester carries the mapping in `answer_contract.coarsening`, and the responder validates it against four conditions that are set comparisons and counts — total, onto, non-expanding, a function. **The responder makes no judgement about what a label means**: a mapping a human would call wrong is admissible, because Q2D-C-01 binds the requester to its own commitment and what a responder guarantees is that the answer lies inside the requested domain, not that the question was sensible. Capacity comes from the label count via the entry's capacity table, the mechanism that already exists for varying cardinality | `core-model.md` §2.5, §3.2 · `claims.md` Q2D-C-02 (enforcement description) · P-006 §4.5, §6 · P-012 §4.5, which recorded the degradation this removes |
 | **E-18** | The split is **approved**: P-001 issue 9 is byte agreement between two runners, and B-verifying-A is issue 19. `harness cross` exits **3 rather than 0** when the runners agree, because the exit status is the only part of the report a release gate reads. Not redundant work — byte agreement compares A's *signer* against B's signer and exercises neither verifier, and [`mvp-scope.md`](mvp-scope.md) Stage 1's gate **is** cross-verification | P-001 §4.8, §7, issues 9 and 19 · P-002 §7, P-003 §7, P-012 §7, P-013 §7 (three of which named `harness cross` for work it does not do) |
 | **E-19** | Signed vectors are authored **from the specification text**, by [`tools/author_vectors.py`](../tools/author_vectors.py), written before either implementation exists — a corpus generated from an implementation cannot check that implementation. Three disciplines carry it: never described as independent; a tool/implementation disagreement is a specification ambiguity under investigation; output is committed and thereafter authored data | P-001 §4.9, §10 · `conformance/keys/README.md` · the tool's Ed25519 is gated on RFC 8032 §7.1's published vectors |

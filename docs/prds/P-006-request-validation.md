@@ -43,8 +43,9 @@ Q2D-C-03 and Q2D-C-09 both consume its output.
 
 ## 3. Module boundary
 
-**Inside:** public-context schema validation; the JSON Schema profile the
-registry may use; per-predicate constraint checks; contract narrowing validation;
+**Inside:** public-context schema validation; enforcing
+[`scope.md`](../../spec/scope.md) §4.1's JSON Schema profile — the rule is
+`spec/`'s, the enforcement is this module's; per-predicate constraint checks; contract narrowing validation;
 **implementing** the per-shape narrowing composition
 [`core-model.md`](../../spec/core-model.md) §3.2 defines; assurance-profile
 support check.
@@ -92,34 +93,22 @@ A domain that is genuinely unsatisfiable at either phase fails closed.
 Two JSON Schema libraries can disagree on edge cases, and a disagreement here is
 a cross-implementation divergence in what counts as a valid request.
 
-The registry may therefore use only this profile, and the validator rejects a
-schema using anything outside it:
+**The profile is [`scope.md`](../../spec/scope.md) §4.1's**, and this module
+enforces it: a registry schema using anything outside that subset is rejected.
+The list is there rather than here, and this section cites it rather than
+restating it.
 
-`type` · `required` · `properties` · `additionalProperties: false` · `enum` ·
-`minItems` / `maxItems` · `minLength` / `maxLength` · `minimum` / `maximum` ·
-`format: date-time`
+It was here, and E-16 moved it. The reason is worth keeping: a rejection rule
+about *registry content* stated only in a PRD means a third implementation built
+from `spec/` alone accepts manifests both reference implementations reject —
+neither wrong by the document it was built from, which is the divergence the
+context hierarchy exists to prevent, with the rule one level too low.
 
-No `$ref`, no `oneOf` / `anyOf` / `allOf` / `not`, no `patternProperties`, no
-regular expressions, no remote schema resolution. Every current entry in
-[`registry/manifest.json`](../../registry/manifest.json) already fits.
-
-Restricting the schema language is cheaper than reconciling two implementations
-of all of it, and a predicate needing more expressiveness is a signal the
-predicate is too complicated to review.
-
-**This profile is currently defined here and nowhere in `spec/`, which is a
-problem this PRD cannot fix.** It is a rejection rule about *registry content*, so
-a third implementation built from `spec/` alone would accept manifests both
-reference implementations reject — the divergence the context hierarchy exists to
-prevent, with the rule one level too low. [`open-escalations.md`](../open-escalations.md)
-**E-16** carries it.
-
-It does not block issue 2. The keyword list is settled and every entry in
-[`registry/manifest.json`](../../registry/manifest.json) already satisfies it;
-E-16 decides **where the rule lives**, not what it says, so resolving it moves
-this section's content into `spec/` and leaves §4.2 citing it. What must not
-happen meanwhile is any artifact describing the profile as a Q2D requirement —
-until E-16 resolves it is a property of these two implementations.
+Moving it surfaced one thing the list had missed: **every entry in
+[`registry/manifest.json`](../../registry/manifest.json) uses `$schema`**, which
+the old list did not include, so the claim that every entry already fitted was
+not quite true. §4.1 includes it and requires it, because two implementations
+validating against different dialects is the same divergence one level up.
 
 ### 4.3 Constraints are separate from schemas
 
@@ -304,8 +293,10 @@ and the other does not.
 
 ## 9. Escalate-if-changed decisions
 
-1. **The registry may use only the §4.2 JSON Schema profile.** Widening it
-   reintroduces cross-implementation disagreement about validity.
+1. **The registry may use only [`scope.md`](../../spec/scope.md) §4.1's JSON
+   Schema profile.** Widening it reintroduces cross-implementation disagreement
+   about validity — and widening it is now a `spec/` change, not this module's
+   to make, which is what E-16 moved and why.
 2. **The constraint vocabulary is closed**, and an unknown key is an error rather
    than a no-op.
 3. **`check_narrowing` returns the admissible domain.** A boolean would let a
@@ -329,7 +320,7 @@ and the other does not.
 | # | Issue | Done when |
 |---|---|---|
 | 1 | ~~Escalate §4.4~~ — **done** | Resolved as (A); `core-model.md` §2.5, `terminology.md` §6, `claims.md` Q2D-C-09 amended |
-| 2 | JSON Schema profile validator | Forbidden keywords rejected as registry errors; `domain/schema/` passes |
+| 2 | JSON Schema profile validator, per [`scope.md`](../../spec/scope.md) §4.1 | Forbidden keywords rejected as registry errors; a missing `$schema` likewise; `domain/schema/` passes |
 | 3 | Constraint evaluation, closed vocabulary | `domain/constraints/` passes; unknown key errors |
 | 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape, `enum` included: a declared mapping that is total, whose image equals the requested domain, non-expanding and a function is admitted, and one failing any of the four is rejected. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
 | 5 | `object` recursion in narrowing | Nested invalid narrowing rejects |

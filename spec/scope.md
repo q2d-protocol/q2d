@@ -80,6 +80,39 @@ registry offers. It may request a **coarser form** of a registered domain; it
 may never expand one, and it may never request a strict subset. See
 [`core-model.md`](core-model.md) §2.5 for why subsetting is prohibited.
 
+### 4.1 The schema profile a registry entry may use
+
+An entry's schemas are JSON Schema, and **only this subset of it**:
+
+`$schema` · `type` · `required` · `properties` · `additionalProperties: false` ·
+`enum` · `items` · `minItems` / `maxItems` · `minLength` / `maxLength` ·
+`minimum` / `maximum` · `format: date-time`
+
+`$schema` is required and declares the dialect —
+`https://json-schema.org/draft/2020-12/schema` for 0.1. It is a declaration
+rather than an assertion, and it is in the profile because two implementations
+validating against different dialects is the divergence this profile exists to
+prevent, arrived at one level up.
+
+**Nothing else.** No `$ref`, no `oneOf` / `anyOf` / `allOf` / `not`, no
+`patternProperties`, no regular expressions, no remote schema resolution.
+
+The reason is not economy. **Two JSON Schema libraries disagree on edge cases**,
+and a disagreement here is a disagreement about whether a request is valid at
+all — one responder accepting what another rejects, with neither wrong by the
+library it uses. Restricting the language is cheaper than reconciling two
+implementations of all of it. Remote resolution and unbounded regular
+expressions are refused for a second reason: a `$ref` to a URL is a network
+fetch during validation, and an unbounded expression is a denial-of-service
+surface, both on input that is authenticated by then ([`core-model.md`](core-model.md)
+§4 step 11 follows step 4) but still hostile.
+
+**The list is frozen, and extending it is a change to this document.** A
+predicate whose public context needs `oneOf` is complicated enough that its
+schema is not where the complexity should be resolved — which is the same
+judgement §4 already makes in putting requester-supplied expressions out of
+scope.
+
 The Phase 1 registry is deliberately minimal — a signed manifest distributed
 with the application, whose signing key and digest the custodian pins locally.
 The reference manifest begins with three predicates: `menu_compatible`,
