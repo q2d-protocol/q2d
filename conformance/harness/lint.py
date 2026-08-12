@@ -323,7 +323,15 @@ A numeric offset is **accepted** and separately reported. §6 says "RFC 3339,
     # unconditionally would have blessed `00:00:60Z`, which is not an instant
     # and which one implementation could accept while another rejects: the
     # divergence this check exists to prevent, introduced by the check.
-    year, month, day, hour, minute, second, _ = matched.groups()
+    year, month, day, hour, minute, second, offset = matched.groups()
+
+    if offset != "Z":
+        # The regex matches the offset's *shape*; these are its ranges.
+        # Discarding it and parsing only the local time accepted `+99:99`.
+        offset_hour, offset_minute = int(offset[1:3]), int(offset[4:6])
+        if offset_hour > 23 or offset_minute > 59:
+            return False
+
     if second == "60":
         # RFC 3339 §5.7 puts a leap second at 23:59. Whether *this* one was
         # inserted is not knowable here -- see the docstring.

@@ -175,6 +175,15 @@ class WholeResponseTest(unittest.TestCase):
         self.assertIn("numeric offset rather than 'Z'", output)
         self.assertIn("open question", output)
 
+    def test_an_impossible_offset_is_rejected(self):
+        # The regex matches the offset's shape; these are its ranges. Accepting
+        # the form is a specification question and validating its syntax is not.
+        sys.path.insert(0, str(CONFORMANCE / "harness"))
+        import lint as lint_mod
+        self.assertTrue(lint_mod.valid_timestamp("2026-01-01T00:00:00-05:30"))
+        self.assertFalse(lint_mod.valid_timestamp("2026-01-01T00:00:00+99:99"))
+        self.assertFalse(lint_mod.valid_timestamp("2026-01-01T00:00:00+24:00"))
+
     def test_a_leap_second_is_accepted(self):
         # RFC 3339 permits second 60 and §6 asks for RFC 3339. Excluding it
         # would be narrowing the specification in harness code — and it is a
