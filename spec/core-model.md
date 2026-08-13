@@ -430,11 +430,11 @@ This is not the general claim that every other shape composes cleanly. Two
 each be incomparable, and §3 does not say what those compose to
 ([`open-escalations.md`](../docs/open-escalations.md) E-26). The difference is
 that each of those leaves a responder something **inside both operands** to
-compute — a field set, a range, a granularity coarser than both — even where that
-turns out to be empty, which §3 already fails closed on. Two incomparable `enum`
-mappings leave nothing of the sort: their common coarsening is not empty, so it
-would not fail closed — a responder would return a label set neither party
-declared.
+compute — a field set, a range, a granularity coarser than both. Two incomparable
+`enum` mappings do not: their common coarsening is outside both declared label
+sets, so there is nothing to compute that either party asked for. What E-26
+settles is which candidate wins, and what happens when the operands are disjoint
+and there is none.
 
 **Permitting it later forecloses nothing.** It would accept requests this rule
 rejects, so nothing built against this rule breaks. Nor does a modifier reach a

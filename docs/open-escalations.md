@@ -1269,6 +1269,16 @@ of two numbers is always the smaller. Three narrowings in §3.2 are not:
 In each, neither operand is *the coarser*, and §3 does not say what the responder
 produces.
 
+**A second question rides on it, and the options below have to answer both.** §3
+says composition *"cannot produce an empty domain by narrowing alone"*, which
+holds when each operand narrows the one before it and retains an image. Two
+authorities emitting `{name}` and `{phone}`, or `[0,10]` and `[20,30]`, break
+that: whichever applies second has no image in the first's output. §3 does
+already fail closed on an empty effective domain, so the behaviour is not
+undefined — but the sentence saying narrowing alone cannot reach one is false as
+written once modifiers can be incomparable, and it should be amended by whichever
+option is chosen rather than left standing beside it.
+
 This was found by writing E-25's rationale into §3.2, and it took three passes to
 get right — which is the useful part of the history. The first draft claimed
 every non-`enum` shape narrows by a parameter on an ordered ladder. Corrected to
