@@ -57,6 +57,22 @@ separated by dots, exactly as RFC 7515 §7.1 lays them out — with the core obj
 as an opaque base64url payload. The signature covers the exact transmitted
 bytes. **No canonicalization is involved**, and none is required.
 
+**A query payload is the §2 core object without `signature.value`**, which under
+this suite is not a member of it: the value is the third segment, and an object
+containing the signature over itself is not constructible. Every other field
+[`core-model.md`](core-model.md) §2 lists appears exactly as its **Required**
+column says — the required ones always, the optional ones when the requester
+sends them — and that includes `signature.profile` and `signature.key_id`, which
+are required. §2.7 states the general rule — the model has a
+signature and the suite says where it travels — and this is that rule applied.
+
+**A response payload is not yet settled the same way.** §5.1–§5.3 list a single
+`signature` row where §2.7 lists three fields, and unlike a query there is no
+step comparing a header member against a payload copy — §4's response order has
+none, so asserting the copies exist would imply a check nobody performs. What a
+response payload contains is
+[`open-escalations.md`](../docs/open-escalations.md) **E-32**.
+
 **The compact form, not conformant JWS.** RFC 7515 §4.1.1 makes `alg` a required
 header parameter, and a Q2D header does not carry one — see below for why. So a
 Q2D signed string is not a JWS, standard JOSE tooling will reject it, and that
@@ -104,13 +120,35 @@ alternative:
   a URL, or a query. Treating it as any of those turns an attacker-controlled
   string into a fetch or an injection before anything is authenticated.
 
-Both members are duplicated in the signed payload — `signature.profile` and
-`signature.key_id` — and a verifier confirms both pairs agree after verifying.
+Both members are duplicated in a signed **query** payload — `signature.profile`
+and `signature.key_id` — and a verifier confirms both pairs agree after verifying.
+Whether a response payload carries the same copies, and whether anything compares
+them, is [`open-escalations.md`](../docs/open-escalations.md) **E-32**; the rest
+of this paragraph is about a query.
 The duplication is not redundancy: the header's copies are read *before*
 verification and are therefore untrusted, and the payload's copies are the
 authoritative ones. Comparing them catches a producer that signs a payload
 declaring one thing under a header declaring another, which no verifier would
 otherwise notice.
+
+**That is why the payload's membership is stated above rather than inferred.**
+[`core-model.md`](core-model.md) §2.7 lists `signature.value` because the *model*
+has a signature; where the value travels is a suite's to decide, and this suite
+decides it.
+
+**A verifier does not reattach it.** The object a verifier parses at
+[`core-model.md`](core-model.md) §4 step 5 is the payload as it was signed, so it
+has no `signature.value` member and nothing adds one back from the third segment.
+An implementation that reattached it would report an object no producer
+serialized, and two implementations disagreeing about whether to would fail a
+`verify_query` comparison for a reason neither could point at.
+
+Saying all of this explicitly rather than leaving it to be inferred from the two
+members named here:
+a reader counting three signature fields in §2.7 and two duplicated members here
+can conclude nothing from the difference, which is how this went unnoticed until
+the first payload was serialized ([`open-escalations.md`](../docs/open-escalations.md)
+E-31).
 
 **`alg` is not a member of a Q2D protected header, and `alg: none` is not a
 state one can express.** This is stronger than rejecting it. A header carrying
