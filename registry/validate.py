@@ -190,10 +190,13 @@ def schema_keywords(schema, path):
         yield "<boolean subschema>", path
         return
     for key, value in schema.items():
-        if key == "properties" and isinstance(value, dict):
+        if key == "properties":
             yield key, path
-            for name, sub in value.items():
-                yield from schema_keywords(sub, f"{path}.properties.{name}")
+            # A non-dict here is what the shape check reports; walking into it
+            # would crash the sweep that was about to name it.
+            if isinstance(value, dict):
+                for name, sub in value.items():
+                    yield from schema_keywords(sub, f"{path}.properties.{name}")
         elif key == "items":
             yield key, path
             yield from schema_keywords(value, f"{path}.items")
@@ -268,8 +271,10 @@ def object_schemas(schema, path):
             or (isinstance(declared, list) and "object" in declared)
             or "properties" in schema or "required" in schema):
         yield path, schema
-    for name, sub in (schema.get("properties") or {}).items():
-        yield from object_schemas(sub, f"{path}.properties.{name}")
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for name, sub in properties.items():
+            yield from object_schemas(sub, f"{path}.properties.{name}")
     if "items" in schema:
         yield from object_schemas(schema["items"], f"{path}.items")
 
