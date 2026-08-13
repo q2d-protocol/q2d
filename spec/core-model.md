@@ -425,16 +425,11 @@ policy-side coarsening therefore means specifying when two mappings factor and
 what a responder does when they do not — a larger addition than this gap warrants
 while no deployment has stated which behaviour it needs.
 
-This is not the general claim that every other shape composes cleanly. Two
-`object` field sets, two `scalar` ranges, and two `interval` granularities can
-each be incomparable, and §3 does not say what those compose to
-([`open-escalations.md`](../docs/open-escalations.md) E-26). The difference is
-that each of those leaves a responder something **inside both operands** to
-compute — a field set, a range, a granularity coarser than both. Two incomparable
-`enum` mappings do not: their common coarsening is outside both declared label
-sets, so there is nothing to compute that either party asked for. What E-26
-settles is which candidate wins, and what happens when the operands are disjoint
-and there is none.
+None of that is a claim that the other shapes compose cleanly. Two `object`
+field sets, two `scalar` ranges, and two `interval` granularities can each be
+incomparable too, and §3 does not say what those compose to — an open question
+([`open-escalations.md`](../docs/open-escalations.md) E-26) that this rule
+neither answers nor depends on.
 
 **Permitting it later forecloses nothing.** It would accept requests this rule
 rejects, so nothing built against this rule breaks. Nor does a modifier reach a
