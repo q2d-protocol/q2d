@@ -789,7 +789,7 @@ bytes, so precision here costs nothing and makes the protocol debuggable.
 
 | `external_reason` | Cause | Rejected at |
 |---|---|---|
-| `malformed` | Envelope malformed or oversized | step 1 |
+| `malformed` | Envelope malformed or oversized (step 1); or the **verified** core object malformed, or missing a field §2 requires (step 5) | steps 1 and 5 |
 | `unsupported_version` | Unknown `q2d_version` | step 5 — the authoritative value is inside the signed object, so it cannot be read before verification. `routing` may carry a copy, and §4 step 2 may shed on it, but that is load shedding and never a rejection reason |
 | `unsupported_suite` | Suite unregistered, **or** below the verifier's minimum acceptable policy | step 3 |
 | `routing_mismatch` | `routing` disagrees with the verified object | step 8 |
@@ -809,9 +809,9 @@ request, and so on the wrong side of the line this group is drawn along.
 Distinguishing "key unknown" from "signature invalid" would let a requester probe
 which identities a custodian holds, which is why the three collapse.
 
-**One class — everything from the replay check onward.** From the replay-cache
-check at step **9**, the rate-limit check at **9a**, and registry resolution at
-step 10 onward, the value is the one the responder's **pinned registry** declares
+**One class — everything from the replay check onward.** A replay rejection at
+step **9**, the rate-limit check at **9a**, and registry resolution at step 10
+onward. In each, the value is the one the responder's **pinned registry** declares
 — `denial_normalization` in the reference manifest, whose value is `unavailable`.
 
 It is the registry's and not a resolved entry's, which is what makes it available
@@ -820,8 +820,14 @@ predicate at step 10 never resolves one. All three therefore produce the same
 value as a policy refusal at step 14 — and they must, or reaching any of them
 would reveal how far a request got.
 
-A replay rejection belongs here rather than among the distinct values above, and
-the reason is the cache behind it. A store that cannot accept an entry also
+**Not every step 9 outcome is a rejection.** An identical retry — the same
+`query_id` over the same bytes — replays the stored response verbatim, which is
+what makes a retry idempotent and is why it debits nothing a second time (§7).
+Step 9 rejects the *other* case: a `query_id` or nonce reused over different
+content, which is a replay attempt rather than a retry.
+
+That rejection belongs here rather than among the distinct values above, and the
+reason is the cache behind it. A store that cannot accept an entry also
 rejects, as a Tier C denial — a responder unable to guarantee idempotency must
 not answer. If a *detected* replay were distinct while a *failed* cache was
 normalized, the difference would tell a requester whether the custodian's cache
