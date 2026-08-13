@@ -262,7 +262,7 @@ applies to the harness too.
 
 | Operation | Stage | Purpose |
 |---|---|---|
-| `sign_query` / `sign_response` | 1 | Produce the **`signed` string** — the compact serialization, not the `{signed, routing}` envelope around it. §4.3 makes cross-implementation comparison a *byte* comparison, and a vector cannot assert bytes over an object the harness parses before comparing (§4.4). Assembling the envelope, `routing` included, is the requester runtime's — [P-012](P-012-requester-runtime.md) §4.4 — and `verify_query` takes the whole envelope, since §4 step 8 compares the two halves |
+| `sign_query` / `sign_response` | 1 | Produce the **`signed` string** — the compact serialization, not the `{signed, routing}` envelope around it. §4.3 makes cross-implementation comparison a *byte* comparison, and a vector cannot assert bytes over an object the harness parses before comparing (§4.4). Assembling the envelope is [P-002](P-002-message-envelope.md)'s `build_envelope`, and `routing` is *derived* by its `project_routing` rather than authored. `verify_query` takes the whole envelope, since §4 step 8 compares the two halves |
 | `verify_query` / `verify_response` | 1 | Verify, then report the parsed object |
 | `digest` | 1 | Digest a structure, for receipt binding |
 | `resolve_predicate` | 2 | Registry resolution and pinning |
