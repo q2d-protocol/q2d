@@ -23,6 +23,15 @@ demand.
 
 ## What is here, and what is not
 
+**No vector here cites a claim, and that is deliberate.**
+[`claims.md`](../spec/claims.md) Q2D-C-05 — request binding — is the claim this
+section is closest to, and its own *Verified by* names three vectors:
+`field-tampering`, `routing-mismatch`, `suite-downgrade`. All three are
+rejections, none exists, and none of these is one of them. Citing the claim would
+make `harness coverage` report it as covered while everything that verifies it is
+unbuilt, which is the overstatement `claims.md` exists to prevent. These vectors
+cite the specification sections they exercise instead.
+
 Positive vectors only, and that is a gap rather than a choice.
 [CLAUDE.md](../CLAUDE.md) is explicit that the interesting behaviour of this
 protocol is what it refuses, so a section with no negative vectors is not
@@ -140,7 +149,7 @@ def vectors() -> list[dict]:
         {
             "id": "message/sign/query-minimal",
             "section": "message",
-            "requirement": ["Q2D-C-05", "core-model.md#2.1", "crypto-suites.md#3"],
+            "requirement": ["core-model.md#2.1", "core-model.md#2.7", "crypto-suites.md#3"],
             "description": (
                 "A complete query, signed under `eddsa-jws-2026`. The output is "
                 "the compact serialization itself, which is what a `bytes` "
@@ -154,7 +163,7 @@ def vectors() -> list[dict]:
         {
             "id": "message/verify/query-valid",
             "section": "message",
-            "requirement": ["Q2D-C-05", "core-model.md#4", "crypto-suites.md#3"],
+            "requirement": ["core-model.md#4", "crypto-suites.md#3"],
             "description": (
                 "Verification of that envelope reports the core object as it was "
                 "signed. No `signature.value` is reattached from the third "
@@ -171,7 +180,7 @@ def vectors() -> list[dict]:
         {
             "id": "message/routing/subset",
             "section": "message",
-            "requirement": ["Q2D-C-05", "core-model.md#2.1", "core-model.md#4"],
+            "requirement": ["core-model.md#2.1", "core-model.md#4"],
             "description": (
                 "A routing projection carrying two of the six fields §2.1 permits "
                 "rather than all six. §2.1 requires a strict subset of what "

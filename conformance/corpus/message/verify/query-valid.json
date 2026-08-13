@@ -2,7 +2,6 @@
   "id": "message/verify/query-valid",
   "section": "message",
   "requirement": [
-    "Q2D-C-05",
     "core-model.md#4",
     "crypto-suites.md#3"
   ],

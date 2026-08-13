@@ -2,8 +2,8 @@
   "id": "message/sign/query-minimal",
   "section": "message",
   "requirement": [
-    "Q2D-C-05",
     "core-model.md#2.1",
+    "core-model.md#2.7",
     "crypto-suites.md#3"
   ],
   "description": "A complete query, signed under `eddsa-jws-2026`. The output is the compact serialization itself, which is what a `bytes` comparison is exact over — an object could not be compared that way, since the harness parses before comparing (P-001 §4.4).",

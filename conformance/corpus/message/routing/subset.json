@@ -2,7 +2,6 @@
   "id": "message/routing/subset",
   "section": "message",
   "requirement": [
-    "Q2D-C-05",
     "core-model.md#2.1",
     "core-model.md#4"
   ],
