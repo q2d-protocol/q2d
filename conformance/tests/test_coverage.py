@@ -32,8 +32,12 @@ def coverage(corpus: Path) -> tuple[int, str]:
 
 
 # What the real corpus covers today, and nothing more. Issue 11 folded in
-# `registry/`, which cites these three; every other claim is still uncovered,
-# and stays named in the report for that reason.
+# `registry/`, which cites these three. Issue 12 added `message/` and it cites
+# no claim at all: the claim it sits closest to, Q2D-C-05, names three rejection
+# vectors under *Verified by* and `message/` has none of them yet, so citing it
+# would report a claim as covered while everything verifying it is unbuilt.
+# Every other claim is still uncovered, and stays named in the report for that
+# reason.
 COVERED_TODAY = ("Q2D-C-03", "Q2D-C-08", "Q2D-C-09")
 
 

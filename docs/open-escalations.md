@@ -18,7 +18,16 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** **E-32** closed as A: a response payload carries
+> **E-33 is open**, raised on authoring the first rejection vector: §5.2's
+> `external_reason` names a normalized class, and **no class has an
+> identifier**. P-009 §4.1 gives Tier A as *"distinct errors"* and Tier B as
+> *"one class"* without naming either; the only value in the repository is
+> `unavailable`, which the registry declares for Tier C — so Tier C rejections
+> are authorable and Tier A and B ones are not. It blocks `message/`'s
+> rejections, `suite/` almost entirely, and `ordering/` steps 1 to 9 — but not
+> 9a, which is Tier C despite preceding registry resolution.
+>
+> **E-32** closed as A: a response payload carries
 > `signature.profile` and `signature.key_id` as a query's does, and §4's response
 > order gains step **4a** to compare them against the header — the check existed
 > in one direction only, and the producer it catches is no less able to lie to a
@@ -115,6 +124,7 @@ question is still fresh than after the answer arrives.
 | **E-30** | Should `scope.md` §4.1's profile gain a precision keyword, so a `number` output can be bounded? | E-28's cascade | `scope.md` §4.1 · `terminology.md` §4 | **Closed** |
 | **E-31** | Is `signature.value` a field of the signed core object? | P-001 issue 12 | `core-model.md` §2.7, §5.1–§5.3 · `crypto-suites.md` §3 | **Closed** |
 | **E-32** | What does a signed *response* payload contain? | E-31's cascade | `core-model.md` §5.1–§5.3, §6, §4 response step 4a (new) · `crypto-suites.md` §3 | **Closed** |
+| **E-33** | What are the external denial classes a requester actually receives? | P-001 issue 12 | `core-model.md` §5.2 · P-009 §4.1 · `registry/manifest.json` | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -2286,6 +2296,128 @@ whose two disagree is rejected — one of them is false and a verifier cannot te
 which. Without that sentence, adding `signature.profile` would have put two
 authenticated suite names in one payload with nothing said about the case where
 they differ.
+
+
+---
+
+## E-33 — What are the external denial classes a requester actually receives?
+
+**Raised by** [P-001](prds/P-001-conformance-corpus.md) issue 12, on authoring
+the first rejection vector ·
+**Decides** [`core-model.md`](../spec/core-model.md) §5.2 and
+[P-009](prds/P-009-denial-normalization.md) §4.1 ·
+**Blocks** every rejection whose tier lacks an identifier: `message/`'s three,
+`suite/` almost entirely, `ordering/` steps 1 to 9, and
+[P-009](prds/P-009-denial-normalization.md)'s `denial/tier-a/` and
+`denial/uniformity-b/`. **Tier C is unaffected** — `unavailable` exists, which is
+why `registry/` already has five rejection vectors, `denial/uniformity-c/` is
+authorable, and so are `ordering/` steps 10–15, 11a, and **9a**, which is Tier C
+despite sitting before resolution.
+
+### Context
+
+§5.2's deny response carries `external_reason`, *"the normalized class, not the
+true cause"*. [P-009](prds/P-009-denial-normalization.md) §4.1 sorts every
+rejection into three tiers and says what each reveals externally:
+
+| Tier | Covers | Externally |
+|---|---|---|
+| **A — protocol** | Malformed envelope, unknown `q2d_version`, unacceptable suite, `routing`/`signed` mismatch, expired | **Distinct errors** |
+| **B — authentication** | Unresolvable key, invalid signature, invalid or expired delegation | **One class** |
+| **C — registry resolution onward** | Everything from step 10 | **One class** |
+| **C, reached earlier** | Rate-limit rejection at step **9a**, before resolution — so the sensitivity class is unknown and the deployment's default value is used, which must be the one an unknown predicate produces at step 10 | **Same class** |
+
+**None of those classes has an identifier.** P-009 declares
+`external_class(tier, sensitivity) -> ExternalClass` and never gives
+`ExternalClass` any members. The only value anywhere in the repository is
+`unavailable`, and it exists because
+[`registry/manifest.json`](../registry/manifest.json)'s `denial_normalization`
+block declares it — a Tier C value, supplied by a registry.
+
+So a vector asserting *"a `routing`/`signed` disagreement is rejected"* cannot
+say what the requester receives. `wire` is required on every rejection, and its
+`external_reason` would have to be invented.
+
+### Why the registry cannot supply the missing ones
+
+Tier C's value comes from the registry because Tier C is reached only after
+resolution — by step 10 the responder holds an entry, and the entry's publisher
+is the party with an interest in how precise a denial may be.
+
+Tiers A and B are the opposite. They are rejected at steps 1 to 9, **before** a
+registry entry is resolved: a malformed envelope has not named a predicate a
+verifier could look up, and an unresolvable key is refused at step 4. There is no
+entry to read a class from. §5.2's response still has to carry something.
+
+They are also the tiers a requester most needs to be interoperable, since a Tier
+A error is *about the requester's own bytes* — P-009 says so, arguing that a
+requester learning its envelope was malformed learns nothing about the custodian.
+An identifier that differed per deployment would make that feedback unusable.
+
+### Options
+
+**A. `spec/` enumerates Tiers A and B; the registry keeps Tier C.** A closed list
+in [`core-model.md`](../spec/core-model.md) §5.2 — one identifier per Tier A
+cause, one for Tier B — and Tier C stays what the resolved entry declares.
+
+*For:* puts each class where the party that owns it can state it. Tier A and B
+are protocol-level and reached before any registry is consulted, so only `spec/`
+can define them; Tier C is custodian policy and already works. It makes a Tier A
+error mean the same thing everywhere, which is what P-009's *"describes the
+request"* argument requires to be useful.
+*Against:* a closed enum in `spec/` is a thing to version. Adding a Tier A cause
+later means adding an identifier, and an implementation that does not know it has
+to treat it as an opaque rejection — which needs saying, or the first extension
+breaks interoperability in the direction this option exists to protect.
+
+**B. The registry declares all three tiers.** `denial_normalization` grows from
+one value to a table.
+
+*For:* one mechanism, already exists, and a deployment tunes its whole denial
+surface in one place.
+*Against:* it does not work for the tiers that need it. A Tier A rejection
+happens before an entry is resolved, so there is no entry to read; the manifest
+could carry registry-level defaults, but a requester whose envelope was rejected
+as malformed may not share a registry with the custodian at all — and asking it
+to fetch one to interpret an error is a fetch triggered by an unauthenticated
+failure.
+
+**C. Deployment-defined, with only uniformity normative.** `spec/` requires that
+every cause in a normalized class produce an identical value and says nothing
+about what the value is.
+
+*For:* smallest specification surface, and it is honest about what Q2D-C-08
+actually claims — the claim is about *indistinguishability*, not about
+vocabulary.
+*Against:* two conforming implementations produce different bytes for the same
+rejection, so no cross-implementation vector can assert one. That is exactly the
+divergence the corpus exists to catch, and it would make `message/`, `suite/` and
+most of `ordering/` unassertable permanently rather than temporarily.
+
+### Recommendation — A
+
+C is the one to rule out first, because it reads as conservative and is not: it
+makes a whole class of behaviour untestable across implementations, and Q2D-C-08
+is a claim about what a requester can distinguish — which needs a fixed
+vocabulary to be checkable at all, even though the claim itself is about
+indistinguishability.
+
+B fails on the mechanics rather than on the principle. The tiers that lack
+identifiers are the ones reached before a registry is in hand.
+
+A puts each class with the party that can state it, and the split is not
+arbitrary: it follows exactly the line P-009 already draws between what describes
+the request and what describes the custodian. The versioning cost is real and is
+the thing to get right in the same change — an unknown `external_reason` must be
+treated as an opaque rejection rather than as a malformed response, or the first
+added cause breaks every older requester.
+
+**Where A stops being right:** if a deployment needs to *suppress* a Tier A
+distinction — to answer "malformed" for an expired request, say, because the
+distinction leaks that the custodian is reachable and processing — then a fixed
+enumeration is the wrong shape, and what is wanted is a floor rather than a list.
+Nothing in the threat model asks for that today, and P-009's Tier A argument says
+the opposite, but it is the assumption A rests on and it is worth stating.
 
 
 ---
