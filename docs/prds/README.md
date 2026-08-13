@@ -15,7 +15,9 @@ conservative position it was while the question was open. Writing E-25's reason
 down raised two more. **E-26** is closed and gave `core-model.md` a new **§3.3**:
 two narrowings of one dimension compose to their greatest lower bound — the
 coarser value for a number or duration, the intersection for a range or a field
-set — and to nothing, failing closed, when they are disjoint. **E-27** is open:
+set — with an empty result failing closed where it is a domain no value
+satisfies, and deferring to §2.5 and E-27 where it is an empty field set.
+**E-27** is open:
 §3.2's four conditions admit a coarsening onto a single label,
 [`registry/validate.py`](../../registry/validate.py) rejects one, and §3.2's own
 `boolean` rationale agrees with the validator — a standing disagreement between

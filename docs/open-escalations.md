@@ -25,9 +25,11 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > no answer yet. All sixteen PRDs remain Ready for decomposition.
 >
 > **E-26 closed**, and gave `core-model.md` a new **§3.3**: two narrowings of one
-> dimension compose to their greatest lower bound, and to nothing — failing
-> closed — when they are disjoint. It also corrected §3's claim that narrowing
-> alone cannot reach an empty domain, which two disjoint modifiers disprove.
+> dimension compose to their greatest lower bound. Where that bound is a range no
+> value satisfies, the domain is empty and fails closed — correcting §3's claim
+> that narrowing alone cannot reach an empty domain. Where it is an empty
+> `allowed_detail_fields`, §2.5 already permits that value and §3.3 gives it no
+> second meaning, because it is the same construct **E-27** is deciding.
 >
 > **Two closed after this note was first written, and both changed behaviour an
 > implementer would otherwise get wrong.** E-17 supersedes §3.2's conservative
@@ -1383,7 +1385,8 @@ work from, and the diagnosis has to come from the audit side
 
 **Option C survives as a lint, not as semantics.** Over a statically enumerable
 rule set — which [P-007](prds/P-007-policy-engine.md)'s fixture set is — flagging
-an authority pair that can emit disjoint narrowings is useful operator feedback.
+an authority pair that can compose to an unsatisfiable domain is useful operator
+feedback.
 It is not in §3.3, because it cannot be decided for a real deployment's rules,
 and a check that only works on the fixtures is a development tool rather than a
 protocol rule. Noted here rather than filed: it is worth an issue if P-007's
@@ -1587,7 +1590,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-24** | **A step of its own: 11a**, immediately after step 11's schema validation. They are different mechanisms — step 11 runs a schema the registry supplies, and an entry's other constraints are predicate-specific logic — so folding them into one step would let an implementation satisfy §4 by running a validator and stopping, and leave a vector unable to say which rejected. Lettered as 9a is, so the numbers below do not move. **[P-006](prds/P-006-request-validation.md) already had the distinction**: §4.3 separates constraints from schemas and §5 has `validate_schema` and `check_constraints` as two functions. The specification had one step where that module always had two mechanisms | `core-model.md` §4 (step 11a), §4's invariants · P-006 §2/§4.3 · P-010 §1/§2/§4 · P-001 §4.6, §5 · `conformance/vector.schema.json`'s lettered-step enum · `tools/fold_registry.py` |
 | **E-23** | **One spelling, stated once, for every timestamp in the protocol**: uppercase `T`, uppercase `Z`, second precision. The rule already existed — in P-002 §4.2, which was the only place in the repository saying `Z` while `core-model.md` said only "RFC 3339, second precision". Relocating it to §2.2 gave it the reach it lacked: **P-002's profile covers the signed payload and not `routing`**, and §4 step 8 compares `routing` against `signed`. §4 step 8 is now stated as a **byte** comparison, which one spelling makes safe — the alternative is parsing unauthenticated data above the verification line | `core-model.md` §2.2 (new), §4 step 8, §5.3, §6 · `claims.md` Q2D-C-08 · P-002 §4.2 now cites rather than states · `harness lint` |
 | **E-25** | **A modifier may not coarsen an `enum`**, and the reason is composition rather than the missing field. §3's *take the coarsest* presumes comparable operands; an `enum` is narrowed by an arbitrary function, two coarsenings of one domain need not be comparable, and their common coarsening is strictly coarser than each — a label set neither declared, which condition 2 rejects — where every other shape leaves something inside both operands. Permitting policy-side coarsening therefore needs a factoring rule and a fail-closed path for mappings that do not factor — and no deployment has yet stated which it wants. Widening later breaks nothing built against the rule, and reaches no label count a requester could not: a capacity table is total over the counts it covers. Which counts those are is E-27. | `core-model.md` §3.1, §3.2 · `terminology.md` §6 · `registry/README.md` · P-006 §10 · P-007 §4.4, §10, issue 8 |
-| **E-26** | **The greatest lower bound**, per dimension: the coarser value where the dimension is a number or a duration, and the **intersection** where it is a range or a field set, which are ordered by containment and so need not be comparable. Disjoint operands compose to nothing and fail closed. `enum` cannot arise, which is what keeps the rule total. Raised naming three incomparable shapes; `interval` granularity was not one of them — it is a duration, and durations are ranked. | `core-model.md` §3 and §3.3 (new) · `terminology.md` §6 · P-006 §4.1, §5, §6, issue 6 · P-007 §4.4, §5, §10, issue 4 |
+| **E-26** | **The greatest lower bound**, per dimension: the coarser value where the dimension is a number or a duration, and the **intersection** where it is a range or a field set, which are ordered by containment and so need not be comparable. Where the bound is a range no value satisfies, the domain is empty and fails closed; where it is an empty `allowed_detail_fields`, §2.5 already permits that value and §3.3 gives it no second meaning — it is E-27's construct, not this one's. `enum` cannot arise, which is what keeps the rule total. Raised naming three incomparable shapes; `interval` granularity was not one of them — it is a duration, and durations are ranked. | `core-model.md` §3 and §3.3 (new) · `terminology.md` §6 · P-006 §4.1, §5, §6, issue 6 · P-007 §4.4, §5, §10, issue 4 |
 
 ### What did not change, deliberately
 
