@@ -266,8 +266,9 @@ suite. A registered suite states the answer, and a suite that does not state it
 is under-specified.
 
 For **`eddsa-jws-2026`**, the only suite registered today, it is the compact
-form's third segment and is therefore **not a member of the payload** — a
-payload carrying `signature.value` would be signing itself.
+form's third segment and is therefore **not a member of the core object as that
+suite serializes it** — an object containing the signature over itself is not
+constructible. Every other field in §2 is present.
 [`crypto-suites.md`](crypto-suites.md) §3 says so outright rather than leaving
 it to be inferred from the two members it does list as duplicated.
 

@@ -57,6 +57,13 @@ separated by dots, exactly as RFC 7515 §7.1 lays them out — with the core obj
 as an opaque base64url payload. The signature covers the exact transmitted
 bytes. **No canonicalization is involved**, and none is required.
 
+**The payload is the core object without `signature.value`**, which under this
+suite is not a member of it: the value is the third segment, and an object
+containing the signature over itself is not constructible. Every other field
+[`core-model.md`](core-model.md) §2 lists is present, `signature.profile` and
+`signature.key_id` included. §2.7 states the general rule — the model has a
+signature and the suite says where it travels — and this is that rule applied.
+
 **The compact form, not conformant JWS.** RFC 7515 §4.1.1 makes `alg` a required
 header parameter, and a Q2D header does not carry one — see below for why. So a
 Q2D signed string is not a JWS, standard JOSE tooling will reject it, and that
@@ -112,11 +119,11 @@ authoritative ones. Comparing them catches a producer that signs a payload
 declaring one thing under a header declaring another, which no verifier would
 otherwise notice.
 
-**`signature.value` is not a member of the payload under this suite.** It is the
-compact form's third segment, and a payload carrying it would be signing itself.
-[`core-model.md`](core-model.md) §2.7 lists the field because the *model* has a
-signature; where the value travels is a suite's to decide, and this suite decides
-it here. Stated rather than left to be inferred from the two members named above:
+**That is why the payload's membership is stated above rather than inferred.**
+[`core-model.md`](core-model.md) §2.7 lists `signature.value` because the *model*
+has a signature; where the value travels is a suite's to decide, and this suite
+decides it. Saying so explicitly rather than leaving it to be inferred from the
+two members named here:
 a reader counting three signature fields in §2.7 and two duplicated members here
 can conclude nothing from the difference, which is how this went unnoticed until
 the first payload was serialized ([`open-escalations.md`](../docs/open-escalations.md)
