@@ -403,22 +403,41 @@ that commitment. What the responder guarantees is that the answer it returns is
 inside the domain the requester asked for, not that the requester asked a
 sensible question.
 
-**A policy modifier may not coarsen an `enum` in 0.1.** The rule above is the
-requester's, and it rests on a mapping the requester declares in its answer
-contract. A modifier has no answer contract, so it has nowhere to declare one —
-and the three ways an implementation might fill that gap (reject the modifier,
-infer a mapping, invent a policy-side field) are three different behaviours from
-one specification. A modifier narrowing an `enum` is therefore rejected as an
-implementation error, exactly as a modifier that subsets is, until the question
-is decided. Every other shape's modifier rule is unaffected.
+**A policy modifier may not coarsen an `enum`.** The rule above is the
+requester's, and it rests on a mapping declared in an answer contract. A modifier
+has no answer contract and so has nowhere to declare one; a modifier narrowing an
+`enum` is rejected as an implementation error, exactly as a modifier that subsets
+is. Every other shape's modifier rule is unaffected.
+
+The reason is composition, not the missing field. Every other coarsenable shape
+narrows by a **parameter on an ordered ladder** — reduced precision, coarser
+granularity, lower `maximum_cardinality`, shorter horizon, a smaller field set —
+so §3's *take the coarsest* is defined for any two operands. An `enum` is the one
+shape narrowed by an arbitrary function, and two coarsenings of one domain need
+not be comparable: `[[a,ab],[b,ab],[c,cd],[d,cd]]` and
+`[[a,ac],[c,ac],[b,bd],[d,bd]]` both satisfy the four conditions above and
+neither factors through the other. Composing them yields a third label set
+neither party declared, which fails condition 2 for both. That holds for one
+modifier against one requester's mapping, not only for two modifiers, so
+admitting policy-side coarsening means specifying when two mappings factor and
+what happens when they do not — a larger addition than this gap warrants while
+no deployment has stated which behaviour it needs.
+
+**Permitting it later forecloses nothing and costs no re-authoring.** It would
+accept requests this rule rejects, so nothing built against this rule breaks; and
+an entry that admits coarsening already carries a capacity table over every label
+count a coarsening of either origin could produce, because the table is required
+to be total over that range rather than over the counts one party can reach.
 
 **Capacity comes from the coarsened cardinality**, which is the label set's
 size, looked up in the registry entry's capacity table as any varying
 cardinality is ([`registry/README.md`](../registry/README.md)). A responder
 never computes it, and never takes it from the request. An entry whose `enum`
-domain may be coarsened therefore carries a table over every reachable label
-count, not a single value — a registry-format consequence of this rule, not a
-new mechanism.
+domain may be coarsened therefore carries a table over **every** admissible label
+count, not a single value and not the counts some particular requester is
+expected to ask for — a registry-format consequence of this rule, not a new
+mechanism. [`registry/validate.py`](../registry/validate.py) checks the
+totality; it is what the paragraph above rests on.
 
 **An entry that carries a single capacity value admits no coarsening**, because
 there is no authored debit for the smaller label count and a responder may not

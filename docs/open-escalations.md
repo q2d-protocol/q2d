@@ -18,12 +18,10 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-25 is the only one open**, and it does not block decomposition. It asks
-> whether a policy modifier may coarsen an `enum`, and where its mapping would
-> live — E-17's resolution put the requester's mapping in the answer contract,
-> and a modifier has none. [`core-model.md`](../spec/core-model.md) §3.2 states
-> a conservative rule meanwhile: a modifier narrowing an `enum` is an
-> implementation error. All sixteen PRDs are Ready for decomposition.
+> **Nothing is open.** E-25 was the last, and it is now decided: a policy
+> modifier may not coarsen an `enum`, and §3.2 carries the rule with its reason
+> rather than as a position held pending a decision. All sixteen PRDs are Ready
+> for decomposition.
 >
 > **Two closed after this note was first written, and both changed behaviour an
 > implementer would otherwise get wrong.** E-17 supersedes §3.2's conservative
@@ -71,7 +69,7 @@ question is still fresh than after the answer arrives.
 | **E-14** | Should the requester's response processing order be normative? | P-012 | `core-model.md` | **Closed** |
 | **E-15** | `mvp-scope.md` §1 reads as though MVP completion is Phase 1 completion | P-016 | `mvp-scope.md` §1 | **Closed** |
 | **E-16** | Should the registry's JSON Schema profile be normative in `spec/`? | P-006 | `scope.md` §4.1 (new) | **Closed** |
-| **E-25** | May a policy modifier coarsen an `enum`, and if so where does its mapping live? | E-17's resolution | `core-model.md` §3.2 | **Open** |
+| **E-25** | May a policy modifier coarsen an `enum`, and if so where does its mapping live? | E-17's resolution | `core-model.md` §3.2 | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1145,8 +1143,8 @@ asked.
 
 **Raised by** E-17's resolution ·
 **Decides** [`core-model.md`](../spec/core-model.md) §3.2 ·
-**Blocks** nothing. §3.2 states a conservative rule — a modifier narrowing an
-`enum` is an implementation error — that is conforming today.
+**Decided: B — a modifier may not coarsen an `enum`.** §3.2 now carries it as a
+rule with its reason, not as a position held pending a decision.
 
 ### Context
 
@@ -1184,14 +1182,43 @@ lever it has over an `enum` (deny, escalate, or coarsen a different dimension).
 outright, which is a blunt instrument where a coarsening would have been
 proportionate.
 
-### Recommendation — B for 0.1, with A named as the widening
+### Recommendation — B, with A named as the widening. **Adopted.**
 
-The composition problem is the deciding factor: two authorities coarsening one
-`enum` by different mappings is a case §3's narrowing composition has no answer
-for, and inventing one is a larger change than this gap justifies. B is what
-§3.2 already says, it forecloses nothing, and A remains available when a
-deployment actually needs it — the same shape as E-17's own interim rule, which
-was conforming for as long as it took to ask the question properly.
+The composition problem is the deciding factor, and checking §3.2 before writing
+this up made it sharper than the options above put it.
+
+**Every other coarsenable shape narrows by a parameter on an ordered ladder** —
+reduced precision, coarser granularity, lower `maximum_cardinality`, shorter
+horizon, a smaller field set. That is what makes §3's *take the coarsest* a total
+operation, and what [P-007](prds/P-007-policy-engine.md) §4.4's *coarser of the
+two* rests on without saying so.
+
+**An `enum` is the one shape narrowed by an arbitrary function.** Two coarsenings
+of one domain need not be comparable — `{a,b,c,d}` onto `{ab, cd}` and onto
+`{ac, bd}` are both admissible under §3.2's four conditions and neither factors
+through the other. Composing them yields a third label set neither party
+declared, which fails condition 2 for both. And that bites with **one** modifier
+against one requester's mapping, not only with two modifiers, so A's real content
+is a factoring rule plus a fail-closed path — not a field on `Decision`.
+
+**The asymmetry decides the timing.** B → A accepts requests that are rejected
+now, so nothing built against B breaks; A → B would break everything built on it.
+
+**And waiting costs nothing.** The first version of this brief said entries
+authored under B would publish capacity tables sized for requester-reachable
+label counts, so adopting A later would mean re-authoring them. That was wrong:
+[`registry/validate.py`](../registry/validate.py) requires an entry's capacity
+table to be **total** over the admissible label counts, not over the counts one
+party can reach, so a table authored today already answers a modifier-produced
+count. There is no migration to defer. §3.2's capacity paragraph now says
+*total* rather than *every reachable*, which is what the validator has always
+enforced.
+
+The one thing B genuinely gives up: a policy authority that wants to reduce an
+`enum`'s disclosure must deny or escalate instead, which is blunt where a
+coarsening would have been proportionate. Revisit when a deployment can say what
+it wants to happen to a mapping that does not factor — that answer is the whole
+of A, and guessing it now would be inventing a rule for a case nobody has.
 
 ---
 
@@ -1242,11 +1269,12 @@ question 5.
 ## 3. Resolutions
 
 E-01 … E-15 were decided in one pass and cascaded in the same change; every
-recommendation was adopted. **E-25 is open** and is not in this table.
+recommendation was adopted.
 
 E-18 … E-24 were decided one at a time while P-001's harness and corpus were
 built, each raised with options and a recommendation, each **adopted as
-recommended**, and each cascaded before the next was raised. E-21, E-22, E-23 and E-24 change `spec/`; none was settled in the implementation that raised it.
+recommended**, and each cascaded before the next was raised. E-25 followed them,
+raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 change `spec/`; none was settled in the implementation that raised it.
 
 | ID | Resolution | Landed in |
 |---|---|---|
@@ -1276,6 +1304,7 @@ recommended**, and each cascaded before the next was raised. E-21, E-22, E-23 an
 | **E-22** | **Every §5 response is a closed field list** — §5.1 with `evidence` conditional on the assurance profile named in the same response, §5.2 at four fields, §5.3's explicit escalation at five. Adding one is a specification change, on the reasoning §6 already gave for the receipt. **§5.2's retry permission is dropped**: it permitted a field whose only conforming value was uniform, no conformance class allowed the transport form, and P-009 §4.4 declined to emit any — a permission with no user is a trap | `core-model.md` §5.1, §5.2, §5.3, §9.1 · `claims.md` Q2D-C-08 (enforcement description) · P-009 §4.4, P-013 §4.2 · `harness lint` |
 | **E-24** | **A step of its own: 11a**, immediately after step 11's schema validation. They are different mechanisms — step 11 runs a schema the registry supplies, and an entry's other constraints are predicate-specific logic — so folding them into one step would let an implementation satisfy §4 by running a validator and stopping, and leave a vector unable to say which rejected. Lettered as 9a is, so the numbers below do not move. **[P-006](prds/P-006-request-validation.md) already had the distinction**: §4.3 separates constraints from schemas and §5 has `validate_schema` and `check_constraints` as two functions. The specification had one step where that module always had two mechanisms | `core-model.md` §4 (step 11a), §4's invariants · P-006 §2/§4.3 · P-010 §1/§2/§4 · P-001 §4.6, §5 · `conformance/vector.schema.json`'s lettered-step enum · `tools/fold_registry.py` |
 | **E-23** | **One spelling, stated once, for every timestamp in the protocol**: uppercase `T`, uppercase `Z`, second precision. The rule already existed — in P-002 §4.2, which was the only place in the repository saying `Z` while `core-model.md` said only "RFC 3339, second precision". Relocating it to §2.2 gave it the reach it lacked: **P-002's profile covers the signed payload and not `routing`**, and §4 step 8 compares `routing` against `signed`. §4 step 8 is now stated as a **byte** comparison, which one spelling makes safe — the alternative is parsing unauthenticated data above the verification line | `core-model.md` §2.2 (new), §4 step 8, §5.3, §6 · `claims.md` Q2D-C-08 · P-002 §4.2 now cites rather than states · `harness lint` |
+| **E-25** | **A modifier may not coarsen an `enum`**, and the reason is composition rather than the missing field. Every other coarsenable shape narrows by a parameter on an ordered ladder, so §3's *take the coarsest* is total; an `enum` is the one shape narrowed by an arbitrary function, and two coarsenings of one domain need not be comparable. Permitting policy-side coarsening therefore needs a factoring rule and a fail-closed path for mappings that do not factor — and no deployment has yet stated which it wants. Widening later breaks nothing and re-authors nothing. | `core-model.md` §3.2 · `terminology.md` §7 · P-006 §10 · P-007 §4.4, §10, issue 8 |
 
 ### What did not change, deliberately
 

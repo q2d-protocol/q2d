@@ -3,15 +3,15 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready. **One escalation is open** — **E-25**, raised by E-17's
-resolution — and it does not block decomposition: it decides whether a policy
-modifier may coarsen an `enum`, and
-[`core-model.md`](../../spec/core-model.md) §3.2 states a conservative rule
-meanwhile. Two closed recently and changed what an implementer reads: **E-17**
-puts an `enum` coarsening mapping in the requester's answer contract, superseding
-§3.2's old equality rule, and **E-16** moved the registry's JSON Schema profile
-into [`scope.md`](../../spec/scope.md) §4.1, where an implementation built from
-`spec/` alone will find it. See
+All sixteen are ready and **no escalation is open**. Three closed recently and
+each changed what an implementer reads: **E-17** puts an `enum` coarsening
+mapping in the requester's answer contract, superseding §3.2's old equality rule;
+**E-16** moved the registry's JSON Schema profile into
+[`scope.md`](../../spec/scope.md) §4.1, where an implementation built from
+`spec/` alone will find it; and **E-25** settles that a policy modifier may not
+coarsen an `enum` — a rule in
+[`core-model.md`](../../spec/core-model.md) §3.2 now, rather than the
+conservative position it was while the question was open. See
 [`../open-escalations.md`](../open-escalations.md), which is where every
 escalation is recorded and where a new one goes.
 
