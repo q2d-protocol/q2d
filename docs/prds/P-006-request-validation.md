@@ -210,11 +210,13 @@ are not requirements:
 
 - **`object` recurses**, and the field-level rule must not be skipped because the
   object-level check passed. This is where the per-shape table is easiest to
-  implement wrongly, because the outer check looks complete.
+  implement wrongly, because the outer check looks complete. Its
+  `allowed_detail_fields` is also **non-empty** — an object with no fields is the
+  constant release E-27 refused.
 - **`enum` coarsens by a mapping the requester declares**, in
-  `answer_contract.coarsening`, which this module validates against §3.2's four
-  conditions: total, image exactly equal to the requested domain,
-  non-expanding, and a function. All four are set
+  `answer_contract.coarsening`, which this module validates against §3.2's five
+  conditions: total, image exactly equal to the requested domain, non-expanding,
+  a function, and at least two labels. All five are set
   comparisons and counts — **this module makes no judgement about what a label
   means**. A mapping a human would call wrong is admissible; Q2D-C-01 binds the
   requester to the commitment it made, and what a responder guarantees is that
@@ -258,7 +260,7 @@ validated value is the only one it gets.
 |---|---|
 | `domain/schema/` | Valid context; each profile keyword; a schema using a forbidden keyword rejects |
 | `domain/constraints/` | Slot below floor; horizon beyond limit; both boundaries exact |
-| `domain/narrowing/` | Per shape in §4.5: valid coarsening, attempted expansion, and attempted strict subset — the last two both reject. For `enum`, one vector per §3.2 condition: a mapping that is not total, whose image omits a requested label, whose image carries a label outside the requested domain, that is not non-expanding, and that is not a function |
+| `domain/narrowing/` | Per shape in §4.5: valid coarsening, attempted expansion, and attempted strict subset — the last two both reject. For `enum`, one vector per §3.2 condition: a mapping that is not total, whose image omits a requested label, whose image carries a label outside the requested domain, that is not non-expanding, that is not a function, and **that maps every registered value onto one label** (E-27). For `object`, an empty `allowed_detail_fields` |
 | `domain/compose/` | Admissible from `narrow(registry, requested)`; effective from `narrow(admissible, modifiers)`; two coarsenings of different granularity compose to the coarser rather than to nothing; and one vector for each case [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes — comparable, incomparable, disjoint — per dimension it covers. An unsatisfiable domain at either phase fails closed |
 | `domain/profile/` | Supported profile passes; unsupported rejects without downgrade |
 
