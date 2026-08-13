@@ -456,8 +456,8 @@ exists, which is why it is excluded here rather than composed there.
 rejects, so nothing built against this rule breaks. Nor does a modifier reach a
 label count a requester could not: an entry's capacity table is total over the
 counts it covers rather than sized for one party's expected requests, so it
-answers a modifier-produced count already. Which counts it covers is a separate
-open question — see the capacity paragraph below.
+answers a modifier-produced count already, and which counts it covers is fixed by
+the capacity paragraph below rather than left to an entry's author.
 
 **Capacity comes from the coarsened cardinality**, which is the label set's
 size, looked up in the registry entry's capacity table as any varying
