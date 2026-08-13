@@ -18,10 +18,11 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** E-25 was the last, and it is now decided: a policy
-> modifier may not coarsen an `enum`, and §3.2 carries the rule with its reason
-> rather than as a position held pending a decision. All sixteen PRDs are Ready
-> for decomposition.
+> **E-26 is the only one open.** E-25's cascade raised it: writing down *why*
+> an `enum` cannot be composed required saying what makes the other shapes
+> composable, and `object` turned out not to be. It blocks
+> [P-007](prds/P-007-policy-engine.md) **issue 4** and nothing else — the PRD is
+> still Ready for decomposition, and so are the other fifteen.
 >
 > **Two closed after this note was first written, and both changed behaviour an
 > implementer would otherwise get wrong.** E-17 supersedes §3.2's conservative
@@ -70,6 +71,7 @@ question is still fresh than after the answer arrives.
 | **E-15** | `mvp-scope.md` §1 reads as though MVP completion is Phase 1 completion | P-016 | `mvp-scope.md` §1 | **Closed** |
 | **E-16** | Should the registry's JSON Schema profile be normative in `spec/`? | P-006 | `scope.md` §4.1 (new) | **Closed** |
 | **E-25** | May a policy modifier coarsen an `enum`, and if so where does its mapping live? | E-17's resolution | `core-model.md` §3.2 | **Closed** |
+| **E-26** | What do two incomparable `object` field sets compose to? | E-25's cascade | `core-model.md` §3, §3.2 | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1219,6 +1221,97 @@ The one thing B genuinely gives up: a policy authority that wants to reduce an
 coarsening would have been proportionate. Revisit when a deployment can say what
 it wants to happen to a mapping that does not factor — that answer is the whole
 of A, and guessing it now would be inventing a rule for a case nobody has.
+
+---
+
+## E-26 — What do two incomparable `object` field sets compose to?
+
+**Raised by** E-25's cascade ·
+**Decides** [`core-model.md`](../spec/core-model.md) §3 and §3.2 ·
+**Blocks** [P-007](prds/P-007-policy-engine.md) issue 4 (`compose`). Nothing else.
+
+### Context
+
+§3 computes the effective domain as narrowing composition, *"taking the
+coarsest"*. [P-007](prds/P-007-policy-engine.md) §4.4 applies that to two
+modifiers: *"the result is the coarser of the two"*.
+
+Both presume the two operands are comparable. For `scalar` precision, `interval`
+granularity, `set` cardinality and horizon, they are. For `object` they are not:
+§3.2 narrows an `object` by `allowed_detail_fields` **a subset of registered**,
+and two authorities may choose `{name, email}` and `{email, phone}` — neither is
+a subset of the other, so neither is *the coarser*.
+
+This was found while writing E-25's rationale into §3.2. The first draft claimed
+every non-`enum` shape narrows by a parameter on an ordered ladder, which would
+have made `enum` the only non-total case. It is not true of `object`, and the
+claim was corrected before it landed.
+
+### Why it matters
+
+It is a cross-implementation divergence of exactly the kind
+[`claims.md`](../spec/claims.md) Q2D-C-02 rests on not happening: the effective
+domain is the responder's to compute, and two responders following the same text
+would compute different ones. It is not a security hole — every candidate answer
+below is *narrower* than both operands, so nothing widens — but it is a
+disagreement about what a request resolves to, and the capacity debit follows
+from it.
+
+### Options
+
+**A. Intersect.** `{name, email}` ∩ `{email, phone}` = `{email}`.
+
+*For:* the meet always exists, is narrower than both operands, and contains only
+fields both authorities were willing to release — so it composes to something
+both parties could have asked for, which is the property §3.2 now names as what
+distinguishes the composable shapes from `enum`. Every remaining field is still
+narrowed by its own shape's rule, so §3.2's recursion is unaffected.
+*Against:* the intersection may be empty, which is the unsatisfiable domain §3
+already fails closed on — so a deployment can make requests unsatisfiable by
+adding an authority, and the requester sees a denial rather than anything
+explaining why.
+
+**B. Fail closed on incomparable field sets** — treat it as the unsatisfiable
+contract §3 already handles.
+
+*For:* one rule, no new composition semantics, and it never silently returns a
+domain neither authority chose.
+*Against:* it discards a perfectly good answer. `{email}` is releasable by both
+authorities on their own terms, and refusing it is more restrictive than either
+authority asked to be — which is the opposite of *most-restrictive composition*
+doing its job.
+
+**C. Require comparability** — a deployment whose authorities emit incomparable
+field sets is misconfigured, and the engine refuses at load.
+
+*For:* the divergence cannot occur at runtime, and it surfaces to the operator
+who can actually fix it rather than to a requester who cannot.
+*Against:* undecidable at load in general — whether two rules can emit
+incomparable sets depends on the request. Checkable only for statically
+enumerable rule sets, which the fixture set is and a real deployment's is not.
+
+### Recommendation — A
+
+Intersection is the only option that composes to something both authorities
+would have permitted, and that is the same test §3.2 now uses to explain why
+`enum` cannot be composed: an intersection of field sets contains only fields
+each authority declared, where a composition of `enum` mappings invents labels
+neither did. Making the two shapes answer to one principle is worth more than
+the wording it costs.
+
+B's cost is real and understated by calling it conservative: it turns a
+composable case into a denial, and a policy engine that denies where both
+authorities would have allowed is not being careful, it is being wrong. C solves
+a runtime problem at load time and cannot actually do it.
+
+The empty-intersection case A leaves is not a new hole — §3 already fails closed
+on an empty effective domain, and reaching one by intersection is the same
+outcome by the same route as reaching one any other way.
+
+**Where A stops being right:** if a deployment needs an authority to be able to
+*add* a field another authority excluded, intersection forecloses it. That is
+widening, which §3 prohibits outright, so this is less a limit on A than a
+restatement of what narrowing composition means.
 
 ---
 

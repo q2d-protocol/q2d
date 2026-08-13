@@ -409,19 +409,19 @@ has no answer contract and so has nowhere to declare one; a modifier narrowing a
 `enum` is rejected as an implementation error, exactly as a modifier that subsets
 is. Every other shape's modifier rule is unaffected.
 
-The reason is composition, not the missing field. Every other coarsenable shape
-narrows by a **parameter on an ordered ladder** — reduced precision, coarser
-granularity, lower `maximum_cardinality`, shorter horizon, a smaller field set —
-so §3's *take the coarsest* is defined for any two operands. An `enum` is the one
-shape narrowed by an arbitrary function, and two coarsenings of one domain need
-not be comparable: `[[a,ab],[b,ab],[c,cd],[d,cd]]` and
-`[[a,ac],[c,ac],[b,bd],[d,bd]]` both satisfy the four conditions above and
-neither factors through the other. Composing them yields a third label set
-neither party declared, which fails condition 2 for both. That holds for one
-modifier against one requester's mapping, not only for two modifiers, so
-admitting policy-side coarsening means specifying when two mappings factor and
-what happens when they do not — a larger addition than this gap warrants while
-no deployment has stated which behaviour it needs.
+The reason is composition, not the missing field. For every other coarsenable
+shape, composing two narrowings yields something **both parties could have asked
+for**: a coarser precision, a longer slot, a lower cardinality, a smaller field
+set. An `enum` is the one shape narrowed by an arbitrary function, and two
+coarsenings of one domain need not be comparable —
+`[[a,ab],[b,ab],[c,cd],[d,cd]]` and `[[a,ac],[c,ac],[b,bd],[d,bd]]` both satisfy
+the four conditions above, and neither factors through the other. There is no
+composition of them that stays inside either party's declared label set, so
+whatever a responder produced would fail condition 2 against one of them. That
+holds for one modifier against one requester's mapping, not only for two
+modifiers. Admitting policy-side coarsening therefore means specifying when two
+mappings factor and what a responder does when they do not — a larger addition
+than this gap warrants while no deployment has stated which behaviour it needs.
 
 **Permitting it later forecloses nothing and costs no re-authoring.** It would
 accept requests this rule rejects, so nothing built against this rule breaks; and
