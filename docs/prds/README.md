@@ -3,7 +3,7 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready. **Two escalations are open** — E-27, and **E-28**, which is a claim-honesty item: `object` is bounded by a maximum serialized size that no registry or contract field carries, and `claims.md` Q2D-C-03 claims it is enforced. Four closed recently and
+All sixteen are ready for decomposition, with three issues held by open escalations — see the status column. **Two escalations are open** — E-27, and **E-28**, which is a claim-honesty item: `object` is bounded by a maximum serialized size that no registry or contract field carries, and `claims.md` Q2D-C-03 claims it is enforced. Four closed recently and
 each changed what an implementer reads: **E-17** puts an `enum` coarsening
 mapping in the requester's answer contract, superseding §3.2's old equality rule;
 **E-16** moved the registry's JSON Schema profile into
@@ -37,7 +37,7 @@ escalation is recorded and where a new one goes.
 | [P-007](P-007-policy-engine.md) | Policy engine contract and fail-closed invariants | 3 | **Ready for decomposition** |
 | [P-008](P-008-capacity-accounting.md) | Disclosure-capacity accounting | 3 | **Ready for decomposition** |
 | [P-009](P-009-denial-normalization.md) | Denial normalization | 3 | **Ready for decomposition** |
-| [P-010](P-010-responder-pipeline.md) | Responder pipeline, predicate execution, output validation | 4 | **Ready for decomposition** |
+| [P-010](P-010-responder-pipeline.md) | Responder pipeline, predicate execution, output validation | 4 | **Ready for decomposition** — issue 8's serialized-size check blocked on E-28 |
 | [P-011](P-011-receipts-audit.md) | Receipts and local audit | 4 | **Ready for decomposition** |
 | [P-012](P-012-requester-runtime.md) | Requester runtime | 5 | **Ready for decomposition** |
 | [P-013](P-013-https-binding.md) | Direct HTTPS binding and custodian daemon | 6 | **Ready for decomposition** |

@@ -1538,8 +1538,10 @@ work needs one before this is closed.
 [`core-model.md`](../spec/core-model.md) §2.5 and §3.2, the registry entry
 format, and [`claims.md`](../spec/claims.md) **Q2D-C-03** ·
 **Blocks** the `maximum_cardinality` path of
-[P-006](prds/P-006-request-validation.md) issue 4, and — depending on the answer
-— P-010's output validation for `object`.
+[P-006](prds/P-006-request-validation.md) issue 4, and the serialized-size check
+in [P-010](prds/P-010-responder-pipeline.md) issue 8 — §4.5 lists it as one of
+six things `validate_output` checks, and it is the one with nothing to check
+against.
 
 **This is a claim-honesty item**, which puts it above spec fidelity in
 [CLAUDE.md](../CLAUDE.md)'s order.
