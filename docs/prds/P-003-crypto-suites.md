@@ -92,6 +92,12 @@ avoid reading the header — it is to never let the header *decide*.
    Either mismatch rejects.
 ```
 
+**This procedure is the same for a response.** E-32 settled that §5.1–§5.3's
+payloads carry the same two copies and that
+[`core-model.md`](../../spec/core-model.md) §4's response step **4a** performs
+step 4 above — the producer this catches is no less able to lie to a requester
+than to a responder, and the check had existed in one direction only.
+
 Step 2 is the whole defence. A verifier that verifies with whatever the header
 names has agility in the same sense that an unlocked door has a lock.
 
@@ -247,7 +253,7 @@ in a message. There is no code path that derives it from received data.
 | A header carrying `alg` at all, or any unregistered suite | The first is not a member the format has, so it is rejected as an unexpected member before step 2; the second is rejected *at* step 2. No special case in the code for either, and none may be added |
 | A header whose `key_id` differs from the payload's `signature.key_id` | Rejected at step 4. The signature verifies — the verifier used the header's key — so nothing else would catch it |
 | A suite below the verifier's floor | Rejected, with **no alternative named** in the response |
-| Header suite ≠ payload `signature.profile` | Rejected after verification |
+| Header suite ≠ payload `signature.profile` | Rejected after verification, on a query and on a response alike |
 | Verifying with parameters taken from the header rather than the registry entry | Header-parameter vector verifies when it must not |
 | A withdrawn suite | Verification refuses |
 | Signing under a deprecated suite | Production refuses |
