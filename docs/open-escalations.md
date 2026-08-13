@@ -18,18 +18,20 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-26 and E-27 are open**, both raised by E-25's cascade and neither blocking
-> decomposition. E-27 is a live disagreement between `spec/` and
-> [`registry/validate.py`](../registry/validate.py) rather than a question with
-> no answer yet, so it is the more urgent of the two.
+> **E-26 and E-27 are open**, both raised by E-25's cascade. Neither blocks
+> decomposition; each blocks one issue.
 >
-> E-26: writing down *why*
-> an `enum` cannot be composed required saying what makes the other shapes
+> **E-26** blocks [P-007](prds/P-007-policy-engine.md) issue 4. Writing down
+> *why* an `enum` cannot be composed required saying what makes the other shapes
 > composable, and three of them turned out not to be — `object` field sets,
-> `scalar` ranges, and `interval` granularities can each be incomparable. It
-> blocks
-> [P-007](prds/P-007-policy-engine.md) **issue 4** and nothing else — the PRD is
-> still Ready for decomposition, and so are the other fifteen.
+> `scalar` ranges, and `interval` granularities can each be incomparable.
+>
+> **E-27** blocks [P-006](prds/P-006-request-validation.md) issue 4's `enum`
+> half. It is a live disagreement between `spec/` and
+> [`registry/validate.py`](../registry/validate.py) rather than a question with
+> no answer yet, which makes it the more urgent of the two.
+>
+> All sixteen PRDs remain Ready for decomposition.
 >
 > **Two closed after this note was first written, and both changed behaviour an
 > implementer would otherwise get wrong.** E-17 supersedes §3.2's conservative
@@ -1366,9 +1368,11 @@ for the other two, at the cost of the single principle A otherwise buys.
 **Raised by** E-25's cascade ·
 **Decides** [`core-model.md`](../spec/core-model.md) §3.2 and
 [`registry/validate.py`](../registry/validate.py) ·
-**Blocks** nothing today — no registry entry carries a capacity table — but it is
-a **standing disagreement between two documents**, not merely an undecided
-question, and it silently determines a debit.
+**Blocks** [P-006](prds/P-006-request-validation.md) issue 4's `enum` half —
+`check_narrowing` *is* the condition list, so building it decides whether there
+are four conditions or five. Nothing else waits on it; no registry entry carries
+a capacity table yet. It is a **standing disagreement between documents** rather
+than merely an undecided question, and it silently determines a debit.
 
 ### Context
 
