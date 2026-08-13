@@ -264,7 +264,9 @@ validated value is the only one it gets.
       every `domain/narrowing/` and `domain/compose/` vector.
 - [ ] Composing two coarsenings of different granularity yields the coarser, and
       **not** an empty domain — the failure a set-intersection reading produces.
-- [ ] A schema using a keyword outside the §4.2 profile is rejected **as a
+- [ ] A schema outside [`scope.md`](../../spec/scope.md) §4.1's profile — a
+      keyword it does not list, a nested `$schema`, a boolean subschema, or an
+      object without `additionalProperties: false` — is rejected **as a
       registry error**, distinctly from a request that fails validation against a
       valid schema.
 - [ ] Every current entry in `registry/manifest.json` validates under the profile.
