@@ -18,9 +18,11 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-29 is the only one open**, and it is a one-line question: which release
-> shapes carry `answer_contract.maximum_cardinality`. It blocks that path of
-> [P-006](prds/P-006-request-validation.md) issue 4 and nothing else.
+> **E-29 and E-30 are open**, both small and both from E-28's cascade. **E-29**
+> asks which release shapes carry `answer_contract.maximum_cardinality`, and
+> blocks that path of [P-006](prds/P-006-request-validation.md) issue 4. **E-30**
+> asks whether §4.1's profile can bound a `number` at all — it cannot today, so
+> one is refused, which quietly narrows the `scalar` shape.
 >
 > **E-28 closed as A.** It grew twice on being checked — raised as a one-line
 > omission in §3.2's `object` row, found to be a maximum serialized size no field
@@ -98,6 +100,7 @@ question is still fresh than after the answer arrives.
 | **E-27** | Is a release that cannot vary with the data admissible — a one-label `enum`, an empty field set? | E-25's cascade | `core-model.md` §2.5, §3.2 (condition 5), §3.3 | **Closed** |
 | **E-28** | What bounds an `object`, and what is the registry's `output_schema` for? | E-26's cascade | `terminology.md` §3, §4 · `core-model.md` §4 step 17 · `scope.md` §4.1 · `claims.md` Q2D-C-03 | **Closed** |
 | **E-29** | Which release shapes carry `answer_contract.maximum_cardinality`? | E-28's cascade | `core-model.md` §2.5 · `terminology.md` §4 | **Open** |
+| **E-30** | Should `scope.md` §4.1's profile gain a precision keyword, so a `number` output can be bounded? | E-28's cascade | `scope.md` §4.1 · `terminology.md` §4 | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1823,6 +1826,102 @@ be made deliberately if `set` narrowing is ever revisited, not folded in here.
 *multiple* answers in one response — a genuinely different exchange from the one
 §1 describes — then B's reading is the useful one and A will have thrown away
 the field's real purpose. Nothing in the current scope wants that.
+
+
+---
+
+## E-30 — Can a `number` output be bounded, and should §4.1's profile gain a precision keyword?
+
+**Raised by** E-28's cascade ·
+**Decides** [`scope.md`](../spec/scope.md) §4.1 ·
+**Blocks** nothing today — no registry entry releases a `number` — but it
+narrows what a predicate can answer, and the narrowing is currently implicit in
+a validator rule.
+
+### Context
+
+E-28 made an entry's `output_schema` the bound on a released value's serialized
+length. Every JSON type has something in §4.1's profile that bounds it, except
+one.
+
+`minimum` and `maximum` bound an **integer**: a range of `0 … 7` admits one
+digit. They do not bound a **number**. `0.0 … 1.0` admits
+`0.333333333333333333333333333…` to any length a producer cares to write, and
+§4.1's profile has no `multipleOf`, no `precision`, and no other keyword that
+constrains a decimal expansion.
+
+So §4.1 as it stands cannot express a bounded `number`, and
+`registry/validate.py` refuses one — the fail-closed reading, which keeps
+[`claims.md`](../spec/claims.md) Q2D-C-03 true.
+
+**That is a real narrowing.** [`terminology.md`](../spec/terminology.md) §4
+defines the `scalar` shape as *"a bounded integer or **number** at registered
+precision"*. A predicate returning a non-integer is contemplated by the shape
+vocabulary and cannot presently declare a conforming output schema. The reference
+manifest has none, so nothing is broken today.
+
+Note also that *registered precision* already appears in two places —
+`answer_contract.precision` (§2.5) and the shape definition — neither of which is
+the output schema. Whether precision belongs in the schema, in the domain, or in
+both is part of this question.
+
+### Options
+
+**A. Add `multipleOf` to §4.1's profile.** A `number` is bounded when it carries
+`minimum`, `maximum` and `multipleOf`.
+
+*For:* standard JSON Schema, already understood by every library, and it
+expresses exactly the missing constraint — `multipleOf: 0.01` bounds the decimal
+expansion as surely as `maximum` bounds the integer part. Smallest change that
+makes the `scalar` shape usable.
+*Against:* `multipleOf` on floating-point values is the one JSON Schema keyword
+with known cross-library disagreement, which is precisely what §4.1's frozen
+profile exists to avoid. `0.1` is not representable in binary floating point, so
+two validators can disagree about whether `0.3` is a multiple of `0.1`.
+
+**B. Refuse `number` permanently.** An output schema releases `integer` or a
+string; a predicate wanting a decimal registers a scaled integer — tenths,
+basis points — and says so in its question text.
+
+*For:* no new keyword, no floating-point comparison anywhere in validation, and
+it is consistent with §3.1's refusal to compute `log2` at runtime for the same
+class of reason. A scaled integer is exact, and the scale is documentation.
+*Against:* pushes a modelling decision onto every entry author and makes the
+`scalar` shape's *"or number"* false. Terminology §4 would need amending.
+
+**C. Add a Q2D-specific `precision` keyword**, as a count of decimal places.
+
+*For:* avoids `multipleOf`'s floating-point comparison — a digit count is an
+integer and two implementations cannot disagree about it. Matches the
+`answer_contract.precision` term that already exists.
+*Against:* a keyword outside JSON Schema in a document whose whole point is that
+an entry's schemas are JSON Schema. A validator would have to special-case it,
+and a generic tool would ignore it silently — which is worse than rejecting.
+
+### Recommendation — B, with A named as the widening
+
+The profile exists because two JSON Schema libraries disagreeing is a
+disagreement about whether a request is valid at all, and `multipleOf` on
+decimals is the clearest instance of that in the whole vocabulary. Adopting A to
+bound a value would import the exact failure mode §4.1 was written to exclude.
+
+A scaled integer is exact, needs no new keyword, and costs an entry author one
+line of question text. It is the same trade §3.1 already makes in carrying
+capacity as integer millibits rather than computing `log2` — and that precedent
+is strong, because it was made for the same reason and has held.
+
+C is the honest middle and I would take it over A, but a non-JSON-Schema keyword
+in a JSON Schema document is a cost that outlasts the problem.
+
+**Where B stops being right:** a predicate whose answer is irreducibly a
+measurement — a temperature, a concentration — where a scaled integer is a
+misrepresentation rather than an encoding. None of the three reference predicates
+is like that, and the question is worth revisiting when one is, rather than
+guessing now what scale it would need.
+
+**Whichever is chosen, terminology §4's `scalar` definition is amended in the
+same change** — under B it says integer, under A or C it keeps *or number* and
+gains the constraint that makes it true.
 
 
 ---

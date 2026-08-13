@@ -306,7 +306,8 @@ def admits(schema, json_type):
 BOUNDED_BY = {
     "string": ("maxLength",),        # or `format: date-time`, handled below
     "integer": ("minimum", "maximum"),
-    "number": ("minimum", "maximum"),
+    # `number` is absent on purpose, and handled below: a range does not bound
+    # a decimal expansion, and §4.1's profile has no `multipleOf`. See E-30.
     "array": ("maxItems", "items"),  # count *and* element schema
     "boolean": (),                   # two values
     "null": (),                      # one value
@@ -344,6 +345,16 @@ def unbounded_release(schema, path):
     else:
         declared = schema["type"]
         for json_type in (declared if isinstance(declared, list) else [declared]):
+            if json_type == "number":
+                # scope.md §4.1: `minimum`/`maximum` bound an integer's digits
+                # and not a decimal expansion -- 0.0 to 1.0 still admits
+                # arbitrarily many -- and the profile carries no precision
+                # keyword. Refused rather than accepted on a range that does
+                # not bound what this rule is about. E-30 decides whether the
+                # profile gains one.
+                yield (f"{path}: number, which §4.1's profile cannot bound "
+                       f"(no precision keyword) — use `integer` or an `enum`")
+                continue
             required = BOUNDED_BY.get(json_type)
             if required is None:
                 # A type outside JSON's seven is not something §4.1's profile
