@@ -3,7 +3,7 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready for decomposition, with one issue held by an open escalation — see the status column. **Two escalations are open**, both small and both from E-28's cascade. **E-29**: which release shapes carry `answer_contract.maximum_cardinality`, where §2.5, terminology §4 and the deposited report each imply something different. **E-30**: `scope.md` §4.1's profile cannot bound a `number` — a range does not bound a decimal expansion — so one is refused in an output schema, which narrows the `scalar` shape terminology §4 defines as *"integer or number"*. Neither blocks decomposition beyond the issue named below.
+All sixteen are ready for decomposition, and no issue is held by an open escalation. **One escalation is open**: **E-30** — `scope.md` §4.1's profile cannot bound a `number`, since a range does not bound a decimal expansion, so one is refused in an output schema. That narrows the `scalar` shape terminology §4 defines as *"integer or number"*. It blocks no issue.
 
 **Five closed recently**, and
 
@@ -35,7 +35,7 @@ escalation is recorded and where a new one goes.
 | [P-003](P-003-crypto-suites.md) | Cryptographic suites, key handling, downgrade policy | 1 | **Ready for decomposition** |
 | [P-004](P-004-replay-idempotency.md) | Replay, expiry, idempotency | 1 | **Ready for decomposition** |
 | [P-005](P-005-registry-client.md) | Registry client: pinning, resolution, fail-closed | 2 | **Ready for decomposition** |
-| [P-006](P-006-request-validation.md) | Request validation and effective answer domain | 2 | **Ready for decomposition** — issue 4 blocked for a contract carrying `maximum_cardinality` (E-29) |
+| [P-006](P-006-request-validation.md) | Request validation and effective answer domain | 2 | **Ready for decomposition** |
 | [P-007](P-007-policy-engine.md) | Policy engine contract and fail-closed invariants | 3 | **Ready for decomposition** |
 | [P-008](P-008-capacity-accounting.md) | Disclosure-capacity accounting | 3 | **Ready for decomposition** |
 | [P-009](P-009-denial-normalization.md) | Denial normalization | 3 | **Ready for decomposition** |

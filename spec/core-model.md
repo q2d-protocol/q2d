@@ -193,7 +193,7 @@ The requester's pre-evaluation commitment (Q2D-C-01).
 |---|---|---|
 | `answer_contract.release_shape` | yes | One of the eight identifiers in [`terminology.md`](terminology.md) §4. |
 | `answer_contract.domain` | yes | The requested domain, or a reference to the registry-defined one. |
-| `answer_contract.maximum_cardinality` | shape-dependent | For `set` and `object`. |
+| `answer_contract.maximum_cardinality` | shape-dependent | For `set` only. The **domain's** size, not a count of results — §1 admits one response, so a result count could carry no information. Other shapes narrow cardinality through their own dimension: a computed domain's cap is the registry's (`answer_domain.maximum_cardinality`, a different field), and an `interval` narrows by granularity and horizon. |
 | `answer_contract.allowed_detail_fields` | yes | May be empty — for every shape but `object`, which has detail fields and must name at least one (§3.2). Never unconstrained: every disclosed field is part of the contract and the capacity calculation. |
 | `answer_contract.precision` | shape-dependent | Granularity for `scalar` and `interval`. |
 | `answer_contract.coarsening` | shape-dependent | Required for an `enum` request whose domain is coarser than the registered one; prohibited otherwise. The mapping, §3.2. |
