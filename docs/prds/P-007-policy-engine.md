@@ -172,10 +172,10 @@ take effect, and the result is the coarser of the two.
 
 *The coarser of the two* presumes the two are comparable.
 [`core-model.md`](../../spec/core-model.md) §3.2 excludes `enum` from modifier
-coarsening (E-25) precisely because two `enum` mappings need not be, and the
-only mapping both refine collapses every registered value onto one label — a
-constant neither party asked for, and one whose own admissibility is open
-(E-27). So this module never has to compose two mappings that do not factor. **The shapes it does compose are not all settled**:
+coarsening (E-25) precisely because two `enum` mappings need not be, and their
+common coarsening is strictly coarser than each — a label set neither party
+declared, which §3.2's second condition rejects. So this module never has to
+compose two mappings that do not factor. **The shapes it does compose are not all settled**:
 `object` field sets, `scalar` ranges, and `interval` granularities can each be
 incomparable, and §3 does not say which candidate wins. Open question below;
 issue 4 is blocked on it.
@@ -312,7 +312,7 @@ the value it would need.
 | ~~Is a rule language shipped at all in MVP, or is the engine a code interface with a fixture rule set?~~ | **Resolved: a code interface with a fixture rule set.** [`scope.md`](../../spec/scope.md) and CC-3 both say Q2D specifies the policy input and output contract and not a language, so shipping one would make the reference implementation's language read as part of the protocol. The fixture set exists to exercise §4.4 composition and the §4.5 invariants, and is explicitly not a starting point for a deployment's rules |
 | ~~How are modifiers from two authorities coarsening the same dimension combined — coarser wins, or intersect?~~ | **Answered: coarser wins.** [`core-model.md`](../../spec/core-model.md) §3 now states the whole effective-domain computation as narrowing composition rather than intersection, and §4.4 here is that rule applied to two modifiers |
 | ~~**`PolicyInput` needs a grant field.**~~ | **Resolved and applied.** Grants are single-use ([`core-model.md`](../../spec/core-model.md) §5.3), so the field reports an *unconsumed* match and consumption happens at release rather than at step 14. §4.2 amended |
-| ~~Should a modifier be able to coarsen an `enum`, by carrying a mapping of its own?~~ | **Resolved: no** ([`open-escalations.md`](../open-escalations.md) E-25). The cost is not the field but the composition rule it would require. Two `enum` mappings need not be comparable, and the only mapping both refine collapses every value onto one label — a constant neither party asked for. Other shapes leave a usable candidate; which one wins is E-26, below. No field is added to `Decision`; issue 8 rejects the attempt |
+| ~~Should a modifier be able to coarsen an `enum`, by carrying a mapping of its own?~~ | **Resolved: no** ([`open-escalations.md`](../open-escalations.md) E-25). The cost is not the field but the composition rule it would require. Two `enum` mappings need not be comparable, and their common coarsening is strictly coarser than each, so its label set is one neither party declared and §3.2's second condition rejects it. Other shapes leave something inside both operands; which candidate wins is E-26, below. No field is added to `Decision`; issue 8 rejects the attempt |
 | **What do two modifiers emitting incomparable narrowings of one dimension compose to?** `{name,email}` and `{email,phone}`; `[0,10]` and `[5,15]`; two-hour and three-hour granularity. None is *the coarser*, and §3 does not say. | **Open — E-26** ([`open-escalations.md`](../open-escalations.md)). Raised by E-25's cascade. Blocks issue 4: `compose` cannot be written without it, and choosing here would put the answer in a PRD instead of §3 |
 
 ## 11. Issues

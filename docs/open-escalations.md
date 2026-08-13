@@ -1208,12 +1208,12 @@ which turns on candidates existing at all rather than on which one wins.
 **An `enum` is narrowed by an arbitrary function, not a bound.** Two coarsenings
 of one domain need not be comparable — `{a,b,c,d}` onto `{ab, cd}` and onto
 `{ac, bd}` are both admissible under §3.2's four conditions and neither factors
-through the other. The only mapping both refine sends every registered value to
-one label — the constant answer, which neither party asked for and whose
-admissibility is itself open (**E-27** below). Any other composition yields a
-label set neither declared and fails condition 2 for both. And that bites with
-**one** modifier
-against one requester's mapping, not only with two modifiers, so A's real content
+through the other. A common coarsening does exist — the finest partition both
+refine — but for an incomparable pair it is strictly coarser than each, so its
+label set is strictly smaller than either declared domain and condition 2 fails
+for both. There is nothing a responder can return that either party asked for.
+And that bites with **one** modifier against one requester's mapping, not only
+with two modifiers, so A's real content
 is a factoring rule plus a fail-closed path — not a field on `Decision`.
 
 **The asymmetry decides the timing.** B → A accepts requests that are rejected
@@ -1392,9 +1392,11 @@ a rule that grants one deserves to be arrived at deliberately rather than fallen
 into through four conditions that happen not to exclude it.
 
 It also feeds E-25's rationale in `core-model.md` §3.2, which observes that two
-incomparable coarsenings collapse to exactly this mapping. That observation is
-stated in a way that holds under either answer — but the two escalations should
-be read together.
+the collapse onto one label is the common coarsening of a *fully crossing* pair,
+which is one way E-25's incomparability arises. §3.2's rationale no longer rests
+on that case — it rests on the common coarsening being strictly coarser than
+both, which holds for every incomparable pair — but the two escalations should
+still be read together.
 
 ### Options
 
@@ -1532,7 +1534,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-22** | **Every §5 response is a closed field list** — §5.1 with `evidence` conditional on the assurance profile named in the same response, §5.2 at four fields, §5.3's explicit escalation at five. Adding one is a specification change, on the reasoning §6 already gave for the receipt. **§5.2's retry permission is dropped**: it permitted a field whose only conforming value was uniform, no conformance class allowed the transport form, and P-009 §4.4 declined to emit any — a permission with no user is a trap | `core-model.md` §5.1, §5.2, §5.3, §9.1 · `claims.md` Q2D-C-08 (enforcement description) · P-009 §4.4, P-013 §4.2 · `harness lint` |
 | **E-24** | **A step of its own: 11a**, immediately after step 11's schema validation. They are different mechanisms — step 11 runs a schema the registry supplies, and an entry's other constraints are predicate-specific logic — so folding them into one step would let an implementation satisfy §4 by running a validator and stopping, and leave a vector unable to say which rejected. Lettered as 9a is, so the numbers below do not move. **[P-006](prds/P-006-request-validation.md) already had the distinction**: §4.3 separates constraints from schemas and §5 has `validate_schema` and `check_constraints` as two functions. The specification had one step where that module always had two mechanisms | `core-model.md` §4 (step 11a), §4's invariants · P-006 §2/§4.3 · P-010 §1/§2/§4 · P-001 §4.6, §5 · `conformance/vector.schema.json`'s lettered-step enum · `tools/fold_registry.py` |
 | **E-23** | **One spelling, stated once, for every timestamp in the protocol**: uppercase `T`, uppercase `Z`, second precision. The rule already existed — in P-002 §4.2, which was the only place in the repository saying `Z` while `core-model.md` said only "RFC 3339, second precision". Relocating it to §2.2 gave it the reach it lacked: **P-002's profile covers the signed payload and not `routing`**, and §4 step 8 compares `routing` against `signed`. §4 step 8 is now stated as a **byte** comparison, which one spelling makes safe — the alternative is parsing unauthenticated data above the verification line | `core-model.md` §2.2 (new), §4 step 8, §5.3, §6 · `claims.md` Q2D-C-08 · P-002 §4.2 now cites rather than states · `harness lint` |
-| **E-25** | **A modifier may not coarsen an `enum`**, and the reason is composition rather than the missing field. §3's *take the coarsest* presumes comparable operands; an `enum` is narrowed by an arbitrary function, two coarsenings of one domain need not be comparable, and the only mapping both refine is the collapse onto a single label — a constant neither asked for, where every other shape leaves a usable candidate. Permitting policy-side coarsening therefore needs a factoring rule and a fail-closed path for mappings that do not factor — and no deployment has yet stated which it wants. Widening later breaks nothing built against the rule, and reaches no label count a requester could not: a capacity table is total over the counts it covers. Which counts those are is E-27. | `core-model.md` §3.1, §3.2 · `terminology.md` §6 · `registry/README.md` · P-006 §10 · P-007 §4.4, §10, issue 8 |
+| **E-25** | **A modifier may not coarsen an `enum`**, and the reason is composition rather than the missing field. §3's *take the coarsest* presumes comparable operands; an `enum` is narrowed by an arbitrary function, two coarsenings of one domain need not be comparable, and their common coarsening is strictly coarser than each — a label set neither declared, which condition 2 rejects — where every other shape leaves something inside both operands. Permitting policy-side coarsening therefore needs a factoring rule and a fail-closed path for mappings that do not factor — and no deployment has yet stated which it wants. Widening later breaks nothing built against the rule, and reaches no label count a requester could not: a capacity table is total over the counts it covers. Which counts those are is E-27. | `core-model.md` §3.1, §3.2 · `terminology.md` §6 · `registry/README.md` · P-006 §10 · P-007 §4.4, §10, issue 8 |
 
 ### What did not change, deliberately
 

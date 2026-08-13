@@ -415,12 +415,12 @@ The reason is composition, not the missing field. An `enum` is narrowed by an
 arbitrary function rather than by a bound on a value, and two coarsenings of one
 domain need not be comparable: `[[a,ab],[b,ab],[c,cd],[d,cd]]` and
 `[[a,ac],[c,ac],[b,bd],[d,bd]]` both satisfy the four conditions above, and
-neither factors through the other. The only mapping both refine is the one that
-sends every registered value to a single label — they disagree about which values
-share a label, so anything agreeing with both must merge all of them. That is the
-constant answer: it discloses nothing, and neither party asked for it. It holds
-for one modifier
-against one requester's mapping, not only for two modifiers. Admitting
+neither factors through the other. A common coarsening does exist — the finest
+one both refine — but an incomparable pair's is strictly coarser than each of
+them, so its label set is strictly smaller than either declared domain, and
+condition 2 fails for both. There is no composition a responder can return that
+either party asked for. It holds for one modifier against one requester's
+mapping, not only for two modifiers. Admitting
 policy-side coarsening therefore means specifying when two mappings factor and
 what a responder does when they do not — a larger addition than this gap warrants
 while no deployment has stated which behaviour it needs.
@@ -431,9 +431,10 @@ each be incomparable, and §3 does not say what those compose to
 ([`open-escalations.md`](../docs/open-escalations.md) E-26). The difference is
 that each of those leaves a responder something **inside both operands** to
 compute — a field set, a range, a granularity coarser than both — even where that
-turns out to be empty, which §3 already fails closed on. Two disagreeing `enum`
-mappings leave only the collapse to one label, which is not empty and is not
-what either party asked for.
+turns out to be empty, which §3 already fails closed on. Two incomparable `enum`
+mappings leave nothing of the sort: their common coarsening is not empty, so it
+would not fail closed — a responder would return a label set neither party
+declared.
 
 **Permitting it later forecloses nothing.** It would accept requests this rule
 rejects, so nothing built against this rule breaks. Nor does a modifier reach a
