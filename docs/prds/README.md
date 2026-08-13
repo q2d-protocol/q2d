@@ -3,7 +3,7 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready for decomposition, and no issue is held by an open escalation. **One escalation is open**: **E-30** — `scope.md` §4.1's profile cannot bound a `number`, since a range does not bound a decimal expansion, so one is refused in an output schema. That narrows the `scalar` shape terminology §4 defines as *"integer or number"*. It blocks no issue.
+All sixteen are ready for decomposition, and no issue is held by an open escalation. **No escalation is open.** The last two closed together: `answer_contract.maximum_cardinality` is for `set` only and measures the domain's size (E-29), and a `number` is refused in an output schema — a predicate whose answer is a decimal registers a scaled integer, so terminology §4's `scalar` shape is an integer (E-30).
 
 **Five closed recently**, and
 

@@ -109,7 +109,7 @@ namespaced form is required.
 |---|---|
 | `boolean` | One of two values. |
 | `enum` | One value from a finite registered set. |
-| `scalar` | A bounded integer or number at registered precision. |
+| `scalar` | A bounded **integer** at registered precision. A predicate whose answer is a decimal registers a **scaled integer** — tenths, cents, basis points — and states the scale in the entry's `question_notes`. [`scope.md`](scope.md) §4.1 gives the reason: the schema profile has no keyword that bounds a decimal expansion, and the one JSON Schema offers is the one two libraries most reliably disagree about. |
 | `interval` | A bounded time interval or slot from a registered granularity. |
 | `set` | A bounded list or set at or below a registered maximum cardinality. |
 | `object` | A structured result with enumerated fields, each bounded by its own shape and by the entry's `output_schema` ([`scope.md`](scope.md) §4.1). |

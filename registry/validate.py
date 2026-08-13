@@ -307,7 +307,7 @@ BOUNDED_BY = {
     "string": ("maxLength",),        # or `format: date-time`, handled below
     "integer": ("minimum", "maximum"),
     # `number` is absent on purpose, and handled below: a range does not bound
-    # a decimal expansion, and §4.1's profile has no `multipleOf`. See E-30.
+    # a decimal expansion, and §4.1 refuses one outright. E-30, closed.
     "array": ("maxItems", "items"),  # count *and* element schema
     "boolean": (),                   # two values
     "null": (),                      # one value
@@ -346,14 +346,15 @@ def unbounded_release(schema, path):
         declared = schema["type"]
         for json_type in (declared if isinstance(declared, list) else [declared]):
             if json_type == "number":
-                # scope.md §4.1: `minimum`/`maximum` bound an integer's digits
-                # and not a decimal expansion -- 0.0 to 1.0 still admits
-                # arbitrarily many -- and the profile carries no precision
-                # keyword. Refused rather than accepted on a range that does
-                # not bound what this rule is about. E-30 decides whether the
-                # profile gains one.
-                yield (f"{path}: number, which §4.1's profile cannot bound "
-                       f"(no precision keyword) — use `integer` or an `enum`")
+                # scope.md §4.1 refuses `number` in an output schema.
+                # `minimum`/`maximum` bound an integer's digits and not a
+                # decimal expansion -- 0.0 to 1.0 still admits arbitrarily many
+                # -- and the keyword that would, `multipleOf`, is the one two
+                # JSON Schema libraries most reliably disagree about, since
+                # 0.1 has no exact binary representation. A predicate whose
+                # answer is a decimal registers a scaled integer. E-30.
+                yield (f"{path}: number, which §4.1 refuses in an output schema "
+                       f"— register a scaled integer, or bound it with an `enum`")
                 continue
             required = BOUNDED_BY.get(json_type)
             if required is None:
