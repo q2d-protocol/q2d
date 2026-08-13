@@ -517,13 +517,24 @@ narrowing's own parameter — a set of field names, a pair of endpoints — wher
 containment is exactly the narrowing order and the intersection is exactly the
 greatest lower bound.
 
-**An empty greatest lower bound is not always an empty domain**, and the two
-must not be conflated. Disjoint `scalar` ranges compose to a range no value
-satisfies, which *is* an empty domain and fails closed per §3. Disjoint
-`allowed_detail_fields` compose to the empty set, which §2.5 permits a requester
-to ask for directly — so it is a narrowing parameter with a legal value, and
-whatever §2.5 means by an empty allowlist is what it means here. §3.3 does not
-give it a second meaning.
+**An empty greatest lower bound is not always an empty domain.** Disjoint
+`scalar` ranges compose to a range no value satisfies, which *is* an empty domain
+and fails closed per §3.
+
+Disjoint `allowed_detail_fields` are different: they compose to the empty set,
+which §2.5 permits a requester to ask for directly, so the composition has
+produced a legal value rather than an absence. **Whether an object release with
+no detail fields is admissible at all is not settled** — it is a release that
+cannot vary with the data, which is the question
+[`open-escalations.md`](../docs/open-escalations.md) **E-27** is deciding for the
+`enum` case, and one answer has to cover both. §3.3 states what the composition
+yields and does not decide admissibility.
+
+**Until E-27 answers, an empty effective `allowed_detail_fields` is rejected**,
+in the same way and for the same reason an unsatisfiable domain is. That is the
+conservative reading, it is conforming, and it is not the answer to E-27: an
+implementation must do something determinate meanwhile, and denying is the only
+option that cannot be wrong in the disclosing direction.
 
 Where an empty domain is reached, a deployment can make a class of requests
 unsatisfiable by adding an authority, and the requester sees a normalized denial
