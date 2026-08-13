@@ -3,7 +3,7 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready for decomposition, and no issue is held by an open escalation. **No escalation is open.** The last two closed together: `answer_contract.maximum_cardinality` is for `set` only and measures the domain's size (E-29), and a `number` is refused in an output schema — a predicate whose answer is a decimal registers a scaled integer, so terminology §4's `scalar` shape is an integer (E-30).
+All sixteen are ready for decomposition; three P-001 issues are held by an open escalation — see below. **One escalation is open**: **E-31** — is `signature.value` a field of the signed core object? Raised on authoring the first `message/sign/` vector, it blocks P-001 issues 12, 13 and 14. The last two before it closed together: `answer_contract.maximum_cardinality` is for `set` only and measures the domain's size (E-29), and a `number` is refused in an output schema — a predicate whose answer is a decimal registers a scaled integer, so terminology §4's `scalar` shape is an integer (E-30).
 
 **Five closed recently**, and
 

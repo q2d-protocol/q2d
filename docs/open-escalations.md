@@ -18,8 +18,13 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** E-29 and E-30 were the last two, both from E-28's
-> cascade. **E-29**: `answer_contract.maximum_cardinality` is for `set` only, and
+> **E-31 is open**, and it blocks the last three P-001 issues — 12, 13 and 14,
+> which author the `message/`, `suite/` and `ordering/` corpus sections. It asks
+> whether `signature.value` is a field of the signed core object. Every one of
+> those vectors asserts exact payload bytes, so none can be authored until it is
+> answered.
+>
+> **E-29 and E-30 closed**, both from E-28's cascade. **E-29**: `answer_contract.maximum_cardinality` is for `set` only, and
 > measures the domain's size rather than a count of results. **E-30**: a `number`
 > is refused in an output schema, and a predicate whose answer is a decimal
 > registers a scaled integer — so `terminology.md` §4's `scalar` shape is an
@@ -104,6 +109,7 @@ question is still fresh than after the answer arrives.
 | **E-28** | What bounds an `object`, and what is the registry's `output_schema` for? | E-26's cascade | `terminology.md` §3, §4 · `core-model.md` §4 step 17 · `scope.md` §4.1 · `claims.md` Q2D-C-03 | **Closed** |
 | **E-29** | Which release shapes carry `answer_contract.maximum_cardinality`? | E-28's cascade | `core-model.md` §2.5 | **Closed** |
 | **E-30** | Should `scope.md` §4.1's profile gain a precision keyword, so a `number` output can be bounded? | E-28's cascade | `scope.md` §4.1 · `terminology.md` §4 | **Closed** |
+| **E-31** | Is `signature.value` a field of the signed core object? | P-001 issue 12 | `core-model.md` §2.7 · `crypto-suites.md` §3 | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1965,6 +1971,154 @@ and no validator can decide whether prose names the right scale. §4.1 says so
 rather than implying a check exists — the same treatment
 [`conformance/keys/README.md`](../conformance/keys/README.md) gives the rule that
 nothing derives a public key from a seed.
+
+
+---
+
+## E-31 — Is `signature.value` a field of the signed core object?
+
+**Raised by** [P-001](prds/P-001-conformance-corpus.md) issue 12, on trying to
+author the first `message/sign/` vector ·
+**Decides** [`core-model.md`](../spec/core-model.md) §2.7 ·
+**Blocks** P-001 issues **12, 13 and 14** — the `message/`, `suite/` and
+`ordering/` sections. Every vector in them asserts exact payload bytes, and the
+payload is either one field longer or it is not.
+
+### Context
+
+[`core-model.md`](../spec/core-model.md) §2.7 lists three signature fields as
+part of the query, all required:
+
+| Field | Required | Meaning |
+|---|---|---|
+| `signature.profile` | yes | The signature suite identifier |
+| `signature.key_id` | yes | Resolvable under the identity profile |
+| `signature.value` | yes | **Covers every field above** |
+
+[`crypto-suites.md`](../spec/crypto-suites.md) §3 registers one suite,
+`eddsa-jws-2026`, in which
+[P-003](prds/P-003-crypto-suites.md) §4.1 defines:
+
+```
+signed = BASE64URL(protected_header) "." BASE64URL(payload) "." BASE64URL(signature)
+```
+
+The signature is the **third segment**. §3 says the header's `suite` and
+`key_id` *"are duplicated in the signed payload — `signature.profile` and
+`signature.key_id`"*, and conspicuously does not mention `signature.value`.
+
+So: does the payload carry a `signature.value`? If it does, the field signs
+itself. If it does not, §2.7 lists a required field that is absent from every
+conforming message.
+
+Nothing in `spec/` or the PRDs reconciles the two. It has gone unnoticed because
+no payload has ever been serialized — this is the first attempt.
+
+### Where it came from
+
+The deposited technical report's worked example carries the signature **inside**
+the object:
+
+```json
+"signature": {
+  "profile": "eddsa-jcs-2022",
+  "key_id": "did:key:z6MkRequesterAgent#key-1",
+  "value": "base64url-signature"
+}
+```
+
+`eddsa-jcs-2022` is a **JCS** suite — canonicalize the object, sign the
+canonical bytes — and in that model an in-object `signature.value` is natural,
+computed over the object with the field removed. `crypto-suites.md` §3 later
+declined to register a JCS-based suite at all, on the ground that
+canonicalization disagreements across language ecosystems are a classic
+cross-implementation failure. The suite changed; §2.7's row did not.
+
+That is evidence of intent rather than of correctness — the report does not
+govern, and `core-model.md` says so in its header — but it explains the shape of
+the mistake.
+
+### Why more than one answer is defensible
+
+The obvious reading is that the third segment *is* the signature and §2.7 is
+stale. But `core-model.md` §2.4.1 already defines a digest **over an object with
+its own digest field removed**, for the registry entry, so a self-excluding
+field is an established pattern in this specification rather than an oddity —
+and B below is what that pattern would produce here.
+
+There is also a layering argument. `core-model.md`'s header says *"Signature
+algorithms and serialization are not fixed here — they are named by suite in
+`crypto-suites.md`"*. A §2.7 that hard-codes *"the signature is the third JWS
+segment"* would put a serialization decision in the document that disclaims
+them.
+
+### Options
+
+**A. Strike `signature.value` from §2.7.** The signature is the `signed`
+string's third segment. `signature.profile` and `signature.key_id` remain payload
+fields, as §3 already says.
+
+*For:* simplest, matches the only registered suite, and matches what §3 already
+implies by listing exactly two duplicated members.
+*Against:* puts a JWS-shaped assumption in a document that disclaims
+serialization. A future suite carrying the signature in-object would have to
+re-add the field, which is the kind of churn the layering exists to avoid.
+
+**B. Keep it, computed over the object with `signature.value` removed**, exactly
+as §2.4.1 does for the entry digest. The JWS third segment carries the same
+bytes.
+
+*For:* one established pattern used twice; the core object is self-describing,
+and a reader holding a parsed object can see the signature without the envelope.
+*Against:* the same bytes in two places, and a verifier must either check they
+agree — a new failure mode, and a new rejection reason — or pick one and let the
+other drift. It also makes the payload depend on the signature that depends on
+the payload, which is only non-circular because of a removal rule an implementer
+must not forget.
+
+**C. Make the location suite-dependent.** §2.7 keeps `signature.value` as part
+of the *model* and says the suite defines where it travels;
+`crypto-suites.md` §3 says `eddsa-jws-2026` carries it in the compact form's
+third segment and therefore **not** in the payload.
+
+*For:* respects the layering `core-model.md` claims — the model has a signature,
+the suite says where it goes — and is the only option that leaves room for a
+future in-object suite without amending §2.7 again. It also makes §3's silence
+about `signature.value` an explicit statement rather than an omission a reader
+has to notice.
+*Against:* two documents to read before knowing what bytes to produce, where A
+needs one.
+
+### Recommendation — C
+
+`core-model.md` opens by disclaiming serialization, so A contradicts the
+document's own stated division of labour to save one hop. The cost of C is a
+cross-reference; the cost of A is that the next suite reopens §2.7.
+
+C also fixes the thing that made this hard to spot. §3 lists the two header
+members duplicated in the payload and says nothing about the third field, so a
+careful reader concludes nothing — under C, §3 says outright that
+`eddsa-jws-2026`'s payload has no `signature.value`, and the question cannot be
+asked again.
+
+B I would rule out. Two copies of one signature is a divergence waiting to
+happen, and the §2.4.1 precedent it leans on is not analogous: an entry digest
+is computed once by a registry author over a static object, where a signature is
+computed per message by one party and checked by another — the removal rule has
+to be got right twice, by different code, on every message.
+
+**Where C stops being right:** if no second suite is ever registered, C's
+flexibility buys nothing and A's single-document answer is cheaper for every
+implementer. That is a bet on the roadmap rather than on the design, and
+[`crypto-suites.md`](../spec/crypto-suites.md) already anticipates suite
+addition as a normal event — it has a registry and a versioning rule for exactly
+that.
+
+**One observation that is not part of this question**, recorded so it is not
+lost: the report's example declares `eddsa-jcs-2022`, which is not a registered
+suite. The report does not govern and takes corrections only in a new draft, so
+nothing needs doing — but a reader coming from the report will write a profile
+identifier the registry rejects.
 
 
 ---
