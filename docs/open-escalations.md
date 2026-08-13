@@ -18,7 +18,12 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-26 is the only one open.** E-25's cascade raised it: writing down *why*
+> **E-26 and E-27 are open**, both raised by E-25's cascade and neither blocking
+> decomposition. E-27 is a live disagreement between `spec/` and
+> [`registry/validate.py`](../registry/validate.py) rather than a question with
+> no answer yet, so it is the more urgent of the two.
+>
+> E-26: writing down *why*
 > an `enum` cannot be composed required saying what makes the other shapes
 > composable, and three of them turned out not to be — `object` field sets,
 > `scalar` ranges, and `interval` granularities can each be incomparable. It
@@ -74,6 +79,7 @@ question is still fresh than after the answer arrives.
 | **E-16** | Should the registry's JSON Schema profile be normative in `spec/`? | P-006 | `scope.md` §4.1 (new) | **Closed** |
 | **E-25** | May a policy modifier coarsen an `enum`, and if so where does its mapping live? | E-17's resolution | `core-model.md` §3.2 | **Closed** |
 | **E-26** | What do two incomparable narrowings of one dimension compose to? | E-25's cascade | `core-model.md` §3, §3.2 | **Open** |
+| **E-27** | Is a coarsening onto a *single* `enum` label admissible? | E-25's cascade | `core-model.md` §3.2 · `registry/validate.py` | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1332,6 +1338,105 @@ that a granularity is still a value in the dimension both authorities were
 narrowing, where an `enum` label is a name only one of them invented. If that
 distinction feels too thin to carry a rule, the answer is B for `interval` and A
 for the other two, at the cost of the single principle A otherwise buys.
+
+---
+
+## E-27 — Is a coarsening onto a single `enum` label admissible?
+
+**Raised by** E-25's cascade ·
+**Decides** [`core-model.md`](../spec/core-model.md) §3.2 and
+[`registry/validate.py`](../registry/validate.py) ·
+**Blocks** nothing today — no registry entry carries a capacity table — but it is
+a **standing disagreement between two documents**, not merely an undecided
+question, and it silently determines a debit.
+
+### Context
+
+§3.2's four conditions on a declared `enum` coarsening admit a mapping onto one
+label. Take a four-value domain and `[[a,x],[b,x],[c,x],[d,x]]`: total ✓, image
+equals the requested `{x}` ✓, strictly smaller than four ✓, a function ✓. All
+four hold. The answer is a constant — the predicate returns `x` whatever the
+data says, disclosing nothing, at a capacity of `ceil(1000 × log2(1))` = **0
+millibits**.
+
+Three parts of the repository disagree about whether that is a legitimate
+request:
+
+| Where | What it says |
+|---|---|
+| §3.2's four conditions | admissible — every condition holds |
+| §3.2's `boolean` / `attribute` rationale | not admissible — it calls a one-value domain *"the empty request"* |
+| [`registry/validate.py`](../registry/validate.py) | not admissible — the capacity table must key `2 … cardinality`, and a key of `1` fails |
+
+Two of the three are prose and one is executable, which is why nothing has caught
+it: the validator's rule is right for whichever answer it assumes, and the
+conditions were written for a different purpose.
+
+### Why it matters beyond tidiness
+
+It decides a **zero debit**. A request that discloses nothing should plausibly
+cost nothing, and Q2D-C-09 accounts for the capacity of the answer alphabet, so
+zero is arguably correct rather than a loophole. But *zero-debit release* is the
+shape of the free oracle that E-17's subsetting resolution existed to close, and
+a rule that grants one deserves to be arrived at deliberately rather than fallen
+into through four conditions that happen not to exclude it.
+
+It also feeds E-25's rationale in `core-model.md` §3.2, which observes that two
+incomparable coarsenings collapse to exactly this mapping. That observation is
+stated in a way that holds under either answer — but the two escalations should
+be read together.
+
+### Options
+
+**A. Inadmissible — add a fifth condition: at least two labels.**
+
+*For:* it matches what the validator already enforces and what §3.2's `boolean`
+rationale already says, so it makes three documents agree by changing the one
+that is least specific. A constant answer is not an answer to a predicate; it is
+a refusal wearing an answer's shape, and Q2D has `deny` for that.
+*Against:* a fifth condition on a list whose selling point is that all of them
+are checkable by comparing sets and counting — though *"the label set has at
+least two members"* is exactly that.
+
+**B. Admissible, and its debit is zero.**
+
+*For:* it is what the conditions already say, so nothing in the spec changes; and
+it is defensible on the merits — an answer that cannot vary with the data leaks
+nothing, and charging for it would overstate what the budget measures.
+*Against:* `registry/validate.py` must accept a table key of `1`, and every entry
+that gains a table must author `"1": 0`. More seriously, it puts a zero-debit
+release path in the protocol, and the reason a requester would want one is not
+obvious — which is the profile of a mechanism that gets used for something other
+than its stated purpose.
+
+**C. Admissible, but not zero-rated** — charge the registered cardinality.
+
+*For:* removes the incentive entirely.
+*Against:* it charges for disclosure that did not occur, which contradicts what
+`claims.md` says the budget measures. A dishonest accounting to close a hole a
+condition could close directly.
+
+### Recommendation — A
+
+The three documents should agree, and A moves the one that is least considered.
+The four conditions were written to stop a requester inventing labels or dropping
+values, not to decide whether a constant is an answer; §3.2's `boolean` rationale
+*was* written about exactly that and already says no. Following it is applying
+the spec's own reasoning to another shape rather than choosing between two live
+positions.
+
+B is defensible and I do not think it is wrong on the merits — a constant really
+does leak nothing. It loses on the second-order point: Q2D's credibility rests on
+not having release paths whose purpose nobody can state, and *"ask for an answer
+that cannot depend on the data, for free"* is one. If a use for it appears, A is
+a condition to remove, which is a smaller change than retro-fitting the
+accounting C would need.
+
+**Where A stops being right:** if a deployment wants a *probe* — establishing
+that a predicate is answerable, with a policy that permits it and a budget that
+does not charge — B is the honest way to express it, and A forces that intent
+into an escalation or a denial instead. Worth asking whether P-016's adversarial
+work needs one before this is closed.
 
 ---
 

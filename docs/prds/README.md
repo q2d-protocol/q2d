@@ -3,7 +3,7 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready. **One escalation is open** — E-26. Three closed recently and
+All sixteen are ready. **Two escalations are open** — E-26 and E-27. Three closed recently and
 each changed what an implementer reads: **E-17** puts an `enum` coarsening
 mapping in the requester's answer contract, superseding §3.2's old equality rule;
 **E-16** moved the registry's JSON Schema profile into
@@ -12,9 +12,13 @@ mapping in the requester's answer contract, superseding §3.2's old equality rul
 coarsen an `enum` — a rule in
 [`core-model.md`](../../spec/core-model.md) §3.2 now, rather than the
 conservative position it was while the question was open. Writing E-25's reason
-down raised **E-26**, which is open: §3 says composition takes *the coarsest*,
-and two `object` field sets need not be comparable. It blocks P-007 issue 4 and
-no decomposition. See
+down raised two questions that are open. **E-26**: §3 composes narrowings by
+taking *the coarsest*, and `object` field sets, `scalar` ranges and `interval`
+granularities need not be comparable — it blocks P-007 issue 4. **E-27**: §3.2's
+four conditions admit a coarsening onto a single label,
+[`registry/validate.py`](../../registry/validate.py) rejects one, and §3.2's own
+`boolean` rationale agrees with the validator — a standing disagreement between
+documents, affecting P-006 issue 4. Neither blocks decomposition. See
 [`../open-escalations.md`](../open-escalations.md), which is where every
 escalation is recorded and where a new one goes.
 

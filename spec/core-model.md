@@ -413,9 +413,11 @@ The reason is composition, not the missing field. An `enum` is narrowed by an
 arbitrary function rather than by a bound on a value, and two coarsenings of one
 domain need not be comparable: `[[a,ab],[b,ab],[c,cd],[d,cd]]` and
 `[[a,ac],[c,ac],[b,bd],[d,bd]]` both satisfy the four conditions above, and
-neither factors through the other. Nor is there a third mapping that agrees with
-both — they disagree about which registered values share a label, and that
-disagreement is the entire content of a coarsening. It holds for one modifier
+neither factors through the other. The only mapping both refine is the one that
+sends every registered value to a single label — they disagree about which values
+share a label, so anything agreeing with both must merge all of them. That is the
+constant answer: it discloses nothing, and neither party asked for it. It holds
+for one modifier
 against one requester's mapping, not only for two modifiers. Admitting
 policy-side coarsening therefore means specifying when two mappings factor and
 what a responder does when they do not — a larger addition than this gap warrants
@@ -425,9 +427,9 @@ This is not the general claim that every other shape composes cleanly. Two
 `object` field sets, two `scalar` ranges, and two `interval` granularities can
 each be incomparable, and §3 does not say what those compose to
 ([`open-escalations.md`](../docs/open-escalations.md) E-26). The difference is
-that each of those leaves a responder **candidates** — a field set inside both, a
-range inside both, a granularity coarser than both — and choosing among candidates
-is a question with answers. Two disagreeing `enum` mappings leave none.
+that each of those leaves a responder a **usable** candidate — a field set inside
+both, a range inside both, a granularity coarser than both — where two disagreeing
+`enum` mappings leave only the collapse to one label.
 
 **Permitting it later forecloses nothing and costs no re-authoring.** It would
 accept requests this rule rejects, so nothing built against this rule breaks; and
@@ -439,11 +441,18 @@ to be total over that range rather than over the counts one party can reach.
 size, looked up in the registry entry's capacity table as any varying
 cardinality is ([`registry/README.md`](../registry/README.md)). A responder
 never computes it, and never takes it from the request. An entry whose `enum`
-domain may be coarsened therefore carries a table over **every** admissible label
-count, not a single value and not the counts some particular requester is
-expected to ask for — a registry-format consequence of this rule, not a new
-mechanism. [`registry/validate.py`](../registry/validate.py) checks the
-totality; it is what the paragraph above rests on.
+domain may be coarsened therefore carries a table that is **total** over the
+label counts it admits — not a single value, and not the counts some particular
+requester is expected to ask for. That is a registry-format consequence of this
+rule, not a new mechanism, and totality is what the paragraph above rests on.
+
+Which counts an entry admits is not fully settled. The four conditions above
+admit a mapping onto a *single* label, while
+[`registry/validate.py`](../registry/validate.py) requires a table over two
+through the registered cardinality and rejects a key of one — and §3.2's reason
+for permitting no `boolean` narrowing calls a one-value result *the empty
+request*. Those do not agree. See
+[`open-escalations.md`](../docs/open-escalations.md) **E-27**.
 
 **An entry that carries a single capacity value admits no coarsening**, because
 there is no authored debit for the smaller label count and a responder may not
