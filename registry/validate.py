@@ -259,7 +259,14 @@ def object_schemas(schema, path):
     # for a nullable output -- so an object schema can be `["object", "null"]`
     # and would not have matched an equality test.
     declared = schema.get("type")
-    if declared == "object" or (isinstance(declared, list) and "object" in declared):
+    # By keyword as well as by declaration: a schema carrying `properties` or
+    # `required` applies object validation whether or not it says
+    # `type: object`, so it needs `additionalProperties: false` for the same
+    # reason -- and omitting the declaration is how a schema would otherwise
+    # slip past a check that looked only for it.
+    if (declared == "object"
+            or (isinstance(declared, list) and "object" in declared)
+            or "properties" in schema or "required" in schema):
         yield path, schema
     for name, sub in (schema.get("properties") or {}).items():
         yield from object_schemas(sub, f"{path}.properties.{name}")
