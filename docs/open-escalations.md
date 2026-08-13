@@ -1189,13 +1189,14 @@ proportionate.
 The composition problem is the deciding factor, and checking §3.2 before writing
 this up made it sharper than the options above put it.
 
-**Every other coarsenable shape narrows by a parameter on an ordered ladder** —
-reduced precision, coarser granularity, lower `maximum_cardinality`, shorter
-horizon, a smaller field set. That is what makes §3's *take the coarsest* a total
-operation, and what [P-007](prds/P-007-policy-engine.md) §4.4's *coarser of the
-two* rests on without saying so.
+**§3's *take the coarsest* presumes the two operands are comparable**, and so
+does [P-007](prds/P-007-policy-engine.md) §4.4's *coarser of the two*. For
+`scalar` precision, `interval` granularity, `set` cardinality and horizon they
+are: each is a bound on a value, and one of two bounds is always the tighter.
+(`object` is **not** among them — writing this rationale is what surfaced that,
+and it is now **E-26** below. It does not affect the argument here.)
 
-**An `enum` is the one shape narrowed by an arbitrary function.** Two coarsenings
+**An `enum` is narrowed by an arbitrary function, not a bound.** Two coarsenings
 of one domain need not be comparable — `{a,b,c,d}` onto `{ab, cd}` and onto
 `{ac, bd}` are both admissible under §3.2's four conditions and neither factors
 through the other. Composing them yields a third label set neither party
@@ -1293,11 +1294,10 @@ enumerable rule sets, which the fixture set is and a real deployment's is not.
 ### Recommendation — A
 
 Intersection is the only option that composes to something both authorities
-would have permitted, and that is the same test §3.2 now uses to explain why
-`enum` cannot be composed: an intersection of field sets contains only fields
-each authority declared, where a composition of `enum` mappings invents labels
-neither did. Making the two shapes answer to one principle is worth more than
-the wording it costs.
+would have permitted: `{email}` contains only fields each of them declared. That
+is the closest thing to a principle the two shapes can share — an `enum` has no
+such candidate, because two mappings that disagree about which values share a
+label leave nothing for a responder to pick that agrees with both.
 
 B's cost is real and understated by calling it conservative: it turns a
 composable case into a denial, and a policy engine that denies where both
@@ -1397,7 +1397,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-22** | **Every §5 response is a closed field list** — §5.1 with `evidence` conditional on the assurance profile named in the same response, §5.2 at four fields, §5.3's explicit escalation at five. Adding one is a specification change, on the reasoning §6 already gave for the receipt. **§5.2's retry permission is dropped**: it permitted a field whose only conforming value was uniform, no conformance class allowed the transport form, and P-009 §4.4 declined to emit any — a permission with no user is a trap | `core-model.md` §5.1, §5.2, §5.3, §9.1 · `claims.md` Q2D-C-08 (enforcement description) · P-009 §4.4, P-013 §4.2 · `harness lint` |
 | **E-24** | **A step of its own: 11a**, immediately after step 11's schema validation. They are different mechanisms — step 11 runs a schema the registry supplies, and an entry's other constraints are predicate-specific logic — so folding them into one step would let an implementation satisfy §4 by running a validator and stopping, and leave a vector unable to say which rejected. Lettered as 9a is, so the numbers below do not move. **[P-006](prds/P-006-request-validation.md) already had the distinction**: §4.3 separates constraints from schemas and §5 has `validate_schema` and `check_constraints` as two functions. The specification had one step where that module always had two mechanisms | `core-model.md` §4 (step 11a), §4's invariants · P-006 §2/§4.3 · P-010 §1/§2/§4 · P-001 §4.6, §5 · `conformance/vector.schema.json`'s lettered-step enum · `tools/fold_registry.py` |
 | **E-23** | **One spelling, stated once, for every timestamp in the protocol**: uppercase `T`, uppercase `Z`, second precision. The rule already existed — in P-002 §4.2, which was the only place in the repository saying `Z` while `core-model.md` said only "RFC 3339, second precision". Relocating it to §2.2 gave it the reach it lacked: **P-002's profile covers the signed payload and not `routing`**, and §4 step 8 compares `routing` against `signed`. §4 step 8 is now stated as a **byte** comparison, which one spelling makes safe — the alternative is parsing unauthenticated data above the verification line | `core-model.md` §2.2 (new), §4 step 8, §5.3, §6 · `claims.md` Q2D-C-08 · P-002 §4.2 now cites rather than states · `harness lint` |
-| **E-25** | **A modifier may not coarsen an `enum`**, and the reason is composition rather than the missing field. Every other coarsenable shape narrows by a parameter on an ordered ladder, so §3's *take the coarsest* is total; an `enum` is the one shape narrowed by an arbitrary function, and two coarsenings of one domain need not be comparable. Permitting policy-side coarsening therefore needs a factoring rule and a fail-closed path for mappings that do not factor — and no deployment has yet stated which it wants. Widening later breaks nothing and re-authors nothing. | `core-model.md` §3.2 · `terminology.md` §7 · P-006 §10 · P-007 §4.4, §10, issue 8 |
+| **E-25** | **A modifier may not coarsen an `enum`**, and the reason is composition rather than the missing field. §3's *take the coarsest* presumes comparable operands, which holds where a shape is narrowed by a bound on a value; an `enum` is narrowed by an arbitrary function instead, two coarsenings of one domain need not be comparable, and no third mapping agrees with both. Permitting policy-side coarsening therefore needs a factoring rule and a fail-closed path for mappings that do not factor — and no deployment has yet stated which it wants. Widening later breaks nothing and re-authors nothing. | `core-model.md` §3.2 · `terminology.md` §7 · P-006 §10 · P-007 §4.4, §10, issue 8 |
 
 ### What did not change, deliberately
 
