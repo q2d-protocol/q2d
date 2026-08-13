@@ -210,11 +210,13 @@ are not requirements:
 
 - **`object` recurses**, and the field-level rule must not be skipped because the
   object-level check passed. This is where the per-shape table is easiest to
-  implement wrongly, because the outer check looks complete.
+  implement wrongly, because the outer check looks complete. Its
+  `allowed_detail_fields` is also **non-empty** — an object with no fields is the
+  constant release E-27 refused.
 - **`enum` coarsens by a mapping the requester declares**, in
-  `answer_contract.coarsening`, which this module validates against §3.2's four
-  conditions: total, image exactly equal to the requested domain,
-  non-expanding, and a function. All four are set
+  `answer_contract.coarsening`, which this module validates against §3.2's five
+  conditions: total, image exactly equal to the requested domain, non-expanding,
+  a function, and at least two labels. All five are set
   comparisons and counts — **this module makes no judgement about what a label
   means**. A mapping a human would call wrong is admissible; Q2D-C-01 binds the
   requester to the commitment it made, and what a responder guarantees is that
@@ -258,7 +260,7 @@ validated value is the only one it gets.
 |---|---|
 | `domain/schema/` | Valid context; each profile keyword; a schema using a forbidden keyword rejects |
 | `domain/constraints/` | Slot below floor; horizon beyond limit; both boundaries exact |
-| `domain/narrowing/` | Per shape in §4.5: valid coarsening, attempted expansion, and attempted strict subset — the last two both reject. For `enum`, one vector per §3.2 condition: a mapping that is not total, whose image omits a requested label, whose image carries a label outside the requested domain, that is not non-expanding, and that is not a function |
+| `domain/narrowing/` | Per shape in §4.5: valid coarsening, attempted expansion, and attempted strict subset — the last two both reject. For `enum`, one vector per §3.2 condition: a mapping that is not total, whose image omits a requested label, whose image carries a label outside the requested domain, that is not non-expanding, that is not a function, and **that maps every registered value onto one label** (E-27). For `object`, an empty `allowed_detail_fields` |
 | `domain/compose/` | Admissible from `narrow(registry, requested)`; effective from `narrow(admissible, modifiers)`; two coarsenings of different granularity compose to the coarser rather than to nothing; and one vector for each case [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes — comparable, incomparable, disjoint — per dimension it covers. An unsatisfiable domain at either phase fails closed |
 | `domain/profile/` | Supported profile passes; unsupported rejects without downgrade |
 
@@ -324,9 +326,9 @@ and the other does not.
 | ~~§4.4 — subset narrowing is a free oracle~~ | **Resolved as (A).** Spec amended; see §4.4 |
 | ~~Does an unsatisfiable domain reject before or after policy?~~ | **Resolved: before**, at step 12. An inadmissible request must not consult policy authorities: doing so would send the purpose, recipient, and sink set of a request that was never admissible to every configured authority, some of which are people. It also keeps the two phases in §4.1 honest — the admissible domain is computed and checked before policy runs, so a modifier can never rescue a contract the registry already rejected |
 | ~~Should the schema profile be stated in `spec/` rather than only here?~~ | **Resolved: yes** — [`scope.md`](../../spec/scope.md) §4.1 ([`open-escalations.md`](../open-escalations.md) E-16). §4.2 cites it and this module enforces it; widening the list is now a `spec/` change rather than this module's to make. Moving it found `$schema` missing from the list while present in every entry |
-| ~~Does a coarsening mapping need to be declared by the requester, or inferred?~~ | **Resolved: declared** ([`open-escalations.md`](../open-escalations.md) E-17). `answer_contract.coarsening` carries it, and this module validates it against [`core-model.md`](../../spec/core-model.md) §3.2's four conditions — total, image exactly equal to the requested domain, non-expanding, a function. All are set comparisons and counts; §4.5 records that no judgement about a label's *meaning* is made here |
+| ~~Does a coarsening mapping need to be declared by the requester, or inferred?~~ | **Resolved: declared** ([`open-escalations.md`](../open-escalations.md) E-17). `answer_contract.coarsening` carries it, and this module validates it against [`core-model.md`](../../spec/core-model.md) §3.2's conditions — total, image exactly equal to the requested domain, non-expanding, a function, and at least two labels, the last added by E-27. All are set comparisons and counts; §4.5 records that no judgement about a label's *meaning* is made here |
 | ~~And may a *policy modifier* coarsen an `enum`, given it has no answer contract to declare a mapping in?~~ | **Resolved: no** ([`open-escalations.md`](../open-escalations.md) E-25). [`core-model.md`](../../spec/core-model.md) §3.2 states it as a rule with its reason — an `enum` is the one shape narrowed by an arbitrary function, so two coarsenings of it need not compose — rather than as a position held pending a decision. `apply_modifiers` (issue 6) rejects one as an implementation error |
-| **Is a release that cannot vary with the data admissible?** §3.2's four conditions admit a coarsening onto a *single* label; `registry/validate.py` and §3.2's `boolean` rationale both say no. §2.5 permits an empty `allowed_detail_fields`, which is the same thing for an `object`, and one answer has to cover both. | **Open — E-27** ([`open-escalations.md`](../open-escalations.md)). **Blocks issue 4's `enum` half**: `check_narrowing` is the condition list, so building it settles whether there are four conditions or five — in code, for a question `spec/` has not answered. The `object` route to the same zero-debit release is **not** blocked — §2.5 permits an empty `allowed_detail_fields` and nothing contradicts it, so there is a rule to build to; E-27 may change it, and these vectors change with it. Every other shape is unaffected |
+| ~~Is a release that cannot vary with the data admissible?~~ | **Resolved: no** ([`open-escalations.md`](../open-escalations.md) E-27). [`core-model.md`](../../spec/core-model.md) §3.2 gains a **fifth** `enum` condition — at least two labels — and requires an `object` release to name at least one detail field. Issue 4 is unblocked for both. The escalation was briefed as a conflict with §2.5's *may be empty*; it is not, because only `object` has detail fields |
 
 ## 11. Issues
 
@@ -335,7 +337,7 @@ and the other does not.
 | 1 | ~~Escalate §4.4~~ — **done** | Resolved as (A); `core-model.md` §2.5, `terminology.md` §6, `claims.md` Q2D-C-09 amended |
 | 2 | JSON Schema profile validator, per [`scope.md`](../../spec/scope.md) §4.1 | Forbidden keywords rejected as registry errors; a missing `$schema` likewise; `domain/schema/` passes |
 | 3 | Constraint evaluation, closed vocabulary | `domain/constraints/` passes; unknown key errors |
-| 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape **except `enum`**, which is **blocked on E-27**, and except an `object` contract carrying `maximum_cardinality`, **blocked on E-28**: a declared mapping that is total, whose image equals the requested domain, non-expanding and a function is admitted — but whether that list is complete is the open question, and a mapping onto a single label satisfies all four while `registry/validate.py` rejects its debit. No `enum` acceptance criterion is stated here until E-27 answers, and none for an `object`'s `maximum_cardinality` until E-28 does, because stating one is answering it. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
+| 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape, except an `object` contract carrying `maximum_cardinality`, **blocked on E-28**. For `enum`, a declared mapping is admitted when it satisfies all **five** of [`core-model.md`](../../spec/core-model.md) §3.2's conditions and rejected when it fails any — one negative vector each, the fifth being a mapping onto a single label (E-27). For `object`, an empty `allowed_detail_fields` is rejected, and so is a composition that reaches one. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
 | 5 | `object` recursion in narrowing | Nested invalid narrowing rejects |
 | 6 | `apply_modifiers` and the two-phase narrowing composition | `domain/compose/` passes; ordering vector passes; every case [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes has a vector and produces what §3.3 gives |
 | 7 | `supports_profile` | `domain/profile/` passes; no downgrade path exists |
@@ -349,36 +351,26 @@ decided that, replacing the interim rule this section used to carry — reject a
 requested domain not equal to the registered one — which was conforming meanwhile
 precisely so that no implementation settled the question by accident.
 
-Its `enum` half is **blocked on E-27**, for the same reason E-17 existed:
-`check_narrowing` *is* the condition list, so writing it decides whether there
-are four conditions or five, and that difference is whether a requester may ask
-for an answer that cannot vary with the data at a debit of zero. Building it
-first would settle in code a disagreement `registry/validate.py` and §3.2
-currently have with each other.
+Its `enum` half was blocked on **E-27**, which is now decided: §3.2 carries a
+**fifth** condition, *at least two labels*, and an `object` release names at
+least one detail field. `check_narrowing` implements five conditions and rejects
+a mapping failing any.
 
-**The `object` route to the same release is not blocked**, and the difference
-took several passes to state, so it is stated here as a rule rather than as a
-fact about these two shapes.
+**The rule that decided when to block is worth keeping**, because it took several
+passes to state. **A PRD blocks when an implementation cannot proceed without
+making the decision, not when the spec might change.** An open escalation is not
+by itself a reason to stop: it may touch several sections, and freezing
+everything it might reach would stall work the spec defines perfectly well. The
+test is whether someone could write the code and be following the spec. Two rules
+that disagree fail it, and so does no rule at all.
 
-**A PRD blocks when an implementation cannot proceed without making the
-decision, not when the spec might change.** An open escalation is not by itself a
-reason to stop: E-27 could touch several sections, and freezing everything it
-might reach would stall work the spec currently defines perfectly well. The test
-is whether someone could write the code and be following the spec. Two rules that
-disagree fail it, and so does no rule at all.
+`enum` was that case. §3.2's four conditions admitted a one-label mapping while
+[`registry/validate.py`](../../registry/validate.py) authored no debit for one,
+so whoever wrote `check_narrowing` had to pick a side — and picking was the
+decision.
 
-`enum` is that case. §3.2's four conditions **admit** a one-label mapping and
-[`registry/validate.py`](../../registry/validate.py) authors no debit for one, so
-whoever writes `check_narrowing` must pick a side — and picking is the decision
-E-27 exists to make.
-
-`object`'s empty allowlist is not. §2.5 says `allowed_detail_fields` **may be
-empty**, and nothing contradicts it, so an implementation follows §2.5. If E-27
-removes that, §2.5 changes and these vectors change with it — which is ordinary,
-and is what an escalation landing looks like.
-
-**`object`'s `maximum_cardinality` fails the test the other way**, and is blocked
-on **E-28**. §2.5 says the field is *"For `set` and `object`"*; §3.2's `object`
+**`object`'s `maximum_cardinality` still fails the test**, and is blocked on
+**E-28**. §2.5 says the field is *"For `set` and `object`"*; §3.2's `object`
 row does not mention it, and [`terminology.md`](../../spec/terminology.md) §4
 bounds an `object` by a maximum serialized size instead. So an implementation
 must decide for itself whether to enforce the field, ignore it, or reject a

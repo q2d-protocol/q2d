@@ -425,13 +425,17 @@ def main(argv: list[str]) -> int:
                 check(not bad, "every capacity-table entry is correct", ",".join(bad))
                 check(all(isinstance(v, int) for v in tbl.values()),
                       "capacity table holds integers")
-                # Every label count a coarsening could ask for: 2 up to the
-                # registered cardinality. Below 2 is not a domain.
-                # Through the registered cardinality inclusive: the table is
-                # the entry's only capacity source, so it answers the
-                # uncoarsened request as well as every coarsening.
+                # Every label count a coarsening could ask for. core-model.md
+                # §3.2 bounds it at both ends: condition 5 requires at least two
+                # labels, and condition 3 requires strictly fewer than the
+                # registered cardinality. Through that cardinality inclusive,
+                # because the table is the entry's only capacity source and so
+                # answers the uncoarsened request as well as every coarsening.
+                # The floor was this range before E-27 decided condition 5; the
+                # decision made the spec agree with the check rather than the
+                # other way round.
                 check(set(tbl) == {str(k) for k in range(2, dom["cardinality"] + 1)},
-                      "capacity table covers the registered cardinality and every coarsening",
+                      "capacity table covers the registered cardinality and every coarsening (core-model.md §3.2 conditions 3 and 5)",
                       f"{sorted(tbl)} vs 2..{dom['cardinality']}")
             else:
                 declared = capacity["millibits"]

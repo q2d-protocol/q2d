@@ -18,26 +18,29 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-27 and E-28 are open.** E-28 was raised as a one-line omission in §3.2's
+> **E-28 is the only one open.** It was raised as a one-line omission in §3.2's
 > `object` row and is not: checking it before implementing found that `object`'s
 > bound is a **maximum serialized size no field carries**, which
 > [`claims.md`](../spec/claims.md) **Q2D-C-03** nonetheless claims is enforced.
-> It is a claim-honesty item and therefore the more urgent of the two.
+> A claim-honesty item, and the reason
+> [P-010](prds/P-010-responder-pipeline.md) issue 8's serialized-size check waits.
 >
-> **E-27** blocks the `enum` constant-release route in
-> [P-006](prds/P-006-request-validation.md) issue 4, and it is a
-> live disagreement between `spec/` and
+> **E-27 closed as A**: a release that cannot vary with the data is inadmissible
+> by either route. §3.2 gains a fifth `enum` condition — *at least two labels* —
+> and requires an `object` release to name at least one detail field. It had been
+> a live disagreement between §3.2's conditions and
 > [`registry/validate.py`](../registry/validate.py) rather than a question with
-> no answer yet. All sixteen PRDs remain Ready for decomposition.
+> no answer yet, and it unblocks
+> [P-006](prds/P-006-request-validation.md) issue 4's `enum` half. All sixteen
+> PRDs remain Ready for decomposition.
 >
 > **E-26 closed**, and gave `core-model.md` a new **§3.3**: two narrowings of one
 > dimension compose to their greatest lower bound. Where that bound is a range no
 > value satisfies, the domain is empty and fails closed — correcting §3's claim
 > that narrowing alone cannot reach an empty domain. Where it is an empty
-> `allowed_detail_fields`, §2.5 already permits that value and §3.3 adds nothing
-> — which means the spec permits a constant answer for an `object` and refuses
-> one for an `enum`. That inconsistency is **E-27**, and E-26 leaves both routes
-> exactly as it found them.
+> `allowed_detail_fields`, the composition is inadmissible and fails closed —
+> **E-27** decided that an `object` release names at least one detail field, for
+> the same reason an `enum` coarsening needs at least two labels.
 >
 > **Two closed after this note was first written, and both changed behaviour an
 > implementer would otherwise get wrong.** E-17 supersedes §3.2's conservative
@@ -87,7 +90,7 @@ question is still fresh than after the answer arrives.
 | **E-16** | Should the registry's JSON Schema profile be normative in `spec/`? | P-006 | `scope.md` §4.1 (new) | **Closed** |
 | **E-25** | May a policy modifier coarsen an `enum`, and if so where does its mapping live? | E-17's resolution | `core-model.md` §3.2 | **Closed** |
 | **E-26** | What do two incomparable narrowings of one dimension compose to? | E-25's cascade | `core-model.md` §3, §3.3 (new) | **Closed** |
-| **E-27** | Is a release that cannot vary with the data admissible — a one-label `enum`, an empty field set? | E-25's cascade | `core-model.md` §2.5, §3.2 · `registry/validate.py` | **Open** |
+| **E-27** | Is a release that cannot vary with the data admissible — a one-label `enum`, an empty field set? | E-25's cascade | `core-model.md` §2.5, §3.2 (condition 5), §3.3 | **Closed** |
 | **E-28** | `object` is bounded by a maximum serialized size that no field carries, and Q2D-C-03 claims it is enforced | E-26's cascade | `terminology.md` §4 · `core-model.md` §2.5, §3.2 · `claims.md` Q2D-C-03 | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
@@ -1216,7 +1219,7 @@ which turns on candidates existing at all rather than on which one wins.
 
 **An `enum` is narrowed by an arbitrary function, not a bound.** Two coarsenings
 of one domain need not be comparable — `{a,b,c,d}` onto `{ab, cd}` and onto
-`{ac, bd}` are both admissible under §3.2's four conditions and neither factors
+`{ac, bd}` are both admissible under §3.2's conditions and neither factors
 through the other. A common coarsening does exist — the finest partition both
 refine — but for an incomparable pair it is strictly coarser than each, so its
 label set is strictly smaller than either declared domain and condition 2 fails
@@ -1238,12 +1241,10 @@ party's expected requests, so a table authored today already answers a
 modifier-produced count. §3.2 now says *total* rather than *every reachable*,
 which is what the validator has always enforced.
 
-One caveat, and it belongs to **E-27** rather than here: if that question
-resolves toward admitting a one-label coarsening, every table gains a `"1": 0`
-key, and every entry carrying one is re-authored. That cost is E-27's whichever
-way E-25 had gone — B does not create it and A would not have avoided it — but
-"no migration at all" was too strong, and it is zero today only because no entry
-carries a table.
+One caveat, since resolved: this depended on **E-27**, because admitting a
+one-label coarsening would have given every table a `"1": 0` key and re-authored
+every entry carrying one. E-27 closed the other way, so the range stands at two
+through the registered cardinality and there is no migration.
 
 The one thing B genuinely gives up: a policy authority that wants to reduce an
 `enum`'s disclosure must deny or escalate instead, which is blunt where a
@@ -1406,16 +1407,12 @@ fixtures grow enough to need it.
 ## E-27 — Is a release that cannot vary with the data admissible?
 
 **Raised by** E-25's cascade ·
-**Decides** [`core-model.md`](../spec/core-model.md) §2.5 and §3.2, and
-[`registry/validate.py`](../registry/validate.py) ·
-**Blocks** [P-006](prds/P-006-request-validation.md) issue 4's `enum` half,
-where §3.2's conditions and [`registry/validate.py`](../registry/validate.py)
-disagree and an implementation must pick a side. The `object` route to the same
-release is **not** blocked: §2.5 permits an empty `allowed_detail_fields` and
-nothing contradicts it, so there is a rule to follow and this escalation changing
-it later is ordinary. Nothing else waits; no registry entry carries a capacity
-table yet. It is a **standing disagreement between documents** rather
-than merely an undecided question, and it silently determines a debit.
+**Decided: A — inadmissible.** §3.2 gains a fifth condition on an `enum`
+coarsening, *at least two labels*, and requires an `object` release to name at
+least one detail field. ·
+**Blocked** [P-006](prds/P-006-request-validation.md) issue 4's `enum` half,
+which is now unblocked. It was a **standing disagreement between documents**
+rather than an undecided question, and it silently determined a debit.
 
 ### Context
 
@@ -1448,27 +1445,30 @@ shape of the free oracle that E-17's subsetting resolution existed to close, and
 a rule that grants one deserves to be arrived at deliberately rather than fallen
 into through four conditions that happen not to exclude it.
 
-**The spec already answers this question for `object`, and answers it the other
-way.** §2.5 says `answer_contract.allowed_detail_fields` **may be empty**, so a
-requester can ask for an object with no detail fields today and E-26's §3.3
-composes two disjoint field sets to the same value. An object with no detail
-fields is the same thing a one-label `enum` coarsening is: a release that cannot
-vary with the data. What it *costs* is a separate matter — §9 parks the capacity
-calculation for `object` outputs, so the `enum` route's zero debit has no
-established counterpart on the `object` side, and this escalation should not
-assume one.
+**A second route reaches the same release.** An `object` with no detail fields
+returns the same answer whatever the data says, exactly as a one-label `enum`
+coarsening does, and E-26's §3.3 composes two disjoint `allowed_detail_fields`
+to precisely that. Whatever is decided here has to be decided for both, or the
+spec refuses a constant by one route and permits it by the other.
 
-So this is not one open question and one settled one. It is a **live
-inconsistency**: permitted for `object` by §2.5, refused for `enum` by
-`registry/validate.py` and by §3.2's `boolean` rationale. Whichever way E-27
-goes, it should go the same way for both, and it will have to amend one of the
-two routes to get there. Discovered while cascading E-26, which touches neither.
+**This brief claimed the spec already permitted the `object` route, and it did
+not.** §2.5 says `allowed_detail_fields` *"may be empty"*, which I read as
+settling the `object` case in the permissive direction and framed the whole
+escalation as a live inconsistency between §2.5 and §3.2. Checking the deposited
+technical report before implementing the decision showed otherwise: its worked
+example carries `"allowed_detail_fields": []` on a **`boolean`** request. Only
+`object` has detail fields, so for every other shape an empty allowlist is the
+only correct value — which is all that sentence was ever permitting. §2.5 never
+addressed an empty `object`.
 
-An earlier draft of §3.3 rejected an empty effective allowlist as an "interim
-rule". That was wrong: §2.5 is existing normative text permitting the value, so
-the rule was not filling a gap but contradicting the spec — a fifth finding in a
-row on the same passage, and the one that showed the model was wrong rather than
-the wording.
+That makes this one open question with two routes rather than a contradiction,
+and it makes A a smaller change than the brief implied: §2.5 keeps *"may be
+empty"*, and the `object` rule goes where the other shape rules are, in §3.2.
+
+An earlier draft of §3.3 had rejected an empty effective allowlist as an
+"interim rule", was reverted on the same misreading, and turns out to have been
+right — which is a reason to check a premise before building an argument on it,
+not a reason to trust a first instinct.
 
 It also feeds E-25's rationale in `core-model.md` §3.2, which observes that two
 the collapse onto one label is the common coarsening of a *fully crossing* pair,
@@ -1507,7 +1507,7 @@ than its stated purpose.
 `claims.md` says the budget measures. A dishonest accounting to close a hole a
 condition could close directly.
 
-### Recommendation — A
+### Recommendation — A. **Adopted.**
 
 The three documents should agree, and A moves the one that is least considered.
 The four conditions were written to stop a requester inventing labels or dropping
@@ -1526,8 +1526,27 @@ accounting C would need.
 **Where A stops being right:** if a deployment wants a *probe* — establishing
 that a predicate is answerable, with a policy that permits it and a budget that
 does not charge — B is the honest way to express it, and A forces that intent
-into an escalation or a denial instead. Worth asking whether P-016's adversarial
-work needs one before this is closed.
+into an escalation or a denial instead. Nothing in
+[P-016](prds/P-016-demonstration-adversarial.md) needs one today; if that
+changes, A is one condition to remove.
+
+**What the cascade turned out to be**, after the premise above was corrected:
+
+- §3.2's `enum` conditions gain a fifth, *at least two labels*, with §3.2's own
+  *empty request* reasoning as its justification rather than a new principle.
+- §3.2's `object` row requires a **non-empty** `allowed_detail_fields`, stated
+  beside the shape rules where an implementer looks for it.
+- §3.3's disjoint-field-set paragraph now fails closed, which is what it said
+  before it was reverted on the misreading.
+- §3.2's capacity paragraph states the admissible label counts as **two through
+  the registered cardinality**, bounded by conditions 5 and 3 — which is what
+  [`registry/validate.py`](../registry/validate.py) has always checked. E-25's
+  cascade had to leave that range unstated because this question was open.
+- §2.5 keeps *"may be empty"*, with a clause naming `object` as the exception.
+
+Nothing in [`claims.md`](../spec/claims.md) changes. Q2D-C-09 accounts for the
+capacity of the answer alphabet, and closing a path to a zero-capacity release
+strengthens that without altering what the claim rests on.
 
 ---
 
@@ -1741,7 +1760,8 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-24** | **A step of its own: 11a**, immediately after step 11's schema validation. They are different mechanisms — step 11 runs a schema the registry supplies, and an entry's other constraints are predicate-specific logic — so folding them into one step would let an implementation satisfy §4 by running a validator and stopping, and leave a vector unable to say which rejected. Lettered as 9a is, so the numbers below do not move. **[P-006](prds/P-006-request-validation.md) already had the distinction**: §4.3 separates constraints from schemas and §5 has `validate_schema` and `check_constraints` as two functions. The specification had one step where that module always had two mechanisms | `core-model.md` §4 (step 11a), §4's invariants · P-006 §2/§4.3 · P-010 §1/§2/§4 · P-001 §4.6, §5 · `conformance/vector.schema.json`'s lettered-step enum · `tools/fold_registry.py` |
 | **E-23** | **One spelling, stated once, for every timestamp in the protocol**: uppercase `T`, uppercase `Z`, second precision. The rule already existed — in P-002 §4.2, which was the only place in the repository saying `Z` while `core-model.md` said only "RFC 3339, second precision". Relocating it to §2.2 gave it the reach it lacked: **P-002's profile covers the signed payload and not `routing`**, and §4 step 8 compares `routing` against `signed`. §4 step 8 is now stated as a **byte** comparison, which one spelling makes safe — the alternative is parsing unauthenticated data above the verification line | `core-model.md` §2.2 (new), §4 step 8, §5.3, §6 · `claims.md` Q2D-C-08 · P-002 §4.2 now cites rather than states · `harness lint` |
 | **E-25** | **A modifier may not coarsen an `enum`**, and the reason is composition rather than the missing field. §3's *take the coarsest* presumes comparable operands; an `enum` is narrowed by an arbitrary function, two coarsenings of one domain need not be comparable, and their common coarsening is strictly coarser than each — a label set neither declared, which condition 2 rejects — where every other shape leaves something inside both operands. Permitting policy-side coarsening therefore needs a factoring rule and a fail-closed path for mappings that do not factor — and no deployment has yet stated which it wants. Widening later breaks nothing built against the rule, and reaches no label count a requester could not: a capacity table is total over the counts it covers. Which counts those are is E-27. | `core-model.md` §3.1, §3.2 · `terminology.md` §6 · `registry/README.md` · P-006 §10 · P-007 §4.4, §10, issue 8 |
-| **E-26** | **The greatest lower bound**, per dimension: the coarser value where the dimension is a number or a duration, and the **intersection** where it is a range or a field set, which are ordered by containment and so need not be comparable. Where the bound is a range no value satisfies, the domain is empty and fails closed; where it is an empty `allowed_detail_fields`, §2.5 already permits that value and §3.3 adds no rule — which is one half of the inconsistency E-27 decides. `enum` cannot arise, which is what keeps the rule total. Raised naming three incomparable shapes; `interval` granularity was not one of them — it is a duration, and durations are ranked. | `core-model.md` §3 and §3.3 (new) · `terminology.md` §6 · P-006 §4.1, §5, §6, issue 6 · P-007 §4.4, §5, §10, issue 4 |
+| **E-26** | **The greatest lower bound**, per dimension: the coarser value where the dimension is a number or a duration, and the **intersection** where it is a range or a field set, which are ordered by containment and so need not be comparable. Where the bound is a range no value satisfies, the domain is empty and fails closed; where it is an empty `allowed_detail_fields`, the composed value is inadmissible under §3.2's non-empty rule (E-27) and fails closed as well. `enum` cannot arise, which is what keeps the rule total. Raised naming three incomparable shapes; `interval` granularity was not one of them — it is a duration, and durations are ranked. | `core-model.md` §3 and §3.3 (new) · `terminology.md` §6 · P-006 §4.1, §5, §6, issue 6 · P-007 §4.4, §5, §10, issue 4 |
+| **E-27** | **Inadmissible, by both routes.** §3.2 gains a fifth condition on an `enum` coarsening — *at least two labels* — and requires an `object` release to name at least one detail field. A constant answer is a refusal wearing an answer's shape, and §3.2 already called a one-value domain *the empty request* where it explains `boolean` and `attribute`; this applies the same reading to the two shapes that had escaped it. The escalation was briefed as a live inconsistency between §2.5 and §3.2; it was not — only `object` has detail fields, so §2.5's *may be empty* was always about the shapes that have none. | `core-model.md` §2.5, §3.2, §3.3 · `registry/validate.py` · P-006 §10, issue 4 · P-007 issue 4 |
 
 ### What did not change, deliberately
 
