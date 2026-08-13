@@ -173,8 +173,8 @@ take effect, and the result is the coarser of the two.
 *The coarser of the two* presumes the two are comparable.
 [`core-model.md`](../../spec/core-model.md) §3.2 excludes `enum` from modifier
 coarsening (E-25) precisely because two `enum` mappings need not be, and no
-composition of them stays inside either declared label set — so this module never
-has to compose two mappings that do not factor. **`object` is not settled the
+third mapping agrees with both — so this module never has to compose two mappings
+that do not factor. **`object` is not settled the
 same way**: `allowed_detail_fields` is a subset, two modifiers may choose
 incomparable sets, and §3 does not say what they compose to. Open question below;
 issue 4 is blocked on it.

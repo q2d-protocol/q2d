@@ -409,19 +409,23 @@ has no answer contract and so has nowhere to declare one; a modifier narrowing a
 `enum` is rejected as an implementation error, exactly as a modifier that subsets
 is. Every other shape's modifier rule is unaffected.
 
-The reason is composition, not the missing field. For every other coarsenable
-shape, composing two narrowings yields something **both parties could have asked
-for**: a coarser precision, a longer slot, a lower cardinality, a smaller field
-set. An `enum` is the one shape narrowed by an arbitrary function, and two
-coarsenings of one domain need not be comparable —
-`[[a,ab],[b,ab],[c,cd],[d,cd]]` and `[[a,ac],[c,ac],[b,bd],[d,bd]]` both satisfy
-the four conditions above, and neither factors through the other. There is no
-composition of them that stays inside either party's declared label set, so
-whatever a responder produced would fail condition 2 against one of them. That
-holds for one modifier against one requester's mapping, not only for two
-modifiers. Admitting policy-side coarsening therefore means specifying when two
-mappings factor and what a responder does when they do not — a larger addition
-than this gap warrants while no deployment has stated which behaviour it needs.
+The reason is composition, not the missing field. An `enum` is narrowed by an
+arbitrary function rather than by a bound on a value, and two coarsenings of one
+domain need not be comparable: `[[a,ab],[b,ab],[c,cd],[d,cd]]` and
+`[[a,ac],[c,ac],[b,bd],[d,bd]]` both satisfy the four conditions above, and
+neither factors through the other. Nor is there a third mapping that agrees with
+both — they disagree about which registered values share a label, and that
+disagreement is the entire content of a coarsening. It holds for one modifier
+against one requester's mapping, not only for two modifiers. Admitting
+policy-side coarsening therefore means specifying when two mappings factor and
+what a responder does when they do not — a larger addition than this gap warrants
+while no deployment has stated which behaviour it needs.
+
+Composability is not automatic for the other shapes either: two `object` field
+sets need not be comparable, and what they compose to is undecided
+([`open-escalations.md`](../docs/open-escalations.md) E-26). The difference is
+that field sets leave a responder something to choose between, where two
+disagreeing `enum` mappings leave nothing.
 
 **Permitting it later forecloses nothing and costs no re-authoring.** It would
 accept requests this rule rejects, so nothing built against this rule breaks; and
