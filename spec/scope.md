@@ -139,6 +139,50 @@ fetch during validation, and an unbounded expression is a denial-of-service
 surface, both on input that is authenticated by then ([`core-model.md`](core-model.md)
 §4 step 11 follows step 4) but still hostile.
 
+**An entry's `output_schema` bounds the serialized length of every value it can
+release.** This is a requirement on the schema, not merely a permission: the
+keywords are in the list above either way, and what this adds is that an entry
+may not omit them.
+
+| Type it admits | Bounded by |
+|---|---|
+| `string` | `maxLength`, or `format: date-time` — [`core-model.md`](core-model.md) §2.2 fixes one twenty-character spelling |
+| `integer` | `minimum` **and** `maximum` — an unranged integer admits arbitrarily many digits, and its domain has no cardinality for §3.1 to price |
+| `number` | **nothing in this profile.** A range does not bound a decimal expansion: `0.0 … 1.0` still admits arbitrarily many digits, and the profile has no `multipleOf`. A `number` in an output schema is therefore refused unless an `enum` bounds it — see below |
+| `array` | `maxItems` **and** `items` — a bounded count of unconstrained elements is not a bound |
+| `object` | its fields, each a subschema this rule reaches on its own; `additionalProperties: false` above means there are no others |
+| `boolean`, `null` | themselves |
+
+Two subschemas are exceptions in opposite directions. One carrying `enum` is
+bounded by it whatever its type — a finite set of literals is a complete bound,
+and a length beside it could only disagree — and that bound reaches **inside**,
+so an enum of objects bounds the strings within them and the requirement does not
+descend past one. One carrying **no `type`** admits every type at once and is
+refused: omitting a constraint does not narrow anything, and a schema that does
+not say what it releases cannot bound it.
+
+**The `number` row is a live restriction, and it narrows what 0.1 can answer.**
+[`terminology.md`](terminology.md) §4 defines the `scalar` shape as *"a bounded
+integer or number at registered precision"*, so a predicate returning a
+non-integer is contemplated and cannot presently declare a conforming output
+schema. Adding a precision keyword to the profile would fix it and is a change to
+this document; it is
+[`open-escalations.md`](../docs/open-escalations.md) **E-30**. Refusing meanwhile
+is the fail-closed reading and keeps
+[`claims.md`](claims.md) Q2D-C-03 true.
+
+The reason is that nothing else bounds those values.
+[`core-model.md`](core-model.md) §3.2 narrows a domain by shape, and the
+`attribute` shape is *"one selected attribute value released in full"* — it
+permits no narrowing at all, so a free-text field inside an `object` is bounded
+by its schema or by nothing. §4 step 17 validates a released result against this
+schema for that reason, and
+[`claims.md`](claims.md) **Q2D-C-03** rests on it.
+
+The requirement is on the **output** schema. An entry's input and public-context
+schemas bound what a requester may send, which is a resource question rather than
+a disclosure one, and this document does not decide it.
+
 **The list is frozen, and extending it is a change to this document.** A
 predicate whose public context needs `oneOf` is complicated enough that its
 schema is not where the complexity should be resolved — which is the same

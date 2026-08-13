@@ -279,6 +279,103 @@ def object_schemas(schema, path):
         yield from object_schemas(schema["items"], f"{path}.items")
 
 
+def admits(schema, json_type):
+    """Whether a subschema admits values of a JSON type.
+
+    **A subschema with no `type` admits every type.** That is JSON Schema's
+    rule, not a lenient reading of it: `type` is a constraint, and omitting a
+    constraint does not narrow anything. Treating a missing `type` as matching
+    nothing would let `{"maxLength": 8}` beside a typeless sibling -- or a bare
+    `{"description": ...}` -- carry an unbounded string past the one check
+    written to catch it.
+    """
+    declared = schema.get("type")
+    if declared is None:
+        return True
+    if isinstance(declared, list):
+        return json_type in declared
+    return declared == json_type
+
+
+# Every JSON type an output schema can admit, and what bounds its serialized
+# length. Enumerated rather than checked case by case: four rounds of review
+# each found a type the previous version had not thought of -- a schema with no
+# `type`, an enum's descendants, an array without `items`, an unbounded number
+# -- and the fix each time was another branch. A table of all seven is the
+# thing that cannot silently omit one.
+BOUNDED_BY = {
+    "string": ("maxLength",),        # or `format: date-time`, handled below
+    "integer": ("minimum", "maximum"),
+    # `number` is absent on purpose, and handled below: a range does not bound
+    # a decimal expansion, and §4.1's profile has no `multipleOf`. See E-30.
+    "array": ("maxItems", "items"),  # count *and* element schema
+    "boolean": (),                   # two values
+    "null": (),                      # one value
+    "object": (),                    # its fields, each reached by this walk
+}
+
+
+def unbounded_release(schema, path):
+    """Every subschema that can release a value of unbounded serialized length.
+
+    scope.md §4.1: an entry's output schema bounds every variable-length value
+    it can release. Serialized length is the measure, so a number counts -- an
+    integer with no range admits arbitrarily many digits, and its domain has no
+    cardinality for §3.1 to price either.
+
+    **`enum` bounds the whole value and prunes the walk below it.** A finite
+    set of literals is a complete bound whatever the type, so an enum of
+    objects bounds the strings inside them too; descending would reject a
+    schema §4.1 permits, which is the opposite of this check's job.
+
+    An **object** is bounded by its fields rather than by a keyword of its own:
+    each is a subschema this walk reaches, and §4.1 already requires
+    `additionalProperties: false`, so there are no unreached ones.
+    """
+    if not isinstance(schema, dict):
+        return
+    if "enum" in schema:
+        return
+
+    if "type" not in schema:
+        # No `type` admits every type at once, so it is unbounded in every
+        # direction. One finding rather than seven: the fix is to say what the
+        # value is.
+        yield f"{path}: no `type`, so it admits a value of any type and any length"
+    else:
+        declared = schema["type"]
+        for json_type in (declared if isinstance(declared, list) else [declared]):
+            if json_type == "number":
+                # scope.md §4.1: `minimum`/`maximum` bound an integer's digits
+                # and not a decimal expansion -- 0.0 to 1.0 still admits
+                # arbitrarily many -- and the profile carries no precision
+                # keyword. Refused rather than accepted on a range that does
+                # not bound what this rule is about. E-30 decides whether the
+                # profile gains one.
+                yield (f"{path}: number, which §4.1's profile cannot bound "
+                       f"(no precision keyword) — use `integer` or an `enum`")
+                continue
+            required = BOUNDED_BY.get(json_type)
+            if required is None:
+                # A type outside JSON's seven is not something §4.1's profile
+                # can describe, and is reported rather than passed over.
+                yield f"{path}: unknown type {json_type!r}"
+                continue
+            if json_type == "string" and schema.get("format") == "date-time":
+                continue    # core-model.md §2.2 fixes one 20-character spelling
+            missing = [k for k in required if k not in schema]
+            if missing:
+                yield (f"{path}: {json_type} with no "
+                       + " or ".join(f"`{k}`" for k in missing))
+
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for name, sub in properties.items():
+            yield from unbounded_release(sub, f"{path}.properties.{name}")
+    if "items" in schema:
+        yield from unbounded_release(schema["items"], f"{path}.items")
+
+
 def timestamps(value, path="manifest"):
     """Every string in the manifest that is shaped like a date-time."""
     if isinstance(value, str):
@@ -590,6 +687,24 @@ def main(argv: list[str]) -> int:
                   ",".join(misshapen))
             check(schema.get("$schema") == DIALECT,
                   f"{where} declares §4.1's dialect", str(schema.get("$schema")))
+
+            # scope.md §4.1: an entry's OUTPUT schema bounds every
+            # variable-length value it can release. Only the output schema --
+            # the input and public-context schemas bound what a requester may
+            # send, which §4.1 says is a resource question rather than a
+            # disclosure one and does not decide.
+            #
+            # This is what core-model.md §4 step 17 validates a result against,
+            # and what claims.md Q2D-C-03 rests on: the effective domain bounds
+            # the answer's alphabet, and nothing but this schema bounds its
+            # extent. The `attribute` shape is released *in full* and §3.2
+            # permits it no narrowing, so a free-text field is bounded here or
+            # nowhere.
+            if field == "output_schema":
+                unbounded = sorted(unbounded_release(schema, where))
+                check(not unbounded,
+                      f"{where} bounds every variable-length value it releases",
+                      "; ".join(unbounded))
             # And nowhere else: JSON Schema lets a nested `$schema` switch
             # dialects for that subschema, which is the divergence §4.1 pins
             # the dialect to prevent, reintroduced one level down.
