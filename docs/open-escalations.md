@@ -18,8 +18,8 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-27 is the only one open.** It blocks the `enum` and `object` shapes of
-> [P-006](prds/P-006-request-validation.md) issue 4, and it is a
+> **E-27 is the only one open.** It blocks
+> [P-006](prds/P-006-request-validation.md) issue 4's `enum` half, and it is a
 > live disagreement between `spec/` and
 > [`registry/validate.py`](../registry/validate.py) rather than a question with
 > no answer yet. All sixteen PRDs remain Ready for decomposition.
@@ -1400,11 +1400,12 @@ fixtures grow enough to need it.
 **Raised by** E-25's cascade ·
 **Decides** [`core-model.md`](../spec/core-model.md) §2.5 and §3.2, and
 [`registry/validate.py`](../registry/validate.py) ·
-**Blocks** two shapes of [P-006](prds/P-006-request-validation.md) issue 4 —
-`enum`, where `check_narrowing` *is* the condition list and building it decides
-whether there are four or five, and `object`, where it decides whether an empty
-`allowed_detail_fields` is admissible. Nothing else waits on it; no registry
-entry carries a capacity table yet. It is a **standing disagreement between documents** rather
+**Blocks** [P-006](prds/P-006-request-validation.md) issue 4's `enum` half —
+`check_narrowing` *is* the condition list, so building it decides whether there
+are four conditions or five. The `object` route to the same release is not
+blocked: §3.3 states an interim rule for it, where §3.2's four conditions already
+admit the `enum` case and amending them would be the decision itself. Nothing
+else waits on this; no registry entry carries a capacity table yet. It is a **standing disagreement between documents** rather
 than merely an undecided question, and it silently determines a debit.
 
 ### Context
