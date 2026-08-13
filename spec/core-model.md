@@ -325,7 +325,9 @@ Three rules, and the third is the one that matters:
   two implementations could differ in the last place, and a rounding boundary
   would turn that into a different integer. Authoring the value once removes the
   question. Where a domain's cardinality varies with the request, the entry
-  carries a lookup table over every reachable cardinality.
+  carries a lookup table that is **total** over the cardinalities the entry
+  admits: a cardinality missing from it is a registry defect, not a request
+  the entry declines. §3.2 for the `enum` case.
 
 This is the same principle as Q2D-C-02 applied to accounting: the registry is
 authoritative, and a locally computed value is non-conforming even when it
@@ -443,9 +445,13 @@ size, looked up in the registry entry's capacity table as any varying
 cardinality is ([`registry/README.md`](../registry/README.md)). A responder
 never computes it, and never takes it from the request. An entry whose `enum`
 domain may be coarsened therefore carries a table that is **total** over the
-label counts it admits — not a single value, and not the counts some particular
-requester is expected to ask for. That is a registry-format consequence of this
-rule, not a new mechanism, and totality is what the paragraph above rests on.
+admissible label counts — not a single value, not the counts some particular
+requester is expected to ask for, and not a subset the entry picks by leaving
+keys out. A count missing from the table is a registry defect rather than a
+coarsening the entry declines to offer; an entry that offers none carries a
+single capacity value instead, as below. That is a registry-format consequence
+of this rule, not a new mechanism, and totality is what the paragraph above
+rests on.
 
 Which counts an entry admits is not fully settled. The four conditions above
 admit a mapping onto a *single* label, while
