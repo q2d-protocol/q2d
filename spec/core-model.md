@@ -194,7 +194,7 @@ The requester's pre-evaluation commitment (Q2D-C-01).
 | `answer_contract.release_shape` | yes | One of the eight identifiers in [`terminology.md`](terminology.md) §4. |
 | `answer_contract.domain` | yes | The requested domain, or a reference to the registry-defined one. |
 | `answer_contract.maximum_cardinality` | shape-dependent | For `set` and `object`. |
-| `answer_contract.allowed_detail_fields` | yes | May be empty. Never unconstrained — every disclosed field is part of the contract and the capacity calculation. |
+| `answer_contract.allowed_detail_fields` | yes | May be empty — for every shape but `object`, which has detail fields and must name at least one (§3.2). Never unconstrained: every disclosed field is part of the contract and the capacity calculation. |
 | `answer_contract.precision` | shape-dependent | Granularity for `scalar` and `interval`. |
 | `answer_contract.coarsening` | shape-dependent | Required for an `enum` request whose domain is coarser than the registered one; prohibited otherwise. The mapping, §3.2. |
 | `answer_contract.disclosure_class` | no | Requester's sensitivity assertion; advisory only. |
@@ -356,12 +356,19 @@ a policy modifier (§2.5).
 | `scalar` | reduced precision; a range no wider than registered |
 | `interval` | coarser granularity, at or above any registered `minimum_slot_duration`; horizon no longer than registered |
 | `set` | `maximum_cardinality` at or below registered |
-| `object` | `allowed_detail_fields` a subset of registered, each remaining field narrowed by its own shape's rule, applied **recursively** |
+| `object` | `allowed_detail_fields` a non-empty subset of registered, each remaining field narrowed by its own shape's rule, applied **recursively** |
 | `attribute` | none |
 | `ciphertext` | not reachable in 0.1 |
 
 `object` is the one to watch: a field-level rule must not be skipped because the
 object-level check passed.
+
+**An `object` release names at least one detail field.** An object with none
+returns the same answer whatever the data says, which is the `enum` mapping's
+fifth condition below in another shape, and the *empty request* this section
+already refuses for `boolean` and `attribute`. §2.5's *"may be empty"* is
+unaffected: only `object` has detail fields, so for every other shape an empty
+`allowed_detail_fields` is the only correct value.
 
 Two shapes deserve their exception stated. `boolean` and `attribute` permit no
 narrowing because a two-valued or single-valued domain has no coarser form that
@@ -403,8 +410,15 @@ bytes.
    responder cannot choose between them. This condition is the reason the
    format is an array: an object could not express the violation, so a rule
    against it would be unenforceable and therefore not worth stating.
+5. **At least two labels** — a mapping onto a single label returns the same
+   answer whatever the data says. The first four conditions admit one: it is
+   total, its image equals the requested `{x}`, it is strictly smaller, and it
+   is a function. It is not an answer. §3.2 already calls a one-value domain
+   *the empty request* where it explains why `boolean` and `attribute` permit no
+   narrowing, and this condition applies the same reading to `enum` rather than
+   leaving the two shapes to disagree.
 
-All four are checkable by comparing two sets and counting, which is the point:
+All five are checkable by comparing two sets and counting, which is the point:
 the responder makes no judgement about what the labels *mean*. A mapping that
 says `via-assistant → not-reachable` is admissible even if a human would call it
 wrong, because the requester declared what it wanted and Q2D-C-01 binds it to
@@ -421,7 +435,7 @@ is. Every other shape's modifier rule is unaffected.
 The reason is composition, not the missing field. An `enum` is narrowed by an
 arbitrary function rather than by a bound on a value, and two coarsenings of one
 domain need not be comparable: `[[a,ab],[b,ab],[c,cd],[d,cd]]` and
-`[[a,ac],[c,ac],[b,bd],[d,bd]]` both satisfy the four conditions above, and
+`[[a,ac],[c,ac],[b,bd],[d,bd]]` both satisfy the five conditions above, and
 neither factors through the other. A common coarsening does exist — the finest
 one both refine — but an incomparable pair's is strictly coarser than each of
 them, so its label set is strictly smaller than either declared domain, and
@@ -458,13 +472,10 @@ single capacity value instead, as below. That is a registry-format consequence
 of this rule, not a new mechanism, and totality is what the paragraph above
 rests on.
 
-Which counts an entry admits is not fully settled. The four conditions above
-admit a mapping onto a *single* label, while
-[`registry/validate.py`](../registry/validate.py) requires a table over two
-through the registered cardinality and rejects a key of one — and §3.2's reason
-for permitting no `boolean` narrowing calls a one-value result *the empty
-request*. Those do not agree. See
-[`open-escalations.md`](../docs/open-escalations.md) **E-27**.
+The admissible counts run from **two** to the registered cardinality: condition
+5 above sets the floor and condition 3 the ceiling, and
+[`registry/validate.py`](../registry/validate.py) checks a table over exactly
+that range.
 
 **An entry that carries a single capacity value admits no coarsening**, because
 there is no authored debit for the smaller label count and a responder may not
@@ -521,23 +532,16 @@ greatest lower bound.
 `scalar` ranges compose to a range no value satisfies, which *is* an empty domain
 and fails closed per §3.
 
-Disjoint `allowed_detail_fields` are different: they compose to the empty set,
-and §2.5 says that field **may be empty**. A requester can ask for an object with
-no detail fields directly, so composition reaching the same value produces
-something already admissible, and this section adds no rule about it.
+Disjoint `allowed_detail_fields` compose to the empty set, and an `object`
+release must name **at least one** detail field (§3.2), so that composition is
+inadmissible and the request fails closed. It is the same rule as the `enum`
+mapping's fifth condition, for the same reason: an object with no fields returns
+the same answer whatever the data says.
 
-That admits a release which cannot vary with the data. §3.2's `enum` rule does
-not: [`registry/validate.py`](../registry/validate.py) authors no debit for a
-single label, and §3.2's reason for permitting no `boolean` narrowing calls a
-one-value domain *the empty request*. The specification therefore permits a
-constant answer by one route and refuses it by the other, which is an
-inconsistency rather than a gap, and
-[`open-escalations.md`](../docs/open-escalations.md) **E-27** is where it is
-decided. §3.3 changes neither route.
-
-What such a release *costs* is a separate question and is not settled here: §9
-parks the capacity calculation for `object` outputs, so nothing in this section
-implies a debit for one.
+§2.5's *"may be empty"* is not in tension with this. Only the `object` shape has
+detail fields, so for every other shape an empty `allowed_detail_fields` is the
+only correct value — which is what that sentence permits, and what the worked
+example in the technical report shows on a `boolean` request.
 
 Where an empty domain is reached, a deployment can make a class of requests
 unsatisfiable by adding an authority, and the requester sees a normalized denial
