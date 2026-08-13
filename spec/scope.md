@@ -94,9 +94,15 @@ may accept any string for it — which would make request validity depend on whi
 library a responder chose, the divergence this profile exists to prevent, hiding
 inside the profile. Here it is a constraint, and the value it constrains is
 [`core-model.md`](core-model.md) §2.2's timestamp: uppercase `T`, uppercase `Z`,
-second precision. Public context travels inside the signed core object, so §2.2
-reaches it like any other timestamp, and a validator implementing this profile
-checks that form rather than deferring to a library's idea of a date.
+second precision. A validator implementing this profile checks that form rather
+than deferring to a library's idea of a date.
+
+The rule binds the value validated against the schema, **however it travelled**.
+§2.4 lets public context arrive inline in the signed core object or as a digest
+with the value carried separately; in the first case §2.2 reaches it directly,
+and in the second the value's bytes are what the signed digest commits to, so a
+different spelling is a different digest and the request fails the entry-digest
+check. Either way one spelling is the only one that works.
 
 `$schema` is required and declares the dialect —
 `https://json-schema.org/draft/2020-12/schema` for 0.1. It is a declaration
