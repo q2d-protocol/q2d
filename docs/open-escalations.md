@@ -21,7 +21,7 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > **E-27 and E-28 are open.** E-28 is a one-line omission in §3.2's `object`
 > row, found while writing §3.3, and blocks nothing.
 >
-> **E-27** blocks both constant-release routes in
+> **E-27** blocks the `enum` constant-release route in
 > [P-006](prds/P-006-request-validation.md) issue 4, and it is a
 > live disagreement between `spec/` and
 > [`registry/validate.py`](../registry/validate.py) rather than a question with
@@ -1405,12 +1405,13 @@ fixtures grow enough to need it.
 **Raised by** E-25's cascade ·
 **Decides** [`core-model.md`](../spec/core-model.md) §2.5 and §3.2, and
 [`registry/validate.py`](../registry/validate.py) ·
-**Blocks** both routes to a constant release in
-[P-006](prds/P-006-request-validation.md) issue 4 — the `enum` condition list,
-and the empty-`allowed_detail_fields` case of `object`. §2.5 permits the second
-today, which is why it needs saying: building the permissive side of a question
-under review ships a release path this escalation may remove. Nothing else waits;
-no registry entry carries a capacity table yet. It is a **standing disagreement between documents** rather
+**Blocks** [P-006](prds/P-006-request-validation.md) issue 4's `enum` half,
+where §3.2's conditions and [`registry/validate.py`](../registry/validate.py)
+disagree and an implementation must pick a side. The `object` route to the same
+release is **not** blocked: §2.5 permits an empty `allowed_detail_fields` and
+nothing contradicts it, so there is a rule to follow and this escalation changing
+it later is ordinary. Nothing else waits; no registry entry carries a capacity
+table yet. It is a **standing disagreement between documents** rather
 than merely an undecided question, and it silently determines a debit.
 
 ### Context

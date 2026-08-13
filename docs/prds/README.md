@@ -21,7 +21,7 @@ open:
 §3.2's four conditions admit a coarsening onto a single label,
 [`registry/validate.py`](../../registry/validate.py) rejects one, and §3.2's own
 `boolean` rationale agrees with the validator — a standing disagreement between
-documents. It also reaches an `object` with an empty `allowed_detail_fields` — the same constant release by another route, which §2.5 permits outright. That the spec permits one and refuses the other is the inconsistency E-27 decides, and both routes are blocked in P-006 issue 4 meanwhile. It does not block
+documents. It also reaches an `object` with an empty `allowed_detail_fields` — the same constant release by another route, which §2.5 permits outright. That the spec permits one and refuses the other is the inconsistency E-27 decides. Only the `enum` route is blocked in P-006 issue 4: `object` has a rule to follow, `enum` has two that disagree. It does not block
 decomposition. See
 [`../open-escalations.md`](../open-escalations.md), which is where every
 escalation is recorded and where a new one goes.
@@ -33,7 +33,7 @@ escalation is recorded and where a new one goes.
 | [P-003](P-003-crypto-suites.md) | Cryptographic suites, key handling, downgrade policy | 1 | **Ready for decomposition** |
 | [P-004](P-004-replay-idempotency.md) | Replay, expiry, idempotency | 1 | **Ready for decomposition** |
 | [P-005](P-005-registry-client.md) | Registry client: pinning, resolution, fail-closed | 2 | **Ready for decomposition** |
-| [P-006](P-006-request-validation.md) | Request validation and effective answer domain | 2 | **Ready for decomposition** — issue 4's two constant-release routes blocked on E-27 |
+| [P-006](P-006-request-validation.md) | Request validation and effective answer domain | 2 | **Ready for decomposition** — issue 4's `enum` half blocked on E-27 |
 | [P-007](P-007-policy-engine.md) | Policy engine contract and fail-closed invariants | 3 | **Ready for decomposition** |
 | [P-008](P-008-capacity-accounting.md) | Disclosure-capacity accounting | 3 | **Ready for decomposition** |
 | [P-009](P-009-denial-normalization.md) | Denial normalization | 3 | **Ready for decomposition** |

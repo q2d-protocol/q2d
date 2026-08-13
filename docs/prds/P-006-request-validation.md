@@ -259,7 +259,7 @@ validated value is the only one it gets.
 | `domain/schema/` | Valid context; each profile keyword; a schema using a forbidden keyword rejects |
 | `domain/constraints/` | Slot below floor; horizon beyond limit; both boundaries exact |
 | `domain/narrowing/` | Per shape in §4.5: valid coarsening, attempted expansion, and attempted strict subset — the last two both reject. For `enum`, one vector per §3.2 condition: a mapping that is not total, whose image omits a requested label, whose image carries a label outside the requested domain, that is not non-expanding, and that is not a function |
-| `domain/compose/` | Admissible from `narrow(registry, requested)`; effective from `narrow(admissible, modifiers)`; two coarsenings of different granularity compose to the coarser rather than to nothing; and one vector for each case [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes — comparable, incomparable, disjoint — per dimension it covers, less the disjoint `allowed_detail_fields` vector, which asserts the constant release E-27 is deciding. An unsatisfiable domain at either phase fails closed |
+| `domain/compose/` | Admissible from `narrow(registry, requested)`; effective from `narrow(admissible, modifiers)`; two coarsenings of different granularity compose to the coarser rather than to nothing; and one vector for each case [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes — comparable, incomparable, disjoint — per dimension it covers. An unsatisfiable domain at either phase fails closed |
 | `domain/profile/` | Supported profile passes; unsupported rejects without downgrade |
 
 ## 7. Acceptance
@@ -326,7 +326,7 @@ and the other does not.
 | ~~Should the schema profile be stated in `spec/` rather than only here?~~ | **Resolved: yes** — [`scope.md`](../../spec/scope.md) §4.1 ([`open-escalations.md`](../open-escalations.md) E-16). §4.2 cites it and this module enforces it; widening the list is now a `spec/` change rather than this module's to make. Moving it found `$schema` missing from the list while present in every entry |
 | ~~Does a coarsening mapping need to be declared by the requester, or inferred?~~ | **Resolved: declared** ([`open-escalations.md`](../open-escalations.md) E-17). `answer_contract.coarsening` carries it, and this module validates it against [`core-model.md`](../../spec/core-model.md) §3.2's four conditions — total, image exactly equal to the requested domain, non-expanding, a function. All are set comparisons and counts; §4.5 records that no judgement about a label's *meaning* is made here |
 | ~~And may a *policy modifier* coarsen an `enum`, given it has no answer contract to declare a mapping in?~~ | **Resolved: no** ([`open-escalations.md`](../open-escalations.md) E-25). [`core-model.md`](../../spec/core-model.md) §3.2 states it as a rule with its reason — an `enum` is the one shape narrowed by an arbitrary function, so two coarsenings of it need not compose — rather than as a position held pending a decision. `apply_modifiers` (issue 6) rejects one as an implementation error |
-| **Is a release that cannot vary with the data admissible?** §3.2's four conditions admit a coarsening onto a *single* label; `registry/validate.py` and §3.2's `boolean` rationale both say no. §2.5 permits an empty `allowed_detail_fields`, which is the same thing for an `object`, and one answer has to cover both. | **Open — E-27** ([`open-escalations.md`](../open-escalations.md)). **Blocks issue 4's `enum` half**: `check_narrowing` is the condition list, so building it settles whether there are four conditions or five — in code, for a question `spec/` has not answered. The `object` route to the same zero-debit release is **also blocked**, for the reason in §11: §2.5 permits it, and building the permissive side of a question under review ships a release path E-27 may remove. Every other shape is unaffected |
+| **Is a release that cannot vary with the data admissible?** §3.2's four conditions admit a coarsening onto a *single* label; `registry/validate.py` and §3.2's `boolean` rationale both say no. §2.5 permits an empty `allowed_detail_fields`, which is the same thing for an `object`, and one answer has to cover both. | **Open — E-27** ([`open-escalations.md`](../open-escalations.md)). **Blocks issue 4's `enum` half**: `check_narrowing` is the condition list, so building it settles whether there are four conditions or five — in code, for a question `spec/` has not answered. The `object` route to the same zero-debit release is **not** blocked — §2.5 permits an empty `allowed_detail_fields` and nothing contradicts it, so there is a rule to build to; E-27 may change it, and these vectors change with it. Every other shape is unaffected |
 
 ## 11. Issues
 
@@ -335,9 +335,9 @@ and the other does not.
 | 1 | ~~Escalate §4.4~~ — **done** | Resolved as (A); `core-model.md` §2.5, `terminology.md` §6, `claims.md` Q2D-C-09 amended |
 | 2 | JSON Schema profile validator, per [`scope.md`](../../spec/scope.md) §4.1 | Forbidden keywords rejected as registry errors; a missing `$schema` likewise; `domain/schema/` passes |
 | 3 | Constraint evaluation, closed vocabulary | `domain/constraints/` passes; unknown key errors |
-| 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape except **`enum`** and the empty-`allowed_detail_fields` case of **`object`**, both **blocked on E-27**: a declared mapping that is total, whose image equals the requested domain, non-expanding and a function is admitted — but whether that list is complete is the open question, and a mapping onto a single label satisfies all four while `registry/validate.py` rejects its debit. Neither an `enum` criterion nor one for an empty `allowed_detail_fields` is stated here until E-27 answers. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
+| 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape **except `enum`**, which is **blocked on E-27**: a declared mapping that is total, whose image equals the requested domain, non-expanding and a function is admitted — but whether that list is complete is the open question, and a mapping onto a single label satisfies all four while `registry/validate.py` rejects its debit. No `enum` acceptance criterion is stated here until E-27 answers, because stating one is answering it. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
 | 5 | `object` recursion in narrowing | Nested invalid narrowing rejects |
-| 6 | `apply_modifiers` and the two-phase narrowing composition | `domain/compose/` passes; ordering vector passes; every case [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes has a vector and produces what §3.3 gives — **except disjoint `allowed_detail_fields`**, which reaches the empty allowlist blocked on E-27 above and waits with it |
+| 6 | `apply_modifiers` and the two-phase narrowing composition | `domain/compose/` passes; ordering vector passes; every case [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes has a vector and produces what §3.3 gives |
 | 7 | `supports_profile` | `domain/profile/` passes; no downgrade path exists |
 | 8 | Assert every registry entry validates under the profile | CI check over `registry/manifest.json` |
 | 9 | Author `domain/` corpus section | Five groups; `harness lint` clean |
@@ -356,23 +356,22 @@ for an answer that cannot vary with the data at a debit of zero. Building it
 first would settle in code a disagreement `registry/validate.py` and §3.2
 currently have with each other.
 
-**The `object` route to the same release is blocked too**, and it took three
-attempts to say why, so the reason is stated as a rule rather than as a fact
-about these two shapes.
+**The `object` route to the same release is not blocked**, and the difference
+took several passes to state, so it is stated here as a rule rather than as a
+fact about these two shapes.
 
-The wrong question is *which route has a rule an implementation can follow*.
-§3.2's four conditions admit a one-label `enum` mapping while
-`registry/validate.py` refuses to price it, so `enum` has none; §2.5 says
-`allowed_detail_fields` **may be empty**, so `object` does. That difference is
-real and decides nothing.
+**A PRD blocks when the spec gives contradictory instructions, not when the spec
+might change.** An open escalation is not by itself a reason to stop: E-27 could
+touch several sections, and freezing everything it might reach would stall work
+the spec currently defines perfectly well. What an implementation cannot do is
+follow two rules that disagree.
 
-The question that decides it is **which direction of error is safe to build**.
-§2.5's rule is the permissive one: building to it ships a zero-debit release path
-that E-27 may remove, and an implementation shipping a disclosure route the spec
-later retracts is the failure CLAUDE.md's fail-closed rule exists to prevent.
-Building the *conservative* side of an open question is safe — that is why §3.2's
-interim `enum` modifier rule was implementable before E-25 — and building the
-permissive side is not, however clearly stated it is.
+`enum` is that case. §3.2's four conditions **admit** a one-label mapping and
+[`registry/validate.py`](../../registry/validate.py) authors no debit for one, so
+whoever writes `check_narrowing` must pick a side — and picking is the decision
+E-27 exists to make.
 
-§2.5 is unchanged and still governs conformance; this is a PRD declining to build
-the part of it that is under review, which is not the same thing.
+`object` is not. §2.5 says `allowed_detail_fields` **may be empty**, and nothing
+contradicts it, so an implementation follows §2.5. If E-27 removes that, §2.5
+changes and these vectors change with it — which is ordinary, and is what an
+escalation landing looks like.
