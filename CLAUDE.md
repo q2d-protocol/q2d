@@ -112,6 +112,40 @@ Neither mode exists yet, so neither assertion is in CI. The one that is:
 non-zero, and turns red the day one of them is built — which is when to add its
 assertion.
 
+### Three rounds on one passage means the model is wrong
+
+Codex returning a **third** finding against the same claim is not a third
+wording problem. Stop editing and re-derive what the passage is asserting.
+
+This is E-25's history. Eleven rounds, nine of them on one sentence. Each round
+narrowed the claim by exactly the counterexample Codex had named — *every other
+shape is a parameter on an ordered ladder*, then *leaves a usable candidate*,
+then *leaves something inside both operands* — and each narrower version was
+still false at an edge the next round found. The claim was structurally wrong,
+not imprecise: it justified a rule about `enum` by asserting a property of every
+*other* shape, and no such property was true. Deleting the comparison took one
+round.
+
+The rounds were not converging on correct text. They were mapping the boundary
+of a wrong idea, one counterexample at a time, and would have continued for as
+long as the idea survived.
+
+On the third finding, ask three questions before writing anything:
+
+- What single claim are all three findings attacking?
+- Is that claim load-bearing for the conclusion, or is it an explanation of it?
+- Can it be **deleted** rather than qualified?
+
+Usually it can. A rule's reason stands on its own; the temptation is to explain
+why the rule is special by contrasting it with everything else, and the contrast
+is where false generality enters. A specification states rules and their reasons
+— it does not owe the reader a taxonomy.
+
+The same shape appears when a fix keeps reaching further than the finding. That
+is the propagation failure in [Closing an escalation](#closing-an-escalation),
+and the response is the same: stop treating each finding as a defect at a
+location, and grep the concept.
+
 ## Self-review before Codex handoff
 
 Work through this list. Most of it exists because the failure already happened
