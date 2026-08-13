@@ -15,13 +15,13 @@ conservative position it was while the question was open. Writing E-25's reason
 down raised two more. **E-26** is closed and gave `core-model.md` a new **§3.3**:
 two narrowings of one dimension compose to their greatest lower bound — the
 coarser value for a number or duration, the intersection for a range or a field
-set — with an empty result rejected either way, as an empty domain where it is a
-range no value satisfies and as an interim rule pending E-27 where it is an empty
-field set. **E-27** is open:
+set — an empty result failing closed where it is a range no value satisfies, and
+falling to §2.5, which permits it, where it is an empty field set. **E-27** is
+open:
 §3.2's four conditions admit a coarsening onto a single label,
 [`registry/validate.py`](../../registry/validate.py) rejects one, and §3.2's own
 `boolean` rationale agrees with the validator — a standing disagreement between
-documents, blocking P-006 issue 4's `enum` half. It also reaches an `object` with an empty `allowed_detail_fields`, which is the same constant release by another route — that one has an interim rule in §3.3 and is not blocked. It does not block
+documents, blocking P-006 issue 4's `enum` half. It also reaches an `object` with an empty `allowed_detail_fields` — the same constant release by another route, which §2.5 already permits. That the spec permits one and refuses the other is the inconsistency E-27 decides; the `object` half is not blocked, because §2.5 is a rule an implementation can follow. It does not block
 decomposition. See
 [`../open-escalations.md`](../open-escalations.md), which is where every
 escalation is recorded and where a new one goes.

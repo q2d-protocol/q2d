@@ -326,7 +326,7 @@ and the other does not.
 | ~~Should the schema profile be stated in `spec/` rather than only here?~~ | **Resolved: yes** — [`scope.md`](../../spec/scope.md) §4.1 ([`open-escalations.md`](../open-escalations.md) E-16). §4.2 cites it and this module enforces it; widening the list is now a `spec/` change rather than this module's to make. Moving it found `$schema` missing from the list while present in every entry |
 | ~~Does a coarsening mapping need to be declared by the requester, or inferred?~~ | **Resolved: declared** ([`open-escalations.md`](../open-escalations.md) E-17). `answer_contract.coarsening` carries it, and this module validates it against [`core-model.md`](../../spec/core-model.md) §3.2's four conditions — total, image exactly equal to the requested domain, non-expanding, a function. All are set comparisons and counts; §4.5 records that no judgement about a label's *meaning* is made here |
 | ~~And may a *policy modifier* coarsen an `enum`, given it has no answer contract to declare a mapping in?~~ | **Resolved: no** ([`open-escalations.md`](../open-escalations.md) E-25). [`core-model.md`](../../spec/core-model.md) §3.2 states it as a rule with its reason — an `enum` is the one shape narrowed by an arbitrary function, so two coarsenings of it need not compose — rather than as a position held pending a decision. `apply_modifiers` (issue 6) rejects one as an implementation error |
-| **Is a release that cannot vary with the data admissible?** §3.2's four conditions admit a coarsening onto a *single* label; `registry/validate.py` and §3.2's `boolean` rationale both say no. §2.5 permits an empty `allowed_detail_fields`, which is the same thing for an `object`, and one answer has to cover both. | **Open — E-27** ([`open-escalations.md`](../open-escalations.md)). **Blocks issue 4's `enum` half**: `check_narrowing` is the condition list, so building it settles whether there are four conditions or five — in code, for a question `spec/` has not answered. The `object` route to the same zero-debit release is **not** blocked: [`core-model.md`](../../spec/core-model.md) §3.3 states an interim rule for it, so there is a determinate behaviour to build. Every other shape is unaffected |
+| **Is a release that cannot vary with the data admissible?** §3.2's four conditions admit a coarsening onto a *single* label; `registry/validate.py` and §3.2's `boolean` rationale both say no. §2.5 permits an empty `allowed_detail_fields`, which is the same thing for an `object`, and one answer has to cover both. | **Open — E-27** ([`open-escalations.md`](../open-escalations.md)). **Blocks issue 4's `enum` half**: `check_narrowing` is the condition list, so building it settles whether there are four conditions or five — in code, for a question `spec/` has not answered. The `object` route to the same zero-debit release is **not** blocked: §2.5 already permits an empty `allowed_detail_fields`, so there is a stated rule to build to — E-27 may change it. Every other shape is unaffected |
 
 ## 11. Issues
 
@@ -357,10 +357,10 @@ first would settle in code a disagreement `registry/validate.py` and §3.2
 currently have with each other.
 
 **The `object` route to the same release is not blocked**, and the difference is
-worth stating because it looks arbitrary. §3.2's four conditions are existing
-normative text that *admits* a one-label mapping, so resolving `enum` means
-amending them — which is the decision itself. Nothing said whether an empty
-effective `allowed_detail_fields` is admissible, so
-[`core-model.md`](../../spec/core-model.md) §3.3 fills that gap with an interim
-rule: rejected, pending E-27. Build to it. E-27 may replace it, and issue 4's
-`object` vectors change with it if so.
+worth stating because it looks arbitrary. Both shapes have existing normative
+text, and it points opposite ways: §3.2's four conditions *admit* a one-label
+`enum` mapping while `registry/validate.py` refuses to price it, so `enum` has no
+rule an implementation can follow without choosing. §2.5 says
+`allowed_detail_fields` **may be empty**, with nothing contradicting it, so
+`object` does. Build to §2.5; E-27 may change it, and issue 4's `object` vectors
+change with it if so.

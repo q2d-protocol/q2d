@@ -522,19 +522,18 @@ greatest lower bound.
 and fails closed per §3.
 
 Disjoint `allowed_detail_fields` are different: they compose to the empty set,
-which §2.5 permits a requester to ask for directly, so the composition has
-produced a legal value rather than an absence. **Whether an object release with
-no detail fields is admissible at all is not settled** — it is a release that
-cannot vary with the data, which is the question
-[`open-escalations.md`](../docs/open-escalations.md) **E-27** is deciding for the
-`enum` case, and one answer has to cover both. §3.3 states what the composition
-yields and does not decide admissibility.
+and §2.5 says that field **may be empty**. A requester can ask for an object with
+no detail fields directly, so composition reaching the same value produces
+something already admissible, and this section adds no rule about it.
 
-**Until E-27 answers, an empty effective `allowed_detail_fields` is rejected**,
-in the same way and for the same reason an unsatisfiable domain is. That is the
-conservative reading, it is conforming, and it is not the answer to E-27: an
-implementation must do something determinate meanwhile, and denying is the only
-option that cannot be wrong in the disclosing direction.
+That admits a release which cannot vary with the data, at a cardinality of one
+and a debit of zero. §3.2's `enum` rule does not — a coarsening is *non-expanding*
+against a domain that has at least two values, and
+[`registry/validate.py`](../registry/validate.py) authors no debit for a single
+label. The specification therefore permits a constant answer by one route and not
+by the other, which is a real inconsistency rather than a gap, and
+[`open-escalations.md`](../docs/open-escalations.md) **E-27** is where it is
+decided. §3.3 changes neither route.
 
 Where an empty domain is reached, a deployment can make a class of requests
 unsatisfiable by adding an authority, and the requester sees a normalized denial
