@@ -3,7 +3,7 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready for decomposition, with one issue held by an open escalation — see the status column. **One escalation is open**: **E-29**, a one-line question — which release shapes carry `answer_contract.maximum_cardinality`, where §2.5, terminology §4 and the deposited report each imply something different.
+All sixteen are ready for decomposition, with one issue held by an open escalation — see the status column. **Two escalations are open**, both small and both from E-28's cascade. **E-29**: which release shapes carry `answer_contract.maximum_cardinality`, where §2.5, terminology §4 and the deposited report each imply something different. **E-30**: `scope.md` §4.1's profile cannot bound a `number` — a range does not bound a decimal expansion — so one is refused in an output schema, which narrows the `scalar` shape terminology §4 defines as *"integer or number"*. Neither blocks decomposition beyond the issue named below.
 
 **Five closed recently**, and
 
