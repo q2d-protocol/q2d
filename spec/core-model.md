@@ -790,7 +790,7 @@ bytes, so precision here costs nothing and makes the protocol debuggable.
 | `external_reason` | Cause | Rejected at |
 |---|---|---|
 | `malformed` | Envelope malformed or oversized | step 1 |
-| `unsupported_version` | Unknown `q2d_version` | step 1 |
+| `unsupported_version` | Unknown `q2d_version` | step 5 — the authoritative value is inside the signed object, so it cannot be read before verification. `routing` may carry a copy, and §4 step 2 may shed on it, but that is load shedding and never a rejection reason |
 | `unsupported_suite` | Suite unregistered, **or** below the verifier's minimum acceptable policy | step 3 |
 | `routing_mismatch` | `routing` disagrees with the verified object | step 8 |
 | `expired` | Request expired or future-dated | step 6 |

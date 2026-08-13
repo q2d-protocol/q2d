@@ -288,17 +288,20 @@ def vectors() -> list[dict]:
             "requirement": ["core-model.md#2.1", "core-model.md#4",
                             "core-model.md#5.2.1"],
             "description": (
-                "A routing projection carrying `purpose`, which §2.1 does not "
-                "permit and which the signed object does not project. The rule "
-                "is not that projected fields must agree but that `routing` is a "
-                "strict subset — a field the projection introduces has nothing "
-                "to be compared against, and is rejected rather than ignored."
+                "A routing projection carrying `purpose`, which §2.1's list does "
+                "not permit. The projected value is **byte-identical to the "
+                "signed one**, so agreement is not what fails: §2.1 says "
+                "`routing` carries at most six fields and that purpose is never "
+                "projected, and a field outside that list is rejected however "
+                "faithful its copy. A vector projecting a *differing* purpose "
+                "would be rejected by the value comparison instead, and would "
+                "not test this rule at all."
             ),
             "operation": "verify_query",
             "input": {
                 "envelope": {
                     "signed": signed,
-                    "routing": dict(ROUTING, purpose={"code": "social.meal-planning"}),
+                    "routing": dict(ROUTING, purpose=QUERY["purpose"]),
                 }
             },
             "expect": rejects("routing_introduced_field", "routing_mismatch", 8),
