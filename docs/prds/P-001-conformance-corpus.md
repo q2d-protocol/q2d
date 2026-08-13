@@ -774,8 +774,13 @@ Decomposition into tracked work. Each names its acceptance.
 | 18 | Minimal timing capability, available at Stage 7 | A vector can assert two response paths fall within a band; [P-015](P-015-escalation-lifecycle.md) issue 4 can be written against it |
 | 19 | **Cross-verification: put A's output to B** | §4.8's second cross-implementation clause, split out of issue 9 by §10's resolution. Two PRDs have an acceptance criterion that needs it: [P-003](P-003-crypto-suites.md) §7 and [P-012](P-012-requester-runtime.md) §7. [P-002](P-002-message-envelope.md) §7 does **not** — it asks for byte agreement over `message/`, which issue 9 delivers. Needs a vector to name its companion artefact and the field that consumes it — a format change, and protocol knowledge §3 places outside the harness. Blocked on [P-002](P-002-message-envelope.md) and [P-003](P-003-crypto-suites.md) settling which operation consumes a signed envelope. **Not optional:** [`mvp-scope.md`](../mvp-scope.md) Stage 1's gate is cross-verification, so this is what makes that gate real. `cross` exits 3 on agreement until it lands |
 
-Issue 16 blocks 12 — `message/` cannot be authored until `semantic` behaves
-identically in both runners. Issue 17 blocks the corpus sections of
+Issue 16 gated 12 and no longer does. `semantic` is implemented in the harness
+([`compare.py`](../../conformance/harness/compare.py)), which is what a vector
+author needs; the *"both runners agree"* half of its acceptance is the Stage 1
+cross-implementation gate, which no vector in this corpus can satisfy until an
+implementation exists — the same position issue 11's registry vectors are in.
+Waiting for it would mean authoring nothing until Stage 1, which is the opposite
+of what the corpus is for. Issue 17 blocks the corpus sections of
 [P-012](P-012-requester-runtime.md) … [P-015](P-015-escalation-lifecycle.md) —
 four PRDs naming their own operations would diverge at the *runner* level, which
 surfaces as an unknown-operation error rather than a failing vector: the one
