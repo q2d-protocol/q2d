@@ -123,9 +123,13 @@ runtime.** IEEE-754 does not require a correctly-rounded `log2`, so two
 implementations could differ in the last place, and a rounding boundary would
 turn that into a different integer. The value is authored once into the registry
 entry; where cardinality varies with the request, the entry carries a lookup
-table over every **admissible** value — total over them, not over the ones a
+table that is **total** over the values it covers, rather than over the ones a
 particular requester is expected to ask for
-([`core-model.md`](../spec/core-model.md) §3.2). A locally computed capacity is non-conforming
+([`core-model.md`](../spec/core-model.md) §3.2). For an enumerated entry,
+`validate.py` fixes that range at two through the registered cardinality; whether
+a one-label coarsening belongs in it is
+[`open-escalations.md`](../docs/open-escalations.md) **E-27**, and the validator
+is the authority meanwhile. A locally computed capacity is non-conforming
 even when it happens to agree — the same principle as
 [`Q2D-C-02`](../spec/claims.md), applied to accounting.
 
