@@ -3,7 +3,7 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready. **Two escalations are open** — E-27, and E-28, a one-line omission in §3.2's `object` row that blocks the `maximum_cardinality` path of P-006 issue 4. Four closed recently and
+All sixteen are ready. **Two escalations are open** — E-27, and **E-28**, which is a claim-honesty item: `object` is bounded by a maximum serialized size that no registry or contract field carries, and `claims.md` Q2D-C-03 claims it is enforced. Four closed recently and
 each changed what an implementer reads: **E-17** puts an `enum` coarsening
 mapping in the requester's answer contract, superseding §3.2's old equality rule;
 **E-16** moved the registry's JSON Schema profile into
