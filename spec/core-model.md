@@ -256,7 +256,20 @@ permitted. Neither predicts human behaviour (Q2D-NC-02).
 | `freshness.maximum_source_age` | no | Maximum acceptable age of source data or credential evidence. |
 | `signature.profile` | yes | The **signature suite** identifier — algorithm, serialization, and hash as one unit. See [`crypto-suites.md`](crypto-suites.md). |
 | `signature.key_id` | yes | Resolvable under the identity profile. |
-| `signature.value` | yes | Covers every field above. |
+| `signature.value` | yes | Covers every field above. **The suite says where it travels** — see below. |
+
+**`signature.value` is part of the model; the suite decides where it is
+carried.** This document fixes what is signed and by whom, and
+[`crypto-suites.md`](crypto-suites.md) fixes serialization, so the question of
+whether the value sits inside the signed object or beside it belongs to the
+suite. A registered suite states the answer, and a suite that does not state it
+is under-specified.
+
+For **`eddsa-jws-2026`**, the only suite registered today, it is the compact
+form's third segment and is therefore **not a member of the payload** — a
+payload carrying `signature.value` would be signing itself.
+[`crypto-suites.md`](crypto-suites.md) §3 says so outright rather than leaving
+it to be inferred from the two members it does list as duplicated.
 
 `signature.profile` is a field of the **signed** core object, never of the outer
 envelope. An intermediary rewriting the envelope therefore cannot change which
@@ -717,7 +730,7 @@ applied.
 | `assurance.executor` | Identity of the computation executor. |
 | `evidence` | Reference or compact object, where the profile carries one. |
 | `receipt` | §6. |
-| `signature` | Covers all of the above. |
+| `signature` | Covers all of the above. Carried where the suite says, as in §2.7. |
 
 **Exactly these fields, and no others**, with one conditional: `evidence` is
 present where the assurance profile in force carries one and absent where it
@@ -734,7 +747,7 @@ anything else, is a specification change.
 | `status` | `deny` |
 | `external_reason` | The **normalized class**, not the true cause. |
 | `receipt` | The **reduced shape** — §6 is the authoritative field list. |
-| `signature` | Covers all of the above. |
+| `signature` | Covers all of the above. Carried where the suite says, as in §2.7. |
 
 **Exactly four fields, and no others.** Adding one — even an optional one — is a
 specification change, for the reason §6 gives about the receipt this response
@@ -768,7 +781,7 @@ and the choice is itself a policy decision.
 | `pending_token` | Opaque. Carries no information about the decision pending. |
 | `expires_at` | A timestamp — §2.2. |
 | `receipt` | The **reduced shape** — §6, with `decision_class: escalate`. |
-| `signature` | Covers all of the above. |
+| `signature` | Covers all of the above. Carried where the suite says, as in §2.7. |
 
 It carries **no `external_reason`**: that field names a normalized class, and an
 explicit escalation is **not** denial-normalized and must never be described as

@@ -18,20 +18,17 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-31 is open**, and it blocks the last three P-001 issues — 12, 13 and 14,
-> which author the `message/`, `suite/` and `ordering/` corpus sections. It asks
-> whether `signature.value` is a field of the signed core object. Every one of
-> those vectors asserts exact payload bytes, so none can be authored until it is
-> answered.
+> **Nothing is open.** **E-31** closed as C: the model has a signature and the
+> suite says where it travels, so `eddsa-jws-2026`'s payload carries no
+> `signature.value`. P-001 issues 12, 13 and 14 are unblocked.
 >
-> **E-29 and E-30 closed**, both from E-28's cascade. **E-29**: `answer_contract.maximum_cardinality` is for `set` only, and
+> **E-29 and E-30 closed** before it, both from E-28's cascade. **E-29**: `answer_contract.maximum_cardinality` is for `set` only, and
 > measures the domain's size rather than a count of results. **E-30**: a `number`
 > is refused in an output schema, and a predicate whose answer is a decimal
 > registers a scaled integer — so `terminology.md` §4's `scalar` shape is an
 > integer.
 >
-> All sixteen PRDs remain Ready for decomposition; the three issues E-31 holds
-> are corpus-authoring work inside P-001, not decomposition.
+> All sixteen PRDs are Ready for decomposition and no issue is held.
 >
 > **E-28 closed as A.** It grew twice on being checked — raised as a one-line
 > omission in §3.2's `object` row, found to be a maximum serialized size no field
@@ -110,7 +107,7 @@ question is still fresh than after the answer arrives.
 | **E-28** | What bounds an `object`, and what is the registry's `output_schema` for? | E-26's cascade | `terminology.md` §3, §4 · `core-model.md` §4 step 17 · `scope.md` §4.1 · `claims.md` Q2D-C-03 | **Closed** |
 | **E-29** | Which release shapes carry `answer_contract.maximum_cardinality`? | E-28's cascade | `core-model.md` §2.5 | **Closed** |
 | **E-30** | Should `scope.md` §4.1's profile gain a precision keyword, so a `number` output can be bounded? | E-28's cascade | `scope.md` §4.1 · `terminology.md` §4 | **Closed** |
-| **E-31** | Is `signature.value` a field of the signed core object? | P-001 issue 12 | `core-model.md` §2.7 · `crypto-suites.md` §3 | **Open** |
+| **E-31** | Is `signature.value` a field of the signed core object? | P-001 issue 12 | `core-model.md` §2.7, §5.1–§5.3 · `crypto-suites.md` §3 | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1981,9 +1978,10 @@ nothing derives a public key from a seed.
 **Raised by** [P-001](prds/P-001-conformance-corpus.md) issue 12, on trying to
 author the first `message/sign/` vector ·
 **Decides** [`core-model.md`](../spec/core-model.md) §2.7 ·
-**Blocks** P-001 issues **12, 13 and 14** — the `message/`, `suite/` and
-`ordering/` sections. Every vector in them asserts exact payload bytes, and the
-payload is either one field longer or it is not.
+**Decided: C — the model has a signature, the suite says where it travels.**
+§2.7 keeps the field and says so; `crypto-suites.md` §3 states that
+`eddsa-jws-2026`'s payload has no `signature.value`. P-001 issues 12, 13 and 14
+are unblocked.
 
 ### Context
 
@@ -2090,7 +2088,7 @@ has to notice.
 *Against:* two documents to read before knowing what bytes to produce, where A
 needs one.
 
-### Recommendation — C
+### Recommendation — C. **Adopted.**
 
 `core-model.md` opens by disclaiming serialization, so A contradicts the
 document's own stated division of labour to save one hop. The cost of C is a
@@ -2120,6 +2118,20 @@ lost: the report's example declares `eddsa-jcs-2022`, which is not a registered
 suite. The report does not govern and takes corrections only in a new draft, so
 nothing needs doing — but a reader coming from the report will write a profile
 identifier the registry rejects.
+
+
+### What the cascade turned up
+
+**The response side had the same gap, less visibly.** §5.1, §5.2 and §5.3 each
+carry a bare `signature` row reading *"Covers all of the above"*, with nothing
+saying where it sits. All three now point at §2.7, so one rule covers query and
+response rather than the query's being fixed and the response's left to the same
+inference that produced this escalation.
+
+§6's receipt already excluded the signature from `response_digest` — *"over the
+response's semantic content … excluding the receipt and the signature"* — which
+is consistent with C and was the one place the spec already treated the signature
+as a thing beside the object rather than inside it.
 
 
 ---
@@ -2212,6 +2224,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-28** | **The entry's `output_schema` is the bound.** §4 step 17 validates a released result against the effective domain *and* that schema — the domain bounds which values may be returned, the schema how long they may be — and `scope.md` §4.1 requires an output schema to bound every variable-length value it can release. Q2D-C-03 cites it instead of a *maximum serialized size*, which no field carried. Raised as a table omission, twice re-scoped by checking it: `attribute` is released *in full* so per-field recursion does not bound an object, and the mechanism that does was already on every entry with no rule pointing at it. | `terminology.md` §3, §4 · `core-model.md` §4 step 17 · `scope.md` §4.1 · `claims.md` Q2D-C-03 · `conformance-classes.md` CC-2 · `registry/validate.py` · P-010 §4.5, issue 8 |
 | **E-29** | **`set` only**, and the field is the **domain's** size rather than a count of results — §1 admits one response, so a result count could carry no information. Other shapes narrow cardinality through their own dimension. The deposited report's `boolean` example, which had suggested a result count, is a draft artefact under either reading: as a domain size it narrows a two-value domain to one, which §3.2's `boolean` row has always prohibited. | `core-model.md` §2.5 · P-006 issue 4 |
 | **E-30** | **`number` is refused in an output schema**; a predicate whose answer is a decimal registers a **scaled integer** and states the scale in `question_notes`. The keyword that would bound a decimal is `multipleOf`, and it is the one two JSON Schema libraries most reliably disagree about — `0.1` has no exact binary representation — which is the failure §4.1's frozen profile exists to exclude. §3.1 makes the same trade carrying capacity as integer millibits. Admitting `number` later accepts schemas refused now, so nothing authored against this breaks. | `scope.md` §4.1 · `terminology.md` §4 · `registry/validate.py` |
+| **E-31** | **The model has a signature; the suite says where it travels.** §2.7 keeps `signature.value` and states that, and `crypto-suites.md` §3 says `eddsa-jws-2026` carries it in the compact form's third segment and therefore not in the payload — a payload carrying it would sign itself. §5.1–§5.3's response `signature` rows point at the same rule. The alternative of striking the field would have put a JWS assumption in the document that disclaims serialization, and the next suite would reopen it. | `core-model.md` §2.7, §5.1, §5.2, §5.3 · `crypto-suites.md` §3 · P-001 issues 12, 13, 14 |
 
 ### What did not change, deliberately
 

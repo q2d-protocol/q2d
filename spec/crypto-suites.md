@@ -112,6 +112,16 @@ authoritative ones. Comparing them catches a producer that signs a payload
 declaring one thing under a header declaring another, which no verifier would
 otherwise notice.
 
+**`signature.value` is not a member of the payload under this suite.** It is the
+compact form's third segment, and a payload carrying it would be signing itself.
+[`core-model.md`](core-model.md) §2.7 lists the field because the *model* has a
+signature; where the value travels is a suite's to decide, and this suite decides
+it here. Stated rather than left to be inferred from the two members named above:
+a reader counting three signature fields in §2.7 and two duplicated members here
+can conclude nothing from the difference, which is how this went unnoticed until
+the first payload was serialized ([`open-escalations.md`](../docs/open-escalations.md)
+E-31).
+
 **`alg` is not a member of a Q2D protected header, and `alg: none` is not a
 state one can express.** This is stronger than rejecting it. A header carrying
 `alg` would be one a general-purpose JOSE library could process — and such a
