@@ -472,10 +472,14 @@ single capacity value instead, as below. That is a registry-format consequence
 of this rule, not a new mechanism, and totality is what the paragraph above
 rests on.
 
-The admissible counts run from **two** to the registered cardinality: condition
-5 above sets the floor and condition 3 the ceiling, and
-[`registry/validate.py`](../registry/validate.py) checks a table over exactly
-that range.
+A **coarsening's** label count runs from **two** — condition 5 — to one below the
+registered cardinality, since condition 3 rejects an equal-size label set as not
+a coarsening at all. The table also carries the registered cardinality itself,
+which is not a coarsening but the **uncoarsened** request, priced from the same
+place because the table is the entry's only capacity source. So the table spans
+two through the registered cardinality inclusive, which is what
+[`registry/validate.py`](../registry/validate.py) checks; only the last key is
+not a coarsening.
 
 **An entry that carries a single capacity value admits no coarsening**, because
 there is no authored debit for the smaller label count and a responder may not
