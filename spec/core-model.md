@@ -432,11 +432,11 @@ policy-side coarsening therefore means specifying when two mappings factor and
 what a responder does when they do not — a larger addition than this gap warrants
 while no deployment has stated which behaviour it needs.
 
-None of that is a claim that the other shapes compose cleanly. Two `object`
-field sets, two `scalar` ranges, and two `interval` granularities can each be
-incomparable too, and §3 does not say what those compose to — an open question
-([`open-escalations.md`](../docs/open-escalations.md) E-26) that this rule
-neither answers nor depends on.
+None of that is a claim that the other shapes are always comparable. Two
+`object` field sets and two `scalar` ranges are ordered by containment and need
+not be; §3.3 composes those to their greatest lower bound, which exists inside
+both operands and may be empty. An `enum` is the shape for which no such value
+exists, which is why it is excluded here rather than composed there.
 
 **Permitting it later forecloses nothing.** It would accept requests this rule
 rejects, so nothing built against this rule breaks. Nor does a modifier reach a
