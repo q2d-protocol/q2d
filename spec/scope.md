@@ -100,9 +100,12 @@ than deferring to a library's idea of a date.
 The rule binds the value validated against the schema, **however it travelled**.
 §2.4 lets public context arrive inline in the signed core object or as a digest
 with the value carried separately; in the first case §2.2 reaches it directly,
-and in the second the value's bytes are what the signed digest commits to, so a
-different spelling is a different digest and the request fails the entry-digest
-check. Either way one spelling is the only one that works.
+and in the second `predicate.public_context_digest` — which is in the signed
+object — commits to the value's bytes, so a different spelling produces a
+different digest and the separately-carried value no longer matches what was
+signed. (Not the *entry* digest, which §2.4.1 defines over the registry entry
+and which says nothing about a request's values.) Either way one spelling is the
+only one that works.
 
 `$schema` is required and declares the dialect —
 `https://json-schema.org/draft/2020-12/schema` for 0.1. It is a declaration
