@@ -26,8 +26,7 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 >
 > **E-31 closed as C**: the model has a signature and the suite says where it
 > travels, so `eddsa-jws-2026`'s query payload carries no `signature.value`.
-> P-001 issues 13 and 14 are unblocked, and so is the query half of 12 — its
-> response half waits on E-32.
+> P-001 issues 13 and 14 were unblocked by it, and the query half of 12.
 >
 > **E-29 and E-30 closed** before it, both from E-28's cascade. **E-29**: `answer_contract.maximum_cardinality` is for `set` only, and
 > measures the domain's size rather than a count of results. **E-30**: a `number`
@@ -1988,9 +1987,9 @@ author the first `message/sign/` vector ·
 **Decides** [`core-model.md`](../spec/core-model.md) §2.7 ·
 **Decided: C — the model has a signature, the suite says where it travels.**
 §2.7 keeps the field and says so; `crypto-suites.md` §3 states that
-`eddsa-jws-2026`'s **query** payload has no `signature.value`. P-001 issues 13
-and 14 are unblocked, and the query half of 12; its response half waits on
-**E-32**, which this cascade raised.
+`eddsa-jws-2026`'s **query** payload has no `signature.value`. It unblocked P-001
+issues 13 and 14 and the query half of 12, and raised **E-32**, which settled the
+response half.
 
 ### Context
 
