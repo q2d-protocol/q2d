@@ -48,25 +48,63 @@ class AuthoredSectionTest(unittest.TestCase):
         self.assertGreater(len(vectors()), 0)
 
 
-class ExpectedStateTest(unittest.TestCase):
-    """What the section contains today, asserted rather than described.
+# core-model.md §5.2.1's closed vocabulary, embedded rather than parsed out of
+# the spec. A test that read the list from the document it is checking against
+# would pass whatever that document said, including a typo.
+EXTERNAL_REASONS = frozenset({
+    "malformed", "unsupported_version", "unsupported_suite", "routing_mismatch",
+    "expired",          # Tier A, distinct
+    "unauthenticated",  # Tier B, one class
+    "unavailable",      # Tier C, as the reference registry declares it
+})
 
-    `.github/workflows/checks.yml` prescribes an assertion over the expected
-    state instead of a job that is red by design, and this is `message/`'s: the
-    section is positive-only, because every rejection it wants needs an
-    `external_reason` and that vocabulary does not exist
-    ([`open-escalations.md`](../../docs/open-escalations.md) E-33).
 
-    It turns red the day a rejection vector lands, which is the day to delete
-    it and assert what the rejections say instead.
+class RejectionTest(unittest.TestCase):
+    """What this section's rejections assert.
+
+    It replaces an assertion that the section was positive-only, which held
+    while E-33 was open and no `external_reason` had an identifier. That
+    escalation closed by enumerating them in §5.2.1, so the thing worth
+    asserting is that these vectors use that vocabulary and keep the two halves
+    of a rejection apart.
     """
 
-    def test_every_vector_expects_ok(self):
-        outcomes = {v["expect"]["outcome"] for v in vectors()}
-        self.assertEqual(outcomes, {"ok"},
-                         "a rejection vector landed in message/ — E-33 has "
-                         "presumably closed, so replace this assertion with "
-                         "one over what the rejections assert")
+    def rejections(self):
+        return [v for v in vectors() if v["expect"]["outcome"] == "rejected"]
+
+    def test_the_section_has_rejections(self):
+        # CLAUDE.md: the interesting behaviour of this protocol is what it
+        # refuses. A section that lost its negative vectors would still lint.
+        self.assertGreaterEqual(len(self.rejections()), 3)
+
+    def test_every_external_reason_is_in_the_vocabulary(self):
+        for vector in self.rejections():
+            with self.subTest(vector=vector["id"]):
+                self.assertIn(
+                    vector["expect"]["rejection"]["wire"]["external_reason"],
+                    EXTERNAL_REASONS)
+
+    def test_the_internal_reason_is_never_the_external_one(self):
+        # P-001 §4.6 and core-model.md §5.2: they are separate values, and an
+        # implementation deriving one from the other has lost the property the
+        # corpus is checking. A vector whose two halves were equal would be
+        # asserting the leak rather than the separation.
+        for vector in self.rejections():
+            rejection = vector["expect"]["rejection"]
+            with self.subTest(vector=vector["id"]):
+                self.assertNotEqual(rejection["internal_reason"],
+                                    rejection["wire"]["external_reason"])
+
+    def test_rejections_project_rather_than_assert_a_whole_response(self):
+        # These vectors test verification and the routing comparison, not
+        # response construction. Asserting a receipt would claim this section
+        # checks something it does not, and `denial/` is where a whole
+        # normalized response belongs -- P-009's to author, and it may not
+        # project.
+        for vector in self.rejections():
+            with self.subTest(vector=vector["id"]):
+                self.assertEqual(set(vector["expect"]["rejection"]["wire"]),
+                                 {"status", "external_reason"})
 
     def test_the_signed_vector_compares_as_bytes(self):
         # The reason `message/sign/` exists. A `semantic` comparison here would

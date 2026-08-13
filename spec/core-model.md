@@ -756,7 +756,9 @@ anything else, is a specification change.
 | `signature.key_id` | The responder key, as §2.7. |
 | `signature.value` | Covers all of the above. Carried where the suite says, as in §2.7. |
 
-**Exactly four fields, and no others.** Adding one — even an optional one — is a
+**Exactly four fields, and no others** — `status`, `external_reason`, `receipt`
+and `signature`, the last of which carries the three members §2.7 gives it.
+Adding one — even an optional one — is a
 specification change, for the reason §6 gives about the receipt this response
 carries: a field present for some causes and absent for others reintroduces the
 distinction normalization removes, and the presence pattern alone is enough to
@@ -774,6 +776,51 @@ from any source, for any cause.** There is no field for it, so a value a rate
 limiter could otherwise supply has nowhere to go — which is stronger than a rule
 requiring such a value to be uniform, and removes what would otherwise be a
 correct-but-fragile path one commit away from partitioning the class.
+
+#### 5.2.1 The `external_reason` vocabulary
+
+Closed, and enumerated here because a requester has to act on it. Two of the
+three groups below are **normalized**: every cause in them produces the same
+value, and Q2D-C-08 rests on that.
+
+**Distinct — each describes the request, and reveals nothing about the
+custodian.** A requester learning its envelope was malformed learns about its own
+bytes, so precision here costs nothing and makes the protocol debuggable.
+
+| `external_reason` | Cause | Rejected at |
+|---|---|---|
+| `malformed` | Envelope malformed or oversized | step 1 |
+| `unsupported_version` | Unknown `q2d_version` | step 1 |
+| `unsupported_suite` | Suite unregistered, **or** below the verifier's minimum acceptable policy | step 3 |
+| `routing_mismatch` | `routing` disagrees with the verified object | step 8 |
+| `expired` | Request expired or future-dated | step 6 |
+
+`unsupported_suite` is one value for two causes on purpose. Separating them would
+tell a requester whether the custodian *knows* a suite it declined, which is the
+custodian's minimum acceptable policy — a fact about the custodian, not about the
+request, and so on the wrong side of the line this group is drawn along.
+
+**One class — authentication.**
+
+| `external_reason` | Cause | Rejected at |
+|---|---|---|
+| `unauthenticated` | Unresolvable key, invalid signature, invalid or expired delegation | steps 4 and 7 |
+
+Distinguishing "key unknown" from "signature invalid" would let a requester probe
+which identities a custodian holds, which is why the three collapse.
+
+**One class — everything the registry governs.** From the rate-limit check at
+step 9a and from registry resolution at step 10 onward, the value is the one the
+resolved entry's registry declares — `unavailable` in the reference manifest.
+Step 9a precedes resolution, so no entry is in hand and the deployment's default
+is used; it must be the value an unknown predicate produces at step 10, or the
+limiter reveals that resolution was never reached.
+
+**An `external_reason` a requester does not recognise is an opaque rejection.**
+Not a malformed response, and not an error: the vocabulary above may gain a value
+in a later version, and a requester that rejected the response instead would
+break on the first one added. It is refused like any other denial, and nothing is
+inferred from the unknown name.
 
 ### 5.3 escalate
 

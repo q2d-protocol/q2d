@@ -21,7 +21,13 @@ what is committed, not against whatever this file produces today. The check
 exists so the two cannot drift silently, not so the corpus is regenerated on
 demand.
 
-## What is here, and what is not
+## What is here
+
+Signing, verification, and the routing projection — positive and negative both,
+since [CLAUDE.md](../CLAUDE.md) is explicit that the interesting behaviour of
+this protocol is what it refuses. The rejections wait on nothing now:
+[`core-model.md`](../spec/core-model.md) §5.2.1 enumerates the `external_reason`
+vocabulary, so a vector can say what a requester receives (E-33).
 
 **No vector here cites a claim, and that is deliberate.**
 [`claims.md`](../spec/claims.md) Q2D-C-05 — request binding — is the claim this
@@ -32,21 +38,18 @@ make `harness coverage` report it as covered while everything that verifies it i
 unbuilt, which is the overstatement `claims.md` exists to prevent. These vectors
 cite the specification sections they exercise instead.
 
-Positive vectors only, and that is a gap rather than a choice.
-[CLAUDE.md](../CLAUDE.md) is explicit that the interesting behaviour of this
-protocol is what it refuses, so a section with no negative vectors is not
-finished.
+**Each rejection asserts both halves.** The internal reason is what an
+implementation records locally and the wire response is what a requester
+receives, and they are separate values in a conforming implementation — a runner
+deriving one from the other has already lost the property the corpus is checking
+(P-001 §4.6).
 
-Every rejection this section wants must assert the `external_reason` a requester
-receives, and each falls in a tier with no identifier: a `routing`/`signed`
-disagreement is **Tier A**, and an invalid signature or unresolvable key is
-**Tier B**. [P-009](../docs/prds/P-009-denial-normalization.md) §4.1 gives Tier A
-as *"distinct errors"* without saying which, and Tier B as *"one class"* without
-naming it. Only **Tier C** has a value — `unavailable` — and only because
-[`registry/manifest.json`](../registry/manifest.json) declares one, which is why
-`registry/`'s five rejection vectors exist and these do not.
-[`open-escalations.md`](../docs/open-escalations.md) **E-33** is that question,
-and the rejection vectors land with its answer.
+The `wire` here is a **projection**: `status` and `external_reason`, and nothing
+about the receipt or the signature. These vectors test verification and the
+routing comparison, not response construction, and a vector asserting a subset
+asserts nothing about the fields it omits (P-001 §4.4). `denial/` is where a
+whole normalized response is asserted, and it may not project — which is P-009's
+section to author, not this one.
 """
 
 from __future__ import annotations
@@ -63,6 +66,11 @@ REPO = Path(__file__).resolve().parent.parent
 SECTION = REPO / "conformance" / "corpus" / "message"
 
 REQUESTER = "test-requester-1"
+# The vector that presents a signature from a key the header does not name.
+# `conformance/keys/README.md`: test-requester-2 "exists so a vector can present
+# a signature from the wrong key, which is a rejection the corpus has to
+# contain".
+IMPOSTOR = "test-requester-2"
 
 # One query, used by every vector in the section. Every field
 # `core-model.md` §2.2-§2.7 marks required is present and no optional one is,
@@ -138,10 +146,44 @@ ROUTING = {
 }
 
 
-def signed_query() -> str:
+def seed_of(key_id: str) -> bytes:
     keys = json.loads(av.KEY_FILE.read_text(encoding="utf-8"))["keys"]
-    seed = bytes.fromhex(keys[REQUESTER]["seed"])
-    return av.jws_compact(seed, REQUESTER, QUERY)
+    return bytes.fromhex(keys[key_id]["seed"])
+
+
+def signed_query() -> str:
+    return av.jws_compact(seed_of(REQUESTER), REQUESTER, QUERY)
+
+
+def signed_by_impostor() -> str:
+    """The same query, header naming `test-requester-1`, signed by the other key.
+
+    `jws_compact` puts `key_id` in the header, so passing one key's identifier
+    and another's seed produces exactly the message a forger sends: a header
+    naming a key the verifier trusts, over bytes that key did not sign. The
+    signature fails at §4 step 4 -- `unauthenticated`, since §5.2.1 collapses an
+    invalid signature with an unresolvable key.
+    """
+    return av.jws_compact(seed_of(IMPOSTOR), REQUESTER, QUERY)
+
+
+# A rejection asserts what the requester receives, and these vectors are about
+# verification rather than response construction -- so `wire` is a projection of
+# §5.2's response, `status` and `external_reason` only, asserting nothing about
+# the fields it omits (P-001 §4.4).
+def rejects(internal: str, external: str, step) -> dict:
+    return {
+        "outcome": "rejected",
+        "rejection": {
+            "internal_reason": internal,
+            "wire": {"status": "deny", "external_reason": external},
+            "step": step,
+        },
+        # `bytes`: §6 makes a normalized denial's uniformity structural, and
+        # §4.4 reserves `bytes` for where the specification requires
+        # determinism. Declaring `semantic` would say it requires none here.
+        "comparison": "bytes",
+    }
 
 
 def vectors() -> list[dict]:
@@ -201,6 +243,65 @@ def vectors() -> list[dict]:
                 }
             },
             "expect": {"outcome": "ok", "output": QUERY, "comparison": "semantic"},
+        },
+        {
+            "id": "message/verify/wrong-signer",
+            "section": "message",
+            "requirement": ["core-model.md#4", "core-model.md#5.2.1"],
+            "description": (
+                "A header naming `test-requester-1` over bytes signed by "
+                "`test-requester-2`. The key resolves and the signature does not "
+                "verify, so §4 step 4 rejects — and §5.2.1 gives one class for "
+                "the whole of authentication, so this is indistinguishable from "
+                "an unresolvable key, which is the point of collapsing them."
+            ),
+            "operation": "verify_query",
+            "input": {
+                "envelope": {"signed": signed_by_impostor(), "routing": ROUTING}
+            },
+            "expect": rejects("signature_invalid", "unauthenticated", 4),
+        },
+        {
+            "id": "message/routing/disagrees",
+            "section": "message",
+            "requirement": ["core-model.md#2.1", "core-model.md#4",
+                            "core-model.md#5.2.1"],
+            "description": (
+                "A routing projection whose `expires_at` differs from the "
+                "verified object's by one second. §4 step 8 compares each "
+                "projected field exactly, with no coercion, and §2.1 makes a "
+                "disagreement a tampering signal rather than something to "
+                "reconcile — so a difference this small still rejects."
+            ),
+            "operation": "verify_query",
+            "input": {
+                "envelope": {
+                    "signed": signed,
+                    "routing": dict(ROUTING, expires_at="2026-07-31T09:05:01Z"),
+                }
+            },
+            "expect": rejects("routing_signed_mismatch", "routing_mismatch", 8),
+        },
+        {
+            "id": "message/routing/introduces-field",
+            "section": "message",
+            "requirement": ["core-model.md#2.1", "core-model.md#4",
+                            "core-model.md#5.2.1"],
+            "description": (
+                "A routing projection carrying `purpose`, which §2.1 does not "
+                "permit and which the signed object does not project. The rule "
+                "is not that projected fields must agree but that `routing` is a "
+                "strict subset — a field the projection introduces has nothing "
+                "to be compared against, and is rejected rather than ignored."
+            ),
+            "operation": "verify_query",
+            "input": {
+                "envelope": {
+                    "signed": signed,
+                    "routing": dict(ROUTING, purpose={"code": "social.meal-planning"}),
+                }
+            },
+            "expect": rejects("routing_introduced_field", "routing_mismatch", 8),
         },
     ]
 
