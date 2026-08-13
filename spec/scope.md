@@ -139,6 +139,23 @@ fetch during validation, and an unbounded expression is a denial-of-service
 surface, both on input that is authenticated by then ([`core-model.md`](core-model.md)
 §4 step 11 follows step 4) but still hostile.
 
+**An entry's `output_schema` bounds every variable-length value it can release.**
+Every `string` it admits carries `maxLength`; every `array` carries `maxItems`.
+This is a requirement on the schema, not merely a permission: the keywords are in
+the list above either way, and what this adds is that an entry may not omit them.
+
+The reason is that nothing else bounds those values.
+[`core-model.md`](core-model.md) §3.2 narrows a domain by shape, and the
+`attribute` shape is *"one selected attribute value released in full"* — it
+permits no narrowing at all, so a free-text field inside an `object` is bounded
+by its schema or by nothing. §4 step 17 validates a released result against this
+schema for that reason, and
+[`claims.md`](claims.md) **Q2D-C-03** rests on it.
+
+The requirement is on the **output** schema. An entry's input and public-context
+schemas bound what a requester may send, which is a resource question rather than
+a disclosure one, and this document does not decide it.
+
 **The list is frozen, and extending it is a change to this document.** A
 predicate whose public context needs `oneOf` is complicated enough that its
 schema is not where the complexity should be resolved — which is the same

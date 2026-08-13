@@ -18,16 +18,17 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-28 is the only one open**, and it has grown twice on being checked. Raised
-> as a one-line omission in §3.2's `object` row; found to be a **maximum
-> serialized size no field carries** while
-> [`claims.md`](../spec/claims.md) **Q2D-C-03** claims it is enforced; and then,
-> on checking whether per-field bounds would do instead, found that `attribute`
-> is *released in full* and that **nothing says a released result is checked
-> against the entry's `output_schema`** — §4 step 17 validates against the
-> effective domain. A claim-honesty item, and the reason
-> [P-010](prds/P-010-responder-pipeline.md) issue 8's serialized-size check
-> waits.
+> **E-29 is the only one open**, and it is a one-line question: which release
+> shapes carry `answer_contract.maximum_cardinality`. It blocks that path of
+> [P-006](prds/P-006-request-validation.md) issue 4 and nothing else.
+>
+> **E-28 closed as A.** It grew twice on being checked — raised as a one-line
+> omission in §3.2's `object` row, found to be a maximum serialized size no field
+> carried while `claims.md` Q2D-C-03 claimed it was enforced, and then found to
+> have a mechanism nobody had wired up. Every entry's **`output_schema`** is now
+> what bounds a released value's length, §4 step 17 validates against it, and
+> [`scope.md`](../spec/scope.md) §4.1 requires it to bound every variable-length
+> value.
 >
 > **E-27 closed as A**: a release that cannot vary with the data is inadmissible
 > by either route. §3.2 gains a fifth `enum` condition — *at least two labels* —
@@ -95,7 +96,8 @@ question is still fresh than after the answer arrives.
 | **E-25** | May a policy modifier coarsen an `enum`, and if so where does its mapping live? | E-17's resolution | `core-model.md` §3.2 | **Closed** |
 | **E-26** | What do two incomparable narrowings of one dimension compose to? | E-25's cascade | `core-model.md` §3, §3.3 (new) | **Closed** |
 | **E-27** | Is a release that cannot vary with the data admissible — a one-label `enum`, an empty field set? | E-25's cascade | `core-model.md` §2.5, §3.2 (condition 5), §3.3 | **Closed** |
-| **E-28** | What bounds an `object`, and what is the registry's `output_schema` for? | E-26's cascade | `terminology.md` §3, §4 · `core-model.md` §2.5, §3.2, §4 step 17 · `claims.md` Q2D-C-03 | **Open** |
+| **E-28** | What bounds an `object`, and what is the registry's `output_schema` for? | E-26's cascade | `terminology.md` §3, §4 · `core-model.md` §4 step 17 · `scope.md` §4.1 · `claims.md` Q2D-C-03 | **Closed** |
+| **E-29** | Which release shapes carry `answer_contract.maximum_cardinality`? | E-28's cascade | `core-model.md` §2.5 · `terminology.md` §4 | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1557,16 +1559,18 @@ strengthens that without altering what the claim rests on.
 ## E-28 — What bounds an `object`, and what is the registry's `output_schema` for?
 
 **Raised by** E-26's cascade, and **re-scoped after checking it** ·
-**Decides** [`terminology.md`](../spec/terminology.md) §4,
-[`core-model.md`](../spec/core-model.md) §2.5 and §3.2, the registry entry
-format, and [`claims.md`](../spec/claims.md) **Q2D-C-03** ·
-**Blocks** the `maximum_cardinality` path of
-[P-006](prds/P-006-request-validation.md) issue 4, and the serialized-size check
-in [P-010](prds/P-010-responder-pipeline.md) issue 8 — §4.5 lists it as one of
-six things `validate_output` checks, and it is the one with nothing to check
-against.
+**Decides** [`terminology.md`](../spec/terminology.md) §3 and §4,
+[`core-model.md`](../spec/core-model.md) §4 step 17,
+[`scope.md`](../spec/scope.md) §4.1, and
+[`claims.md`](../spec/claims.md) **Q2D-C-03** ·
+**Decided: A — the entry's `output_schema` is the bound, and §4 step 17
+validates against it.** [`scope.md`](../spec/scope.md) §4.1 now requires an
+output schema to bound every variable-length value it can release, and
+`claims.md` Q2D-C-03 cites that instead of a maximum serialized size.
+[P-010](prds/P-010-responder-pipeline.md) issue 8 is unblocked. The
+`maximum_cardinality` question it also raised is split out as **E-29**.
 
-**This is a claim-honesty item**, which puts it above spec fidelity in
+**This was a claim-honesty item**, which put it above spec fidelity in
 [CLAUDE.md](../CLAUDE.md)'s order.
 
 ### What it was, and why that was wrong
@@ -1723,16 +1727,103 @@ value with no natural ceiling. That would be an argument for B, or for accepting
 that such a predicate cannot use the `attribute` shape at all, which may be the
 real answer and is worth deciding explicitly rather than by omission.
 
-**Two smaller corrections ride along under every option**, both from the same
-thread and both stated here so they are not lost:
+**Two smaller corrections rode along**, and they resolved differently:
 
-- §2.5's `maximum_cardinality` says *"For `set` and `object`"*, while
-  terminology §4 gives `object` no cardinality dimension. It is the outlier and
-  is amended.
-- `terminology.md` §3 says an answer contract carries an **output schema** and
-  §2.5's field table has no such row. Either §2.5 is missing one or terminology
-  overstates the commitment — and which it is depends on A, since A is what gives
-  an output schema a job.
+- `terminology.md` §3 said an answer contract carries an **output schema**, with
+  no such row in §2.5. **Resolved by A**: the *entry's* schema is what bounds a
+  result, and a requester-supplied one would be a requester-asserted bound, which
+  Q2D-C-02 says is never trusted. Struck from terminology; §2.5 gains no row.
+- §2.5's `maximum_cardinality` says *"For `set` and `object`"* while terminology
+  §4 gives `object` no cardinality dimension. **Not resolved here** — the
+  deposited technical report's worked example carries `"maximum_cardinality": 1`
+  on a **`boolean`**, which cuts against §2.5 in the opposite direction and
+  suggests the field may count *results* rather than domain values. Split out as
+  **E-29** rather than decided on the reading that was convenient.
+
+---
+
+## E-29 — Which release shapes carry `answer_contract.maximum_cardinality`?
+
+**Raised by** E-28's cascade ·
+**Decides** [`core-model.md`](../spec/core-model.md) §2.5 ·
+**Blocks** the `maximum_cardinality` path of
+[P-006](prds/P-006-request-validation.md) issue 4, and nothing else.
+
+### Context
+
+Three sources, three readings:
+
+| Where | What it says | Implies |
+|---|---|---|
+| [`core-model.md`](../spec/core-model.md) §2.5 | `answer_contract.maximum_cardinality` is *"For `set` and `object`"* | two shapes carry it |
+| [`terminology.md`](../spec/terminology.md) §4 | `set` is bounded *"at or below a registered maximum cardinality"*; `object` is not defined by cardinality at all | one shape carries it |
+| the deposited technical report, worked example | `"release_shape": "boolean"` with `"maximum_cardinality": 1` | every shape carries it |
+
+§3.2's narrowing table has a `maximum_cardinality` row for `set` and none for
+`object`, agreeing with terminology. The reference manifest uses
+`maximum_cardinality` once, on the `availability-window` predicate's *computed
+answer domain* — which is a registry field, not the contract field, and is an
+`interval` predicate rather than a `set` or `object`.
+
+The report's example is the informative one, because a cardinality of **1** on a
+`boolean` cannot mean *"at most one of the two values"* — every answer is one
+value. It reads as *"return one result"*, which is a different quantity from
+*"the domain has at most N members"*, and if that is what the field means then
+§2.5's *"For `set` and `object`"* is wrong in the opposite direction to the one
+E-28 assumed.
+
+The report does not govern — [`core-model.md`](../spec/core-model.md) says so in
+its header — but it is evidence of what was intended, and it was written before
+either §2.5 or terminology §4.
+
+### Options
+
+**A. `set` only.** §2.5 amended; `object` drops it, matching terminology §4 and
+§3.2.
+
+*For:* makes three normative documents agree by changing the one outlier, and
+`object`'s extent is bounded by `output_schema` after E-28, so it needs no
+cardinality.
+*Against:* leaves the report's `boolean` example non-conforming. That is
+survivable — corrections take a new draft number — but it should be a decision
+rather than a side effect.
+
+**B. Every shape, meaning *how many results*.** §2.5 keeps the field for all
+shapes; terminology §4 and §3.2 gain a line saying it counts results rather than
+domain members.
+
+*For:* matches the report, and gives a name to a quantity Q2D otherwise cannot
+express: *"one answer, not a stream"*.
+*Against:* §1 already says **one query, one response** with no partial answer, so
+a result count above 1 has no meaning in 0.1, and a field whose only legal value
+is 1 is not carrying information. It would also need a capacity story: N results
+is N times the disclosure, and §3.1 says nothing about it.
+
+**C. Strike the field from the contract.** `set` cardinality is registered and
+narrowed under §3.2 like any other dimension; no contract term is needed.
+
+*For:* smallest surface. A requester narrows cardinality through
+`answer_contract.domain` the way it narrows every other dimension.
+*Against:* needs checking that §3.2's `set` row can express a narrowing without
+it, which it may not — the row reads *"`maximum_cardinality` at or below
+registered"*, naming this field.
+
+### Recommendation — A
+
+It changes one line to match the two documents that already agree, and after
+E-28 an `object` has a bound that is not cardinality. The report's `boolean`
+example is a draft artefact: §1's one-query-one-response rule means a result
+count cannot vary, so B would enshrine a field whose only legal value is 1.
+
+C is tempting and probably where this ends up eventually, but §3.2's `set` row
+names the field, so C is a two-document change to save one line — and it should
+be made deliberately if `set` narrowing is ever revisited, not folded in here.
+
+**Where A stops being right:** if a later draft wants a `set` predicate to return
+*multiple* answers in one response — a genuinely different exchange from the one
+§1 describes — then B's reading is the useful one and A will have thrown away
+the field's real purpose. Nothing in the current scope wants that.
+
 
 ---
 
@@ -1821,6 +1912,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-25** | **A modifier may not coarsen an `enum`**, and the reason is composition rather than the missing field. §3's *take the coarsest* presumes comparable operands; an `enum` is narrowed by an arbitrary function, two coarsenings of one domain need not be comparable, and their common coarsening is strictly coarser than each — a label set neither declared, which condition 2 rejects — where every other shape leaves something inside both operands. Permitting policy-side coarsening therefore needs a factoring rule and a fail-closed path for mappings that do not factor — and no deployment has yet stated which it wants. Widening later breaks nothing built against the rule, and reaches no label count a requester could not: a capacity table is total over the counts it covers. Which counts those are is E-27. | `core-model.md` §3.1, §3.2 · `terminology.md` §6 · `registry/README.md` · P-006 §10 · P-007 §4.4, §10, issue 8 |
 | **E-26** | **The greatest lower bound**, per dimension: the coarser value where the dimension is a number or a duration, and the **intersection** where it is a range or a field set, which are ordered by containment and so need not be comparable. Where the bound is a range no value satisfies, the domain is empty and fails closed; where it is an empty `allowed_detail_fields`, the composed value is inadmissible under §3.2's non-empty rule (E-27) and fails closed as well. `enum` cannot arise, which is what keeps the rule total. Raised naming three incomparable shapes; `interval` granularity was not one of them — it is a duration, and durations are ranked. | `core-model.md` §3 and §3.3 (new) · `terminology.md` §6 · P-006 §4.1, §5, §6, issue 6 · P-007 §4.4, §5, §10, issue 4 |
 | **E-27** | **Inadmissible, by both routes.** §3.2 gains a fifth condition on an `enum` coarsening — *at least two labels* — and requires an `object` release to name at least one detail field. A constant answer is a refusal wearing an answer's shape, and §3.2 already called a one-value domain *the empty request* where it explains `boolean` and `attribute`; this applies the same reading to the two shapes that had escaped it. The escalation was briefed as a live inconsistency between §2.5 and §3.2; it was not — only `object` has detail fields, so §2.5's *may be empty* was always about the shapes that have none. | `core-model.md` §2.5, §3.2, §3.3 · `registry/validate.py` · P-006 §10, issue 4 · P-007 issue 4 |
+| **E-28** | **The entry's `output_schema` is the bound.** §4 step 17 validates a released result against the effective domain *and* that schema — the domain bounds which values may be returned, the schema how long they may be — and `scope.md` §4.1 requires an output schema to bound every variable-length value it can release. Q2D-C-03 cites it instead of a *maximum serialized size*, which no field carried. Raised as a table omission, twice re-scoped by checking it: `attribute` is released *in full* so per-field recursion does not bound an object, and the mechanism that does was already on every entry with no rule pointing at it. | `terminology.md` §3, §4 · `core-model.md` §4 step 17 · `scope.md` §4.1 · `claims.md` Q2D-C-03 · `conformance-classes.md` CC-2 · `registry/validate.py` · P-010 §4.5, issue 8 |
 
 ### What did not change, deliberately
 

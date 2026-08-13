@@ -589,13 +589,31 @@ A conforming responder processes in this order:
 | 14 | Policy evaluation → `allow` / `deny` / `escalate` + modifiers | First step that consults policy authorities. |
 | 15 | Budget: sufficient capacity for the computed debit | Before private access, so exhaustion never reads data. |
 | 16 | **Private input accessed; predicate evaluated** | Everything above gates this line. |
-| 17 | Output validated against the effective domain | Q2D-C-03. Fails closed. |
+| 17 | Output validated against the effective domain **and the entry's `output_schema`** | Q2D-C-03. Fails closed. See below. |
 | 18 | Budget debited | Once, idempotently. |
 | 19 | Receipt constructed; response signed | Q2D-C-10. |
 
 Steps 9a and 11a are lettered rather than numbered because the step numbers are
 cited throughout this repository and renumbering them silently would be worse
 than an irregular label.
+
+**Step 17 validates against two things, and needs both.** The effective domain
+bounds the answer's *alphabet* — which values, at what precision, from which
+fields. The entry's `output_schema` bounds its *extent*: how long a string may
+be, how many items an array may hold ([`scope.md`](scope.md) §4.1, which requires
+an output schema to bound every variable-length value it can release).
+
+Neither implies the other. A domain admits `attribute`, which §4 of
+[`terminology.md`](terminology.md) defines as a value released **in full**, and
+an unbounded one at that; only the schema bounds it. A schema admits any string
+of the right length, including one outside the requested domain; only the domain
+bounds that. Q2D-C-03 claims both, so a responder checks both.
+
+**A value that exceeds its bound fails closed. It is never truncated.** Truncation
+is a silent modification of an answer the requester will treat as complete, and
+it would make an over-long value indistinguishable from a short one. Where this
+fires on a legitimate result, the entry has published a bound its predicate can
+exceed — a registry defect, and one the entry's test vectors should have caught.
 
 **Step 11a is separate from 11 because they are different mechanisms.** Step 11
 runs a schema the registry supplies, and an implementation satisfies it by

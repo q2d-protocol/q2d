@@ -82,11 +82,15 @@ publish a technically bounded predicate that is substantively excessive.
 ### Q2D-C-03 — Bounded output
 
 **Claim.** An automatically released semantic result conforms to the effective
-answer domain — its shape, cardinality, precision, field allowlist, and maximum
-serialized size.
+answer domain — its shape, cardinality, precision, and field allowlist — and to
+the registry entry's `output_schema`, which bounds the length of every
+variable-length value it can release ([`scope.md`](scope.md) §4.1).
 **Holds when.** Q2D-C-02 holds and output validation runs before serialization.
-**Enforced by.** Output validation against the effective domain; fail-closed
-when the result falls outside it.
+**Enforced by.** Output validation against both, at
+[`core-model.md`](core-model.md) §4 step 17; fail-closed when the result falls
+outside either. The two are not redundant: the domain bounds which values may be
+returned, and the schema bounds how long they may be — an `attribute` is
+*released in full* and permits no narrowing, so only the schema bounds it.
 **Fails if.** Validation is skipped for a `detail` field; an exception path
 serializes private input; a structured output escapes cardinality limits.
 **Not.** A claim that a bounded answer is harmless. One bit can reveal a

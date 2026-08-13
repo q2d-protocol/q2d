@@ -3,7 +3,7 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready for decomposition, with two issues held by an open escalation — see the status column. **One escalation is open**: **E-28**, a claim-honesty item — `object` is bounded by a maximum serialized size that no registry or contract field carries, `claims.md` Q2D-C-03 claims it is enforced, and nothing says a released result is checked against the `output_schema` every entry carries.
+All sixteen are ready for decomposition, with one issue held by an open escalation — see the status column. **One escalation is open**: **E-29**, a one-line question — which release shapes carry `answer_contract.maximum_cardinality`, where §2.5, terminology §4 and the deposited report each imply something different.
 
 **Five closed recently**, and
 
@@ -35,11 +35,11 @@ escalation is recorded and where a new one goes.
 | [P-003](P-003-crypto-suites.md) | Cryptographic suites, key handling, downgrade policy | 1 | **Ready for decomposition** |
 | [P-004](P-004-replay-idempotency.md) | Replay, expiry, idempotency | 1 | **Ready for decomposition** |
 | [P-005](P-005-registry-client.md) | Registry client: pinning, resolution, fail-closed | 2 | **Ready for decomposition** |
-| [P-006](P-006-request-validation.md) | Request validation and effective answer domain | 2 | **Ready for decomposition** — issue 4 blocked for an `object` carrying `maximum_cardinality` (E-28) |
+| [P-006](P-006-request-validation.md) | Request validation and effective answer domain | 2 | **Ready for decomposition** — issue 4 blocked for a contract carrying `maximum_cardinality` (E-29) |
 | [P-007](P-007-policy-engine.md) | Policy engine contract and fail-closed invariants | 3 | **Ready for decomposition** |
 | [P-008](P-008-capacity-accounting.md) | Disclosure-capacity accounting | 3 | **Ready for decomposition** |
 | [P-009](P-009-denial-normalization.md) | Denial normalization | 3 | **Ready for decomposition** |
-| [P-010](P-010-responder-pipeline.md) | Responder pipeline, predicate execution, output validation | 4 | **Ready for decomposition** — issue 8's serialized-size check blocked on E-28 |
+| [P-010](P-010-responder-pipeline.md) | Responder pipeline, predicate execution, output validation | 4 | **Ready for decomposition** |
 | [P-011](P-011-receipts-audit.md) | Receipts and local audit | 4 | **Ready for decomposition** |
 | [P-012](P-012-requester-runtime.md) | Requester runtime | 5 | **Ready for decomposition** |
 | [P-013](P-013-https-binding.md) | Direct HTTPS binding and custodian daemon | 6 | **Ready for decomposition** |

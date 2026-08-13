@@ -337,7 +337,7 @@ and the other does not.
 | 1 | ~~Escalate §4.4~~ — **done** | Resolved as (A); `core-model.md` §2.5, `terminology.md` §6, `claims.md` Q2D-C-09 amended |
 | 2 | JSON Schema profile validator, per [`scope.md`](../../spec/scope.md) §4.1 | Forbidden keywords rejected as registry errors; a missing `$schema` likewise; `domain/schema/` passes |
 | 3 | Constraint evaluation, closed vocabulary | `domain/constraints/` passes; unknown key errors |
-| 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape, except an `object` contract carrying `maximum_cardinality`, **blocked on E-28**. For `enum`, a declared mapping is admitted when it satisfies all **five** of [`core-model.md`](../../spec/core-model.md) §3.2's conditions and rejected when it fails any — one negative vector each, the fifth being a mapping onto a single label (E-27). For `object`, an empty `allowed_detail_fields` is rejected, and so is a composition that reaches one. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
+| 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape, except a contract carrying `maximum_cardinality`, **blocked on E-29**. For `enum`, a declared mapping is admitted when it satisfies all **five** of [`core-model.md`](../../spec/core-model.md) §3.2's conditions and rejected when it fails any — one negative vector each, the fifth being a mapping onto a single label (E-27). For `object`, an empty `allowed_detail_fields` is rejected, and so is a composition that reaches one. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
 | 5 | `object` recursion in narrowing | Nested invalid narrowing rejects |
 | 6 | `apply_modifiers` and the two-phase narrowing composition | `domain/compose/` passes; ordering vector passes; every case [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes has a vector and produces what §3.3 gives |
 | 7 | `supports_profile` | `domain/profile/` passes; no downgrade path exists |
@@ -369,12 +369,11 @@ that disagree fail it, and so does no rule at all.
 so whoever wrote `check_narrowing` had to pick a side — and picking was the
 decision.
 
-**`object`'s `maximum_cardinality` still fails the test**, and is blocked on
-**E-28**. §2.5 says the field is *"For `set` and `object`"*; §3.2's `object`
-row does not mention it, and [`terminology.md`](../../spec/terminology.md) §4
-bounds an `object` by a maximum serialized size instead. So an implementation
-must decide for itself whether to enforce the field, ignore it, or reject a
-contract carrying it — three behaviours from one document. E-28 also found that
-the size bound terminology names has no field anywhere, which is why it is a
-claim-honesty item rather than a table omission. Every other part of `object`
-proceeds.
+**`maximum_cardinality` still fails the test**, and is blocked on **E-29**.
+§2.5 says the field is *"For `set` and `object`"*, [`terminology.md`](../../spec/terminology.md)
+§4 gives `object` no cardinality dimension, and the deposited technical report
+carries the field on a `boolean`. Three sources, three readings, so an
+implementation must decide for itself which shapes may carry it and what it
+counts. Every other part of every shape proceeds — E-28, which raised this,
+closed by making the entry's `output_schema` the bound on a released value's
+length.

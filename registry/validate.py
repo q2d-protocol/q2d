@@ -279,6 +279,49 @@ def object_schemas(schema, path):
         yield from object_schemas(schema["items"], f"{path}.items")
 
 
+def subschemas(schema, path):
+    """Every subschema in a schema, with where it sits, root included."""
+    if not isinstance(schema, dict):
+        return
+    yield path, schema
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for name, sub in properties.items():
+            yield from subschemas(sub, f"{path}.properties.{name}")
+    if "items" in schema:
+        yield from subschemas(schema["items"], f"{path}.items")
+
+
+def admits(schema, json_type):
+    """Whether a subschema admits values of a JSON type."""
+    declared = schema.get("type")
+    if isinstance(declared, list):
+        return json_type in declared
+    return declared == json_type
+
+
+def unbounded_release(schema, path):
+    """Every subschema that can release a value of unbounded length.
+
+    scope.md §4.1: an entry's output schema bounds every variable-length value
+    it can release. A string is bounded by `maxLength`, and also by `enum` --
+    a finite set of literals is a bound, and requiring `maxLength` beside one
+    would be a redundant number that could disagree with it -- and by
+    `format: date-time`, which core-model.md §2.2 fixes at a single spelling of
+    twenty characters. An array is bounded by `maxItems`.
+
+    Nothing here bounds an *object*: its extent is the sum of its fields', and
+    each field is a subschema this walk reaches on its own.
+    """
+    for at, sub in subschemas(schema, path):
+        if admits(sub, "string") and not (
+                "maxLength" in sub or "enum" in sub
+                or sub.get("format") == "date-time"):
+            yield f"{at}: string with no maxLength, enum, or date-time format"
+        if admits(sub, "array") and "maxItems" not in sub:
+            yield f"{at}: array with no maxItems"
+
+
 def timestamps(value, path="manifest"):
     """Every string in the manifest that is shaped like a date-time."""
     if isinstance(value, str):
@@ -590,6 +633,24 @@ def main(argv: list[str]) -> int:
                   ",".join(misshapen))
             check(schema.get("$schema") == DIALECT,
                   f"{where} declares §4.1's dialect", str(schema.get("$schema")))
+
+            # scope.md §4.1: an entry's OUTPUT schema bounds every
+            # variable-length value it can release. Only the output schema --
+            # the input and public-context schemas bound what a requester may
+            # send, which §4.1 says is a resource question rather than a
+            # disclosure one and does not decide.
+            #
+            # This is what core-model.md §4 step 17 validates a result against,
+            # and what claims.md Q2D-C-03 rests on: the effective domain bounds
+            # the answer's alphabet, and nothing but this schema bounds its
+            # extent. The `attribute` shape is released *in full* and §3.2
+            # permits it no narrowing, so a free-text field is bounded here or
+            # nowhere.
+            if field == "output_schema":
+                unbounded = sorted(unbounded_release(schema, where))
+                check(not unbounded,
+                      f"{where} bounds every variable-length value it releases",
+                      "; ".join(unbounded))
             # And nowhere else: JSON Schema lets a nested `$schema` switch
             # dialects for that subschema, which is the divergence §4.1 pins
             # the dialect to prevent, reintroduced one level down.

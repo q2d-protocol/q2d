@@ -138,15 +138,23 @@ one, which is what an operator needs, without the value that faulted it.
 
 ### 4.5 Output validation, and what its failure means
 
-After evaluation, the output is validated against the effective domain: shape,
-membership, cardinality, precision, field allowlist, serialized size.
+After evaluation, the output is validated against **two** things
+([`core-model.md`](../../spec/core-model.md) §4 step 17): the effective domain —
+shape, membership, cardinality, precision, field allowlist — and the registry
+entry's `output_schema`.
 
-**Serialized size is blocked on [E-28](../open-escalations.md).** The list above
-follows [`claims.md`](../../spec/claims.md) Q2D-C-03, and no registry entry or
-answer contract carries a size bound to validate against — so an implementation
-would have to invent one or drop the check, and dropping it is invisible because
-every other item on this list still passes. Build the other five; the sixth is
-either specified or struck from Q2D-C-03 by that escalation.
+The second is not a restatement of the first, which is why step 17 names both.
+The domain bounds which values may be returned; the schema bounds how long they
+may be. An `attribute` is released in full and permits no narrowing
+([`core-model.md`](../../spec/core-model.md) §3.2), so nothing but the schema
+bounds it. A value exceeding its bound **fails closed and is never truncated** —
+truncation would silently modify an answer the requester treats as complete.
+
+This row previously read *"serialized size"*, following Q2D-C-03, and nothing
+carried such a bound. [E-28](../open-escalations.md) resolved it by making the
+`output_schema` every entry already carries the mechanism, and
+[`scope.md`](../../spec/scope.md) §4.1 now requires that schema to bound every
+variable-length value it can release.
 
 A violation is **an implementation or integrity error, not a policy outcome**
 ([`core-model.md`](../../spec/core-model.md) §4). Concretely:
@@ -335,7 +343,7 @@ should be a small, readable function rather than a convenient one.
 | 5 | Private-input adapter interface plus a fixture store | Open question 4 resolved |
 | 6 | `evaluate` with the error boundary and panic catching | Panic returns `Internal`; no payload retained; open question 2 resolved |
 | 7 | The three predicate implementations | All fourteen registry vectors pass through the pipeline |
-| 8 | `validate_output` against the effective domain | `validate/` passes; no debit on failure. **Serialized size blocked on E-28** — §4.5; the other five checks proceed |
+| 8 | `validate_output` against the effective domain and the entry's `output_schema` | `validate/` passes; no debit on failure; a value inside the domain but over its schema bound fails closed, and one inside the schema but outside the domain fails closed — [`core-model.md`](../../spec/core-model.md) §4 step 17 |
 | 9 | Answer construction | No field private-derived except the result |
 | 10 | Partial-failure handling for §4.7 | Each row leaves the system no more permissive |
 | 11 | Author `ordering/`, `evaluate/`, `validate/`, `pipeline/` | Four sections; `harness lint` clean |

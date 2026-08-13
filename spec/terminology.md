@@ -88,7 +88,7 @@ a future profile displaces.
 | **Registry entry** | One predicate definition: identifier, version, input and public-context schemas, output schema, canonical answer domain, release shape, capacity calculation, sensitivity classification, freshness semantics, supported assurance profiles, provenance and revocation metadata, and test vectors. |
 | **Public context** | Requester-supplied input that is not confidential — the proposed menu, the candidate week, the threshold. Travels in the query or as a digest. |
 | **Private input** | The custodian-held data the predicate reads. Does not cross the Q2D interface. |
-| **Answer contract** | The requester's pre-evaluation commitment: release shape, output schema, requested answer domain, maximum cardinality, allowed detail fields, precision, the `enum` coarsening mapping where one is requested ([`core-model.md`](core-model.md) §3.2), and disclosure class. Submitted before the custodian evaluates policy or private data. **An answer contract is not permission.** It is an input to policy evaluation. |
+| **Answer contract** | The requester's pre-evaluation commitment: release shape, requested answer domain, maximum cardinality, allowed detail fields, precision, the `enum` coarsening mapping where one is requested ([`core-model.md`](core-model.md) §3.2), and disclosure class. Submitted before the custodian evaluates policy or private data. **An answer contract is not permission.** It is an input to policy evaluation. |
 | **Query** | The signed request envelope carrying protocol metadata, principals and delegation, predicate reference, answer contract, purpose, delivery, and freshness. |
 | **Response** | The signed reply to a query, carrying one outcome — `answer`, `deny`, or `escalate` — and **always a receipt**: the full shape for an answer, the reduced shape for a denial or an explicit escalation ([`core-model.md`](core-model.md) §6). A binding's auxiliary operations, such as polling an escalation, are not responses in this sense and carry no receipt. |
 | **Disclosure receipt** | The object binding one exchange, in one of two shapes. **Full**, on an `answer`: request digest, response digest, predicate and version, registry-entry digest, effective answer-contract digest, policy version, release shape, assurance profile, disclosure-capacity debit, decision time, and responder identity. **Reduced**, on a `deny` or an explicit `escalate`: request digest, decision class, decision time, responder identity, and signature suite — and deliberately nothing more, since a denial receipt naming the predicate would partition denials by predicate and defeat denial normalization. Either shape is evidence that a runtime processed and authenticated an exchange — **not** evidence that the underlying facts are true, that a legal basis was valid, or that a retention promise was kept. |
@@ -112,8 +112,8 @@ namespaced form is required.
 | `scalar` | A bounded integer or number at registered precision. |
 | `interval` | A bounded time interval or slot from a registered granularity. |
 | `set` | A bounded list or set at or below a registered maximum cardinality. |
-| `object` | A structured result with enumerated fields, each itself bounded, subject to a registered maximum serialized size. |
-| `attribute` | One selected attribute value released in full. |
+| `object` | A structured result with enumerated fields, each bounded by its own shape and by the entry's `output_schema` ([`scope.md`](scope.md) §4.1). |
+| `attribute` | One selected attribute value released in full — not coarsened, and bounded in length only by the entry's `output_schema` ([`scope.md`](scope.md) §4.1). |
 | `ciphertext` | A value encrypted to a constrained recipient, readable only under a profile that constrains what code decrypts it. |
 
 `ciphertext` is defined here for vocabulary stability. It has no v0.1 release path;
