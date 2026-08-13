@@ -24,7 +24,8 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > *"one class"* without naming either; the only value in the repository is
 > `unavailable`, which the registry declares for Tier C — so Tier C rejections
 > are authorable and Tier A and B ones are not. It blocks `message/`'s
-> rejections, `suite/` almost entirely, and `ordering/` steps 1–9.
+> rejections, `suite/` almost entirely, and `ordering/` steps 1 to 9 — but not
+> 9a, which is Tier C despite preceding registry resolution.
 >
 > **E-32** closed as A: a response payload carries
 > `signature.profile` and `signature.key_id` as a query's does, and §4's response
@@ -2306,11 +2307,12 @@ the first rejection vector ·
 **Decides** [`core-model.md`](../spec/core-model.md) §5.2 and
 [P-009](prds/P-009-denial-normalization.md) §4.1 ·
 **Blocks** every rejection whose tier lacks an identifier: `message/`'s three,
-`suite/` almost entirely, `ordering/` steps 1–9, and
+`suite/` almost entirely, `ordering/` steps 1 to 9, and
 [P-009](prds/P-009-denial-normalization.md)'s `denial/tier-a/` and
 `denial/uniformity-b/`. **Tier C is unaffected** — `unavailable` exists, which is
 why `registry/` already has five rejection vectors, `denial/uniformity-c/` is
-authorable, and so are `ordering/` steps 10–15.
+authorable, and so are `ordering/` steps 10–15, 11a, and **9a**, which is Tier C
+despite sitting before resolution.
 
 ### Context
 
@@ -2323,6 +2325,7 @@ rejection into three tiers and says what each reveals externally:
 | **A — protocol** | Malformed envelope, unknown `q2d_version`, unacceptable suite, `routing`/`signed` mismatch, expired | **Distinct errors** |
 | **B — authentication** | Unresolvable key, invalid signature, invalid or expired delegation | **One class** |
 | **C — registry resolution onward** | Everything from step 10 | **One class** |
+| **C, reached earlier** | Rate-limit rejection at step **9a**, before resolution — so the sensitivity class is unknown and the deployment's default value is used, which must be the one an unknown predicate produces at step 10 | **Same class** |
 
 **None of those classes has an identifier.** P-009 declares
 `external_class(tier, sensitivity) -> ExternalClass` and never gives
