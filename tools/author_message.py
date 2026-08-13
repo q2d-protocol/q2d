@@ -230,7 +230,9 @@ def vectors() -> list[dict]:
                 "`signed` contains and forbids introducing a field; it does not "
                 "require any particular field, so an intermediary that needs only "
                 "a predicate and an expiry projects only those. Step 8 compares "
-                "what is present. The disagreement cases wait on E-33."
+                "what is present — `routing/disagrees` and "
+                "`routing/introduces-field` are the two ways that comparison "
+                "fails."
             ),
             "operation": "verify_query",
             "input": {
