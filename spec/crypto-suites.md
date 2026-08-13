@@ -57,12 +57,19 @@ separated by dots, exactly as RFC 7515 §7.1 lays them out — with the core obj
 as an opaque base64url payload. The signature covers the exact transmitted
 bytes. **No canonicalization is involved**, and none is required.
 
-**The payload is the core object without `signature.value`**, which under this
-suite is not a member of it: the value is the third segment, and an object
+**A query payload is the §2 core object without `signature.value`**, which under
+this suite is not a member of it: the value is the third segment, and an object
 containing the signature over itself is not constructible. Every other field
 [`core-model.md`](core-model.md) §2 lists is present, `signature.profile` and
 `signature.key_id` included. §2.7 states the general rule — the model has a
 signature and the suite says where it travels — and this is that rule applied.
+
+**A response payload is not yet settled the same way.** §5.1–§5.3 list a single
+`signature` row where §2.7 lists three fields, and unlike a query there is no
+step comparing a header member against a payload copy — §4's response order has
+none, so asserting the copies exist would imply a check nobody performs. What a
+response payload contains is
+[`open-escalations.md`](../docs/open-escalations.md) **E-32**.
 
 **The compact form, not conformant JWS.** RFC 7515 §4.1.1 makes `alg` a required
 header parameter, and a Q2D header does not carry one — see below for why. So a

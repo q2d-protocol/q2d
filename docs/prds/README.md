@@ -3,7 +3,7 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready for decomposition, and no issue is held by an open escalation. **Nothing is open.** **E-31** — raised on authoring the first `message/sign/` vector — closed as C: the model has a signature and the suite says where it travels, so `eddsa-jws-2026`'s payload carries no `signature.value`. Before it: `answer_contract.maximum_cardinality` is for `set` only and measures the domain's size (E-29), and a `number` is refused in an output schema — a predicate whose answer is a decimal registers a scaled integer, so terminology §4's `scalar` shape is an integer (E-30).
+All sixteen are ready for decomposition. **One escalation is open**: **E-32** — what does a signed *response* payload contain? §5.1–§5.3 list one bare `signature` row, and §4's response order has no step comparing a header member against a payload copy, so the check that catches a producer lying in its header exists in one direction only. It holds the response half of P-001 issue 12 and every `denial/` vector. **E-31** — raised on authoring the first `message/sign/` vector — closed as C just before it: the model has a signature and the suite says where it travels, so `eddsa-jws-2026`'s query payload carries no `signature.value`. Before that: `answer_contract.maximum_cardinality` is for `set` only and measures the domain's size (E-29), and a `number` is refused in an output schema — a predicate whose answer is a decimal registers a scaled integer, so terminology §4's `scalar` shape is an integer (E-30).
 
 **Five closed recently**, and
 

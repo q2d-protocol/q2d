@@ -18,9 +18,17 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** **E-31** closed as C: the model has a signature and the
-> suite says where it travels, so `eddsa-jws-2026`'s payload carries no
-> `signature.value`. P-001 issues 12, 13 and 14 are unblocked.
+> **E-32 is open.** E-31's cascade found that a signed *response* payload is
+> specified where a query's now is not: §5.1–§5.3 list one bare `signature` row,
+> and §4's response order has no step comparing a header member against a payload
+> copy — so the check that catches a producer lying in its header exists in one
+> direction only. It blocks the response half of
+> [P-001](prds/P-001-conformance-corpus.md) issue 12 and every `denial/` vector;
+> query-side work proceeds.
+>
+> **E-31 closed as C**: the model has a signature and the suite says where it
+> travels, so `eddsa-jws-2026`'s query payload carries no `signature.value`.
+> P-001 issues 13 and 14, and the query half of 12, are unblocked.
 >
 > **E-29 and E-30 closed** before it, both from E-28's cascade. **E-29**: `answer_contract.maximum_cardinality` is for `set` only, and
 > measures the domain's size rather than a count of results. **E-30**: a `number`
@@ -28,7 +36,7 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > registers a scaled integer — so `terminology.md` §4's `scalar` shape is an
 > integer.
 >
-> All sixteen PRDs are Ready for decomposition and no issue is held.
+> All sixteen PRDs are Ready for decomposition.
 >
 > **E-28 closed as A.** It grew twice on being checked — raised as a one-line
 > omission in §3.2's `object` row, found to be a maximum serialized size no field
@@ -108,6 +116,7 @@ question is still fresh than after the answer arrives.
 | **E-29** | Which release shapes carry `answer_contract.maximum_cardinality`? | E-28's cascade | `core-model.md` §2.5 | **Closed** |
 | **E-30** | Should `scope.md` §4.1's profile gain a precision keyword, so a `number` output can be bounded? | E-28's cascade | `scope.md` §4.1 · `terminology.md` §4 | **Closed** |
 | **E-31** | Is `signature.value` a field of the signed core object? | P-001 issue 12 | `core-model.md` §2.7, §5.1–§5.3 · `crypto-suites.md` §3 | **Closed** |
+| **E-32** | What does a signed *response* payload contain? | E-31's cascade | `core-model.md` §5.1–§5.3, §4 response order · `crypto-suites.md` §3 | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -2132,6 +2141,122 @@ inference that produced this escalation.
 response's semantic content … excluding the receipt and the signature"* — which
 is consistent with C and was the one place the spec already treated the signature
 as a thing beside the object rather than inside it.
+
+
+---
+
+## E-32 — What does a signed response payload contain?
+
+**Raised by** E-31's cascade ·
+**Decides** [`core-model.md`](../spec/core-model.md) §5.1–§5.3 and §4's response
+order, and [`crypto-suites.md`](../spec/crypto-suites.md) §3 ·
+**Blocks** the response half of [P-001](prds/P-001-conformance-corpus.md) issue
+12 — `sign_response` and `verify_response` vectors — and every `denial/` vector,
+which asserts a whole signed response. Query-side vectors are unaffected, so
+issues 13 and 14 and the query half of 12 proceed.
+
+### Context
+
+E-31 settled the query: a payload is the §2 core object without
+`signature.value`, and it does carry `signature.profile` and `signature.key_id`,
+because §3's protected header duplicates both and
+[P-003](prds/P-003-crypto-suites.md) §4.2 step 4 compares each pair after
+verifying. The duplication has a job.
+
+A response is signed the same way and specified differently. §5.1, §5.2 and §5.3
+each carry one row:
+
+| Field | Meaning |
+|---|---|
+| `signature` | Covers all of the above. |
+
+No sub-fields, no `profile`, no `key_id`. And §4's **response** order — nine
+steps — has no equivalent of the query's header/payload comparison:
+
+| # | Step |
+|---|---|
+| 2 | Read the suite identifier; reject if below the requester's minimum acceptable policy |
+| 3 | Resolve the responder key; **verify the signature over the exact signed bytes** |
+| 4 | Parse the verified response object |
+
+Steps 2 and 3 read the header. Nothing afterwards compares what it said against
+what the payload says.
+
+### Why it matters
+
+The comparison exists on the query side to catch **a producer that signs a
+payload declaring one suite or key under a header declaring another**, which §3
+says *"no verifier would otherwise notice"*. That attack is symmetric: a
+responder could sign a payload naming one suite under a header naming a weaker
+one, and a requester following §4's response order would never look.
+
+So this is not only a question about bytes. Either a response payload carries the
+copies and a step is missing, or it does not and the asymmetry is deliberate —
+and if it is deliberate, the reason belongs in the text, because the next reader
+will assume symmetry.
+
+It is also a **byte** question, which is what blocks corpus work: a
+`sign_response` vector asserts an exact payload, and that payload either has a
+`signature` object with two members or has none.
+
+### Options
+
+**A. Symmetric — a response payload carries `signature.profile` and
+`signature.key_id`, and §4's response order gains a comparison step.**
+
+*For:* closes the same hole on the same terms, and a reader who has understood
+the query needs no second model. The attack §3 describes does not care which
+direction the message travels.
+*Against:* it is a change to §4's processing order, which
+[CLAUDE.md](../CLAUDE.md) puts on the escalation list precisely because the order
+is load-bearing. §5's response tables are also **closed field lists** by E-22, so
+this adds to three of them.
+
+**B. Asymmetric — a response payload carries no `signature` object; §5's
+`signature` row denotes the third segment, and §3 says so.**
+
+*For:* smallest change, and it matches what the documents say today. It is
+arguably sufficient on its own terms: a requester resolves the responder key
+from the header and verifies; if the signature verifies under a key the requester
+already trusts for that custodian, a lie in the header about *which* key was used
+does not survive verification.
+*Against:* the suite lie survives. A responder naming a strong suite in the
+payload and a weak one in the header is not caught, because there is no payload
+copy to compare — and §4's response step 2 checks the header against the
+requester's floor, which an attacker-chosen header passes by naming something
+acceptable while the signature was made under something else. Whether that is
+reachable depends on the suite registry having two suites, which today it does
+not.
+
+**C. Symmetric fields, no new step** — a response payload carries the copies, and
+comparing them is left to P-003 rather than to §4's order.
+
+*For:* no change to the processing order, and the fields are there for a verifier
+that wants them.
+*Against:* a field nothing is required to check is a field that will not be
+checked, and P-001's whole discipline is that an unchecked rule is a rule that
+drifts. It is the worst of both: the bytes cost of A, the guarantee of B.
+
+### Recommendation — A
+
+The asymmetry is not defensible as a design, only as an accident. §3 gives a
+reason for the duplication that does not mention direction, and a requester is
+exactly as exposed to a lying producer as a responder is — more so, arguably,
+since a requester is often the less capable party.
+
+B's defence is real but narrow: it holds only while one suite is registered.
+`crypto-suites.md` has a registry and a versioning rule, so it anticipates a
+second, and a rule that is safe only until the thing the document plans for
+happens is not a rule to adopt deliberately.
+
+**Where A stops being right:** if the response's protected header turns out to be
+constrained in a way the query's is not — signed under a key resolved from
+`target.custodian` rather than from an attacker-supplied identifier, for example
+— then the header is not attacker-controlled in the same sense and the
+comparison buys nothing. §4's response step 3 says *"resolve the responder key"*
+without saying from where, so this is worth pinning down in the same change; it
+may be that the answer makes A's step redundant and B correct for a reason
+neither option currently states.
 
 
 ---
