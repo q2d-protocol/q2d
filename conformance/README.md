@@ -68,13 +68,14 @@ dependency assertion (issue 15), the test key material (issue 10), the
 `registry/` section (issue 11), and `message/`'s positive vectors (issue 12).
 
 **`message/` is positive-only, and that is a gap rather than a choice.** Every
-rejection it wants — a `routing`/`signed` disagreement, an invalid signature, an
-unresolvable key — must assert the `external_reason` a requester receives, and no
-normalized denial class has an identifier:
+rejection it wants falls in a tier with no identifier — a `routing`/`signed`
+disagreement is Tier A, an invalid signature or unresolvable key is Tier B — and
+each must assert the `external_reason` a requester receives.
 [P-009](../docs/prds/P-009-denial-normalization.md) §4.1 gives Tier A as
-*"distinct errors"* and Tier B as *"one class"* without naming either, and the
-only value in the repository is `unavailable`, which
-[`registry/manifest.json`](../registry/manifest.json) declares for Tier C.
+*"distinct errors"* and Tier B as *"one class"* without naming either. Tier C's
+value exists, `unavailable`, because
+[`registry/manifest.json`](../registry/manifest.json) declares it — which is why
+the `registry/` section has five rejection vectors and this one has none.
 [`open-escalations.md`](../docs/open-escalations.md) **E-33** is that question.
 [`tests/test_message_section.py`](tests/test_message_section.py) asserts the
 section is positive-only, so it turns red the day a rejection lands.

@@ -22,8 +22,9 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > `external_reason` names a normalized class, and **no class has an
 > identifier**. P-009 §4.1 gives Tier A as *"distinct errors"* and Tier B as
 > *"one class"* without naming either; the only value in the repository is
-> `unavailable`, which the registry declares for Tier C. It blocks every
-> rejection vector in `message/`, `suite/`, and `ordering/` steps 1–9.
+> `unavailable`, which the registry declares for Tier C — so Tier C rejections
+> are authorable and Tier A and B ones are not. It blocks `message/`'s
+> rejections, `suite/` almost entirely, and `ordering/` steps 1–9.
 >
 > **E-32** closed as A: a response payload carries
 > `signature.profile` and `signature.key_id` as a query's does, and §4's response
@@ -2304,9 +2305,12 @@ they differ.
 the first rejection vector ·
 **Decides** [`core-model.md`](../spec/core-model.md) §5.2 and
 [P-009](prds/P-009-denial-normalization.md) §4.1 ·
-**Blocks** every rejection vector in `message/`, `suite/`, and `ordering/` steps
-1–9. Positive vectors and Tier C rejections are unaffected — `registry/` already
-has five of the latter.
+**Blocks** every rejection whose tier lacks an identifier: `message/`'s three,
+`suite/` almost entirely, `ordering/` steps 1–9, and
+[P-009](prds/P-009-denial-normalization.md)'s `denial/tier-a/` and
+`denial/uniformity-b/`. **Tier C is unaffected** — `unavailable` exists, which is
+why `registry/` already has five rejection vectors, `denial/uniformity-c/` is
+authorable, and so are `ordering/` steps 10–15.
 
 ### Context
 

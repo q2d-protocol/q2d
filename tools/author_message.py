@@ -37,13 +37,14 @@ Positive vectors only, and that is a gap rather than a choice.
 protocol is what it refuses, so a section with no negative vectors is not
 finished.
 
-Every rejection this section wants — a `routing`/`signed` disagreement, an
-invalid signature, an unresolvable key — must assert the `external_reason` a
-requester receives, and that vocabulary does not exist.
-[P-009](../docs/prds/P-009-denial-normalization.md) §4.1 gives Tier A as
-*"distinct errors"* without saying which, and Tier B as *"one class"* without
-naming it; only Tier C has a value, `unavailable`, and only because
-[`registry/manifest.json`](../registry/manifest.json) declares one.
+Every rejection this section wants must assert the `external_reason` a requester
+receives, and each falls in a tier with no identifier: a `routing`/`signed`
+disagreement is **Tier A**, and an invalid signature or unresolvable key is
+**Tier B**. [P-009](../docs/prds/P-009-denial-normalization.md) §4.1 gives Tier A
+as *"distinct errors"* without saying which, and Tier B as *"one class"* without
+naming it. Only **Tier C** has a value — `unavailable` — and only because
+[`registry/manifest.json`](../registry/manifest.json) declares one, which is why
+`registry/`'s five rejection vectors exist and these do not.
 [`open-escalations.md`](../docs/open-escalations.md) **E-33** is that question,
 and the rejection vectors land with its answer.
 """
