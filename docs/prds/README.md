@@ -3,7 +3,7 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready for decomposition, with two issues held by an open escalation — see the status column. **One escalation is open**: **E-28**, a claim-honesty item — `object` is bounded by a maximum serialized size that no registry or contract field carries, `claims.md` Q2D-C-03 claims it is enforced, and the `output_schema` every entry does carry is referenced by no normative rule.
+All sixteen are ready for decomposition, with two issues held by an open escalation — see the status column. **One escalation is open**: **E-28**, a claim-honesty item — `object` is bounded by a maximum serialized size that no registry or contract field carries, `claims.md` Q2D-C-03 claims it is enforced, and nothing says a released result is checked against the `output_schema` every entry carries.
 
 **Five closed recently**, and
 

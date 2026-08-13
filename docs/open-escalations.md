@@ -23,8 +23,9 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > serialized size no field carries** while
 > [`claims.md`](../spec/claims.md) **Q2D-C-03** claims it is enforced; and then,
 > on checking whether per-field bounds would do instead, found that `attribute`
-> is *released in full* and that every entry's **`output_schema` is referenced by
-> no normative rule at all**. A claim-honesty item, and the reason
+> is *released in full* and that **nothing says a released result is checked
+> against the entry's `output_schema`** — §4 step 17 validates against the
+> effective domain. A claim-honesty item, and the reason
 > [P-010](prds/P-010-responder-pipeline.md) issue 8's serialized-size check
 > waits.
 >
@@ -1623,17 +1624,22 @@ narrowing. So an `object` containing an `attribute` field has no bound from
 per-field recursion, and B as first written would have left Q2D-C-03 narrower
 than the protocol needs rather than merely honest.
 
-**2. The mechanism that would bound it already exists, and no normative document
-references it.** Every registry entry carries an `output_schema`, and
+**2. The mechanism that would bound it exists, and nothing says it is used.**
+Every registry entry carries an `output_schema`, and
 [`scope.md`](../spec/scope.md) §4.1's profile — which
-[`registry/validate.py`](../registry/validate.py) enforces — includes
-**`maxLength`** and **`maxItems`**. An entry can therefore bound every
-variable-length value it releases. But the identifier `output_schema` appears
-**nowhere in `spec/` or `docs/prds/`**: §4 step 17 says *"Output validated
-against the effective domain"*, not against the entry's schema, and P-010 §4.5's
-list of six checks does not include it. A registry field that every entry carries
-and that the reference validator checks for well-formedness is referenced by no
-rule that says what it is for.
+[`registry/validate.py`](../registry/validate.py) enforces over all three of an
+entry's schemas — includes **`maxLength`** and **`maxItems`**. So an entry *can*
+bound every variable-length value it releases.
+
+What is missing is any rule that it does. `scope.md` §4 puts an output schema in
+scope and §4.1 constrains its form, and neither says a responder validates a
+released result against it: [`core-model.md`](../spec/core-model.md) §4 **step
+17** says *"Output validated against the effective **domain**"*, and
+[P-010](prds/P-010-responder-pipeline.md) §4.5's six checks do not include the
+schema. Nor does anything require the bound to be *set* — the profile permits
+`maxLength`, and the validator checks that a schema uses only permitted keywords
+with well-formed values, not that a string carries one. So the field is
+well-formed, in scope, constrained in shape, and load-bearing for nothing.
 
 **3. `terminology.md` §3 says an answer contract carries an output schema.**
 §2.5's field table does not have one — it lists `release_shape`, `domain`,
@@ -1649,16 +1655,19 @@ released values, and the specification never wires it up.
 **A. Make `output_schema` normative.** §4 step 17 validates the released output
 against the effective domain **and** the entry's `output_schema`; an entry's
 schema must bound every variable-length value it can release (`maxLength` on a
-string, `maxItems` on an array), which `registry/validate.py` checks; Q2D-C-03
-cites that instead of *"maximum serialized size"*; terminology §4's `object`
-line follows.
+string, `maxItems` on an array) — a **new** requirement, which
+`registry/validate.py` would gain, since today it checks only that a schema's
+keywords are in the profile and its values well formed. Q2D-C-03 then cites the
+output schema instead of *"maximum serialized size"*, and terminology §4's
+`object` line follows.
 
 *For:* uses a mechanism that already exists, is already carried by every entry,
 and is already profile-validated — so the change is to the documents rather than
 to the format. It bounds `attribute` and free-text fields, which is the hole a
-size bound was for. It also closes finding 2 above, which is a gap whatever is
-decided here: a registry field no rule refers to will be implemented differently
-by anyone who notices it.
+size bound was for. It also closes finding 2, which is a gap whatever is decided
+here: a field that is in scope and constrained in form, with no rule saying a
+responder checks a result against it, will be implemented differently by
+whoever notices it.
 *Against:* per-value bounds are not a single serialized-size number, so a
 deployment wanting *"no answer over 4 KB"* still cannot say that; it can only
 bound each field and let the total follow. Requiring `maxLength` on every string
@@ -1705,7 +1714,8 @@ implementer guesses.
 
 B is right instead if a deployment genuinely needs a total-size ceiling rather
 than per-value bounds. I have not found one that does, and B does not remove the
-need for A — `output_schema` would still be unreferenced.
+need for A — nothing would still say a released result is checked against the
+output schema.
 
 **Where A stops being right:** if `maxLength` on every string turns out to be
 unauthorable in practice — a predicate whose honest answer is a variable-length
