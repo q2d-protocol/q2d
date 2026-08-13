@@ -140,7 +140,8 @@ surface, both on input that is authenticated by then ([`core-model.md`](core-mod
 §4 step 11 follows step 4) but still hostile.
 
 **An entry's `output_schema` bounds every variable-length value it can release.**
-Every `string` it admits carries `maxLength`; every `array` carries `maxItems`.
+Every `string` it admits carries `maxLength`; every `array` carries `maxItems`
+**and `items`**, since a bounded count of unconstrained elements is not a bound.
 This is a requirement on the schema, not merely a permission: the keywords are in
 the list above either way, and what this adds is that an entry may not omit them.
 

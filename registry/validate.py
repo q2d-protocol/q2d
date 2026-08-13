@@ -327,8 +327,15 @@ def unbounded_release(schema, path):
         if admits(schema, "string") and not (
                 "maxLength" in schema or schema.get("format") == "date-time"):
             yield f"{path}: string with no maxLength, enum, or date-time format"
-        if admits(schema, "array") and "maxItems" not in schema:
-            yield f"{path}: array with no maxItems"
+        if admits(schema, "array"):
+            if "maxItems" not in schema:
+                yield f"{path}: array with no maxItems"
+            if "items" not in schema:
+                # `maxItems` bounds how many elements, not how large each one
+                # is. Without `items` every element is unconstrained, so three
+                # of them can carry three unbounded strings -- a bounded count
+                # of unbounded values, which is not a bound.
+                yield f"{path}: array with no items schema, so its elements are unbounded"
 
     properties = schema.get("properties")
     if isinstance(properties, dict):
