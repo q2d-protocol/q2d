@@ -18,9 +18,11 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-27 and E-28 are open.** E-28 is a one-line omission in §3.2's `object`
-> row, found while writing §3.3; it blocks only the `maximum_cardinality` path of
-> [P-006](prds/P-006-request-validation.md) issue 4.
+> **E-27 and E-28 are open.** E-28 was raised as a one-line omission in §3.2's
+> `object` row and is not: checking it before implementing found that `object`'s
+> bound is a **maximum serialized size no field carries**, which
+> [`claims.md`](../spec/claims.md) **Q2D-C-03** nonetheless claims is enforced.
+> It is a claim-honesty item and therefore the more urgent of the two.
 >
 > **E-27** blocks the `enum` constant-release route in
 > [P-006](prds/P-006-request-validation.md) issue 4, and it is a
@@ -86,7 +88,7 @@ question is still fresh than after the answer arrives.
 | **E-25** | May a policy modifier coarsen an `enum`, and if so where does its mapping live? | E-17's resolution | `core-model.md` §3.2 | **Closed** |
 | **E-26** | What do two incomparable narrowings of one dimension compose to? | E-25's cascade | `core-model.md` §3, §3.3 (new) | **Closed** |
 | **E-27** | Is a release that cannot vary with the data admissible — a one-label `enum`, an empty field set? | E-25's cascade | `core-model.md` §2.5, §3.2 · `registry/validate.py` | **Open** |
-| **E-28** | May an `object`'s `maximum_cardinality` be narrowed? §2.5 says the field applies to it; §3.2's `object` row does not list it. | E-26's cascade | `core-model.md` §3.2 | **Open** |
+| **E-28** | `object` is bounded by a maximum serialized size that no field carries, and Q2D-C-03 claims it is enforced | E-26's cascade | `terminology.md` §4 · `core-model.md` §2.5, §3.2 · `claims.md` Q2D-C-03 | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1529,63 +1531,130 @@ work needs one before this is closed.
 
 ---
 
-## E-28 — May an `object`'s `maximum_cardinality` be narrowed?
+## E-28 — `object` is bounded by a maximum serialized size that no field carries
 
-**Raised by** E-26's cascade ·
-**Decides** [`core-model.md`](../spec/core-model.md) §3.2 ·
+**Raised by** E-26's cascade, and **re-scoped after checking it** ·
+**Decides** [`terminology.md`](../spec/terminology.md) §4,
+[`core-model.md`](../spec/core-model.md) §2.5 and §3.2, the registry entry
+format, and [`claims.md`](../spec/claims.md) **Q2D-C-03** ·
 **Blocks** the `maximum_cardinality` path of
-[P-006](prds/P-006-request-validation.md) issue 4, and nothing else. A small
-blast radius, but a real block: §3.2 gives no rule, so an implementation would
-have to choose between enforcing, ignoring, and rejecting the field on its own.
+[P-006](prds/P-006-request-validation.md) issue 4, and the serialized-size check
+in [P-010](prds/P-010-responder-pipeline.md) issue 8 — §4.5 lists it as one of
+six things `validate_output` checks, and it is the one with nothing to check
+against.
 
-### Context
+**This is a claim-honesty item**, which puts it above spec fidelity in
+[CLAUDE.md](../CLAUDE.md)'s order.
 
-§2.5 says `answer_contract.maximum_cardinality` is *"For `set` and `object`"*.
-§3.2's narrowing table gives the `set` row *"`maximum_cardinality` at or below
-registered"* and the `object` row *"`allowed_detail_fields` a subset of
-registered, each remaining field narrowed by its own shape's rule"* — with no
-mention of cardinality.
+### What it was, and why that was wrong
 
-So a requester may set the field on an `object` contract, and §3.2 does not say
-whether narrowing it is permitted. Found while writing §3.3, which had to say
-what two `maximum_cardinality` narrowings compose to and could not tell which
-shapes carry the dimension.
+Raised as: §2.5 says `answer_contract.maximum_cardinality` is *"For `set` and
+`object`"* while §3.2's `object` row never mentions it, so may an `object`'s
+cardinality be narrowed? The recommendation was **A**, a one-cell addition to
+§3.2 giving `object` the same row `set` has — on the reasoning that the omission
+looked like drafting rather than intent.
 
-§3.3 is written to cover it wherever §2.5 says the field applies, so it is
-correct under either answer. Nothing else in the repository depends on it: no
-registry entry uses the `object` release shape today.
+Peter accepted A. Checking the shape definitions before implementing it — which
+the brief's own *where A stops being right* said to do — inverted the answer.
+
+[`terminology.md`](../spec/terminology.md) §4:
+
+| Shape | Definition |
+|---|---|
+| `set` | *"A bounded list or set at or below a registered **maximum cardinality**."* |
+| `object` | *"A structured result with enumerated fields, each itself bounded, subject to a registered **maximum serialized size**."* |
+
+So `object`'s bound is **size, not cardinality**. Two documents agree it has no
+cardinality dimension — terminology §4 and §3.2's `object` row — and one says it
+does, §2.5. A would have amended the two that agree to match the one that does
+not.
+
+### The larger finding
+
+`object`'s actual bound has no mechanism. Searching `spec/`, `registry/` and
+`docs/` for a serialized-size field returns three prose mentions and no field:
+
+| Where | What it says | Backed by |
+|---|---|---|
+| [`terminology.md`](../spec/terminology.md) §4 | `object` is subject to a **registered** maximum serialized size | nothing — a registry entry has no such key |
+| [`claims.md`](../spec/claims.md) **Q2D-C-03** | a released result conforms to *"shape, cardinality, precision, field allowlist, and maximum serialized size"* | nothing |
+| [P-010](prds/P-010-responder-pipeline.md) §4 | output validation checks *"…field allowlist, serialized size"* | nothing |
+
+A registry entry carries `answer_domain`, `capacity`, `constraints`,
+`output_schema`, `release_shape` and the rest — and no size bound.
+`answer_contract` (§2.5) has no size field either, and §3.2's narrowing table has
+no size dimension, so a policy modifier could not tighten one if it existed.
+
+**Q2D-C-03 therefore claims enforcement of a bound the protocol cannot express.**
+That is the failure mode `claims.md` exists to prevent, and it is worse than a
+missing feature: an implementer building P-010's output validation would look for
+the field, not find it, and either invent one or drop the check — and dropping it
+is invisible, because every other part of Q2D-C-03 still passes.
+
+Also worth noting: `maximum_cardinality` appears once in the reference manifest,
+on the **`interval`** predicate's computed `answer_domain` — not on a `set`. So
+the contract field's *"For `set` and `object`"* has no exercised case either way.
 
 ### Options
 
-**A. Yes — the `object` row gains `maximum_cardinality` at or below registered**,
-identically to `set`.
+**A. Add the field.** A registry entry gains a maximum serialized size for
+`object` entries; `answer_contract` gains the matching term; §3.2's `object` row
+narrows it; §3.3 composes it by taking the smaller.
 
-*For:* the field exists on the contract, and a field that may be set but never
-narrowed is a contract term policy cannot touch, which no other dimension is. It
-is almost certainly an omission rather than a decision — the `object` row was
-written about fields, and the cardinality dimension was not in view.
-*Against:* nothing identified.
+*For:* makes Q2D-C-03 true as written, and gives P-010 something to validate
+against. Size is the one bound that closes the gap between a field allowlist and
+what actually crosses the interface — a field allowlist of `{notes}` bounds
+nothing if `notes` is unbounded text.
+*Against:* the largest change of the three, and it puts a byte count into the
+capacity story that §3.1 deliberately keeps in millibits of answer alphabet.
+Serialized size is not cardinality, and §9 already parks the `object` capacity
+calculation.
 
-**B. No — narrowing it is an error for `object`.**
+**B. Strike the claim.** Remove maximum serialized size from Q2D-C-03,
+terminology §4 and P-010 §4. `object` is bounded by its field allowlist and by
+each field's own shape, and nothing else.
 
-*For:* would be right if `object` cardinality means something structurally
-different from `set` cardinality, which is worth ruling out rather than assuming.
-*Against:* leaves §2.5 permitting a contract field that nothing may act on, and
-gives an implementation no reason to reject it that is not "the table did not say
-so".
+*For:* the smallest change that makes every document true, and it is honest:
+the protocol does bound an `object`, just not by size. Recursive per-field
+bounds are a real bound.
+*Against:* leaves a text field inside an object effectively unbounded unless its
+own shape bounds it, which may be exactly the hole size was meant to close.
+Worth confirming against `scalar`'s and `attribute`'s definitions before
+choosing.
 
-### Recommendation — A
+**C. Defer the mechanism, keep the intent.** Move maximum serialized size to
+§9's parked list, strike it from Q2D-C-03, and say in terminology §4 that it is
+intended rather than registered.
 
-The `object` row already narrows every other dimension it carries, and the
-omission looks like drafting rather than intent. A is a one-cell change to §3.2's
-table, and it makes §3.3's `maximum_cardinality` row apply to both shapes exactly
-as written.
+*For:* records the design intention without claiming it — which is what
+[CLAUDE.md](../CLAUDE.md) asks for a property that cannot be tested yet.
+*Against:* a parked bound is a bound nobody implements, so it buys the honesty of
+B while leaving the reader to wonder whether the gap is closing.
 
-**Where A stops being right:** if `object` cardinality turns out to mean the
-number of *objects* returned rather than the number of fields — in which case it
-is `set`'s dimension under another name and the two rows should be merged, which
-is a larger edit than this. Worth a look at
-[P-006](prds/P-006-request-validation.md) §4.5 before deciding.
+### Recommendation — B, unless per-field bounds turn out not to bound
+
+The claim should match the protocol, and the fastest way to make that true is to
+stop claiming the bound that has no mechanism. §3.2 already narrows an `object`
+recursively — every surviving field is bounded by its own shape's rule — so the
+protocol's actual guarantee is *"every field is bounded"*, which is defensible
+and testable.
+
+**A is right instead if a field can be unbounded in practice.** That is the
+question to settle first, and it is a short one: if any release shape reachable
+inside an `object` admits an arbitrarily long value, then a field allowlist plus
+per-field shapes does *not* bound the object, and B would leave Q2D-C-03 weaker
+than its own text suggests. `scalar` carries precision and a range, `enum` and
+`boolean` are finite, `interval` has a horizon — the shape to check is
+`attribute`, which §3.2 says permits no narrowing and terminology defines
+loosely.
+
+C is the right answer only if the intent is to add the field soon. It is
+strictly worse than B otherwise, because a parked bound reads as a roadmap and
+this is a correction.
+
+**Whichever is chosen, §2.5's *"For `set` and `object`"* is amended in the same
+change** — it is the outlier under every option, and the original E-28 question
+answers itself once the shape definitions are read.
 
 ---
 

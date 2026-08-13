@@ -141,6 +141,13 @@ one, which is what an operator needs, without the value that faulted it.
 After evaluation, the output is validated against the effective domain: shape,
 membership, cardinality, precision, field allowlist, serialized size.
 
+**Serialized size is blocked on [E-28](../open-escalations.md).** The list above
+follows [`claims.md`](../../spec/claims.md) Q2D-C-03, and no registry entry or
+answer contract carries a size bound to validate against — so an implementation
+would have to invent one or drop the check, and dropping it is invisible because
+every other item on this list still passes. Build the other five; the sixth is
+either specified or struck from Q2D-C-03 by that escalation.
+
 A violation is **an implementation or integrity error, not a policy outcome**
 ([`core-model.md`](../../spec/core-model.md) §4). Concretely:
 
@@ -328,7 +335,7 @@ should be a small, readable function rather than a convenient one.
 | 5 | Private-input adapter interface plus a fixture store | Open question 4 resolved |
 | 6 | `evaluate` with the error boundary and panic catching | Panic returns `Internal`; no payload retained; open question 2 resolved |
 | 7 | The three predicate implementations | All fourteen registry vectors pass through the pipeline |
-| 8 | `validate_output` against the effective domain | `validate/` passes; no debit on failure |
+| 8 | `validate_output` against the effective domain | `validate/` passes; no debit on failure. **Serialized size blocked on E-28** — §4.5; the other five checks proceed |
 | 9 | Answer construction | No field private-derived except the result |
 | 10 | Partial-failure handling for §4.7 | Each row leaves the system no more permissive |
 | 11 | Author `ordering/`, `evaluate/`, `validate/`, `pipeline/` | Four sections; `harness lint` clean |

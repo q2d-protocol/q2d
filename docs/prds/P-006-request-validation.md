@@ -379,7 +379,10 @@ and is what an escalation landing looks like.
 
 **`object`'s `maximum_cardinality` fails the test the other way**, and is blocked
 on **E-28**. §2.5 says the field is *"For `set` and `object`"*; §3.2's `object`
-row does not mention it. So an implementation must decide by itself whether to
-enforce it, ignore it, or reject a contract carrying it — three behaviours from
-one document, with no rule to be wrong about. Every other part of `object`
+row does not mention it, and [`terminology.md`](../../spec/terminology.md) §4
+bounds an `object` by a maximum serialized size instead. So an implementation
+must decide for itself whether to enforce the field, ignore it, or reject a
+contract carrying it — three behaviours from one document. E-28 also found that
+the size bound terminology names has no field anywhere, which is why it is a
+claim-honesty item rather than a table omission. Every other part of `object`
 proceeds.
