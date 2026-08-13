@@ -18,13 +18,14 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-30 is the only one open.** It asks whether
-> [`scope.md`](../spec/scope.md) §4.1's profile can bound a `number` at all — it
-> cannot today, so one is refused in an output schema, which narrows the `scalar`
-> shape `terminology.md` §4 defines as *"integer or number"*. It blocks nothing.
+> **Nothing is open.** E-29 and E-30 were the last two, both from E-28's
+> cascade. **E-29**: `answer_contract.maximum_cardinality` is for `set` only, and
+> measures the domain's size rather than a count of results. **E-30**: a `number`
+> is refused in an output schema, and a predicate whose answer is a decimal
+> registers a scaled integer — so `terminology.md` §4's `scalar` shape is an
+> integer.
 >
-> **E-29 closed as A**: `answer_contract.maximum_cardinality` is for `set` only,
-> and measures the domain's size rather than a count of results.
+> All sixteen PRDs are Ready for decomposition, and no issue is held.
 >
 > **E-28 closed as A.** It grew twice on being checked — raised as a one-line
 > omission in §3.2's `object` row, found to be a maximum serialized size no field
@@ -102,7 +103,7 @@ question is still fresh than after the answer arrives.
 | **E-27** | Is a release that cannot vary with the data admissible — a one-label `enum`, an empty field set? | E-25's cascade | `core-model.md` §2.5, §3.2 (condition 5), §3.3 | **Closed** |
 | **E-28** | What bounds an `object`, and what is the registry's `output_schema` for? | E-26's cascade | `terminology.md` §3, §4 · `core-model.md` §4 step 17 · `scope.md` §4.1 · `claims.md` Q2D-C-03 | **Closed** |
 | **E-29** | Which release shapes carry `answer_contract.maximum_cardinality`? | E-28's cascade | `core-model.md` §2.5 | **Closed** |
-| **E-30** | Should `scope.md` §4.1's profile gain a precision keyword, so a `number` output can be bounded? | E-28's cascade | `scope.md` §4.1 · `terminology.md` §4 | **Open** |
+| **E-30** | Should `scope.md` §4.1's profile gain a precision keyword, so a `number` output can be bounded? | E-28's cascade | `scope.md` §4.1 · `terminology.md` §4 | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1856,10 +1857,11 @@ the field's real purpose. Nothing in the current scope wants that.
 ## E-30 — Can a `number` output be bounded, and should §4.1's profile gain a precision keyword?
 
 **Raised by** E-28's cascade ·
-**Decides** [`scope.md`](../spec/scope.md) §4.1 ·
-**Blocks** nothing today — no registry entry releases a `number` — but it
-narrows what a predicate can answer, and the narrowing is currently implicit in
-a validator rule.
+**Decided: B — `number` is refused, and a decimal is registered as a scaled
+integer.** [`scope.md`](../spec/scope.md) §4.1 and
+[`terminology.md`](../spec/terminology.md) §4 both say so, with **A** named as
+the widening. It blocked nothing; it narrowed what a predicate can answer, and
+that narrowing is now stated rather than implicit in a validator rule.
 
 ### Context
 
@@ -1921,7 +1923,7 @@ integer and two implementations cannot disagree about it. Matches the
 an entry's schemas are JSON Schema. A validator would have to special-case it,
 and a generic tool would ignore it silently — which is worse than rejecting.
 
-### Recommendation — B, with A named as the widening
+### Recommendation — B, with A named as the widening. **Adopted.**
 
 The profile exists because two JSON Schema libraries disagreeing is a
 disagreement about whether a request is valid at all, and `multipleOf` on
@@ -1945,6 +1947,24 @@ guessing now what scale it would need.
 **Whichever is chosen, terminology §4's `scalar` definition is amended in the
 same change** — under B it says integer, under A or C it keeps *or number* and
 gains the constraint that makes it true.
+
+### What implementing it confirmed
+
+Nothing in the repository releases a `number` — not the three reference
+predicates, and not the deposited report's worked example. So B costs nothing
+today and the `scalar` shape has no user to break.
+
+**`precision` survives B and does real work.** §3.2's `scalar` row narrows by
+*"reduced precision; a range no wider than registered"*, and reduced precision on
+an integer is rounding to tens or hundreds — so a scaled integer coarsens exactly
+as a decimal would have. `answer_contract.precision` needed no change, which was
+not obvious before checking.
+
+**Stating the scale is a rule, not a check.** Unit confusion is B's real cost,
+and no validator can decide whether prose names the right scale. §4.1 says so
+rather than implying a check exists — the same treatment
+[`conformance/keys/README.md`](../conformance/keys/README.md) gives the rule that
+nothing derives a public key from a seed.
 
 
 ---
@@ -2036,6 +2056,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-27** | **Inadmissible, by both routes.** §3.2 gains a fifth condition on an `enum` coarsening — *at least two labels* — and requires an `object` release to name at least one detail field. A constant answer is a refusal wearing an answer's shape, and §3.2 already called a one-value domain *the empty request* where it explains `boolean` and `attribute`; this applies the same reading to the two shapes that had escaped it. The escalation was briefed as a live inconsistency between §2.5 and §3.2; it was not — only `object` has detail fields, so §2.5's *may be empty* was always about the shapes that have none. | `core-model.md` §2.5, §3.2, §3.3 · `registry/validate.py` · P-006 §10, issue 4 · P-007 issue 4 |
 | **E-28** | **The entry's `output_schema` is the bound.** §4 step 17 validates a released result against the effective domain *and* that schema — the domain bounds which values may be returned, the schema how long they may be — and `scope.md` §4.1 requires an output schema to bound every variable-length value it can release. Q2D-C-03 cites it instead of a *maximum serialized size*, which no field carried. Raised as a table omission, twice re-scoped by checking it: `attribute` is released *in full* so per-field recursion does not bound an object, and the mechanism that does was already on every entry with no rule pointing at it. | `terminology.md` §3, §4 · `core-model.md` §4 step 17 · `scope.md` §4.1 · `claims.md` Q2D-C-03 · `conformance-classes.md` CC-2 · `registry/validate.py` · P-010 §4.5, issue 8 |
 | **E-29** | **`set` only**, and the field is the **domain's** size rather than a count of results — §1 admits one response, so a result count could carry no information. Other shapes narrow cardinality through their own dimension. The deposited report's `boolean` example, which had suggested a result count, is a draft artefact under either reading: as a domain size it narrows a two-value domain to one, which §3.2's `boolean` row has always prohibited. | `core-model.md` §2.5 · P-006 issue 4 |
+| **E-30** | **`number` is refused in an output schema**; a predicate whose answer is a decimal registers a **scaled integer** and states the scale in `question_notes`. The keyword that would bound a decimal is `multipleOf`, and it is the one two JSON Schema libraries most reliably disagree about — `0.1` has no exact binary representation — which is the failure §4.1's frozen profile exists to exclude. §3.1 makes the same trade carrying capacity as integer millibits. Admitting `number` later accepts schemas refused now, so nothing authored against this breaks. | `scope.md` §4.1 · `terminology.md` §4 · `registry/validate.py` |
 
 ### What did not change, deliberately
 

@@ -148,7 +148,7 @@ may not omit them.
 |---|---|
 | `string` | `maxLength`, or `format: date-time` — [`core-model.md`](core-model.md) §2.2 fixes one twenty-character spelling |
 | `integer` | `minimum` **and** `maximum` — an unranged integer admits arbitrarily many digits, and its domain has no cardinality for §3.1 to price |
-| `number` | **nothing in this profile.** A range does not bound a decimal expansion: `0.0 … 1.0` still admits arbitrarily many digits, and the profile has no `multipleOf`. A `number` in an output schema is therefore refused unless an `enum` bounds it — see below |
+| `number` | **nothing, and it is refused.** A range does not bound a decimal expansion: `0.0 … 1.0` still admits arbitrarily many digits. An output schema may not admit `number` unless an `enum` bounds it — see below |
 | `array` | `maxItems` **and** `items` — a bounded count of unconstrained elements is not a bound |
 | `object` | its fields, each a subschema this rule reaches on its own; `additionalProperties: false` above means there are no others |
 | `boolean`, `null` | themselves |
@@ -161,15 +161,29 @@ descend past one. One carrying **no `type`** admits every type at once and is
 refused: omitting a constraint does not narrow anything, and a schema that does
 not say what it releases cannot bound it.
 
-**The `number` row is a live restriction, and it narrows what 0.1 can answer.**
-[`terminology.md`](terminology.md) §4 defines the `scalar` shape as *"a bounded
-integer or number at registered precision"*, so a predicate returning a
-non-integer is contemplated and cannot presently declare a conforming output
-schema. Adding a precision keyword to the profile would fix it and is a change to
-this document; it is
-[`open-escalations.md`](../docs/open-escalations.md) **E-30**. Refusing meanwhile
-is the fail-closed reading and keeps
-[`claims.md`](claims.md) Q2D-C-03 true.
+**A predicate whose answer is a decimal registers a scaled integer** — tenths,
+cents, basis points — and states the scale in the entry's `question_notes`.
+[`terminology.md`](terminology.md) §4's `scalar` shape is an integer for this
+reason.
+
+The keyword that would bound a decimal is JSON Schema's `multipleOf`, and it is
+the one this profile can least afford. `0.1` has no exact binary floating-point
+representation, so whether `0.3` is a multiple of `0.1` depends on whether a
+library compares in floats, decimals, or rationals — two validators disagreeing
+about whether a request is valid, which is the whole reason the list above is
+short. §3.1 makes the same trade for the same reason, carrying capacity as
+integer millibits rather than computing `log2` at runtime.
+
+A scaled integer is exact, and its scale is documentation rather than
+arithmetic — which is also its risk, so stating the scale is a **rule** and not
+a check: no validator can decide whether prose names the right one.
+
+**This forecloses nothing.** Admitting `number` later would accept schemas
+refused now, so no entry authored against this rule breaks. It would need a
+keyword that bounds a decimal expansion without a floating-point comparison — a
+digit count rather than `multipleOf` — and the case for adding one is best made
+by a predicate that needs it. [`open-escalations.md`](../docs/open-escalations.md)
+**E-30** records the options.
 
 The reason is that nothing else bounds those values.
 [`core-model.md`](core-model.md) §3.2 narrows a domain by shape, and the
