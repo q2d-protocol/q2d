@@ -279,19 +279,6 @@ def object_schemas(schema, path):
         yield from object_schemas(schema["items"], f"{path}.items")
 
 
-def subschemas(schema, path):
-    """Every subschema in a schema, with where it sits, root included."""
-    if not isinstance(schema, dict):
-        return
-    yield path, schema
-    properties = schema.get("properties")
-    if isinstance(properties, dict):
-        for name, sub in properties.items():
-            yield from subschemas(sub, f"{path}.properties.{name}")
-    if "items" in schema:
-        yield from subschemas(schema["items"], f"{path}.items")
-
-
 def admits(schema, json_type):
     """Whether a subschema admits values of a JSON type.
 
@@ -314,34 +301,41 @@ def unbounded_release(schema, path):
     """Every subschema that can release a value of unbounded length.
 
     scope.md §4.1: an entry's output schema bounds every variable-length value
-    it can release. A string is bounded by `maxLength`, and also by `enum` --
-    a finite set of literals is a bound, and requiring `maxLength` beside one
-    would be a redundant number that could disagree with it -- and by
+    it can release. A string is bounded by `maxLength`, and also by
     `format: date-time`, which core-model.md §2.2 fixes at a single spelling of
     twenty characters. An array is bounded by `maxItems`.
 
-    Nothing here bounds an *object*: its extent is the sum of its fields', and
-    each field is a subschema this walk reaches on its own.
+    **`enum` bounds the whole value and prunes the walk below it.** A finite
+    set of literals is a complete bound whatever the type, so an enum of
+    objects bounds the strings inside them too -- descending into its
+    `properties` would reject a schema §4.1 permits, which is the opposite of
+    this check's job.
+
+    Nothing here bounds an *object* by itself: its extent is the sum of its
+    fields', and each field is a subschema this walk reaches on its own.
     """
-    for at, sub in subschemas(schema, path):
-        # `enum` bounds the whole value, whatever its type: a finite set of
-        # literals is a complete bound, and it is the reason `contactable_for`
-        # needs no `maxLength` on a string it constrains to three words.
-        if "enum" in sub:
-            continue
-        untyped = "type" not in sub
-        # A schema with no `type` admits every type, so it is unbounded in both
-        # directions at once. Reported as one finding rather than two, because
-        # the fix is the same: say what the value is.
-        if untyped:
-            yield (f"{at}: no `type`, so it admits strings and arrays of any "
-                   f"length")
-            continue
-        if admits(sub, "string") and not (
-                "maxLength" in sub or sub.get("format") == "date-time"):
-            yield f"{at}: string with no maxLength, enum, or date-time format"
-        if admits(sub, "array") and "maxItems" not in sub:
-            yield f"{at}: array with no maxItems"
+    if not isinstance(schema, dict):
+        return
+    if "enum" in schema:
+        return
+
+    if "type" not in schema:
+        # Unbounded in both directions at once. One finding rather than two:
+        # the fix is the same, which is to say what the value is.
+        yield f"{path}: no `type`, so it admits strings and arrays of any length"
+    else:
+        if admits(schema, "string") and not (
+                "maxLength" in schema or schema.get("format") == "date-time"):
+            yield f"{path}: string with no maxLength, enum, or date-time format"
+        if admits(schema, "array") and "maxItems" not in schema:
+            yield f"{path}: array with no maxItems"
+
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for name, sub in properties.items():
+            yield from unbounded_release(sub, f"{path}.properties.{name}")
+    if "items" in schema:
+        yield from unbounded_release(schema["items"], f"{path}.items")
 
 
 def timestamps(value, path="manifest"):

@@ -146,7 +146,8 @@ the list above either way, and what this adds is that an entry may not omit them
 
 Two subschemas need saying. One carrying `enum` is bounded by it whatever its
 type — a finite set of literals is a complete bound, and a length beside it could
-only disagree. One carrying **no `type`** admits every type, so it is unbounded
+only disagree. That bound reaches **inside** it: an enum of objects bounds the
+strings within them, so the requirement does not descend past one. One carrying **no `type`** admits every type, so it is unbounded
 in both directions at once and is refused: omitting a constraint does not narrow
 anything, and a schema that does not say what it releases cannot bound it. A
 `string` with `format: date-time` is bounded by
