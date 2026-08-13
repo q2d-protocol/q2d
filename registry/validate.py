@@ -557,12 +557,18 @@ def main(argv: list[str]) -> int:
                     # object walk below never visits.
                     return value is False
                 if keyword == "required":
+                    # Unique, as JSON Schema 2020-12 requires: a duplicate is a
+                    # schema conforming validators reject, so accepting it here
+                    # would put a manifest in the world that only this file
+                    # thinks is valid.
                     return (isinstance(value, list)
-                            and all(isinstance(x, str) for x in value))
+                            and all(isinstance(x, str) for x in value)
+                            and len(set(value)) == len(value))
                 if keyword == "type":
                     names = [value] if isinstance(value, str) else value
                     return (isinstance(names, list) and names
-                            and all(n in JSON_TYPES for n in names))
+                            and all(n in JSON_TYPES for n in names)
+                            and len(set(names)) == len(names))
                 if keyword == "enum":
                     return isinstance(value, list) and len(value) > 0
                 return isinstance(value, {"properties": dict, "items": dict,
