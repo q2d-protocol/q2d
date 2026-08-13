@@ -293,8 +293,18 @@ def subschemas(schema, path):
 
 
 def admits(schema, json_type):
-    """Whether a subschema admits values of a JSON type."""
+    """Whether a subschema admits values of a JSON type.
+
+    **A subschema with no `type` admits every type.** That is JSON Schema's
+    rule, not a lenient reading of it: `type` is a constraint, and omitting a
+    constraint does not narrow anything. Treating a missing `type` as matching
+    nothing would let `{"maxLength": 8}` beside a typeless sibling -- or a bare
+    `{"description": ...}` -- carry an unbounded string past the one check
+    written to catch it.
+    """
     declared = schema.get("type")
+    if declared is None:
+        return True
     if isinstance(declared, list):
         return json_type in declared
     return declared == json_type
@@ -314,9 +324,21 @@ def unbounded_release(schema, path):
     each field is a subschema this walk reaches on its own.
     """
     for at, sub in subschemas(schema, path):
+        # `enum` bounds the whole value, whatever its type: a finite set of
+        # literals is a complete bound, and it is the reason `contactable_for`
+        # needs no `maxLength` on a string it constrains to three words.
+        if "enum" in sub:
+            continue
+        untyped = "type" not in sub
+        # A schema with no `type` admits every type, so it is unbounded in both
+        # directions at once. Reported as one finding rather than two, because
+        # the fix is the same: say what the value is.
+        if untyped:
+            yield (f"{at}: no `type`, so it admits strings and arrays of any "
+                   f"length")
+            continue
         if admits(sub, "string") and not (
-                "maxLength" in sub or "enum" in sub
-                or sub.get("format") == "date-time"):
+                "maxLength" in sub or sub.get("format") == "date-time"):
             yield f"{at}: string with no maxLength, enum, or date-time format"
         if admits(sub, "array") and "maxItems" not in sub:
             yield f"{at}: array with no maxItems"

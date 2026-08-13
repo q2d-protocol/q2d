@@ -144,6 +144,15 @@ Every `string` it admits carries `maxLength`; every `array` carries `maxItems`.
 This is a requirement on the schema, not merely a permission: the keywords are in
 the list above either way, and what this adds is that an entry may not omit them.
 
+Two subschemas need saying. One carrying `enum` is bounded by it whatever its
+type — a finite set of literals is a complete bound, and a length beside it could
+only disagree. One carrying **no `type`** admits every type, so it is unbounded
+in both directions at once and is refused: omitting a constraint does not narrow
+anything, and a schema that does not say what it releases cannot bound it. A
+`string` with `format: date-time` is bounded by
+[`core-model.md`](core-model.md) §2.2, which fixes one twenty-character
+spelling.
+
 The reason is that nothing else bounds those values.
 [`core-model.md`](core-model.md) §3.2 narrows a domain by shape, and the
 `attribute` shape is *"one selected attribute value released in full"* — it
