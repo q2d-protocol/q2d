@@ -32,9 +32,10 @@ def coverage(corpus: Path) -> tuple[int, str]:
 
 
 # What the real corpus covers today, and nothing more. Issue 11 folded in
-# `registry/`, which cites these three; every other claim is still uncovered,
-# and stays named in the report for that reason.
-COVERED_TODAY = ("Q2D-C-03", "Q2D-C-08", "Q2D-C-09")
+# `registry/`, which cites Q2D-C-03, Q2D-C-08 and Q2D-C-09; issue 12 added
+# `message/`, which cites Q2D-C-05. Every other claim is still uncovered, and
+# stays named in the report for that reason.
+COVERED_TODAY = ("Q2D-C-03", "Q2D-C-05", "Q2D-C-08", "Q2D-C-09")
 
 
 class StageZeroExpectedStateTest(unittest.TestCase):
@@ -63,8 +64,8 @@ class StageZeroExpectedStateTest(unittest.TestCase):
             with self.subTest(claim=claim):
                 self.assertIn(f"UNCOVERED  {claim}", output)
 
-    def test_ten_claims_still_have_no_vector(self):
-        # The number is worth asserting on its own. Three of thirteen is the
+    def test_nine_claims_still_have_no_vector(self):
+        # The number is worth asserting on its own. Four of thirteen is the
         # honest Stage 0 answer and reads very differently from "covered".
         _, output = coverage(CONFORMANCE / "corpus")
         self.assertEqual(output.count("UNCOVERED  Q2D-C-"), 13 - len(COVERED_TODAY))

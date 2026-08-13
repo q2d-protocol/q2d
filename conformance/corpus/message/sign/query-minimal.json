@@ -1,0 +1,79 @@
+{
+  "id": "message/sign/query-minimal",
+  "section": "message",
+  "requirement": [
+    "Q2D-C-05",
+    "core-model.md#2.1",
+    "crypto-suites.md#3"
+  ],
+  "description": "A complete query, signed under `eddsa-jws-2026`. The output is the compact serialization itself, which is what a `bytes` comparison is exact over — an object could not be compared that way, since the harness parses before comparing (P-001 §4.4).",
+  "operation": "sign_query",
+  "input": {
+    "key_id": "test-requester-1",
+    "query": {
+      "q2d_version": "0.1",
+      "type": "query",
+      "query_id": "urn:uuid:0e183389-0f37-4c5f-8c56-1ea7e5818e18",
+      "issued_at": "2026-07-31T09:00:00Z",
+      "expires_at": "2026-07-31T09:05:00Z",
+      "nonce": "Ux7kFQ2mS0aVvJ1cPzN4bw",
+      "requester": {
+        "principal": "did:key:z6MkRequesterPrincipal",
+        "agent": "did:key:z6MkRequesterAgent",
+        "delegation": {
+          "profile": "local-pairing-0.1",
+          "reference": "sha256:7ef1"
+        }
+      },
+      "target": {
+        "custodian": "https://friend.example/.well-known/q2d"
+      },
+      "predicate": {
+        "id": "https://q2d.dev/predicates/dietary/menu-compatible",
+        "version": "0.1",
+        "registry_digest": "sha256:bd08ff230de0d8ce34de99967f7a9097988b49058f0a21dd35b9444c24098e35",
+        "public_context": {
+          "menu": [
+            {
+              "item_id": "risotto",
+              "contains": [
+                "milk"
+              ]
+            },
+            {
+              "item_id": "salad",
+              "contains": []
+            }
+          ]
+        }
+      },
+      "answer_contract": {
+        "release_shape": "boolean",
+        "domain": [
+          false,
+          true
+        ],
+        "allowed_detail_fields": []
+      },
+      "purpose": {
+        "code": "social.meal-planning",
+        "description": "Choose a dinner venue for 2026-07-31"
+      },
+      "delivery": {
+        "answer_recipient": "did:key:z6MkRequesterRuntime",
+        "permitted_sinks": [
+          "urn:q2d:sink:model:local"
+        ]
+      },
+      "signature": {
+        "profile": "eddsa-jws-2026",
+        "key_id": "test-requester-1"
+      }
+    }
+  },
+  "expect": {
+    "outcome": "ok",
+    "output": "eyJrZXlfaWQiOiJ0ZXN0LXJlcXVlc3Rlci0xIiwic3VpdGUiOiJlZGRzYS1qd3MtMjAyNiJ9.eyJhbnN3ZXJfY29udHJhY3QiOnsiYWxsb3dlZF9kZXRhaWxfZmllbGRzIjpbXSwiZG9tYWluIjpbZmFsc2UsdHJ1ZV0sInJlbGVhc2Vfc2hhcGUiOiJib29sZWFuIn0sImRlbGl2ZXJ5Ijp7ImFuc3dlcl9yZWNpcGllbnQiOiJkaWQ6a2V5Ono2TWtSZXF1ZXN0ZXJSdW50aW1lIiwicGVybWl0dGVkX3NpbmtzIjpbInVybjpxMmQ6c2luazptb2RlbDpsb2NhbCJdfSwiZXhwaXJlc19hdCI6IjIwMjYtMDctMzFUMDk6MDU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0wNy0zMVQwOTowMDowMFoiLCJub25jZSI6IlV4N2tGUTJtUzBhVnZKMWNQek40YnciLCJwcmVkaWNhdGUiOnsiaWQiOiJodHRwczovL3EyZC5kZXYvcHJlZGljYXRlcy9kaWV0YXJ5L21lbnUtY29tcGF0aWJsZSIsInB1YmxpY19jb250ZXh0Ijp7Im1lbnUiOlt7ImNvbnRhaW5zIjpbIm1pbGsiXSwiaXRlbV9pZCI6InJpc290dG8ifSx7ImNvbnRhaW5zIjpbXSwiaXRlbV9pZCI6InNhbGFkIn1dfSwicmVnaXN0cnlfZGlnZXN0Ijoic2hhMjU2OmJkMDhmZjIzMGRlMGQ4Y2UzNGRlOTk5NjdmN2E5MDk3OTg4YjQ5MDU4ZjBhMjFkZDM1Yjk0NDRjMjQwOThlMzUiLCJ2ZXJzaW9uIjoiMC4xIn0sInB1cnBvc2UiOnsiY29kZSI6InNvY2lhbC5tZWFsLXBsYW5uaW5nIiwiZGVzY3JpcHRpb24iOiJDaG9vc2UgYSBkaW5uZXIgdmVudWUgZm9yIDIwMjYtMDctMzEifSwicTJkX3ZlcnNpb24iOiIwLjEiLCJxdWVyeV9pZCI6InVybjp1dWlkOjBlMTgzMzg5LTBmMzctNGM1Zi04YzU2LTFlYTdlNTgxOGUxOCIsInJlcXVlc3RlciI6eyJhZ2VudCI6ImRpZDprZXk6ejZNa1JlcXVlc3RlckFnZW50IiwiZGVsZWdhdGlvbiI6eyJwcm9maWxlIjoibG9jYWwtcGFpcmluZy0wLjEiLCJyZWZlcmVuY2UiOiJzaGEyNTY6N2VmMSJ9LCJwcmluY2lwYWwiOiJkaWQ6a2V5Ono2TWtSZXF1ZXN0ZXJQcmluY2lwYWwifSwic2lnbmF0dXJlIjp7ImtleV9pZCI6InRlc3QtcmVxdWVzdGVyLTEiLCJwcm9maWxlIjoiZWRkc2EtandzLTIwMjYifSwidGFyZ2V0Ijp7ImN1c3RvZGlhbiI6Imh0dHBzOi8vZnJpZW5kLmV4YW1wbGUvLndlbGwta25vd24vcTJkIn0sInR5cGUiOiJxdWVyeSJ9.Rri6l0QSySqk8duLn7SqV69QLT2PNPjctjeoAOhWf1gkfvAQETDBuBgXgT2Xerd_AtIdizWbtqlOQq6BSaehCg",
+    "comparison": "bytes"
+  }
+}
