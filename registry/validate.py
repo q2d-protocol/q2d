@@ -297,22 +297,39 @@ def admits(schema, json_type):
     return declared == json_type
 
 
+# Every JSON type an output schema can admit, and what bounds its serialized
+# length. Enumerated rather than checked case by case: four rounds of review
+# each found a type the previous version had not thought of -- a schema with no
+# `type`, an enum's descendants, an array without `items`, an unbounded number
+# -- and the fix each time was another branch. A table of all seven is the
+# thing that cannot silently omit one.
+BOUNDED_BY = {
+    "string": ("maxLength",),        # or `format: date-time`, handled below
+    "integer": ("minimum", "maximum"),
+    "number": ("minimum", "maximum"),
+    "array": ("maxItems", "items"),  # count *and* element schema
+    "boolean": (),                   # two values
+    "null": (),                      # one value
+    "object": (),                    # its fields, each reached by this walk
+}
+
+
 def unbounded_release(schema, path):
-    """Every subschema that can release a value of unbounded length.
+    """Every subschema that can release a value of unbounded serialized length.
 
     scope.md §4.1: an entry's output schema bounds every variable-length value
-    it can release. A string is bounded by `maxLength`, and also by
-    `format: date-time`, which core-model.md §2.2 fixes at a single spelling of
-    twenty characters. An array is bounded by `maxItems`.
+    it can release. Serialized length is the measure, so a number counts -- an
+    integer with no range admits arbitrarily many digits, and its domain has no
+    cardinality for §3.1 to price either.
 
     **`enum` bounds the whole value and prunes the walk below it.** A finite
     set of literals is a complete bound whatever the type, so an enum of
-    objects bounds the strings inside them too -- descending into its
-    `properties` would reject a schema §4.1 permits, which is the opposite of
-    this check's job.
+    objects bounds the strings inside them too; descending would reject a
+    schema §4.1 permits, which is the opposite of this check's job.
 
-    Nothing here bounds an *object* by itself: its extent is the sum of its
-    fields', and each field is a subschema this walk reaches on its own.
+    An **object** is bounded by its fields rather than by a keyword of its own:
+    each is a subschema this walk reaches, and §4.1 already requires
+    `additionalProperties: false`, so there are no unreached ones.
     """
     if not isinstance(schema, dict):
         return
@@ -320,22 +337,25 @@ def unbounded_release(schema, path):
         return
 
     if "type" not in schema:
-        # Unbounded in both directions at once. One finding rather than two:
-        # the fix is the same, which is to say what the value is.
-        yield f"{path}: no `type`, so it admits strings and arrays of any length"
+        # No `type` admits every type at once, so it is unbounded in every
+        # direction. One finding rather than seven: the fix is to say what the
+        # value is.
+        yield f"{path}: no `type`, so it admits a value of any type and any length"
     else:
-        if admits(schema, "string") and not (
-                "maxLength" in schema or schema.get("format") == "date-time"):
-            yield f"{path}: string with no maxLength, enum, or date-time format"
-        if admits(schema, "array"):
-            if "maxItems" not in schema:
-                yield f"{path}: array with no maxItems"
-            if "items" not in schema:
-                # `maxItems` bounds how many elements, not how large each one
-                # is. Without `items` every element is unconstrained, so three
-                # of them can carry three unbounded strings -- a bounded count
-                # of unbounded values, which is not a bound.
-                yield f"{path}: array with no items schema, so its elements are unbounded"
+        declared = schema["type"]
+        for json_type in (declared if isinstance(declared, list) else [declared]):
+            required = BOUNDED_BY.get(json_type)
+            if required is None:
+                # A type outside JSON's seven is not something §4.1's profile
+                # can describe, and is reported rather than passed over.
+                yield f"{path}: unknown type {json_type!r}"
+                continue
+            if json_type == "string" and schema.get("format") == "date-time":
+                continue    # core-model.md §2.2 fixes one 20-character spelling
+            missing = [k for k in required if k not in schema]
+            if missing:
+                yield (f"{path}: {json_type} with no "
+                       + " or ".join(f"`{k}`" for k in missing))
 
     properties = schema.get("properties")
     if isinstance(properties, dict):
