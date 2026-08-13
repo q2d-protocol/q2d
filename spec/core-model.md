@@ -325,7 +325,9 @@ Three rules, and the third is the one that matters:
   two implementations could differ in the last place, and a rounding boundary
   would turn that into a different integer. Authoring the value once removes the
   question. Where a domain's cardinality varies with the request, the entry
-  carries a lookup table over every reachable cardinality.
+  carries a lookup table that is **total** over the cardinalities the entry
+  admits: a cardinality missing from it is a registry defect, not a request
+  the entry declines. §3.2 for the `enum` case.
 
 This is the same principle as Q2D-C-02 applied to accounting: the registry is
 authoritative, and a locally computed value is non-conforming even when it
@@ -403,22 +405,59 @@ that commitment. What the responder guarantees is that the answer it returns is
 inside the domain the requester asked for, not that the requester asked a
 sensible question.
 
-**A policy modifier may not coarsen an `enum` in 0.1.** The rule above is the
-requester's, and it rests on a mapping the requester declares in its answer
-contract. A modifier has no answer contract, so it has nowhere to declare one —
-and the three ways an implementation might fill that gap (reject the modifier,
-infer a mapping, invent a policy-side field) are three different behaviours from
-one specification. A modifier narrowing an `enum` is therefore rejected as an
-implementation error, exactly as a modifier that subsets is, until the question
-is decided. Every other shape's modifier rule is unaffected.
+**A policy modifier may not coarsen an `enum`.** The rule above is the
+requester's, and it rests on a mapping declared in an answer contract. A modifier
+has no answer contract and so has nowhere to declare one; a modifier narrowing an
+`enum` is rejected as an implementation error, exactly as a modifier that subsets
+is. Every other shape's modifier rule is unaffected.
+
+The reason is composition, not the missing field. An `enum` is narrowed by an
+arbitrary function rather than by a bound on a value, and two coarsenings of one
+domain need not be comparable: `[[a,ab],[b,ab],[c,cd],[d,cd]]` and
+`[[a,ac],[c,ac],[b,bd],[d,bd]]` both satisfy the four conditions above, and
+neither factors through the other. A common coarsening does exist — the finest
+one both refine — but an incomparable pair's is strictly coarser than each of
+them, so its label set is strictly smaller than either declared domain, and
+condition 2 fails for both. There is no composition a responder can return that
+either party asked for. It holds for one modifier against one requester's
+mapping, not only for two modifiers. Admitting
+policy-side coarsening therefore means specifying when two mappings factor and
+what a responder does when they do not — a larger addition than this gap warrants
+while no deployment has stated which behaviour it needs.
+
+None of that is a claim that the other shapes compose cleanly. Two `object`
+field sets, two `scalar` ranges, and two `interval` granularities can each be
+incomparable too, and §3 does not say what those compose to — an open question
+([`open-escalations.md`](../docs/open-escalations.md) E-26) that this rule
+neither answers nor depends on.
+
+**Permitting it later forecloses nothing.** It would accept requests this rule
+rejects, so nothing built against this rule breaks. Nor does a modifier reach a
+label count a requester could not: an entry's capacity table is total over the
+counts it covers rather than sized for one party's expected requests, so it
+answers a modifier-produced count already. Which counts it covers is a separate
+open question — see the capacity paragraph below.
 
 **Capacity comes from the coarsened cardinality**, which is the label set's
 size, looked up in the registry entry's capacity table as any varying
 cardinality is ([`registry/README.md`](../registry/README.md)). A responder
 never computes it, and never takes it from the request. An entry whose `enum`
-domain may be coarsened therefore carries a table over every reachable label
-count, not a single value — a registry-format consequence of this rule, not a
-new mechanism.
+domain may be coarsened therefore carries a table that is **total** over the
+admissible label counts — not a single value, not the counts some particular
+requester is expected to ask for, and not a subset the entry picks by leaving
+keys out. A count missing from the table is a registry defect rather than a
+coarsening the entry declines to offer; an entry that offers none carries a
+single capacity value instead, as below. That is a registry-format consequence
+of this rule, not a new mechanism, and totality is what the paragraph above
+rests on.
+
+Which counts an entry admits is not fully settled. The four conditions above
+admit a mapping onto a *single* label, while
+[`registry/validate.py`](../registry/validate.py) requires a table over two
+through the registered cardinality and rejects a key of one — and §3.2's reason
+for permitting no `boolean` narrowing calls a one-value result *the empty
+request*. Those do not agree. See
+[`open-escalations.md`](../docs/open-escalations.md) **E-27**.
 
 **An entry that carries a single capacity value admits no coarsening**, because
 there is no authored debit for the smaller label count and a responder may not

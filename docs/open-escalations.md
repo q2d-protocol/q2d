@@ -18,12 +18,20 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-25 is the only one open**, and it does not block decomposition. It asks
-> whether a policy modifier may coarsen an `enum`, and where its mapping would
-> live — E-17's resolution put the requester's mapping in the answer contract,
-> and a modifier has none. [`core-model.md`](../spec/core-model.md) §3.2 states
-> a conservative rule meanwhile: a modifier narrowing an `enum` is an
-> implementation error. All sixteen PRDs are Ready for decomposition.
+> **E-26 and E-27 are open**, both raised by E-25's cascade. Neither blocks
+> decomposition; each blocks one issue.
+>
+> **E-26** blocks [P-007](prds/P-007-policy-engine.md) issue 4. Writing down
+> *why* an `enum` cannot be composed required saying what makes the other shapes
+> composable, and three of them turned out not to be — `object` field sets,
+> `scalar` ranges, and `interval` granularities can each be incomparable.
+>
+> **E-27** blocks [P-006](prds/P-006-request-validation.md) issue 4's `enum`
+> half. It is a live disagreement between `spec/` and
+> [`registry/validate.py`](../registry/validate.py) rather than a question with
+> no answer yet, which makes it the more urgent of the two.
+>
+> All sixteen PRDs remain Ready for decomposition.
 >
 > **Two closed after this note was first written, and both changed behaviour an
 > implementer would otherwise get wrong.** E-17 supersedes §3.2's conservative
@@ -71,7 +79,9 @@ question is still fresh than after the answer arrives.
 | **E-14** | Should the requester's response processing order be normative? | P-012 | `core-model.md` | **Closed** |
 | **E-15** | `mvp-scope.md` §1 reads as though MVP completion is Phase 1 completion | P-016 | `mvp-scope.md` §1 | **Closed** |
 | **E-16** | Should the registry's JSON Schema profile be normative in `spec/`? | P-006 | `scope.md` §4.1 (new) | **Closed** |
-| **E-25** | May a policy modifier coarsen an `enum`, and if so where does its mapping live? | E-17's resolution | `core-model.md` §3.2 | **Open** |
+| **E-25** | May a policy modifier coarsen an `enum`, and if so where does its mapping live? | E-17's resolution | `core-model.md` §3.2 | **Closed** |
+| **E-26** | What do two incomparable narrowings of one dimension compose to? | E-25's cascade | `core-model.md` §3, §3.2 | **Open** |
+| **E-27** | Is a coarsening onto a *single* `enum` label admissible? | E-25's cascade | `core-model.md` §3.2 · `registry/validate.py` | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1145,8 +1155,8 @@ asked.
 
 **Raised by** E-17's resolution ·
 **Decides** [`core-model.md`](../spec/core-model.md) §3.2 ·
-**Blocks** nothing. §3.2 states a conservative rule — a modifier narrowing an
-`enum` is an implementation error — that is conforming today.
+**Decided: B — a modifier may not coarsen an `enum`.** §3.2 now carries it as a
+rule with its reason, not as a position held pending a decision.
 
 ### Context
 
@@ -1184,14 +1194,275 @@ lever it has over an `enum` (deny, escalate, or coarsen a different dimension).
 outright, which is a blunt instrument where a coarsening would have been
 proportionate.
 
-### Recommendation — B for 0.1, with A named as the widening
+### Recommendation — B, with A named as the widening. **Adopted.**
 
-The composition problem is the deciding factor: two authorities coarsening one
-`enum` by different mappings is a case §3's narrowing composition has no answer
-for, and inventing one is a larger change than this gap justifies. B is what
-§3.2 already says, it forecloses nothing, and A remains available when a
-deployment actually needs it — the same shape as E-17's own interim rule, which
-was conforming for as long as it took to ask the question properly.
+The composition problem is the deciding factor, and checking §3.2 before writing
+this up made it sharper than the options above put it.
+
+**§3's *take the coarsest* presumes the two operands are comparable**, and so
+does [P-007](prds/P-007-policy-engine.md) §4.4's *coarser of the two*. For
+`set` cardinality and an `interval` horizon they are — each is a single number,
+and one of two numbers is the smaller. For `object` field sets, `scalar` ranges
+and `interval` granularities they are not; writing this rationale is what
+surfaced that, and it is **E-26** below. It does not affect the argument here,
+which turns on candidates existing at all rather than on which one wins.
+
+**An `enum` is narrowed by an arbitrary function, not a bound.** Two coarsenings
+of one domain need not be comparable — `{a,b,c,d}` onto `{ab, cd}` and onto
+`{ac, bd}` are both admissible under §3.2's four conditions and neither factors
+through the other. A common coarsening does exist — the finest partition both
+refine — but for an incomparable pair it is strictly coarser than each, so its
+label set is strictly smaller than either declared domain and condition 2 fails
+for both. There is nothing a responder can return that either party asked for.
+And that bites with **one** modifier against one requester's mapping, not only
+with two modifiers, so A's real content
+is a factoring rule plus a fail-closed path — not a field on `Decision`.
+
+**The asymmetry decides the timing.** B → A accepts requests that are rejected
+now, so nothing built against B breaks; A → B would break everything built on it.
+
+**And waiting costs almost nothing.** The first version of this brief said
+entries authored under B would publish capacity tables sized for
+requester-reachable label counts, so adopting A later would mean re-authoring
+them. That was wrong in the way that mattered:
+[`registry/validate.py`](../registry/validate.py) requires an entry's capacity
+table to be **total** over the counts it covers rather than sized for one
+party's expected requests, so a table authored today already answers a
+modifier-produced count. §3.2 now says *total* rather than *every reachable*,
+which is what the validator has always enforced.
+
+One caveat, and it belongs to **E-27** rather than here: if that question
+resolves toward admitting a one-label coarsening, every table gains a `"1": 0`
+key, and every entry carrying one is re-authored. That cost is E-27's whichever
+way E-25 had gone — B does not create it and A would not have avoided it — but
+"no migration at all" was too strong, and it is zero today only because no entry
+carries a table.
+
+The one thing B genuinely gives up: a policy authority that wants to reduce an
+`enum`'s disclosure must deny or escalate instead, which is blunt where a
+coarsening would have been proportionate. Revisit when a deployment can say what
+it wants to happen to a mapping that does not factor — that answer is the whole
+of A, and guessing it now would be inventing a rule for a case nobody has.
+
+---
+
+## E-26 — What do two incomparable narrowings of one dimension compose to?
+
+**Raised by** E-25's cascade ·
+**Decides** [`core-model.md`](../spec/core-model.md) §3 and §3.2 ·
+**Blocks** [P-007](prds/P-007-policy-engine.md) issue 4 (`compose`). Nothing else.
+
+### Context
+
+§3 computes the effective domain as narrowing composition, *"taking the
+coarsest"*. [P-007](prds/P-007-policy-engine.md) §4.4 applies that to two
+modifiers: *"the result is the coarser of the two"*.
+
+Both presume the two operands are comparable. That holds where a narrowing is a
+single number — `set` `maximum_cardinality`, an `interval` horizon — because one
+of two numbers is always the smaller. Three narrowings in §3.2 are not:
+
+| Shape | §3.2 narrowing | Two that are incomparable |
+|---|---|---|
+| `object` | `allowed_detail_fields` a subset of registered | `{name, email}` and `{email, phone}` |
+| `scalar` | a range no wider than registered | `[0, 10]` and `[5, 15]` |
+| `interval` | coarser granularity | two-hour and three-hour bands |
+
+In each, neither operand is *the coarser*, and §3 does not say what the responder
+produces.
+
+**A second question rides on it, and the options below have to answer both.** §3
+says composition *"cannot produce an empty domain by narrowing alone"*, which
+holds when each operand narrows the one before it and retains an image. Two
+authorities emitting `{name}` and `{phone}`, or `[0,10]` and `[20,30]`, break
+that: whichever applies second has no image in the first's output. §3 does
+already fail closed on an empty effective domain, so the behaviour is not
+undefined — but the sentence saying narrowing alone cannot reach one is false as
+written once modifiers can be incomparable, and it should be amended by whichever
+option is chosen rather than left standing beside it.
+
+This was found by writing E-25's rationale into §3.2, and it took three passes to
+get right — which is the useful part of the history. The first draft claimed
+every non-`enum` shape narrows by a parameter on an ordered ladder. Corrected to
+exclude `object`, it still implied `scalar` and `interval` were fine. Corrected
+again, it named all three. None of the wrong versions was obviously wrong; each
+read as a reasonable summary of §3.2's table, which is how a claim like this
+survives review.
+
+### Why it matters
+
+It is a cross-implementation divergence of exactly the kind
+[`claims.md`](../spec/claims.md) Q2D-C-02 rests on not happening: the effective
+domain is the responder's to compute, and two responders following the same text
+would compute different ones. It is not a security hole — every candidate answer
+below is *narrower* than both operands, so nothing widens — but it is a
+disagreement about what a request resolves to, and the capacity debit follows
+from it.
+
+### Options
+
+**A. Take the greatest lower bound**, per shape: intersect field sets, intersect
+ranges, take a granularity coarser than both.
+
+*For:* it always exists, is narrower than both operands, and releases nothing
+either authority withheld — `{email}` is a field both permitted, `[5,10]` a range
+both permitted. That makes it the same principle across all three, and it extends
+§3.2's recursion unchanged. It is also what *most-restrictive composition*
+already means everywhere else in the engine.
+*Against:* the bound may be degenerate — an empty field set, an empty range —
+which is the unsatisfiable domain §3 already fails closed on. So adding an
+authority can make requests unsatisfiable, and the requester sees a normalized
+denial that explains nothing. For `interval` there is a further wrinkle: the
+coarsest common granularity of two-hour and three-hour bands is six-hour, which
+neither authority named, so *narrower than both* and *chosen by neither* are both
+true at once.
+
+**B. Fail closed on incomparable operands** — treat it as the unsatisfiable
+contract §3 already handles.
+
+*For:* one rule for all three shapes, no new composition semantics, and it never
+returns a domain neither authority chose — which is the honest reading of the
+`interval` wrinkle above.
+*Against:* it discards answers both authorities would have permitted. `{email}`
+is releasable by each of them on their own terms, and refusing it is more
+restrictive than either asked to be, which is not what most-restrictive
+composition is for.
+
+**C. Require comparability** — a deployment whose authorities can emit
+incomparable narrowings is misconfigured, and the engine refuses at load.
+
+*For:* the divergence cannot occur at runtime, and it surfaces to the operator
+who can fix it rather than to a requester who cannot.
+*Against:* undecidable at load in general — whether two rules *can* emit
+incomparable narrowings depends on the request. Checkable only for statically
+enumerable rule sets, which the fixture set is and a deployment's is not.
+
+### Recommendation — A
+
+A is the only option that returns something both authorities would have
+permitted, and that is the test worth holding to: composition should not deny
+what every participant was willing to allow.
+
+B's cost is understated by calling it conservative. It turns a composable case
+into a denial, and an engine that denies where both authorities would have
+allowed is not being careful — it is wrong, in a direction that is invisible
+because denials are normalized and nobody can tell it apart from a legitimate
+refusal. C solves a runtime problem at load time and cannot actually do it.
+
+The degenerate-bound case A leaves is not a new hole. §3 already fails closed on
+an empty effective domain, and reaching one by intersection is the same outcome
+by the same route as reaching one any other way.
+
+**Where A stops being right:** the `interval` wrinkle is a genuine exception
+inside it. Six-hour bands are narrower than both operands and chosen by neither,
+which is uncomfortably close to the reason `enum` is excluded — the difference is
+that a granularity is still a value in the dimension both authorities were
+narrowing, where an `enum` label is a name only one of them invented. If that
+distinction feels too thin to carry a rule, the answer is B for `interval` and A
+for the other two, at the cost of the single principle A otherwise buys.
+
+---
+
+## E-27 — Is a coarsening onto a single `enum` label admissible?
+
+**Raised by** E-25's cascade ·
+**Decides** [`core-model.md`](../spec/core-model.md) §3.2 and
+[`registry/validate.py`](../registry/validate.py) ·
+**Blocks** [P-006](prds/P-006-request-validation.md) issue 4's `enum` half —
+`check_narrowing` *is* the condition list, so building it decides whether there
+are four conditions or five. Nothing else waits on it; no registry entry carries
+a capacity table yet. It is a **standing disagreement between documents** rather
+than merely an undecided question, and it silently determines a debit.
+
+### Context
+
+§3.2's four conditions on a declared `enum` coarsening admit a mapping onto one
+label. Take a four-value domain and `[[a,x],[b,x],[c,x],[d,x]]`: total ✓, image
+equals the requested `{x}` ✓, strictly smaller than four ✓, a function ✓. All
+four hold. The answer is a constant — the predicate returns `x` whatever the
+data says, disclosing nothing, at a capacity of `ceil(1000 × log2(1))` = **0
+millibits**.
+
+Three parts of the repository disagree about whether that is a legitimate
+request:
+
+| Where | What it says |
+|---|---|
+| §3.2's four conditions | admissible — every condition holds |
+| §3.2's `boolean` / `attribute` rationale | not admissible — it calls a one-value domain *"the empty request"* |
+| [`registry/validate.py`](../registry/validate.py) | not admissible — the capacity table must key `2 … cardinality`, and a key of `1` fails |
+
+Two of the three are prose and one is executable, which is why nothing has caught
+it: the validator's rule is right for whichever answer it assumes, and the
+conditions were written for a different purpose.
+
+### Why it matters beyond tidiness
+
+It decides a **zero debit**. A request that discloses nothing should plausibly
+cost nothing, and Q2D-C-09 accounts for the capacity of the answer alphabet, so
+zero is arguably correct rather than a loophole. But *zero-debit release* is the
+shape of the free oracle that E-17's subsetting resolution existed to close, and
+a rule that grants one deserves to be arrived at deliberately rather than fallen
+into through four conditions that happen not to exclude it.
+
+It also feeds E-25's rationale in `core-model.md` §3.2, which observes that two
+the collapse onto one label is the common coarsening of a *fully crossing* pair,
+which is one way E-25's incomparability arises. §3.2's rationale no longer rests
+on that case — it rests on the common coarsening being strictly coarser than
+both, which holds for every incomparable pair — but the two escalations should
+still be read together.
+
+### Options
+
+**A. Inadmissible — add a fifth condition: at least two labels.**
+
+*For:* it matches what the validator already enforces and what §3.2's `boolean`
+rationale already says, so it makes three documents agree by changing the one
+that is least specific. A constant answer is not an answer to a predicate; it is
+a refusal wearing an answer's shape, and Q2D has `deny` for that.
+*Against:* a fifth condition on a list whose selling point is that all of them
+are checkable by comparing sets and counting — though *"the label set has at
+least two members"* is exactly that.
+
+**B. Admissible, and its debit is zero.**
+
+*For:* it is what the conditions already say, so nothing in the spec changes; and
+it is defensible on the merits — an answer that cannot vary with the data leaks
+nothing, and charging for it would overstate what the budget measures.
+*Against:* `registry/validate.py` must accept a table key of `1`, and every entry
+that gains a table must author `"1": 0`. More seriously, it puts a zero-debit
+release path in the protocol, and the reason a requester would want one is not
+obvious — which is the profile of a mechanism that gets used for something other
+than its stated purpose.
+
+**C. Admissible, but not zero-rated** — charge the registered cardinality.
+
+*For:* removes the incentive entirely.
+*Against:* it charges for disclosure that did not occur, which contradicts what
+`claims.md` says the budget measures. A dishonest accounting to close a hole a
+condition could close directly.
+
+### Recommendation — A
+
+The three documents should agree, and A moves the one that is least considered.
+The four conditions were written to stop a requester inventing labels or dropping
+values, not to decide whether a constant is an answer; §3.2's `boolean` rationale
+*was* written about exactly that and already says no. Following it is applying
+the spec's own reasoning to another shape rather than choosing between two live
+positions.
+
+B is defensible and I do not think it is wrong on the merits — a constant really
+does leak nothing. It loses on the second-order point: Q2D's credibility rests on
+not having release paths whose purpose nobody can state, and *"ask for an answer
+that cannot depend on the data, for free"* is one. If a use for it appears, A is
+a condition to remove, which is a smaller change than retro-fitting the
+accounting C would need.
+
+**Where A stops being right:** if a deployment wants a *probe* — establishing
+that a predicate is answerable, with a policy that permits it and a budget that
+does not charge — B is the honest way to express it, and A forces that intent
+into an escalation or a denial instead. Worth asking whether P-016's adversarial
+work needs one before this is closed.
 
 ---
 
@@ -1242,11 +1513,12 @@ question 5.
 ## 3. Resolutions
 
 E-01 … E-15 were decided in one pass and cascaded in the same change; every
-recommendation was adopted. **E-25 is open** and is not in this table.
+recommendation was adopted.
 
 E-18 … E-24 were decided one at a time while P-001's harness and corpus were
 built, each raised with options and a recommendation, each **adopted as
-recommended**, and each cascaded before the next was raised. E-21, E-22, E-23 and E-24 change `spec/`; none was settled in the implementation that raised it.
+recommended**, and each cascaded before the next was raised. E-25 followed them,
+raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 change `spec/`; none was settled in the implementation that raised it.
 
 | ID | Resolution | Landed in |
 |---|---|---|
@@ -1276,6 +1548,7 @@ recommended**, and each cascaded before the next was raised. E-21, E-22, E-23 an
 | **E-22** | **Every §5 response is a closed field list** — §5.1 with `evidence` conditional on the assurance profile named in the same response, §5.2 at four fields, §5.3's explicit escalation at five. Adding one is a specification change, on the reasoning §6 already gave for the receipt. **§5.2's retry permission is dropped**: it permitted a field whose only conforming value was uniform, no conformance class allowed the transport form, and P-009 §4.4 declined to emit any — a permission with no user is a trap | `core-model.md` §5.1, §5.2, §5.3, §9.1 · `claims.md` Q2D-C-08 (enforcement description) · P-009 §4.4, P-013 §4.2 · `harness lint` |
 | **E-24** | **A step of its own: 11a**, immediately after step 11's schema validation. They are different mechanisms — step 11 runs a schema the registry supplies, and an entry's other constraints are predicate-specific logic — so folding them into one step would let an implementation satisfy §4 by running a validator and stopping, and leave a vector unable to say which rejected. Lettered as 9a is, so the numbers below do not move. **[P-006](prds/P-006-request-validation.md) already had the distinction**: §4.3 separates constraints from schemas and §5 has `validate_schema` and `check_constraints` as two functions. The specification had one step where that module always had two mechanisms | `core-model.md` §4 (step 11a), §4's invariants · P-006 §2/§4.3 · P-010 §1/§2/§4 · P-001 §4.6, §5 · `conformance/vector.schema.json`'s lettered-step enum · `tools/fold_registry.py` |
 | **E-23** | **One spelling, stated once, for every timestamp in the protocol**: uppercase `T`, uppercase `Z`, second precision. The rule already existed — in P-002 §4.2, which was the only place in the repository saying `Z` while `core-model.md` said only "RFC 3339, second precision". Relocating it to §2.2 gave it the reach it lacked: **P-002's profile covers the signed payload and not `routing`**, and §4 step 8 compares `routing` against `signed`. §4 step 8 is now stated as a **byte** comparison, which one spelling makes safe — the alternative is parsing unauthenticated data above the verification line | `core-model.md` §2.2 (new), §4 step 8, §5.3, §6 · `claims.md` Q2D-C-08 · P-002 §4.2 now cites rather than states · `harness lint` |
+| **E-25** | **A modifier may not coarsen an `enum`**, and the reason is composition rather than the missing field. §3's *take the coarsest* presumes comparable operands; an `enum` is narrowed by an arbitrary function, two coarsenings of one domain need not be comparable, and their common coarsening is strictly coarser than each — a label set neither declared, which condition 2 rejects — where every other shape leaves something inside both operands. Permitting policy-side coarsening therefore needs a factoring rule and a fail-closed path for mappings that do not factor — and no deployment has yet stated which it wants. Widening later breaks nothing built against the rule, and reaches no label count a requester could not: a capacity table is total over the counts it covers. Which counts those are is E-27. | `core-model.md` §3.1, §3.2 · `terminology.md` §6 · `registry/README.md` · P-006 §10 · P-007 §4.4, §10, issue 8 |
 
 ### What did not change, deliberately
 

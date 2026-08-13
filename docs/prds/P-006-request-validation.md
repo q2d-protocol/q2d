@@ -320,6 +320,8 @@ and the other does not.
 | ~~Does an unsatisfiable domain reject before or after policy?~~ | **Resolved: before**, at step 12. An inadmissible request must not consult policy authorities: doing so would send the purpose, recipient, and sink set of a request that was never admissible to every configured authority, some of which are people. It also keeps the two phases in §4.1 honest — the admissible domain is computed and checked before policy runs, so a modifier can never rescue a contract the registry already rejected |
 | ~~Should the schema profile be stated in `spec/` rather than only here?~~ | **Resolved: yes** — [`scope.md`](../../spec/scope.md) §4.1 ([`open-escalations.md`](../open-escalations.md) E-16). §4.2 cites it and this module enforces it; widening the list is now a `spec/` change rather than this module's to make. Moving it found `$schema` missing from the list while present in every entry |
 | ~~Does a coarsening mapping need to be declared by the requester, or inferred?~~ | **Resolved: declared** ([`open-escalations.md`](../open-escalations.md) E-17). `answer_contract.coarsening` carries it, and this module validates it against [`core-model.md`](../../spec/core-model.md) §3.2's four conditions — total, image exactly equal to the requested domain, non-expanding, a function. All are set comparisons and counts; §4.5 records that no judgement about a label's *meaning* is made here |
+| ~~And may a *policy modifier* coarsen an `enum`, given it has no answer contract to declare a mapping in?~~ | **Resolved: no** ([`open-escalations.md`](../open-escalations.md) E-25). [`core-model.md`](../../spec/core-model.md) §3.2 states it as a rule with its reason — an `enum` is the one shape narrowed by an arbitrary function, so two coarsenings of it need not compose — rather than as a position held pending a decision. `apply_modifiers` (issue 6) rejects one as an implementation error |
+| **Is a coarsening onto a *single* label admissible?** The four conditions admit it; `registry/validate.py` and §3.2's `boolean` rationale both say no. | **Open — E-27** ([`open-escalations.md`](../open-escalations.md)). **Blocks issue 4**: `check_narrowing` is the condition list, so building it settles whether there are four or five — in code, for a question `spec/` has not answered, with a zero-debit release path as the difference. Issue 4's non-`enum` shapes are unaffected and may proceed |
 
 ## 11. Issues
 
@@ -328,17 +330,23 @@ and the other does not.
 | 1 | ~~Escalate §4.4~~ — **done** | Resolved as (A); `core-model.md` §2.5, `terminology.md` §6, `claims.md` Q2D-C-09 amended |
 | 2 | JSON Schema profile validator, per [`scope.md`](../../spec/scope.md) §4.1 | Forbidden keywords rejected as registry errors; a missing `$schema` likewise; `domain/schema/` passes |
 | 3 | Constraint evaluation, closed vocabulary | `domain/constraints/` passes; unknown key errors |
-| 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape, `enum` included: a declared mapping that is total, whose image equals the requested domain, non-expanding and a function is admitted, and one failing any of the four is rejected. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
+| 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape **except `enum`**, which is **blocked on E-27**: a declared mapping that is total, whose image equals the requested domain, non-expanding and a function is admitted — but whether that list is complete is the open question, and a mapping onto a single label satisfies all four while `registry/validate.py` rejects its debit. No `enum` acceptance criterion is stated here until E-27 answers, because stating one is answering it. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
 | 5 | `object` recursion in narrowing | Nested invalid narrowing rejects |
 | 6 | `apply_modifiers` and the two-phase narrowing composition | `domain/compose/` passes; ordering vector passes; two coarsenings compose to the coarser |
 | 7 | `supports_profile` | `domain/profile/` passes; no downgrade path exists |
 | 8 | Assert every registry entry validates under the profile | CI check over `registry/manifest.json` |
 | 9 | Author `domain/` corpus section | Five groups; `harness lint` clean |
 
-Issue 1 is complete. Issue 4 is implementable for every shape:
-[`core-model.md`](../../spec/core-model.md) §3.2 now carries the rules for every
-shape, `enum` included: a coarsening mapping is **declared** by the requester and
-validated here. **E-17** decided that, replacing the interim rule this section
-used to carry — reject any requested domain not equal to the registered one —
-which was conforming meanwhile precisely so that no implementation settled the
-question by accident.
+Issue 1 is complete. Issue 4 carries the rules for every shape,
+`enum` included: [`core-model.md`](../../spec/core-model.md) §3.2 says a
+coarsening mapping is **declared** by the requester and validated here. **E-17**
+decided that, replacing the interim rule this section used to carry — reject any
+requested domain not equal to the registered one — which was conforming meanwhile
+precisely so that no implementation settled the question by accident.
+
+Its `enum` half is now **blocked on E-27** for the same reason E-17 existed:
+`check_narrowing` *is* the condition list, so writing it decides whether there
+are four conditions or five, and that difference is whether a requester may ask
+for an answer that cannot vary with the data, at a debit of zero. Building it
+first would settle in code a disagreement `registry/validate.py` and §3.2
+currently have with each other. The other shapes are unaffected.

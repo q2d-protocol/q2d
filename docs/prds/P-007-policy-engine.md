@@ -145,10 +145,10 @@ internal reason reaches the wire. Keeping them apart means a leak requires
 someone to deliberately copy one into the other.
 
 Modifiers may only coarsen ([`core-model.md`](../../spec/core-model.md) §2.5),
-and **not an `enum`**: §3.2's `enum` rule rests on a mapping the requester
-declares in its answer contract, and a modifier has none. Rejecting it is the
-conservative position while [E-25](../open-escalations.md) decides whether
-modifiers gain one. A
+and **not an `enum`** — §3.2, which now gives the reason: an `enum` is the one
+shape narrowed by an arbitrary function rather than an ordered parameter, so two
+coarsenings of it need not compose. [E-25](../open-escalations.md) decided this
+rather than deferring it; it is a settled rule here, not a placeholder. A
 modifier producing a strict subset of the admissible domain is rejected by
 [P-006](P-006-request-validation.md)'s `apply_modifiers`, and that rejection is
 an implementation error rather than a policy outcome — a policy engine that emits
@@ -169,6 +169,16 @@ prevents. Any `escalate` from an authority that has not denied produces
 Modifiers from all permitting authorities are **unioned**, not merged — every
 narrowing applies. Two authorities coarsening the same dimension differently both
 take effect, and the result is the coarser of the two.
+
+*The coarser of the two* presumes the two are comparable.
+[`core-model.md`](../../spec/core-model.md) §3.2 excludes `enum` from modifier
+coarsening (E-25) precisely because two `enum` mappings need not be, and their
+common coarsening is strictly coarser than each — a label set neither party
+declared, which §3.2's second condition rejects. So this module never has to
+compose two mappings that do not factor. **The shapes it does compose are not all settled**:
+`object` field sets, `scalar` ranges, and `interval` granularities can each be
+incomparable, and §3 does not say which candidate wins. Open question below;
+issue 4 is blocked on it.
 
 That is the same rule [`core-model.md`](../../spec/core-model.md) §3 states for
 the effective domain as a whole: composition of narrowings, taking the coarsest,
@@ -244,7 +254,7 @@ discover the problem on a live request.
 | `policy/outcome/` | Each of the three outcomes from an explicit rule |
 | `policy/compose/` | Every pair and triple over `{allow, deny, escalate}`; modifier union |
 | `policy/failclosed/` | F1–F6, each as a property over generated inputs |
-| `policy/modifiers/` | Valid coarsening; an attempted subset is an implementation error; **an attempted `enum` coarsening likewise**, per [`core-model.md`](../../spec/core-model.md) §3.2 — a modifier has no answer contract to declare a mapping in, and E-25 decides whether that changes |
+| `policy/modifiers/` | Valid coarsening; an attempted subset is an implementation error; **an attempted `enum` coarsening likewise**, per [`core-model.md`](../../spec/core-model.md) §3.2 — settled by E-25, so a vector asserting it is asserting a rule rather than a temporary position |
 | `policy/determinism/` | Same input twice; permuted authority order; permuted rule-set map order |
 | `policy/separation/` | An audit reason never appears in `external` |
 | `policy/rules/` | A rule set overriding an invariant fails at load |
@@ -302,6 +312,8 @@ the value it would need.
 | ~~Is a rule language shipped at all in MVP, or is the engine a code interface with a fixture rule set?~~ | **Resolved: a code interface with a fixture rule set.** [`scope.md`](../../spec/scope.md) and CC-3 both say Q2D specifies the policy input and output contract and not a language, so shipping one would make the reference implementation's language read as part of the protocol. The fixture set exists to exercise §4.4 composition and the §4.5 invariants, and is explicitly not a starting point for a deployment's rules |
 | ~~How are modifiers from two authorities coarsening the same dimension combined — coarser wins, or intersect?~~ | **Answered: coarser wins.** [`core-model.md`](../../spec/core-model.md) §3 now states the whole effective-domain computation as narrowing composition rather than intersection, and §4.4 here is that rule applied to two modifiers |
 | ~~**`PolicyInput` needs a grant field.**~~ | **Resolved and applied.** Grants are single-use ([`core-model.md`](../../spec/core-model.md) §5.3), so the field reports an *unconsumed* match and consumption happens at release rather than at step 14. §4.2 amended |
+| ~~Should a modifier be able to coarsen an `enum`, by carrying a mapping of its own?~~ | **Resolved: no** ([`open-escalations.md`](../open-escalations.md) E-25). The cost is not the field but the composition rule it would require. Two `enum` mappings need not be comparable, and their common coarsening is strictly coarser than each, so its label set is one neither party declared and §3.2's second condition rejects it. Other shapes leave something inside both operands; which candidate wins is E-26, below. No field is added to `Decision`; issue 8 rejects the attempt |
+| **What do two modifiers emitting incomparable narrowings of one dimension compose to?** `{name,email}` and `{email,phone}`; `[0,10]` and `[5,15]`; two-hour and three-hour granularity. None is *the coarser*, and §3 does not say. | **Open — E-26** ([`open-escalations.md`](../open-escalations.md)). Raised by E-25's cascade. Blocks issue 4: `compose` cannot be written without it, and choosing here would put the answer in a PRD instead of §3 |
 
 ## 11. Issues
 
@@ -310,12 +322,12 @@ the value it would need.
 | 1 | `PolicyInput` and `Decision` types, both languages | No private-derived field; `audit` and `external` separate |
 | 2 | `decide` over a fixture rule set | `policy/outcome/` passes |
 | 3 | F1–F6 as property tests | `policy/failclosed/` passes; generators cover each class |
-| 4 | `compose` with most-restrictive ordering and modifier union | `policy/compose/` passes; coarser-wins per [`core-model.md`](../../spec/core-model.md) §3 |
+| 4 | `compose` with most-restrictive ordering and modifier union | **Blocked on E-26** — incomparable narrowings of one dimension have no stated composition. `policy/compose/` passes; coarser-wins per [`core-model.md`](../../spec/core-model.md) §3 |
 | 4a | `grant` field on `PolicyInput`, read-only | `policy/grant/` passes; no code path in this module consumes a grant |
 | 5 | `validate_rules` at load | `policy/rules/` passes; invariant override refuses to start |
 | 6 | Determinism: explicit rule ordering, no clock, no map iteration | `policy/determinism/` passes; dependency check clean |
 | 7 | Audit/external separation | `policy/separation/` passes |
-| 8 | Modifier emission constrained to coarsening, and to shapes other than `enum` | Subset attempt errors as an implementation fault; so does an `enum` narrowing, since §3.2 gives a modifier nowhere to declare the mapping one needs |
+| 8 | Modifier emission constrained to coarsening, and to shapes other than `enum` | Subset attempt errors as an implementation fault; so does an `enum` narrowing, per [`core-model.md`](../../spec/core-model.md) §3.2 |
 | 9 | Author `policy/` corpus section | Seven groups; `harness lint` clean |
 | 10 | Resolve open questions 1 and 3 | Written into §4.4 and §5 before issues 4 and 5 |
 
