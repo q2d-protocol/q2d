@@ -64,7 +64,8 @@ the interfaces in [`core-model.md`](core-model.md) §2.3; reject any `routing` /
 limit at step 9a**, keyed on the relationship only
 ([`core-model.md`](core-model.md) §9.1); resolve the predicate against a pinned
 registry and fail closed on anything unknown; compute the effective answer domain
-itself by narrowing composition, per shape, per §3.2; validate output against it;
+itself by narrowing composition, per shape, per §3.2 **and §3.3**; validate
+output against it;
 debit capacity once; issue a receipt with every outcome; record the suite in the
 receipt; sign the response.
 

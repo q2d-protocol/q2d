@@ -291,17 +291,24 @@ four-hour bands are three granularities of one domain; composing them yields the
 coarsest, not the empty set a literal intersection of their values would give.
 
 Composition is defined per release shape, because what "coarser" means differs
-between a scalar, an interval, a set, and an object. The rules are in §3.2. Two
+between a scalar, an interval, a set, and an object. §3.2 gives what a single
+narrowing may do; §3.3 gives what two narrowings of one dimension compose to. Two
 properties hold across every shape:
 
 - **Composition never widens.** Each operand narrows the one before it, so the
   result is no broader than `registry_entry.canonical_domain` (Q2D-C-02).
-- **Every possible result retains an image throughout.** This is what §2.5's
-  prohibition on subsetting buys, and it is why composition cannot produce an
-  empty domain by narrowing alone.
+- **Every possible result retains an image through each narrowing.** This is what
+  §2.5's prohibition on subsetting buys: no single narrowing discards a result
+  that had one.
 
-A domain that is nevertheless empty — an unsatisfiable contract, or a modifier
-that cannot apply to the requested shape — **fails closed**. The capacity debit
+It does **not** follow that composition cannot reach an empty domain. Two
+narrowings that each retain an image can still have nothing in common with each
+other — a range of `[0, 10]` against `[15, 20]` — and §3.3 composes those to a
+domain with no values in it.
+
+An empty domain, however reached — an unsatisfiable contract, a modifier that
+cannot apply to the requested shape, or two narrowings with no common ground —
+**fails closed**. The capacity debit
 (Q2D-C-09) is computed from the composed value, not from anything the requester
 asserted.
 
@@ -425,11 +432,11 @@ policy-side coarsening therefore means specifying when two mappings factor and
 what a responder does when they do not — a larger addition than this gap warrants
 while no deployment has stated which behaviour it needs.
 
-None of that is a claim that the other shapes compose cleanly. Two `object`
-field sets, two `scalar` ranges, and two `interval` granularities can each be
-incomparable too, and §3 does not say what those compose to — an open question
-([`open-escalations.md`](../docs/open-escalations.md) E-26) that this rule
-neither answers nor depends on.
+None of that is a claim that the other shapes are always comparable. Two
+`object` field sets and two `scalar` ranges are ordered by containment and need
+not be; §3.3 composes those to their greatest lower bound, which exists inside
+both operands and may be empty. An `enum` is the shape for which no such value
+exists, which is why it is excluded here rather than composed there.
 
 **Permitting it later forecloses nothing.** It would accept requests this rule
 rejects, so nothing built against this rule breaks. Nor does a modifier reach a
@@ -466,6 +473,85 @@ a requester error: the entry has not published what a coarsened answer would
 cost. Every `enum` entry in the reference manifest is in that state today, so
 coarsening becomes available one predicate at a time, as each entry gains a
 table.
+
+### 3.3 Composing two narrowings of one dimension
+
+§3.2 says what one narrowing may do. Composition applies whenever more than one
+reaches the same dimension: the requester's contract and a policy modifier, or
+two modifiers from authorities that both permitted the request
+([`../docs/prds/P-007-policy-engine.md`](../docs/prds/P-007-policy-engine.md) §4.4).
+
+The composed narrowing is the **greatest lower bound** in that dimension's
+narrowing order — the most permissive value that satisfies every operand:
+
+| Dimension | Composed value |
+|---|---|
+| `scalar` precision | the lower precision |
+| `scalar` range | the **intersection** |
+| `interval` granularity | the coarser duration |
+| `interval` horizon | the shorter |
+| `maximum_cardinality`, wherever §3.2 permits narrowing it | the smaller |
+| `object` `allowed_detail_fields` | the **intersection**, each surviving field then composed by its own shape's rule, recursively |
+| `enum` coarsening mapping | cannot arise — see below |
+| `boolean`, `attribute` | no narrowing is permitted, so there is nothing to compose |
+
+Four of these are a single number or duration, and any two of them are ranked by
+comparing it: *take the coarsest* is total there. **A range and a field set are
+ordered by containment instead**, so two narrowings need not be comparable —
+`[0, 10]` against `[5, 15]`, `{name, email}` against `{email, phone}` — and
+neither is *the coarser*. Their greatest lower bound is the intersection: the
+widest range, and the largest field set, inside all of the operands.
+
+Intersection is the right answer there for a reason worth stating, because it
+decides the disjoint case below. Every field in `{email}` is one that each
+authority was willing to release, and every value in `[5, 10]` is one each
+authority was willing to disclose. The composition returns nothing any operand
+withheld, and it returns everything all of them allowed — which is what
+*most-restrictive* means when the restrictions are not ranked.
+
+**Intersecting a narrowing is not intersecting a domain.** §3's warning above is
+about the *values*: the value sets of a two-hour-band domain and a four-hour-band
+domain share almost nothing, and intersecting those would deny a request that
+composes perfectly well to four-hour bands. What §3.3 intersects is the
+narrowing's own parameter — a set of field names, a pair of endpoints — where
+containment is exactly the narrowing order and the intersection is exactly the
+greatest lower bound.
+
+**An empty greatest lower bound is not always an empty domain.** Disjoint
+`scalar` ranges compose to a range no value satisfies, which *is* an empty domain
+and fails closed per §3.
+
+Disjoint `allowed_detail_fields` are different: they compose to the empty set,
+and §2.5 says that field **may be empty**. A requester can ask for an object with
+no detail fields directly, so composition reaching the same value produces
+something already admissible, and this section adds no rule about it.
+
+That admits a release which cannot vary with the data. §3.2's `enum` rule does
+not: [`registry/validate.py`](../registry/validate.py) authors no debit for a
+single label, and §3.2's reason for permitting no `boolean` narrowing calls a
+one-value domain *the empty request*. The specification therefore permits a
+constant answer by one route and refuses it by the other, which is an
+inconsistency rather than a gap, and
+[`open-escalations.md`](../docs/open-escalations.md) **E-27** is where it is
+decided. §3.3 changes neither route.
+
+What such a release *costs* is a separate question and is not settled here: §9
+parks the capacity calculation for `object` outputs, so nothing in this section
+implies a debit for one.
+
+Where an empty domain is reached, a deployment can make a class of requests
+unsatisfiable by adding an authority, and the requester sees a normalized denial
+(§6) that does not say so. That is intended rather than a diagnostic to be
+improved: a denial explaining *which* authority narrowed what would report policy
+structure to a requester.
+
+**`enum` cannot arise.** A policy modifier may not coarsen an `enum` (§3.2), and
+a requester declares at most one mapping in its contract, so no `enum` dimension
+ever carries two narrowings. That exclusion is what keeps this section total: an
+`enum` is the one dimension whose narrowings have no greatest lower bound inside
+the operands, because the finest coarsening two incomparable mappings share is
+strictly coarser than each, and its label set is therefore one neither party
+declared.
 
 ## 4. Processing order
 
