@@ -809,12 +809,21 @@ request, and so on the wrong side of the line this group is drawn along.
 Distinguishing "key unknown" from "signature invalid" would let a requester probe
 which identities a custodian holds, which is why the three collapse.
 
-**One class — everything the registry governs.** From the rate-limit check at
-step 9a and from registry resolution at step 10 onward, the value is the one the
-resolved entry's registry declares — `unavailable` in the reference manifest.
-Step 9a precedes resolution, so no entry is in hand and the deployment's default
-is used; it must be the value an unknown predicate produces at step 10, or the
-limiter reveals that resolution was never reached.
+**One class — everything from the replay check onward.** From the replay-cache
+check at step **9**, the rate-limit check at **9a**, and registry resolution at
+step 10 onward, the value is the one the resolved entry's registry declares —
+`unavailable` in the reference manifest.
+
+Steps 9 and 9a precede resolution, so no entry is in hand and the deployment's
+default is used. It must be the value an unknown predicate produces at step 10,
+or the earlier check reveals that resolution was never reached.
+
+A replay rejection belongs here rather than among the distinct values above, and
+the reason is the cache behind it. A store that cannot accept an entry also
+rejects, as a Tier C denial — a responder unable to guarantee idempotency must
+not answer. If a *detected* replay were distinct while a *failed* cache was
+normalized, the difference would tell a requester whether the custodian's cache
+is healthy, which is custodian state and is what this class exists to withhold.
 
 **An `external_reason` a requester does not recognise is an opaque rejection.**
 Not a malformed response, and not an error: the vocabulary above may gain a value

@@ -2435,6 +2435,16 @@ members; it now points at §5.2.1 and says extending it is a `spec/` change,
 because a requester acts on the value and one deployment inventing a name makes
 that name meaningless everywhere else.
 
+**Step 9 had no tier, and the answer was already forced.** P-009's table covers
+steps 1, 3, 6 and 8 in Tier A, 4 and 7 in Tier B, and 9a and 10-onward in Tier C
+— leaving the replay check at step 9 unassigned, so its rejection had no
+`external_reason` and `ordering/` step 9 was still unassertable. It is Tier C,
+and not as a judgement call: [P-004](prds/P-004-replay-idempotency.md) already
+makes a cache *failure* a Tier C denial, so a *detected* replay being distinct
+would tell a requester whether the custodian's cache is healthy — custodian
+state, which is what the class exists to withhold. §5.2.1 and P-009's table both
+say so now.
+
 **A defect of my own, found in passing:** §5.2 said *"exactly four fields"* while
 its table listed six rows — E-32 split the `signature` row into three members and
 did not adjust the count. The fields are still four; the sentence now says which.
