@@ -126,12 +126,11 @@ entry; where cardinality varies with the request, the entry carries a lookup
 table that is **total** over the values it covers, rather than over the ones a
 particular requester is expected to ask for
 ([`core-model.md`](../spec/core-model.md) §3.2). For an enumerated entry,
-`validate.py` fixes that range at two through the registered cardinality, while
-[`core-model.md`](../spec/core-model.md) §3.2's four conditions admit a one-label
-coarsening as well. They disagree, the spec governs, and which way it should read
-is [`open-escalations.md`](../docs/open-escalations.md) **E-27** — so an entry
-authored today covers the validator's range and nothing here decides the wider
-question. A locally computed capacity is non-conforming
+`validate.py` fixes that range at two through the registered cardinality. Whether
+that is the right range is
+[`open-escalations.md`](../docs/open-escalations.md) **E-27**, which is open and
+is `spec/`'s to answer; an entry authored today is authored to pass the
+validator, and nothing in this file bears on how E-27 should resolve. A locally computed capacity is non-conforming
 even when it happens to agree — the same principle as
 [`Q2D-C-02`](../spec/claims.md), applied to accounting.
 

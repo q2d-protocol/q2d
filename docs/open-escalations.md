@@ -1219,15 +1219,22 @@ is a factoring rule plus a fail-closed path — not a field on `Decision`.
 **The asymmetry decides the timing.** B → A accepts requests that are rejected
 now, so nothing built against B breaks; A → B would break everything built on it.
 
-**And waiting costs nothing.** The first version of this brief said entries
-authored under B would publish capacity tables sized for requester-reachable
-label counts, so adopting A later would mean re-authoring them. That was wrong:
+**And waiting costs almost nothing.** The first version of this brief said
+entries authored under B would publish capacity tables sized for
+requester-reachable label counts, so adopting A later would mean re-authoring
+them. That was wrong in the way that mattered:
 [`registry/validate.py`](../registry/validate.py) requires an entry's capacity
-table to be **total** over the admissible label counts, not over the counts one
-party can reach, so a table authored today already answers a modifier-produced
-count. There is no migration to defer. §3.2's capacity paragraph now says
-*total* rather than *every reachable*, which is what the validator has always
-enforced.
+table to be **total** over the counts it covers rather than sized for one
+party's expected requests, so a table authored today already answers a
+modifier-produced count. §3.2 now says *total* rather than *every reachable*,
+which is what the validator has always enforced.
+
+One caveat, and it belongs to **E-27** rather than here: if that question
+resolves toward admitting a one-label coarsening, every table gains a `"1": 0`
+key, and every entry carrying one is re-authored. That cost is E-27's whichever
+way E-25 had gone — B does not create it and A would not have avoided it — but
+"no migration at all" was too strong, and it is zero today only because no entry
+carries a table.
 
 The one thing B genuinely gives up: a policy authority that wants to reduce an
 `enum`'s disclosure must deny or escalate instead, which is blunt where a
@@ -1525,7 +1532,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-22** | **Every §5 response is a closed field list** — §5.1 with `evidence` conditional on the assurance profile named in the same response, §5.2 at four fields, §5.3's explicit escalation at five. Adding one is a specification change, on the reasoning §6 already gave for the receipt. **§5.2's retry permission is dropped**: it permitted a field whose only conforming value was uniform, no conformance class allowed the transport form, and P-009 §4.4 declined to emit any — a permission with no user is a trap | `core-model.md` §5.1, §5.2, §5.3, §9.1 · `claims.md` Q2D-C-08 (enforcement description) · P-009 §4.4, P-013 §4.2 · `harness lint` |
 | **E-24** | **A step of its own: 11a**, immediately after step 11's schema validation. They are different mechanisms — step 11 runs a schema the registry supplies, and an entry's other constraints are predicate-specific logic — so folding them into one step would let an implementation satisfy §4 by running a validator and stopping, and leave a vector unable to say which rejected. Lettered as 9a is, so the numbers below do not move. **[P-006](prds/P-006-request-validation.md) already had the distinction**: §4.3 separates constraints from schemas and §5 has `validate_schema` and `check_constraints` as two functions. The specification had one step where that module always had two mechanisms | `core-model.md` §4 (step 11a), §4's invariants · P-006 §2/§4.3 · P-010 §1/§2/§4 · P-001 §4.6, §5 · `conformance/vector.schema.json`'s lettered-step enum · `tools/fold_registry.py` |
 | **E-23** | **One spelling, stated once, for every timestamp in the protocol**: uppercase `T`, uppercase `Z`, second precision. The rule already existed — in P-002 §4.2, which was the only place in the repository saying `Z` while `core-model.md` said only "RFC 3339, second precision". Relocating it to §2.2 gave it the reach it lacked: **P-002's profile covers the signed payload and not `routing`**, and §4 step 8 compares `routing` against `signed`. §4 step 8 is now stated as a **byte** comparison, which one spelling makes safe — the alternative is parsing unauthenticated data above the verification line | `core-model.md` §2.2 (new), §4 step 8, §5.3, §6 · `claims.md` Q2D-C-08 · P-002 §4.2 now cites rather than states · `harness lint` |
-| **E-25** | **A modifier may not coarsen an `enum`**, and the reason is composition rather than the missing field. §3's *take the coarsest* presumes comparable operands; an `enum` is narrowed by an arbitrary function, two coarsenings of one domain need not be comparable, and the only mapping both refine is the collapse onto a single label — a constant neither asked for, where every other shape leaves a usable candidate. Permitting policy-side coarsening therefore needs a factoring rule and a fail-closed path for mappings that do not factor — and no deployment has yet stated which it wants. Widening later breaks nothing and re-authors nothing. | `core-model.md` §3.2 · `terminology.md` §7 · P-006 §10 · P-007 §4.4, §10, issue 8 |
+| **E-25** | **A modifier may not coarsen an `enum`**, and the reason is composition rather than the missing field. §3's *take the coarsest* presumes comparable operands; an `enum` is narrowed by an arbitrary function, two coarsenings of one domain need not be comparable, and the only mapping both refine is the collapse onto a single label — a constant neither asked for, where every other shape leaves a usable candidate. Permitting policy-side coarsening therefore needs a factoring rule and a fail-closed path for mappings that do not factor — and no deployment has yet stated which it wants. Widening later breaks nothing built against the rule, and reaches no label count a requester could not: a capacity table is total over the counts it covers. Which counts those are is E-27. | `core-model.md` §3.2 · `terminology.md` §7 · P-006 §10 · P-007 §4.4, §10, issue 8 |
 
 ### What did not change, deliberately
 

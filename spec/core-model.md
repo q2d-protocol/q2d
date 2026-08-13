@@ -431,11 +431,12 @@ that each of those leaves a responder a **usable** candidate — a field set ins
 both, a range inside both, a granularity coarser than both — where two disagreeing
 `enum` mappings leave only the collapse to one label.
 
-**Permitting it later forecloses nothing and costs no re-authoring.** It would
-accept requests this rule rejects, so nothing built against this rule breaks; and
-an entry that admits coarsening already carries a capacity table over every label
-count a coarsening of either origin could produce, because the table is required
-to be total over that range rather than over the counts one party can reach.
+**Permitting it later forecloses nothing.** It would accept requests this rule
+rejects, so nothing built against this rule breaks. Nor does a modifier reach a
+label count a requester could not: an entry's capacity table is total over the
+counts it covers rather than sized for one party's expected requests, so it
+answers a modifier-produced count already. Which counts it covers is a separate
+open question — see the capacity paragraph below.
 
 **Capacity comes from the coarsened cardinality**, which is the label set's
 size, looked up in the registry entry's capacity table as any varying
