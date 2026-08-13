@@ -377,7 +377,7 @@ prohibits, wearing different words.
 
 **The `enum` mapping is declared, and the responder validates it.** It is
 carried in `answer_contract.coarsening` as an **array of two-element arrays** —
-`[[registered_value, label], …]` — and it is admissible only when all four hold:
+`[[registered_value, label], …]` — and it is admissible only when all five hold:
 
 An array of pairs rather than an object, because **a registered enum value need
 not be a string**: `dietary/menu-compatible` registers `true` and `false`, and a
