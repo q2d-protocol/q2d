@@ -19,7 +19,8 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
 > **E-27 and E-28 are open.** E-28 is a one-line omission in §3.2's `object`
-> row, found while writing §3.3, and blocks nothing.
+> row, found while writing §3.3; it blocks only the `maximum_cardinality` path of
+> [P-006](prds/P-006-request-validation.md) issue 4.
 >
 > **E-27** blocks the `enum` constant-release route in
 > [P-006](prds/P-006-request-validation.md) issue 4, and it is a
@@ -1532,8 +1533,10 @@ work needs one before this is closed.
 
 **Raised by** E-26's cascade ·
 **Decides** [`core-model.md`](../spec/core-model.md) §3.2 ·
-**Blocks** nothing. It is a one-line omission with a small blast radius, listed
-because an unrecorded gap is how the last three of these were found late.
+**Blocks** the `maximum_cardinality` path of
+[P-006](prds/P-006-request-validation.md) issue 4, and nothing else. A small
+blast radius, but a real block: §3.2 gives no rule, so an implementation would
+have to choose between enforcing, ignoring, and rejecting the field on its own.
 
 ### Context
 

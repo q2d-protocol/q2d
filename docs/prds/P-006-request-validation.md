@@ -335,7 +335,7 @@ and the other does not.
 | 1 | ~~Escalate §4.4~~ — **done** | Resolved as (A); `core-model.md` §2.5, `terminology.md` §6, `claims.md` Q2D-C-09 amended |
 | 2 | JSON Schema profile validator, per [`scope.md`](../../spec/scope.md) §4.1 | Forbidden keywords rejected as registry errors; a missing `$schema` likewise; `domain/schema/` passes |
 | 3 | Constraint evaluation, closed vocabulary | `domain/constraints/` passes; unknown key errors |
-| 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape **except `enum`**, which is **blocked on E-27**: a declared mapping that is total, whose image equals the requested domain, non-expanding and a function is admitted — but whether that list is complete is the open question, and a mapping onto a single label satisfies all four while `registry/validate.py` rejects its debit. No `enum` acceptance criterion is stated here until E-27 answers, because stating one is answering it. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
+| 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape **except `enum`**, which is **blocked on E-27**, and except an `object` contract carrying `maximum_cardinality`, **blocked on E-28**: a declared mapping that is total, whose image equals the requested domain, non-expanding and a function is admitted — but whether that list is complete is the open question, and a mapping onto a single label satisfies all four while `registry/validate.py` rejects its debit. No `enum` acceptance criterion is stated here until E-27 answers, and none for an `object`'s `maximum_cardinality` until E-28 does, because stating one is answering it. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
 | 5 | `object` recursion in narrowing | Nested invalid narrowing rejects |
 | 6 | `apply_modifiers` and the two-phase narrowing composition | `domain/compose/` passes; ordering vector passes; every case [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes has a vector and produces what §3.3 gives |
 | 7 | `supports_profile` | `domain/profile/` passes; no downgrade path exists |
@@ -360,18 +360,26 @@ currently have with each other.
 took several passes to state, so it is stated here as a rule rather than as a
 fact about these two shapes.
 
-**A PRD blocks when the spec gives contradictory instructions, not when the spec
-might change.** An open escalation is not by itself a reason to stop: E-27 could
-touch several sections, and freezing everything it might reach would stall work
-the spec currently defines perfectly well. What an implementation cannot do is
-follow two rules that disagree.
+**A PRD blocks when an implementation cannot proceed without making the
+decision, not when the spec might change.** An open escalation is not by itself a
+reason to stop: E-27 could touch several sections, and freezing everything it
+might reach would stall work the spec currently defines perfectly well. The test
+is whether someone could write the code and be following the spec. Two rules that
+disagree fail it, and so does no rule at all.
 
 `enum` is that case. §3.2's four conditions **admit** a one-label mapping and
 [`registry/validate.py`](../../registry/validate.py) authors no debit for one, so
 whoever writes `check_narrowing` must pick a side — and picking is the decision
 E-27 exists to make.
 
-`object` is not. §2.5 says `allowed_detail_fields` **may be empty**, and nothing
-contradicts it, so an implementation follows §2.5. If E-27 removes that, §2.5
-changes and these vectors change with it — which is ordinary, and is what an
-escalation landing looks like.
+`object`'s empty allowlist is not. §2.5 says `allowed_detail_fields` **may be
+empty**, and nothing contradicts it, so an implementation follows §2.5. If E-27
+removes that, §2.5 changes and these vectors change with it — which is ordinary,
+and is what an escalation landing looks like.
+
+**`object`'s `maximum_cardinality` fails the test the other way**, and is blocked
+on **E-28**. §2.5 says the field is *"For `set` and `object`"*; §3.2's `object`
+row does not mention it. So an implementation must decide by itself whether to
+enforce it, ignore it, or reject a contract carrying it — three behaviours from
+one document, with no rule to be wrong about. Every other part of `object`
+proceeds.
