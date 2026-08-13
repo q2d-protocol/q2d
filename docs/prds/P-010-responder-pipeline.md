@@ -343,7 +343,7 @@ should be a small, readable function rather than a convenient one.
 | 5 | Private-input adapter interface plus a fixture store | Open question 4 resolved |
 | 6 | `evaluate` with the error boundary and panic catching | Panic returns `Internal`; no payload retained; open question 2 resolved |
 | 7 | The three predicate implementations | All fourteen registry vectors pass through the pipeline |
-| 8 | `validate_output` against the effective domain and the entry's `output_schema` | `validate/` passes; no debit on failure; a value inside the domain but over its schema bound fails closed, and one inside the schema but outside the domain fails closed — [`core-model.md`](../../spec/core-model.md) §4 step 17 |
+| 8 | `validate_output` against the effective domain and the entry's `output_schema` | `validate/` passes; no debit on failure; a value inside the domain but over its schema bound fails closed, and one inside the schema but outside the domain fails closed — [`core-model.md`](../../spec/core-model.md) §4 step 17. The first is `conformance/over-schema-bound-result`, named in [`claims.md`](../../spec/claims.md) Q2D-C-03 |
 | 9 | Answer construction | No field private-derived except the result |
 | 10 | Partial-failure handling for §4.7 | Each row leaves the system no more permissive |
 | 11 | Author `ordering/`, `evaluate/`, `validate/`, `pipeline/` | Four sections; `harness lint` clean |

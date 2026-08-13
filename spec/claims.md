@@ -85,17 +85,28 @@ publish a technically bounded predicate that is substantively excessive.
 answer domain — its shape, cardinality, precision, and field allowlist — and to
 the registry entry's `output_schema`, which bounds the length of every
 variable-length value it can release ([`scope.md`](scope.md) §4.1).
-**Holds when.** Q2D-C-02 holds and output validation runs before serialization.
+**Holds when.** Q2D-C-02 holds; output validation runs before serialization; and
+the entry's `output_schema` actually carries the bounds
+[`scope.md`](scope.md) §4.1 requires — an entry admitting a string with no
+`maxLength`, or a subschema with no `type`, bounds nothing, and this claim rests
+on the registry being well formed as much as on the responder checking it.
 **Enforced by.** Output validation against both, at
 [`core-model.md`](core-model.md) §4 step 17; fail-closed when the result falls
 outside either. The two are not redundant: the domain bounds which values may be
 returned, and the schema bounds how long they may be — an `attribute` is
-*released in full* and permits no narrowing, so only the schema bounds it.
+*released in full* and permits no narrowing, so only the schema bounds it. The
+schema's own conformance to §4.1 is enforced at registry validation, before any
+request reaches it.
 **Fails if.** Validation is skipped for a `detail` field; an exception path
-serializes private input; a structured output escapes cardinality limits.
+serializes private input; a structured output escapes cardinality limits; **or an
+entry is admitted whose output schema leaves a variable-length value unbounded**,
+which moves the failure from the responder to the registry without changing what
+crosses the interface.
 **Not.** A claim that a bounded answer is harmless. One bit can reveal a
 consequential fact — capacity is not severity. See Q2D-NC-07.
-**Verified by.** `conformance/out-of-domain-result`, `conformance/error-path-leakage` — planned.
+**Verified by.** `conformance/out-of-domain-result`, `conformance/error-path-leakage`, `conformance/over-schema-bound-result` — planned. The third is the `attribute` case: a result inside the effective domain and longer than its schema permits, which no other vector catches because every other bound is the domain's.
+
+Registry-side, [`registry/validate.py`](../registry/validate.py) refuses an entry whose output schema leaves a variable-length value unbounded — the assumption above, checked rather than assumed.
 
 ### Q2D-C-04 — Source confinement
 
