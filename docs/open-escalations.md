@@ -1450,7 +1450,10 @@ way.** §2.5 says `answer_contract.allowed_detail_fields` **may be empty**, so a
 requester can ask for an object with no detail fields today and E-26's §3.3
 composes two disjoint field sets to the same value. An object with no detail
 fields is the same thing a one-label `enum` coarsening is: a release that cannot
-vary with the data, cardinality one, debit zero.
+vary with the data. What it *costs* is a separate matter — §9 parks the capacity
+calculation for `object` outputs, so the `enum` route's zero debit has no
+established counterpart on the `object` side, and this escalation should not
+assume one.
 
 So this is not one open question and one settled one. It is a **live
 inconsistency**: permitted for `object` by §2.5, refused for `enum` by

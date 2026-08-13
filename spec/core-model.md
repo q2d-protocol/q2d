@@ -526,14 +526,18 @@ and §2.5 says that field **may be empty**. A requester can ask for an object wi
 no detail fields directly, so composition reaching the same value produces
 something already admissible, and this section adds no rule about it.
 
-That admits a release which cannot vary with the data, at a cardinality of one
-and a debit of zero. §3.2's `enum` rule does not — a coarsening is *non-expanding*
-against a domain that has at least two values, and
-[`registry/validate.py`](../registry/validate.py) authors no debit for a single
-label. The specification therefore permits a constant answer by one route and not
-by the other, which is a real inconsistency rather than a gap, and
+That admits a release which cannot vary with the data. §3.2's `enum` rule does
+not: [`registry/validate.py`](../registry/validate.py) authors no debit for a
+single label, and §3.2's reason for permitting no `boolean` narrowing calls a
+one-value domain *the empty request*. The specification therefore permits a
+constant answer by one route and refuses it by the other, which is an
+inconsistency rather than a gap, and
 [`open-escalations.md`](../docs/open-escalations.md) **E-27** is where it is
 decided. §3.3 changes neither route.
+
+What such a release *costs* is a separate question and is not settled here: §9
+parks the capacity calculation for `object` outputs, so nothing in this section
+implies a debit for one.
 
 Where an empty domain is reached, a deployment can make a class of requests
 unsatisfiable by adding an authority, and the requester sees a normalized denial
