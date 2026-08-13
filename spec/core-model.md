@@ -303,8 +303,8 @@ properties hold across every shape:
 
 It does **not** follow that composition cannot reach an empty domain. Two
 narrowings that each retain an image can still have nothing in common with each
-other — a range of `[0, 10]` against `[15, 20]`, a field set of `{name}` against
-`{phone}` — and §3.3 composes those to nothing.
+other — a range of `[0, 10]` against `[15, 20]` — and §3.3 composes those to a
+domain with no values in it.
 
 An empty domain, however reached — an unsatisfiable contract, a modifier that
 cannot apply to the requested shape, or two narrowings with no common ground —
@@ -517,13 +517,19 @@ narrowing's own parameter — a set of field names, a pair of endpoints — wher
 containment is exactly the narrowing order and the intersection is exactly the
 greatest lower bound.
 
-**An empty greatest lower bound fails closed.** Disjoint ranges or field sets
-compose to a domain with no values in it, and §3 rejects an empty effective
-domain however it was reached. A deployment can therefore make a class of
-requests unsatisfiable by adding an authority, and the requester sees a
-normalized denial (§6) that does not say so — which is the intended behaviour and
-not a diagnostic to be improved: a denial that explained *which* authority
-narrowed what would report policy structure to a requester.
+**An empty greatest lower bound is not always an empty domain**, and the two
+must not be conflated. Disjoint `scalar` ranges compose to a range no value
+satisfies, which *is* an empty domain and fails closed per §3. Disjoint
+`allowed_detail_fields` compose to the empty set, which §2.5 permits a requester
+to ask for directly — so it is a narrowing parameter with a legal value, and
+whatever §2.5 means by an empty allowlist is what it means here. §3.3 does not
+give it a second meaning.
+
+Where an empty domain is reached, a deployment can make a class of requests
+unsatisfiable by adding an authority, and the requester sees a normalized denial
+(§6) that does not say so. That is intended rather than a diagnostic to be
+improved: a denial explaining *which* authority narrowed what would report policy
+structure to a requester.
 
 **`enum` cannot arise.** A policy modifier may not coarsen an `enum` (§3.2), and
 a requester declares at most one mapping in its contract, so no `enum` dimension

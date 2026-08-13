@@ -77,7 +77,7 @@ question is still fresh than after the answer arrives.
 | **E-16** | Should the registry's JSON Schema profile be normative in `spec/`? | P-006 | `scope.md` §4.1 (new) | **Closed** |
 | **E-25** | May a policy modifier coarsen an `enum`, and if so where does its mapping live? | E-17's resolution | `core-model.md` §3.2 | **Closed** |
 | **E-26** | What do two incomparable narrowings of one dimension compose to? | E-25's cascade | `core-model.md` §3, §3.3 (new) | **Closed** |
-| **E-27** | Is a coarsening onto a *single* `enum` label admissible? | E-25's cascade | `core-model.md` §3.2 · `registry/validate.py` | **Open** |
+| **E-27** | Is a release that cannot vary with the data admissible — a one-label `enum`, an empty field set? | E-25's cascade | `core-model.md` §2.5, §3.2 · `registry/validate.py` | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1391,10 +1391,10 @@ fixtures grow enough to need it.
 
 ---
 
-## E-27 — Is a coarsening onto a single `enum` label admissible?
+## E-27 — Is a release that cannot vary with the data admissible?
 
 **Raised by** E-25's cascade ·
-**Decides** [`core-model.md`](../spec/core-model.md) §3.2 and
+**Decides** [`core-model.md`](../spec/core-model.md) §2.5 and §3.2, and
 [`registry/validate.py`](../registry/validate.py) ·
 **Blocks** [P-006](prds/P-006-request-validation.md) issue 4's `enum` half —
 `check_narrowing` *is* the condition list, so building it decides whether there
@@ -1432,6 +1432,16 @@ zero is arguably correct rather than a loophole. But *zero-debit release* is the
 shape of the free oracle that E-17's subsetting resolution existed to close, and
 a rule that grants one deserves to be arrived at deliberately rather than fallen
 into through four conditions that happen not to exclude it.
+
+**The same shape reaches it by a second route, and one answer has to cover
+both.** §2.5 permits `answer_contract.allowed_detail_fields` to be **empty**, and
+E-26's §3.3 composes two disjoint field sets to exactly that. An `object` answer
+with no detail fields is the same thing a one-label `enum` coarsening is: a
+release that cannot vary with the data, at a cardinality of one and a debit of
+zero. Whatever E-27 decides for the `enum` case should be the same answer for the
+`object` case, or the spec forbids a constant by one route and permits it by
+another. §3.3 deliberately declines to give an empty allowlist a meaning of its
+own, so nothing has been settled by the back door.
 
 It also feeds E-25's rationale in `core-model.md` §3.2, which observes that two
 the collapse onto one label is the common coarsening of a *fully crossing* pair,
