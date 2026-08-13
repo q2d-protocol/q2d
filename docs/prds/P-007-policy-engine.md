@@ -167,20 +167,17 @@ prevents. Any `escalate` from an authority that has not denied produces
 `escalate`.
 
 Modifiers from all permitting authorities are **unioned**, not merged — every
-narrowing applies. Two authorities narrowing the same dimension both take effect,
-and the composed value is the **greatest lower bound**
-([`core-model.md`](../../spec/core-model.md) §3.3, normative; E-26).
+narrowing applies. Where two authorities narrow the same dimension, what they
+compose to is [`core-model.md`](../../spec/core-model.md) **§3.3** (E-26). This
+module implements that section and states none of it.
 
-Which is *the coarser of the two* only where the dimension is a single number or
-duration. A `scalar` range and an `object` field set are ordered by containment
-instead, so two of them need not be comparable — `[0,10]` against `[5,15]`,
-`{name,email}` against `{email,phone}` — and neither is the coarser. §3.3
-composes those to the intersection, and to nothing where they are disjoint, which
-fails closed. This module implements §3.3 and decides none of it.
+One warning, because this section carried the shortcut until E-26 closed:
+*coarser of the two* is not the general rule. Some of the dimensions §3.3 covers
+are not ranked by coarseness at all, so an implementation that compares two
+operands and returns the coarser is wrong for them, and wrong in a way that
+returns an answer rather than an error. Read §3.3 before writing `compose`.
 
-`enum` never reaches here: §3.2 excludes it from modifier coarsening (E-25),
-because two `enum` mappings that are not comparable have no greatest lower bound
-inside either party's declared label set.
+`enum` never reaches here: §3.2 excludes it from modifier coarsening (E-25).
 
 That is the same rule [`core-model.md`](../../spec/core-model.md) §3 states for
 the effective domain as a whole: composition of narrowings rather than an
@@ -256,7 +253,7 @@ discover the problem on a live request.
 | Group | Vectors |
 |---|---|
 | `policy/outcome/` | Each of the three outcomes from an explicit rule |
-| `policy/compose/` | Every pair and triple over `{allow, deny, escalate}`; modifier union; two authorities narrowing one dimension — comparable (coarser wins), incomparable (greatest lower bound), and disjoint (fails closed), per [`core-model.md`](../../spec/core-model.md) §3.3 |
+| `policy/compose/` | Every pair and triple over `{allow, deny, escalate}`; modifier union; two authorities narrowing one dimension, in each of the three cases [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes — comparable, incomparable, and disjoint |
 | `policy/failclosed/` | F1–F6, each as a property over generated inputs |
 | `policy/modifiers/` | Valid coarsening; an attempted subset is an implementation error; **an attempted `enum` coarsening likewise**, per [`core-model.md`](../../spec/core-model.md) §3.2 — settled by E-25, so a vector asserting it is asserting a rule rather than a temporary position |
 | `policy/determinism/` | Same input twice; permuted authority order; permuted rule-set map order |
@@ -314,10 +311,10 @@ the value it would need.
 | ~~Which authorities are *mandatory* versus advisory, and who declares that?~~ | **Resolved: custodian configuration, fixed at load.** It cannot come from the request — a requester that could mark an authority advisory would have demoted the authority that was about to deny it. Fixed at load rather than per-request means the composition in §4.4 is a property of the deployment and is reproducible against a vector. An authority that fails to load is a **startup failure**, not a silently advisory one |
 | ~~Does `escalate` consult the budget before or after?~~ | **Answered: neither — it cannot.** Policy runs once at step 14, the budget is checked at step 15, so the disposition is decided in advance as `on_exhaustion` (§4.3). [P-008](P-008-capacity-accounting.md) §4.6 |
 | ~~Is a rule language shipped at all in MVP, or is the engine a code interface with a fixture rule set?~~ | **Resolved: a code interface with a fixture rule set.** [`scope.md`](../../spec/scope.md) and CC-3 both say Q2D specifies the policy input and output contract and not a language, so shipping one would make the reference implementation's language read as part of the protocol. The fixture set exists to exercise §4.4 composition and the §4.5 invariants, and is explicitly not a starting point for a deployment's rules |
-| ~~How are modifiers from two authorities coarsening the same dimension combined — coarser wins, or intersect?~~ | **Answered: both, and which one depends on the dimension** — superseded in part by E-26, which is the row below. `coarser wins` where the dimension is a number or a duration; the intersection where it is a range or a field set, since those are ordered by containment and *coarser* does not rank them. [`core-model.md`](../../spec/core-model.md) §3 states the computation as narrowing composition rather than an intersection of domain *values*, and §3.3 gives it per dimension |
+| ~~How are modifiers from two authorities coarsening the same dimension combined — coarser wins, or intersect?~~ | **Answered: it depends on the dimension** — this row said *coarser wins*, which was right for the dimensions considered at the time and wrong for those ordered by containment. Superseded by E-26, the row below; [`core-model.md`](../../spec/core-model.md) §3.3 is where the answer lives |
 | ~~**`PolicyInput` needs a grant field.**~~ | **Resolved and applied.** Grants are single-use ([`core-model.md`](../../spec/core-model.md) §5.3), so the field reports an *unconsumed* match and consumption happens at release rather than at step 14. §4.2 amended |
-| ~~Should a modifier be able to coarsen an `enum`, by carrying a mapping of its own?~~ | **Resolved: no** ([`open-escalations.md`](../open-escalations.md) E-25). The cost is not the field but the composition rule it would require. Two `enum` mappings need not be comparable, and their common coarsening is strictly coarser than each, so its label set is one neither party declared and §3.2's second condition rejects it. Other shapes leave something inside both operands, and §3.3 takes it — E-26, below. No field is added to `Decision`; issue 8 rejects the attempt |
-| ~~What do two modifiers emitting incomparable narrowings of one dimension compose to?~~ | **Resolved: the greatest lower bound** ([`open-escalations.md`](../open-escalations.md) E-26). [`core-model.md`](../../spec/core-model.md) **§3.3** is new and carries it per dimension; disjoint operands compose to nothing and fail closed. Two of the three shapes named when this was raised were genuinely incomparable — `object` field sets and `scalar` ranges. `interval` granularity was not: it is a duration, and durations are ranked |
+| ~~Should a modifier be able to coarsen an `enum`, by carrying a mapping of its own?~~ | **Resolved: no** ([`open-escalations.md`](../open-escalations.md) E-25). The cost is not the field but the composition rule it would require. Two `enum` mappings need not be comparable, and their common coarsening is strictly coarser than each, so its label set is one neither party declared and §3.2's second condition rejects it. The other shapes have an answer, in §3.3 — E-26, below. No field is added to `Decision`; issue 8 rejects the attempt |
+| ~~What do two modifiers emitting incomparable narrowings of one dimension compose to?~~ | **Resolved** ([`open-escalations.md`](../open-escalations.md) E-26): [`core-model.md`](../../spec/core-model.md) **§3.3** is new and answers it per dimension. Worth knowing when decomposing issue 4 — the escalation named three incomparable shapes and one of them, `interval` granularity, was not: it is a duration, and durations are ranked |
 
 ## 11. Issues
 
@@ -326,7 +323,7 @@ the value it would need.
 | 1 | `PolicyInput` and `Decision` types, both languages | No private-derived field; `audit` and `external` separate |
 | 2 | `decide` over a fixture rule set | `policy/outcome/` passes |
 | 3 | F1–F6 as property tests | `policy/failclosed/` passes; generators cover each class |
-| 4 | `compose` with most-restrictive ordering and modifier union | `policy/compose/` passes; greatest lower bound per [`core-model.md`](../../spec/core-model.md) §3.3 — coarser-wins for a number or duration, intersection for a range or field set, fail-closed when disjoint |
+| 4 | `compose` with most-restrictive ordering and modifier union | `policy/compose/` passes, with a comparable, an incomparable and a disjoint operand pair for the same dimension; each result is the one [`core-model.md`](../../spec/core-model.md) §3.3 gives |
 | 4a | `grant` field on `PolicyInput`, read-only | `policy/grant/` passes; no code path in this module consumes a grant |
 | 5 | `validate_rules` at load | `policy/rules/` passes; invariant override refuses to start |
 | 6 | Determinism: explicit rule ordering, no clock, no map iteration | `policy/determinism/` passes; dependency check clean |
