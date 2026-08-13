@@ -3,7 +3,7 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready. **One escalation is open** — E-27. Four closed recently and
+All sixteen are ready. **Two escalations are open** — E-27, and E-28, a one-line omission in §3.2's `object` row that blocks nothing. Four closed recently and
 each changed what an implementer reads: **E-17** puts an `enum` coarsening
 mapping in the requester's answer contract, superseding §3.2's old equality rule;
 **E-16** moved the registry's JSON Schema profile into

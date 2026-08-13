@@ -323,7 +323,7 @@ the value it would need.
 | 1 | `PolicyInput` and `Decision` types, both languages | No private-derived field; `audit` and `external` separate |
 | 2 | `decide` over a fixture rule set | `policy/outcome/` passes |
 | 3 | F1–F6 as property tests | `policy/failclosed/` passes; generators cover each class |
-| 4 | `compose` with most-restrictive ordering and modifier union | `policy/compose/` passes, with a comparable, an incomparable and a disjoint operand pair for each dimension §3.3 covers; each result is the one [`core-model.md`](../../spec/core-model.md) §3.3 gives, which is not the same outcome for every dimension |
+| 4 | `compose` with most-restrictive ordering and modifier union | `policy/compose/` passes, with a comparable, an incomparable and a disjoint operand pair for each dimension §3.3 covers — less disjoint `allowed_detail_fields`, which waits on E-27 with [P-006](P-006-request-validation.md) issue 4. Each result is the one [`core-model.md`](../../spec/core-model.md) §3.3 gives, which is not the same outcome for every dimension |
 | 4a | `grant` field on `PolicyInput`, read-only | `policy/grant/` passes; no code path in this module consumes a grant |
 | 5 | `validate_rules` at load | `policy/rules/` passes; invariant override refuses to start |
 | 6 | Determinism: explicit rule ordering, no clock, no map iteration | `policy/determinism/` passes; dependency check clean |

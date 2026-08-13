@@ -259,7 +259,7 @@ validated value is the only one it gets.
 | `domain/schema/` | Valid context; each profile keyword; a schema using a forbidden keyword rejects |
 | `domain/constraints/` | Slot below floor; horizon beyond limit; both boundaries exact |
 | `domain/narrowing/` | Per shape in §4.5: valid coarsening, attempted expansion, and attempted strict subset — the last two both reject. For `enum`, one vector per §3.2 condition: a mapping that is not total, whose image omits a requested label, whose image carries a label outside the requested domain, that is not non-expanding, and that is not a function |
-| `domain/compose/` | Admissible from `narrow(registry, requested)`; effective from `narrow(admissible, modifiers)`; two coarsenings of different granularity compose to the coarser rather than to nothing; and one vector for each case [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes — comparable, incomparable, disjoint — per dimension it covers. An unsatisfiable domain at either phase fails closed |
+| `domain/compose/` | Admissible from `narrow(registry, requested)`; effective from `narrow(admissible, modifiers)`; two coarsenings of different granularity compose to the coarser rather than to nothing; and one vector for each case [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes — comparable, incomparable, disjoint — per dimension it covers, less the disjoint `allowed_detail_fields` vector, which asserts the constant release E-27 is deciding. An unsatisfiable domain at either phase fails closed |
 | `domain/profile/` | Supported profile passes; unsupported rejects without downgrade |
 
 ## 7. Acceptance
@@ -337,7 +337,7 @@ and the other does not.
 | 3 | Constraint evaluation, closed vocabulary | `domain/constraints/` passes; unknown key errors |
 | 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape except **`enum`** and the empty-`allowed_detail_fields` case of **`object`**, both **blocked on E-27**: a declared mapping that is total, whose image equals the requested domain, non-expanding and a function is admitted — but whether that list is complete is the open question, and a mapping onto a single label satisfies all four while `registry/validate.py` rejects its debit. Neither an `enum` criterion nor one for an empty `allowed_detail_fields` is stated here until E-27 answers. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
 | 5 | `object` recursion in narrowing | Nested invalid narrowing rejects |
-| 6 | `apply_modifiers` and the two-phase narrowing composition | `domain/compose/` passes; ordering vector passes; every case [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes has a vector and produces what §3.3 gives |
+| 6 | `apply_modifiers` and the two-phase narrowing composition | `domain/compose/` passes; ordering vector passes; every case [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes has a vector and produces what §3.3 gives — **except disjoint `allowed_detail_fields`**, which reaches the empty allowlist blocked on E-27 above and waits with it |
 | 7 | `supports_profile` | `domain/profile/` passes; no downgrade path exists |
 | 8 | Assert every registry entry validates under the profile | CI check over `registry/manifest.json` |
 | 9 | Author `domain/` corpus section | Five groups; `harness lint` clean |

@@ -490,7 +490,7 @@ narrowing order — the most permissive value that satisfies every operand:
 | `scalar` range | the **intersection** |
 | `interval` granularity | the coarser duration |
 | `interval` horizon | the shorter |
-| `set` `maximum_cardinality` | the smaller |
+| `maximum_cardinality`, for the `set` and `object` shapes that carry it (§2.5) | the smaller |
 | `object` `allowed_detail_fields` | the **intersection**, each surviving field then composed by its own shape's rule, recursively |
 | `enum` coarsening mapping | cannot arise — see below |
 | `boolean`, `attribute` | no narrowing is permitted, so there is nothing to compose |

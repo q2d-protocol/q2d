@@ -18,7 +18,10 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-27 is the only one open.** It blocks both constant-release routes in
+> **E-27 and E-28 are open.** E-28 is a one-line omission in §3.2's `object`
+> row, found while writing §3.3, and blocks nothing.
+>
+> **E-27** blocks both constant-release routes in
 > [P-006](prds/P-006-request-validation.md) issue 4, and it is a
 > live disagreement between `spec/` and
 > [`registry/validate.py`](../registry/validate.py) rather than a question with
@@ -82,6 +85,7 @@ question is still fresh than after the answer arrives.
 | **E-25** | May a policy modifier coarsen an `enum`, and if so where does its mapping live? | E-17's resolution | `core-model.md` §3.2 | **Closed** |
 | **E-26** | What do two incomparable narrowings of one dimension compose to? | E-25's cascade | `core-model.md` §3, §3.3 (new) | **Closed** |
 | **E-27** | Is a release that cannot vary with the data admissible — a one-label `enum`, an empty field set? | E-25's cascade | `core-model.md` §2.5, §3.2 · `registry/validate.py` | **Open** |
+| **E-28** | May an `object`'s `maximum_cardinality` be narrowed? §2.5 says the field applies to it; §3.2's `object` row does not list it. | E-26's cascade | `core-model.md` §3.2 | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1517,6 +1521,64 @@ that a predicate is answerable, with a policy that permits it and a budget that
 does not charge — B is the honest way to express it, and A forces that intent
 into an escalation or a denial instead. Worth asking whether P-016's adversarial
 work needs one before this is closed.
+
+---
+
+## E-28 — May an `object`'s `maximum_cardinality` be narrowed?
+
+**Raised by** E-26's cascade ·
+**Decides** [`core-model.md`](../spec/core-model.md) §3.2 ·
+**Blocks** nothing. It is a one-line omission with a small blast radius, listed
+because an unrecorded gap is how the last three of these were found late.
+
+### Context
+
+§2.5 says `answer_contract.maximum_cardinality` is *"For `set` and `object`"*.
+§3.2's narrowing table gives the `set` row *"`maximum_cardinality` at or below
+registered"* and the `object` row *"`allowed_detail_fields` a subset of
+registered, each remaining field narrowed by its own shape's rule"* — with no
+mention of cardinality.
+
+So a requester may set the field on an `object` contract, and §3.2 does not say
+whether narrowing it is permitted. Found while writing §3.3, which had to say
+what two `maximum_cardinality` narrowings compose to and could not tell which
+shapes carry the dimension.
+
+§3.3 is written to cover it wherever §2.5 says the field applies, so it is
+correct under either answer. Nothing else in the repository depends on it: no
+registry entry uses the `object` release shape today.
+
+### Options
+
+**A. Yes — the `object` row gains `maximum_cardinality` at or below registered**,
+identically to `set`.
+
+*For:* the field exists on the contract, and a field that may be set but never
+narrowed is a contract term policy cannot touch, which no other dimension is. It
+is almost certainly an omission rather than a decision — the `object` row was
+written about fields, and the cardinality dimension was not in view.
+*Against:* nothing identified.
+
+**B. No — narrowing it is an error for `object`.**
+
+*For:* would be right if `object` cardinality means something structurally
+different from `set` cardinality, which is worth ruling out rather than assuming.
+*Against:* leaves §2.5 permitting a contract field that nothing may act on, and
+gives an implementation no reason to reject it that is not "the table did not say
+so".
+
+### Recommendation — A
+
+The `object` row already narrows every other dimension it carries, and the
+omission looks like drafting rather than intent. A is a one-cell change to §3.2's
+table, and it makes §3.3's `maximum_cardinality` row apply to both shapes exactly
+as written.
+
+**Where A stops being right:** if `object` cardinality turns out to mean the
+number of *objects* returned rather than the number of fields — in which case it
+is `set`'s dimension under another name and the two rows should be merged, which
+is a larger edit than this. Worth a look at
+[P-006](prds/P-006-request-validation.md) §4.5 before deciding.
 
 ---
 
