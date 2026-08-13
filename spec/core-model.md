@@ -421,11 +421,13 @@ policy-side coarsening therefore means specifying when two mappings factor and
 what a responder does when they do not — a larger addition than this gap warrants
 while no deployment has stated which behaviour it needs.
 
-Composability is not automatic for the other shapes either: two `object` field
-sets need not be comparable, and what they compose to is undecided
+This is not the general claim that every other shape composes cleanly. Two
+`object` field sets, two `scalar` ranges, and two `interval` granularities can
+each be incomparable, and §3 does not say what those compose to
 ([`open-escalations.md`](../docs/open-escalations.md) E-26). The difference is
-that field sets leave a responder something to choose between, where two
-disagreeing `enum` mappings leave nothing.
+that each of those leaves a responder **candidates** — a field set inside both, a
+range inside both, a granularity coarser than both — and choosing among candidates
+is a question with answers. Two disagreeing `enum` mappings leave none.
 
 **Permitting it later forecloses nothing and costs no re-authoring.** It would
 accept requests this rule rejects, so nothing built against this rule breaks; and

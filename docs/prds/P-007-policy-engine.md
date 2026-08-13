@@ -174,9 +174,9 @@ take effect, and the result is the coarser of the two.
 [`core-model.md`](../../spec/core-model.md) §3.2 excludes `enum` from modifier
 coarsening (E-25) precisely because two `enum` mappings need not be, and no
 third mapping agrees with both — so this module never has to compose two mappings
-that do not factor. **`object` is not settled the
-same way**: `allowed_detail_fields` is a subset, two modifiers may choose
-incomparable sets, and §3 does not say what they compose to. Open question below;
+that do not factor. **The shapes it does compose are not all settled**:
+`object` field sets, `scalar` ranges, and `interval` granularities can each be
+incomparable, and §3 does not say which candidate wins. Open question below;
 issue 4 is blocked on it.
 
 That is the same rule [`core-model.md`](../../spec/core-model.md) §3 states for
@@ -312,7 +312,7 @@ the value it would need.
 | ~~How are modifiers from two authorities coarsening the same dimension combined — coarser wins, or intersect?~~ | **Answered: coarser wins.** [`core-model.md`](../../spec/core-model.md) §3 now states the whole effective-domain computation as narrowing composition rather than intersection, and §4.4 here is that rule applied to two modifiers |
 | ~~**`PolicyInput` needs a grant field.**~~ | **Resolved and applied.** Grants are single-use ([`core-model.md`](../../spec/core-model.md) §5.3), so the field reports an *unconsumed* match and consumption happens at release rather than at step 14. §4.2 amended |
 | ~~Should a modifier be able to coarsen an `enum`, by carrying a mapping of its own?~~ | **Resolved: no** ([`open-escalations.md`](../open-escalations.md) E-25). The cost is not the field but the composition rule it would require: §4.4's *coarser of the two* is defined because every dimension a modifier coarsens is ordered, and two `enum` mappings need not be comparable. No field is added to `Decision`; issue 8 rejects the attempt |
-| **What do two modifiers emitting incomparable `object` field sets compose to?** `{name,email}` and `{email,phone}`: neither is *the coarser*, and §3 does not say. | **Open — E-26** ([`open-escalations.md`](../open-escalations.md)). Raised by E-25's cascade. Blocks issue 4: `compose` cannot be written without it, and choosing here would put the answer in a PRD instead of §3 |
+| **What do two modifiers emitting incomparable narrowings of one dimension compose to?** `{name,email}` and `{email,phone}`; `[0,10]` and `[5,15]`; two-hour and three-hour granularity. None is *the coarser*, and §3 does not say. | **Open — E-26** ([`open-escalations.md`](../open-escalations.md)). Raised by E-25's cascade. Blocks issue 4: `compose` cannot be written without it, and choosing here would put the answer in a PRD instead of §3 |
 
 ## 11. Issues
 
@@ -321,7 +321,7 @@ the value it would need.
 | 1 | `PolicyInput` and `Decision` types, both languages | No private-derived field; `audit` and `external` separate |
 | 2 | `decide` over a fixture rule set | `policy/outcome/` passes |
 | 3 | F1–F6 as property tests | `policy/failclosed/` passes; generators cover each class |
-| 4 | `compose` with most-restrictive ordering and modifier union | **Blocked on E-26** — incomparable `object` field sets have no stated composition. `policy/compose/` passes; coarser-wins per [`core-model.md`](../../spec/core-model.md) §3 |
+| 4 | `compose` with most-restrictive ordering and modifier union | **Blocked on E-26** — incomparable narrowings of one dimension have no stated composition. `policy/compose/` passes; coarser-wins per [`core-model.md`](../../spec/core-model.md) §3 |
 | 4a | `grant` field on `PolicyInput`, read-only | `policy/grant/` passes; no code path in this module consumes a grant |
 | 5 | `validate_rules` at load | `policy/rules/` passes; invariant override refuses to start |
 | 6 | Determinism: explicit rule ordering, no clock, no map iteration | `policy/determinism/` passes; dependency check clean |

@@ -20,7 +20,9 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 >
 > **E-26 is the only one open.** E-25's cascade raised it: writing down *why*
 > an `enum` cannot be composed required saying what makes the other shapes
-> composable, and `object` turned out not to be. It blocks
+> composable, and three of them turned out not to be — `object` field sets,
+> `scalar` ranges, and `interval` granularities can each be incomparable. It
+> blocks
 > [P-007](prds/P-007-policy-engine.md) **issue 4** and nothing else — the PRD is
 > still Ready for decomposition, and so are the other fifteen.
 >
@@ -71,7 +73,7 @@ question is still fresh than after the answer arrives.
 | **E-15** | `mvp-scope.md` §1 reads as though MVP completion is Phase 1 completion | P-016 | `mvp-scope.md` §1 | **Closed** |
 | **E-16** | Should the registry's JSON Schema profile be normative in `spec/`? | P-006 | `scope.md` §4.1 (new) | **Closed** |
 | **E-25** | May a policy modifier coarsen an `enum`, and if so where does its mapping live? | E-17's resolution | `core-model.md` §3.2 | **Closed** |
-| **E-26** | What do two incomparable `object` field sets compose to? | E-25's cascade | `core-model.md` §3, §3.2 | **Open** |
+| **E-26** | What do two incomparable narrowings of one dimension compose to? | E-25's cascade | `core-model.md` §3, §3.2 | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1191,10 +1193,11 @@ this up made it sharper than the options above put it.
 
 **§3's *take the coarsest* presumes the two operands are comparable**, and so
 does [P-007](prds/P-007-policy-engine.md) §4.4's *coarser of the two*. For
-`scalar` precision, `interval` granularity, `set` cardinality and horizon they
-are: each is a bound on a value, and one of two bounds is always the tighter.
-(`object` is **not** among them — writing this rationale is what surfaced that,
-and it is now **E-26** below. It does not affect the argument here.)
+`set` cardinality and an `interval` horizon they are — each is a single number,
+and one of two numbers is the smaller. For `object` field sets, `scalar` ranges
+and `interval` granularities they are not; writing this rationale is what
+surfaced that, and it is **E-26** below. It does not affect the argument here,
+which turns on candidates existing at all rather than on which one wins.
 
 **An `enum` is narrowed by an arbitrary function, not a bound.** Two coarsenings
 of one domain need not be comparable — `{a,b,c,d}` onto `{ab, cd}` and onto
@@ -1225,7 +1228,7 @@ of A, and guessing it now would be inventing a rule for a case nobody has.
 
 ---
 
-## E-26 — What do two incomparable `object` field sets compose to?
+## E-26 — What do two incomparable narrowings of one dimension compose to?
 
 **Raised by** E-25's cascade ·
 **Decides** [`core-model.md`](../spec/core-model.md) §3 and §3.2 ·
@@ -1237,16 +1240,26 @@ of A, and guessing it now would be inventing a rule for a case nobody has.
 coarsest"*. [P-007](prds/P-007-policy-engine.md) §4.4 applies that to two
 modifiers: *"the result is the coarser of the two"*.
 
-Both presume the two operands are comparable. For `scalar` precision, `interval`
-granularity, `set` cardinality and horizon, they are. For `object` they are not:
-§3.2 narrows an `object` by `allowed_detail_fields` **a subset of registered**,
-and two authorities may choose `{name, email}` and `{email, phone}` — neither is
-a subset of the other, so neither is *the coarser*.
+Both presume the two operands are comparable. That holds where a narrowing is a
+single number — `set` `maximum_cardinality`, an `interval` horizon — because one
+of two numbers is always the smaller. Three narrowings in §3.2 are not:
 
-This was found while writing E-25's rationale into §3.2. The first draft claimed
-every non-`enum` shape narrows by a parameter on an ordered ladder, which would
-have made `enum` the only non-total case. It is not true of `object`, and the
-claim was corrected before it landed.
+| Shape | §3.2 narrowing | Two that are incomparable |
+|---|---|---|
+| `object` | `allowed_detail_fields` a subset of registered | `{name, email}` and `{email, phone}` |
+| `scalar` | a range no wider than registered | `[0, 10]` and `[5, 15]` |
+| `interval` | coarser granularity | two-hour and three-hour bands |
+
+In each, neither operand is *the coarser*, and §3 does not say what the responder
+produces.
+
+This was found by writing E-25's rationale into §3.2, and it took three passes to
+get right — which is the useful part of the history. The first draft claimed
+every non-`enum` shape narrows by a parameter on an ordered ladder. Corrected to
+exclude `object`, it still implied `scalar` and `interval` were fine. Corrected
+again, it named all three. None of the wrong versions was obviously wrong; each
+read as a reasonable summary of §3.2's table, which is how a claim like this
+survives review.
 
 ### Why it matters
 
@@ -1260,58 +1273,65 @@ from it.
 
 ### Options
 
-**A. Intersect.** `{name, email}` ∩ `{email, phone}` = `{email}`.
+**A. Take the greatest lower bound**, per shape: intersect field sets, intersect
+ranges, take a granularity coarser than both.
 
-*For:* the meet always exists, is narrower than both operands, and contains only
-fields both authorities were willing to release — so it composes to something
-both parties could have asked for, which is the property §3.2 now names as what
-distinguishes the composable shapes from `enum`. Every remaining field is still
-narrowed by its own shape's rule, so §3.2's recursion is unaffected.
-*Against:* the intersection may be empty, which is the unsatisfiable domain §3
-already fails closed on — so a deployment can make requests unsatisfiable by
-adding an authority, and the requester sees a denial rather than anything
-explaining why.
+*For:* it always exists, is narrower than both operands, and releases nothing
+either authority withheld — `{email}` is a field both permitted, `[5,10]` a range
+both permitted. That makes it the same principle across all three, and it extends
+§3.2's recursion unchanged. It is also what *most-restrictive composition*
+already means everywhere else in the engine.
+*Against:* the bound may be degenerate — an empty field set, an empty range —
+which is the unsatisfiable domain §3 already fails closed on. So adding an
+authority can make requests unsatisfiable, and the requester sees a normalized
+denial that explains nothing. For `interval` there is a further wrinkle: the
+coarsest common granularity of two-hour and three-hour bands is six-hour, which
+neither authority named, so *narrower than both* and *chosen by neither* are both
+true at once.
 
-**B. Fail closed on incomparable field sets** — treat it as the unsatisfiable
+**B. Fail closed on incomparable operands** — treat it as the unsatisfiable
 contract §3 already handles.
 
-*For:* one rule, no new composition semantics, and it never silently returns a
-domain neither authority chose.
-*Against:* it discards a perfectly good answer. `{email}` is releasable by both
-authorities on their own terms, and refusing it is more restrictive than either
-authority asked to be — which is the opposite of *most-restrictive composition*
-doing its job.
+*For:* one rule for all three shapes, no new composition semantics, and it never
+returns a domain neither authority chose — which is the honest reading of the
+`interval` wrinkle above.
+*Against:* it discards answers both authorities would have permitted. `{email}`
+is releasable by each of them on their own terms, and refusing it is more
+restrictive than either asked to be, which is not what most-restrictive
+composition is for.
 
-**C. Require comparability** — a deployment whose authorities emit incomparable
-field sets is misconfigured, and the engine refuses at load.
+**C. Require comparability** — a deployment whose authorities can emit
+incomparable narrowings is misconfigured, and the engine refuses at load.
 
 *For:* the divergence cannot occur at runtime, and it surfaces to the operator
-who can actually fix it rather than to a requester who cannot.
-*Against:* undecidable at load in general — whether two rules can emit
-incomparable sets depends on the request. Checkable only for statically
-enumerable rule sets, which the fixture set is and a real deployment's is not.
+who can fix it rather than to a requester who cannot.
+*Against:* undecidable at load in general — whether two rules *can* emit
+incomparable narrowings depends on the request. Checkable only for statically
+enumerable rule sets, which the fixture set is and a deployment's is not.
 
 ### Recommendation — A
 
-Intersection is the only option that composes to something both authorities
-would have permitted: `{email}` contains only fields each of them declared. That
-is the closest thing to a principle the two shapes can share — an `enum` has no
-such candidate, because two mappings that disagree about which values share a
-label leave nothing for a responder to pick that agrees with both.
+A is the only option that returns something both authorities would have
+permitted, and that is the test worth holding to: composition should not deny
+what every participant was willing to allow.
 
-B's cost is real and understated by calling it conservative: it turns a
-composable case into a denial, and a policy engine that denies where both
-authorities would have allowed is not being careful, it is being wrong. C solves
-a runtime problem at load time and cannot actually do it.
+B's cost is understated by calling it conservative. It turns a composable case
+into a denial, and an engine that denies where both authorities would have
+allowed is not being careful — it is wrong, in a direction that is invisible
+because denials are normalized and nobody can tell it apart from a legitimate
+refusal. C solves a runtime problem at load time and cannot actually do it.
 
-The empty-intersection case A leaves is not a new hole — §3 already fails closed
-on an empty effective domain, and reaching one by intersection is the same
-outcome by the same route as reaching one any other way.
+The degenerate-bound case A leaves is not a new hole. §3 already fails closed on
+an empty effective domain, and reaching one by intersection is the same outcome
+by the same route as reaching one any other way.
 
-**Where A stops being right:** if a deployment needs an authority to be able to
-*add* a field another authority excluded, intersection forecloses it. That is
-widening, which §3 prohibits outright, so this is less a limit on A than a
-restatement of what narrowing composition means.
+**Where A stops being right:** the `interval` wrinkle is a genuine exception
+inside it. Six-hour bands are narrower than both operands and chosen by neither,
+which is uncomfortably close to the reason `enum` is excluded — the difference is
+that a granularity is still a value in the dimension both authorities were
+narrowing, where an `enum` label is a name only one of them invented. If that
+distinction feels too thin to carry a rule, the answer is B for `interval` and A
+for the other two, at the cost of the single principle A otherwise buys.
 
 ---
 
@@ -1397,7 +1417,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-22** | **Every §5 response is a closed field list** — §5.1 with `evidence` conditional on the assurance profile named in the same response, §5.2 at four fields, §5.3's explicit escalation at five. Adding one is a specification change, on the reasoning §6 already gave for the receipt. **§5.2's retry permission is dropped**: it permitted a field whose only conforming value was uniform, no conformance class allowed the transport form, and P-009 §4.4 declined to emit any — a permission with no user is a trap | `core-model.md` §5.1, §5.2, §5.3, §9.1 · `claims.md` Q2D-C-08 (enforcement description) · P-009 §4.4, P-013 §4.2 · `harness lint` |
 | **E-24** | **A step of its own: 11a**, immediately after step 11's schema validation. They are different mechanisms — step 11 runs a schema the registry supplies, and an entry's other constraints are predicate-specific logic — so folding them into one step would let an implementation satisfy §4 by running a validator and stopping, and leave a vector unable to say which rejected. Lettered as 9a is, so the numbers below do not move. **[P-006](prds/P-006-request-validation.md) already had the distinction**: §4.3 separates constraints from schemas and §5 has `validate_schema` and `check_constraints` as two functions. The specification had one step where that module always had two mechanisms | `core-model.md` §4 (step 11a), §4's invariants · P-006 §2/§4.3 · P-010 §1/§2/§4 · P-001 §4.6, §5 · `conformance/vector.schema.json`'s lettered-step enum · `tools/fold_registry.py` |
 | **E-23** | **One spelling, stated once, for every timestamp in the protocol**: uppercase `T`, uppercase `Z`, second precision. The rule already existed — in P-002 §4.2, which was the only place in the repository saying `Z` while `core-model.md` said only "RFC 3339, second precision". Relocating it to §2.2 gave it the reach it lacked: **P-002's profile covers the signed payload and not `routing`**, and §4 step 8 compares `routing` against `signed`. §4 step 8 is now stated as a **byte** comparison, which one spelling makes safe — the alternative is parsing unauthenticated data above the verification line | `core-model.md` §2.2 (new), §4 step 8, §5.3, §6 · `claims.md` Q2D-C-08 · P-002 §4.2 now cites rather than states · `harness lint` |
-| **E-25** | **A modifier may not coarsen an `enum`**, and the reason is composition rather than the missing field. §3's *take the coarsest* presumes comparable operands, which holds where a shape is narrowed by a bound on a value; an `enum` is narrowed by an arbitrary function instead, two coarsenings of one domain need not be comparable, and no third mapping agrees with both. Permitting policy-side coarsening therefore needs a factoring rule and a fail-closed path for mappings that do not factor — and no deployment has yet stated which it wants. Widening later breaks nothing and re-authors nothing. | `core-model.md` §3.2 · `terminology.md` §7 · P-006 §10 · P-007 §4.4, §10, issue 8 |
+| **E-25** | **A modifier may not coarsen an `enum`**, and the reason is composition rather than the missing field. §3's *take the coarsest* presumes comparable operands; an `enum` is narrowed by an arbitrary function, two coarsenings of one domain need not be comparable, and — unlike every other shape — no third value agrees with both, so there is nothing for a responder to choose. Permitting policy-side coarsening therefore needs a factoring rule and a fail-closed path for mappings that do not factor — and no deployment has yet stated which it wants. Widening later breaks nothing and re-authors nothing. | `core-model.md` §3.2 · `terminology.md` §7 · P-006 §10 · P-007 §4.4, §10, issue 8 |
 
 ### What did not change, deliberately
 
