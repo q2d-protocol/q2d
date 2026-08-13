@@ -223,7 +223,7 @@ less.
 | `receipt/fields/` | Every field present and correctly sourced, for answer, deny, and explicit escalate |
 | `receipt/escalate/` | An explicit `escalate` carries the reduced receipt with `decision_class: escalate`; an **opaque** escalation's receipt is byte-identical to a plain Tier C denial's — the pair is the vector, not either alone |
 | `receipt/digests/` | `request_digest`, `response_digest`, `effective_contract_digest`, `entry_digest` against known bytes |
-| `receipt/verify/` | With response; without response; tampered response; wrong key |
+| `receipt/verify/` | With response; without response; tampered response; wrong key; **`signature_suite` disagreeing with the response's `signature.profile`** — [`core-model.md`](../../spec/core-model.md) §6 requires rejection, since one of the two is false and a verifier cannot tell which |
 | `receipt/exclusion/` | Internal reason, step, policy reasoning, and budget state absent from every receipt |
 | `receipt/audit/` | Audit contains the §4.3 delta; contains no answer plaintext |
 

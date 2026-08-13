@@ -375,7 +375,7 @@ must never be derived from.
 |---|---|
 | `requester/contract/` | Construction per shape; expansion and subset attempts rejected locally |
 | `requester/sign/` | Byte-identical signed query for a fixed key, nonce, and clock |
-| `requester/verify/` | Valid; below-floor suite; bad signature; unresolvable responder key; tampered result; **header/payload suite mismatch and key-id mismatch**, each rejected at step 4a |
+| `requester/verify/` | Valid; below-floor suite; bad signature; unresolvable responder key; tampered result; **header/payload suite mismatch and key-id mismatch**, each rejected at step 4a; and a response whose `receipt.signature_suite` differs from its `signature.profile`, rejected at step 7 ([`core-model.md`](../../spec/core-model.md) §6) |
 | `requester/receipt/` | Receipt binds the request sent; a receipt binding another request rejects; verification without a stored response reports the skipped check |
 | `requester/outcome/` | All three statuses; `escalate` unreadable as an answer; a denial carrying no cause |
 | `requester/profile/` | Requested profile returned passes; a lower profile rejects |
