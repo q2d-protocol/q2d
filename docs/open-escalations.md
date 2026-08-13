@@ -18,11 +18,13 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-29 and E-30 are open**, both small and both from E-28's cascade. **E-29**
-> asks which release shapes carry `answer_contract.maximum_cardinality`, and
-> blocks that path of [P-006](prds/P-006-request-validation.md) issue 4. **E-30**
-> asks whether §4.1's profile can bound a `number` at all — it cannot today, so
-> one is refused, which quietly narrows the `scalar` shape.
+> **E-30 is the only one open.** It asks whether
+> [`scope.md`](../spec/scope.md) §4.1's profile can bound a `number` at all — it
+> cannot today, so one is refused in an output schema, which narrows the `scalar`
+> shape `terminology.md` §4 defines as *"integer or number"*. It blocks nothing.
+>
+> **E-29 closed as A**: `answer_contract.maximum_cardinality` is for `set` only,
+> and measures the domain's size rather than a count of results.
 >
 > **E-28 closed as A.** It grew twice on being checked — raised as a one-line
 > omission in §3.2's `object` row, found to be a maximum serialized size no field
@@ -99,7 +101,7 @@ question is still fresh than after the answer arrives.
 | **E-26** | What do two incomparable narrowings of one dimension compose to? | E-25's cascade | `core-model.md` §3, §3.3 (new) | **Closed** |
 | **E-27** | Is a release that cannot vary with the data admissible — a one-label `enum`, an empty field set? | E-25's cascade | `core-model.md` §2.5, §3.2 (condition 5), §3.3 | **Closed** |
 | **E-28** | What bounds an `object`, and what is the registry's `output_schema` for? | E-26's cascade | `terminology.md` §3, §4 · `core-model.md` §4 step 17 · `scope.md` §4.1 · `claims.md` Q2D-C-03 | **Closed** |
-| **E-29** | Which release shapes carry `answer_contract.maximum_cardinality`? | E-28's cascade | `core-model.md` §2.5 · `terminology.md` §4 | **Open** |
+| **E-29** | Which release shapes carry `answer_contract.maximum_cardinality`? | E-28's cascade | `core-model.md` §2.5 | **Closed** |
 | **E-30** | Should `scope.md` §4.1's profile gain a precision keyword, so a `number` output can be bounded? | E-28's cascade | `scope.md` §4.1 · `terminology.md` §4 | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
@@ -1748,9 +1750,9 @@ real answer and is worth deciding explicitly rather than by omission.
 ## E-29 — Which release shapes carry `answer_contract.maximum_cardinality`?
 
 **Raised by** E-28's cascade ·
-**Decides** [`core-model.md`](../spec/core-model.md) §2.5 ·
-**Blocks** the `maximum_cardinality` path of
-[P-006](prds/P-006-request-validation.md) issue 4, and nothing else.
+**Decided: A — `set` only.** [`core-model.md`](../spec/core-model.md) §2.5
+amended, and it now says what the field measures as well as which shape carries
+it. [P-006](prds/P-006-request-validation.md) issue 4 is unblocked.
 
 ### Context
 
@@ -1811,12 +1813,33 @@ narrowed under §3.2 like any other dimension; no contract term is needed.
 it, which it may not — the row reads *"`maximum_cardinality` at or below
 registered"*, naming this field.
 
-### Recommendation — A
+### Recommendation — A. **Adopted.**
 
 It changes one line to match the two documents that already agree, and after
-E-28 an `object` has a bound that is not cardinality. The report's `boolean`
-example is a draft artefact: §1's one-query-one-response rule means a result
-count cannot vary, so B would enshrine a field whose only legal value is 1.
+E-28 an `object` has a bound that is not cardinality.
+
+**Checking the report's example before implementing made the case stronger, not
+weaker.** It carries `"maximum_cardinality": 1` on a `boolean` whose `domain` is
+`[false, true]`, and it is a draft artefact under *either* reading:
+
+- Read as a **domain** size, it narrows a two-value domain to one — which §3.2's
+  `boolean` row has always prohibited outright (*"none — the requested domain
+  must equal the registered one"*), and which E-27 has since refused generally as
+  a release that cannot vary with the data. Non-conforming, and independently of
+  this question.
+- Read as a **result count**, §1 admits one response and no partial answer, so
+  the only legal value is 1 and the field carries no information.
+
+So the example cannot be evidence for B. Under the reading that would have
+supported B, the field is inert; under the other, the example is invalid for a
+reason predating this escalation.
+
+The reference manifest also settles what the *registry's* like-named field
+means. `availability-window` carries `answer_domain.maximum_cardinality: 9`
+beside a `cardinality_expression`, on a predicate whose answer is one index into
+the candidate list — so it caps the **domain's** size, not a number of results.
+§2.5's contract field now says the same thing explicitly, and notes that the two
+are different fields.
 
 C is tempting and probably where this ends up eventually, but §3.2's `set` row
 names the field, so C is a two-document change to save one line — and it should
@@ -2012,6 +2035,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-26** | **The greatest lower bound**, per dimension: the coarser value where the dimension is a number or a duration, and the **intersection** where it is a range or a field set, which are ordered by containment and so need not be comparable. Where the bound is a range no value satisfies, the domain is empty and fails closed; where it is an empty `allowed_detail_fields`, the composed value is inadmissible under §3.2's non-empty rule (E-27) and fails closed as well. `enum` cannot arise, which is what keeps the rule total. Raised naming three incomparable shapes; `interval` granularity was not one of them — it is a duration, and durations are ranked. | `core-model.md` §3 and §3.3 (new) · `terminology.md` §6 · P-006 §4.1, §5, §6, issue 6 · P-007 §4.4, §5, §10, issue 4 |
 | **E-27** | **Inadmissible, by both routes.** §3.2 gains a fifth condition on an `enum` coarsening — *at least two labels* — and requires an `object` release to name at least one detail field. A constant answer is a refusal wearing an answer's shape, and §3.2 already called a one-value domain *the empty request* where it explains `boolean` and `attribute`; this applies the same reading to the two shapes that had escaped it. The escalation was briefed as a live inconsistency between §2.5 and §3.2; it was not — only `object` has detail fields, so §2.5's *may be empty* was always about the shapes that have none. | `core-model.md` §2.5, §3.2, §3.3 · `registry/validate.py` · P-006 §10, issue 4 · P-007 issue 4 |
 | **E-28** | **The entry's `output_schema` is the bound.** §4 step 17 validates a released result against the effective domain *and* that schema — the domain bounds which values may be returned, the schema how long they may be — and `scope.md` §4.1 requires an output schema to bound every variable-length value it can release. Q2D-C-03 cites it instead of a *maximum serialized size*, which no field carried. Raised as a table omission, twice re-scoped by checking it: `attribute` is released *in full* so per-field recursion does not bound an object, and the mechanism that does was already on every entry with no rule pointing at it. | `terminology.md` §3, §4 · `core-model.md` §4 step 17 · `scope.md` §4.1 · `claims.md` Q2D-C-03 · `conformance-classes.md` CC-2 · `registry/validate.py` · P-010 §4.5, issue 8 |
+| **E-29** | **`set` only**, and the field is the **domain's** size rather than a count of results — §1 admits one response, so a result count could carry no information. Other shapes narrow cardinality through their own dimension. The deposited report's `boolean` example, which had suggested a result count, is a draft artefact under either reading: as a domain size it narrows a two-value domain to one, which §3.2's `boolean` row has always prohibited. | `core-model.md` §2.5 · P-006 issue 4 |
 
 ### What did not change, deliberately
 
