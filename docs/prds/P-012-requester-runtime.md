@@ -377,7 +377,7 @@ must never be derived from.
 | `requester/sign/` | Byte-identical signed query for a fixed key, nonce, and clock |
 | `requester/verify/` | Valid; below-floor suite; bad signature; unresolvable responder key; tampered result; **header/payload suite mismatch and key-id mismatch**, each rejected at step 4a; and a response whose `receipt.signature_suite` differs from its `signature.profile`, rejected at step 7 ([`core-model.md`](../../spec/core-model.md) §6) |
 | `requester/receipt/` | Receipt binds the request sent; a receipt binding another request rejects; verification without a stored response reports the skipped check |
-| `requester/outcome/` | All three statuses; `escalate` unreadable as an answer; a denial carrying no cause |
+| `requester/outcome/` | All three statuses; `escalate` unreadable as an answer; a denial carrying no cause; **an `external_reason` outside [`core-model.md`](../../spec/core-model.md) §5.2.1's vocabulary**, which is an opaque rejection rather than a malformed response — a requester that errored instead would break on the first value a later version adds |
 | `requester/profile/` | Requested profile returned passes; a lower profile rejects |
 | `requester/retry/` | Retry bytes identical to the original; expiry produces a local outcome, not a new query |
 | `requester/order/` | The [`core-model.md`](../../spec/core-model.md) §4.1 order: a response failing at each step is rejected without the later steps having run, and nothing reaches the caller before step 9 |
@@ -422,6 +422,7 @@ is also why §4.2 injects the nonce and the clock.
 | A result finer than requested accepted | `requester/verify/` over-precise vector |
 | **Any §4.1 step running before the signature verifies** | `requester/order/` — a response with a malformed body and a bad signature is rejected on the signature, not the parse |
 | An unrecognized status mapped onto a default | `requester/outcome/` unknown-status vector produces an answer or a denial instead of a hard rejection |
+| An unrecognized `external_reason` treated as a malformed response | `requester/outcome/` unknown-reason vector errors instead of reporting a denial |
 | **Re-signing on retry** | Two retries of one query differ in any byte |
 | **Automatic reissue with a fresh nonce** | Responder budget total rises across what the caller saw as one question |
 | Inferring a denial cause | Any code path on the denial branch that reads elapsed time, response size, or arrival latency |

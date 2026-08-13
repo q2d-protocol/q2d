@@ -5,7 +5,7 @@
     "core-model.md#2.1",
     "core-model.md#4"
   ],
-  "description": "A routing projection carrying two of the six fields §2.1 permits rather than all six. §2.1 requires a strict subset of what `signed` contains and forbids introducing a field; it does not require any particular field, so an intermediary that needs only a predicate and an expiry projects only those. Step 8 compares what is present. The disagreement cases wait on E-33.",
+  "description": "A routing projection carrying two of the six fields §2.1 permits rather than all six. §2.1 requires a strict subset of what `signed` contains and forbids introducing a field; it does not require any particular field, so an intermediary that needs only a predicate and an expiry projects only those. Step 8 compares what is present — `routing/disagrees` and `routing/introduces-field` are the two ways that comparison fails.",
   "operation": "verify_query",
   "input": {
     "envelope": {

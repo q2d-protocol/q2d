@@ -37,7 +37,7 @@ timing.
 | [`spec/claims.md`](../../spec/claims.md) Q2D-NC-05 | Wire-level indistinguishability is **not** claimed |
 | [`spec/terminology.md`](../../spec/terminology.md) §6 | Denial normalization; explicit and opaque escalation |
 | [`threat-model/trust-matrix.md`](../../threat-model/trust-matrix.md) §5 | Timing, size, and state channels named as residual |
-| [`registry/manifest.json`](../../registry/manifest.json) | `denial_normalization` — the reference registry's declared external class |
+| [`registry/manifest.json`](../../registry/manifest.json) | `denial_normalization` — the reference registry's declared external class, which is Tier C's value only; Tiers A and B are [`core-model.md`](../../spec/core-model.md) §5.2.1's |
 
 ## 3. Module boundary
 
@@ -60,10 +60,10 @@ makes a protocol undebuggable for no privacy gain.
 
 | Tier | Covers | Externally |
 |---|---|---|
-| **A — protocol** | Malformed or oversized envelope, unknown `q2d_version`, unregistered or unacceptable suite, `routing`/`signed` mismatch, request expired or future-dated | **Distinct errors** |
-| **B — authentication** | Unresolvable key, invalid signature, invalid or expired delegation | **One class** |
-| **C — everything from registry resolution onward** | Unknown predicate or version, revoked or deprecated entry, entry-digest mismatch, schema violation, constraint violation, contract not narrowable, unsupported assurance profile, policy denial, budget exhaustion, source freshness unmet, data absent, internal escalation | **One class** |
-| **C, reached earlier** | **Rate-limit rejection** ([`core-model.md`](../../spec/core-model.md) §9.1), at step 9a — before resolution, so the sensitivity class is unknown and the deployment's **default** normalized value is used. It must be the same value an unknown predicate produces at step 10, or the limiter reveals that resolution was never reached | **Same class** |
+| **A — protocol** | Malformed or oversized envelope, unknown `q2d_version`, unregistered or unacceptable suite, `routing`/`signed` mismatch, request expired or future-dated | **Distinct errors** — the five values [`core-model.md`](../../spec/core-model.md) §5.2.1 enumerates |
+| **B — authentication** | Unresolvable key, invalid signature, invalid or expired delegation | **One class** — `unauthenticated` (§5.2.1) |
+| **C — everything from registry resolution onward** | Unknown predicate or version, revoked or deprecated entry, entry-digest mismatch, schema violation, constraint violation, contract not narrowable, unsupported assurance profile, policy denial, budget exhaustion, source freshness unmet, data absent, internal escalation | **One class** — the value the responder's pinned registry declares (§5.2.1) |
+| **C, reached earlier** | **Replay-cache rejection** at step 9, and **rate-limit rejection** ([`core-model.md`](../../spec/core-model.md) §9.1) at step 9a — both before resolution, so the sensitivity class is unknown and the **registry-declared** value is used — a manifest-level declaration rather than an entry's, so it is in hand before anything resolves. It must be the same value an unknown predicate produces at step 10, or the earlier check reveals that resolution was never reached. A replay is normalized rather than distinct because [P-004](P-004-replay-idempotency.md) already makes a cache *failure* Tier C, and distinguishing the two would report whether the custodian's cache is healthy | **Same class** |
 
 The boundaries are drawn by **what each reveals about the custodian**:
 
@@ -210,6 +210,15 @@ external_class(tier: Tier, sensitivity: SensitivityClass) -> ExternalClass
 build_denial(external: ExternalClass, request_digest, now) -> DenyResponse
 escalation_visible(sensitivity: SensitivityClass, policy) -> bool
 ```
+
+`ExternalClass` is [`core-model.md`](../../spec/core-model.md) §5.2.1's closed
+vocabulary — five Tier A values, `unauthenticated` for Tier B, and for Tier C
+whatever the responder's **pinned registry** declares, which is a manifest-level
+value rather than an entry's. That matters here because `external_class` is
+called for rejections that never resolve an entry: a replay at step 9, a rate
+limit at 9a, an unknown predicate at 10. It is not this module's to extend:
+adding a value is a `spec/` change, because a requester acts on it and one
+deployment inventing a name makes that value meaningless everywhere else.
 
 `classify` is total over a **closed** `InternalReason` enum. A new internal
 reason must be assigned a tier at the point it is added, and an unassigned reason

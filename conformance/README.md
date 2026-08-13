@@ -67,18 +67,15 @@ assertions (issues 7 and 8), comparison (issue 16), `cross` (issue 9), the
 dependency assertion (issue 15), the test key material (issue 10), the
 `registry/` section (issue 11), and `message/`'s positive vectors (issue 12).
 
-**`message/` is positive-only, and that is a gap rather than a choice.** Every
-rejection it wants falls in a tier with no identifier — a `routing`/`signed`
-disagreement is Tier A, an invalid signature or unresolvable key is Tier B — and
-each must assert the `external_reason` a requester receives.
-[P-009](../docs/prds/P-009-denial-normalization.md) §4.1 gives Tier A as
-*"distinct errors"* and Tier B as *"one class"* without naming either. Tier C's
-value exists, `unavailable`, because
-[`registry/manifest.json`](../registry/manifest.json) declares it — which is why
-the `registry/` section has five rejection vectors and this one has none.
-[`open-escalations.md`](../docs/open-escalations.md) **E-33** is that question.
-[`tests/test_message_section.py`](tests/test_message_section.py) asserts the
-section is positive-only, so it turns red the day a rejection lands.
+**`message/` has both halves.** Three vectors that sign, verify and project, and
+three rejections — a signature from the wrong key, a routing projection that
+disagrees by one second, and one that introduces a field §2.1 does not permit.
+The rejections were blocked until **E-33** enumerated the `external_reason`
+vocabulary in [`core-model.md`](../spec/core-model.md) §5.2.1: before it, no
+Tier A or Tier B class had an identifier, so a vector could not say what a
+requester receives.
+[`tests/test_message_section.py`](tests/test_message_section.py) holds them to
+that vocabulary, and to keeping the internal reason and the wire response apart.
 
 **`conformance/corpus/message/` is generated, not written**, by
 [`tools/author_message.py`](../tools/author_message.py) — the bytes come from

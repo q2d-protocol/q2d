@@ -756,7 +756,9 @@ anything else, is a specification change.
 | `signature.key_id` | The responder key, as §2.7. |
 | `signature.value` | Covers all of the above. Carried where the suite says, as in §2.7. |
 
-**Exactly four fields, and no others.** Adding one — even an optional one — is a
+**Exactly four fields, and no others** — `status`, `external_reason`, `receipt`
+and `signature`, the last of which carries the three members §2.7 gives it.
+Adding one — even an optional one — is a
 specification change, for the reason §6 gives about the receipt this response
 carries: a field present for some causes and absent for others reintroduces the
 distinction normalization removes, and the presence pattern alone is enough to
@@ -774,6 +776,68 @@ from any source, for any cause.** There is no field for it, so a value a rate
 limiter could otherwise supply has nowhere to go — which is stronger than a rule
 requiring such a value to be uniform, and removes what would otherwise be a
 correct-but-fragile path one commit away from partitioning the class.
+
+#### 5.2.1 The `external_reason` vocabulary
+
+Closed, and enumerated here because a requester has to act on it. Two of the
+three groups below are **normalized**: every cause in them produces the same
+value, and Q2D-C-08 rests on that.
+
+**Distinct — each describes the request, and reveals nothing about the
+custodian.** A requester learning its envelope was malformed learns about its own
+bytes, so precision here costs nothing and makes the protocol debuggable.
+
+| `external_reason` | Cause | Rejected at |
+|---|---|---|
+| `malformed` | Envelope malformed or oversized (step 1); or the **verified** core object malformed, or missing a field §2 requires (step 5) | steps 1 and 5 |
+| `unsupported_version` | Unknown `q2d_version` | step 5 — the authoritative value is inside the signed object, so it cannot be read before verification. `routing` may carry a copy, and §4 step 2 may shed on it, but that is load shedding and never a rejection reason |
+| `unsupported_suite` | Suite unregistered, **or** below the verifier's minimum acceptable policy | step 3 |
+| `routing_mismatch` | `routing` disagrees with the verified object | step 8 |
+| `expired` | Request expired or future-dated | step 6 |
+
+`unsupported_suite` is one value for two causes on purpose. Separating them would
+tell a requester whether the custodian *knows* a suite it declined, which is the
+custodian's minimum acceptable policy — a fact about the custodian, not about the
+request, and so on the wrong side of the line this group is drawn along.
+
+**One class — authentication.**
+
+| `external_reason` | Cause | Rejected at |
+|---|---|---|
+| `unauthenticated` | Unresolvable key, invalid signature, invalid or expired delegation | steps 4 and 7 |
+
+Distinguishing "key unknown" from "signature invalid" would let a requester probe
+which identities a custodian holds, which is why the three collapse.
+
+**One class — everything from the replay check onward.** A replay rejection at
+step **9**, the rate-limit check at **9a**, and registry resolution at step 10
+onward. In each, the value is the one the responder's **pinned registry** declares
+— `denial_normalization` in the reference manifest, whose value is `unavailable`.
+
+It is the registry's and not a resolved entry's, which is what makes it available
+in the cases that need it most: steps 9 and 9a precede resolution, and an unknown
+predicate at step 10 never resolves one. All three therefore produce the same
+value as a policy refusal at step 14 — and they must, or reaching any of them
+would reveal how far a request got.
+
+**Not every step 9 outcome is a rejection.** An identical retry — the same
+`query_id` over the same bytes — replays the stored response verbatim, which is
+what makes a retry idempotent and is why it debits nothing a second time (§7).
+Step 9 rejects the *other* case: a `query_id` or nonce reused over different
+content, which is a replay attempt rather than a retry.
+
+That rejection belongs here rather than among the distinct values above, and the
+reason is the cache behind it. A store that cannot accept an entry also
+rejects, as a Tier C denial — a responder unable to guarantee idempotency must
+not answer. If a *detected* replay were distinct while a *failed* cache was
+normalized, the difference would tell a requester whether the custodian's cache
+is healthy, which is custodian state and is what this class exists to withhold.
+
+**An `external_reason` a requester does not recognise is an opaque rejection.**
+Not a malformed response, and not an error: the vocabulary above may gain a value
+in a later version, and a requester that rejected the response instead would
+break on the first one added. It is refused like any other denial, and nothing is
+inferred from the unknown name.
 
 ### 5.3 escalate
 

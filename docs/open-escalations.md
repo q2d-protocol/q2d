@@ -18,14 +18,10 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-33 is open**, raised on authoring the first rejection vector: §5.2's
-> `external_reason` names a normalized class, and **no class has an
-> identifier**. P-009 §4.1 gives Tier A as *"distinct errors"* and Tier B as
-> *"one class"* without naming either; the only value in the repository is
-> `unavailable`, which the registry declares for Tier C — so Tier C rejections
-> are authorable and Tier A and B ones are not. It blocks `message/`'s
-> rejections, `suite/` almost entirely, and `ordering/` steps 1 to 9 — but not
-> 9a, which is Tier C despite preceding registry resolution.
+> **Nothing is open.** **E-33** closed as A, giving `core-model.md` a new
+> **§5.2.1**: the `external_reason` vocabulary, five distinct Tier A values,
+> `unauthenticated` for Tier B, and the registry's for Tier C. Every rejection
+> vector it blocked is unblocked.
 >
 > **E-32** closed as A: a response payload carries
 > `signature.profile` and `signature.key_id` as a query's does, and §4's response
@@ -124,7 +120,7 @@ question is still fresh than after the answer arrives.
 | **E-30** | Should `scope.md` §4.1's profile gain a precision keyword, so a `number` output can be bounded? | E-28's cascade | `scope.md` §4.1 · `terminology.md` §4 | **Closed** |
 | **E-31** | Is `signature.value` a field of the signed core object? | P-001 issue 12 | `core-model.md` §2.7, §5.1–§5.3 · `crypto-suites.md` §3 | **Closed** |
 | **E-32** | What does a signed *response* payload contain? | E-31's cascade | `core-model.md` §5.1–§5.3, §6, §4 response step 4a (new) · `crypto-suites.md` §3 | **Closed** |
-| **E-33** | What are the external denial classes a requester actually receives? | P-001 issue 12 | `core-model.md` §5.2 · P-009 §4.1 · `registry/manifest.json` | **Open** |
+| **E-33** | What are the external denial classes a requester actually receives? | P-001 issue 12 | `core-model.md` §5.2.1 (new) · P-009 §4.1, §5 | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -2306,13 +2302,10 @@ they differ.
 the first rejection vector ·
 **Decides** [`core-model.md`](../spec/core-model.md) §5.2 and
 [P-009](prds/P-009-denial-normalization.md) §4.1 ·
-**Blocks** every rejection whose tier lacks an identifier: `message/`'s three,
-`suite/` almost entirely, `ordering/` steps 1 to 9, and
-[P-009](prds/P-009-denial-normalization.md)'s `denial/tier-a/` and
-`denial/uniformity-b/`. **Tier C is unaffected** — `unavailable` exists, which is
-why `registry/` already has five rejection vectors, `denial/uniformity-c/` is
-authorable, and so are `ordering/` steps 10–15, 11a, and **9a**, which is Tier C
-despite sitting before resolution.
+**Decided: A.** [`core-model.md`](../spec/core-model.md) **§5.2.1** is new and
+enumerates the vocabulary: five distinct Tier A values, `unauthenticated` for
+Tier B, and the pinned registry's manifest-level value for Tier C. Every
+rejection vector it blocked is unblocked; `message/`'s three landed with it.
 
 ### Context
 
@@ -2394,7 +2387,7 @@ rejection, so no cross-implementation vector can assert one. That is exactly the
 divergence the corpus exists to catch, and it would make `message/`, `suite/` and
 most of `ordering/` unassertable permanently rather than temporarily.
 
-### Recommendation — A
+### Recommendation — A. **Adopted.**
 
 C is the one to rule out first, because it reads as conservative and is not: it
 makes a whole class of behaviour untestable across implementations, and Q2D-C-08
@@ -2418,6 +2411,43 @@ distinction leaks that the custodian is reachable and processing — then a fixe
 enumeration is the wrong shape, and what is wanted is a floor rather than a list.
 Nothing in the threat model asks for that today, and P-009's Tier A argument says
 the opposite, but it is the assumption A rests on and it is worth stating.
+
+
+### What writing it settled
+
+**`unsupported_suite` is one value for two causes.** P-009's Tier A cell groups
+*"unregistered or unacceptable suite"*, and §5.2.1 keeps them together with the
+reason: separating them would tell a requester whether the custodian *knows* a
+suite it declined, which is the custodian's minimum acceptable policy — a fact
+about the custodian, on the wrong side of the line Tier A is drawn along. The
+grouping was P-009's; the reason was not written down.
+
+**The unknown-value rule was the part that needed deciding, not the names.** An
+`external_reason` a requester does not recognise is an **opaque rejection** —
+not a malformed response and not an error. Without that, the first value a later
+version adds breaks every older requester, which would make a closed enumeration
+worse than none. §5.2.1 says it, [P-012](prds/P-012-requester-runtime.md) gains
+a `requester/outcome/` vector for it, and a negative-acceptance row for the
+implementation that errors instead.
+
+**`ExternalClass` is anchored.** P-009 §5 declared the type and never gave it
+members; it now points at §5.2.1 and says extending it is a `spec/` change,
+because a requester acts on the value and one deployment inventing a name makes
+that name meaningless everywhere else.
+
+**Step 9 had no tier, and the answer was already forced.** P-009's table covers
+steps 1, 3, 6 and 8 in Tier A, 4 and 7 in Tier B, and 9a and 10-onward in Tier C
+— leaving the replay check at step 9 unassigned, so its rejection had no
+`external_reason` and `ordering/` step 9 was still unassertable. It is Tier C,
+and not as a judgement call: [P-004](prds/P-004-replay-idempotency.md) already
+makes a cache *failure* a Tier C denial, so a *detected* replay being distinct
+would tell a requester whether the custodian's cache is healthy — custodian
+state, which is what the class exists to withhold. §5.2.1 and P-009's table both
+say so now.
+
+**A defect of my own, found in passing:** §5.2 said *"exactly four fields"* while
+its table listed six rows — E-32 split the `signature` row into three members and
+did not adjust the count. The fields are still four; the sentence now says which.
 
 
 ---
@@ -2512,6 +2542,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-30** | **`number` is refused in an output schema**; a predicate whose answer is a decimal registers a **scaled integer** and states the scale in `question_notes`. The keyword that would bound a decimal is `multipleOf`, and it is the one two JSON Schema libraries most reliably disagree about — `0.1` has no exact binary representation — which is the failure §4.1's frozen profile exists to exclude. §3.1 makes the same trade carrying capacity as integer millibits. Admitting `number` later accepts schemas refused now, so nothing authored against this breaks. | `scope.md` §4.1 · `terminology.md` §4 · `registry/validate.py` |
 | **E-31** | **The model has a signature; the suite says where it travels.** §2.7 keeps `signature.value` and states that, and `crypto-suites.md` §3 says `eddsa-jws-2026` carries it in the compact form's third segment and therefore not in the payload — a payload carrying it would sign itself. §5.1–§5.3's response `signature` rows point at the same rule. The alternative of striking the field would have put a JWS assumption in the document that disclaims serialization, and the next suite would reopen it. | `core-model.md` §2.7, §5.1, §5.2, §5.3 · `crypto-suites.md` §3 · P-001 issues 12, 13, 14 |
 | **E-32** | **Symmetric.** A response payload carries `signature.profile` and `signature.key_id` exactly as a query's does, and §4's response order gains step **4a** to compare them against the protected header. The check catches a producer signing a payload declaring one suite or key under a header declaring another, and that producer is no less able to lie to a requester than to a responder — the check had existed in one direction only. §6 reconciles the receipt's `signature_suite` with the new `signature.profile`: not redundant, and a response whose two disagree is rejected. | `core-model.md` §5.1, §5.2, §5.3, §6, §4 response step 4a · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-012 §4, §5 · P-001 issue 12 |
+| **E-33** | **`spec/` enumerates Tiers A and B; the registry keeps Tier C.** New `core-model.md` **§5.2.1**: `malformed`, `unsupported_version`, `unsupported_suite`, `routing_mismatch` and `expired` are distinct because each describes the *request*; `unauthenticated` collapses the whole of authentication, since distinguishing an unknown key from a bad signature would let a requester probe which identities a custodian holds; Tier C stays the responder's pinned registry's declared value — manifest-level, so it is in hand for the rejections that never resolve an entry: a replay at step 9, a rate limit at 9a, an unknown predicate at 10. An unrecognised value is an **opaque rejection**, so adding one later does not break an older requester. | `core-model.md` §5.2, §5.2.1 · P-009 §4.1, §5, §3 · P-012 §5, §6 · P-001 issue 12 |
 
 ### What did not change, deliberately
 
