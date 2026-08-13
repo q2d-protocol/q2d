@@ -66,12 +66,11 @@ sends them — and that includes `signature.profile` and `signature.key_id`, whi
 are required. §2.7 states the general rule — the model has a
 signature and the suite says where it travels — and this is that rule applied.
 
-**A response payload is not yet settled the same way.** §5.1–§5.3 list a single
-`signature` row where §2.7 lists three fields, and unlike a query there is no
-step comparing a header member against a payload copy — §4's response order has
-none, so asserting the copies exist would imply a check nobody performs. What a
-response payload contains is
-[`open-escalations.md`](../docs/open-escalations.md) **E-32**.
+**A response payload is the same shape**, for the same reason: §5.1–§5.3 carry
+`signature.profile` and `signature.key_id`, and `signature.value` is the third
+segment there too. §4's response step **4a** compares the header against them,
+which E-32 added — the check had existed in one direction only, and the producer
+it catches is no less able to lie to a requester than to a responder.
 
 **The compact form, not conformant JWS.** RFC 7515 §4.1.1 makes `alg` a required
 header parameter, and a Q2D header does not carry one — see below for why. So a
@@ -120,11 +119,13 @@ alternative:
   a URL, or a query. Treating it as any of those turns an attacker-controlled
   string into a fetch or an injection before anything is authenticated.
 
-Both members are duplicated in a signed **query** payload — `signature.profile`
-and `signature.key_id` — and a verifier confirms both pairs agree after verifying.
-Whether a response payload carries the same copies, and whether anything compares
-them, is [`open-escalations.md`](../docs/open-escalations.md) **E-32**; the rest
-of this paragraph is about a query.
+Both members are duplicated in a signed payload — `signature.profile` and
+`signature.key_id` — and a verifier confirms both pairs agree after verifying.
+This holds in **both directions**: a query at
+[`core-model.md`](core-model.md) §4 step 5's sibling in
+[P-003](../docs/prds/P-003-crypto-suites.md) §4.2, and a response at §4's
+response step **4a**. The attack it catches does not care which way the message
+travels (E-32).
 The duplication is not redundancy: the header's copies are read *before*
 verification and are therefore untrusted, and the payload's copies are the
 authoritative ones. Comparing them catches a producer that signs a payload

@@ -18,18 +18,15 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-32 is open.** E-31's cascade found that a signed *response* payload is
-> specified where a query's now is not: §5.1–§5.3 list one bare `signature` row,
-> and §4's response order has no step comparing a header member against a payload
-> copy — so the check that catches a producer lying in its header exists in one
-> direction only. It blocks the response half of
-> [P-001](prds/P-001-conformance-corpus.md) issue 12 and every `denial/` vector;
-> query-side work proceeds.
+> **Nothing is open.** **E-32** closed as A: a response payload carries
+> `signature.profile` and `signature.key_id` as a query's does, and §4's response
+> order gains step **4a** to compare them against the header — the check existed
+> in one direction only, and the producer it catches is no less able to lie to a
+> requester. Every P-001 corpus-authoring issue is unblocked.
 >
 > **E-31 closed as C**: the model has a signature and the suite says where it
 > travels, so `eddsa-jws-2026`'s query payload carries no `signature.value`.
-> P-001 issues 13 and 14 are unblocked, and so is the query half of 12 — its
-> response half waits on E-32.
+> P-001 issues 13 and 14 were unblocked by it, and the query half of 12.
 >
 > **E-29 and E-30 closed** before it, both from E-28's cascade. **E-29**: `answer_contract.maximum_cardinality` is for `set` only, and
 > measures the domain's size rather than a count of results. **E-30**: a `number`
@@ -117,7 +114,7 @@ question is still fresh than after the answer arrives.
 | **E-29** | Which release shapes carry `answer_contract.maximum_cardinality`? | E-28's cascade | `core-model.md` §2.5 | **Closed** |
 | **E-30** | Should `scope.md` §4.1's profile gain a precision keyword, so a `number` output can be bounded? | E-28's cascade | `scope.md` §4.1 · `terminology.md` §4 | **Closed** |
 | **E-31** | Is `signature.value` a field of the signed core object? | P-001 issue 12 | `core-model.md` §2.7, §5.1–§5.3 · `crypto-suites.md` §3 | **Closed** |
-| **E-32** | What does a signed *response* payload contain? | E-31's cascade | `core-model.md` §5.1–§5.3, §4 response order · `crypto-suites.md` §3 | **Open** |
+| **E-32** | What does a signed *response* payload contain? | E-31's cascade | `core-model.md` §5.1–§5.3, §6, §4 response step 4a (new) · `crypto-suites.md` §3 | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -1990,9 +1987,9 @@ author the first `message/sign/` vector ·
 **Decides** [`core-model.md`](../spec/core-model.md) §2.7 ·
 **Decided: C — the model has a signature, the suite says where it travels.**
 §2.7 keeps the field and says so; `crypto-suites.md` §3 states that
-`eddsa-jws-2026`'s **query** payload has no `signature.value`. P-001 issues 13
-and 14 are unblocked, and the query half of 12; its response half waits on
-**E-32**, which this cascade raised.
+`eddsa-jws-2026`'s **query** payload has no `signature.value`. It unblocked P-001
+issues 13 and 14 and the query half of 12, and raised **E-32**, which settled the
+response half.
 
 ### Context
 
@@ -2152,10 +2149,11 @@ as a thing beside the object rather than inside it.
 **Raised by** E-31's cascade ·
 **Decides** [`core-model.md`](../spec/core-model.md) §5.1–§5.3 and §4's response
 order, and [`crypto-suites.md`](../spec/crypto-suites.md) §3 ·
-**Blocks** the response half of [P-001](prds/P-001-conformance-corpus.md) issue
-12 — `sign_response` and `verify_response` vectors — and every `denial/` vector,
-which asserts a whole signed response. Query-side vectors are unaffected, so
-issues 13 and 14 and the query half of 12 proceed.
+**Decided: A — symmetric.** §5.1–§5.3 carry `signature.profile` and
+`signature.key_id`; §4's response order gains step **4a**, comparing them against
+the protected header. The response half of
+[P-001](prds/P-001-conformance-corpus.md) issue 12 and every `denial/` vector are
+unblocked.
 
 ### Context
 
@@ -2239,7 +2237,7 @@ that wants them.
 checked, and P-001's whole discipline is that an unchecked rule is a rule that
 drifts. It is the worst of both: the bytes cost of A, the guarantee of B.
 
-### Recommendation — A
+### Recommendation — A. **Adopted.**
 
 The asymmetry is not defensible as a design, only as an accident. §3 gives a
 reason for the duplication that does not mention direction, and a requester is
@@ -2259,6 +2257,35 @@ comparison buys nothing. §4's response step 3 says *"resolve the responder key"
 without saying from where, so this is worth pinning down in the same change; it
 may be that the answer makes A's step redundant and B correct for a reason
 neither option currently states.
+
+
+### What the cascade settled and turned up
+
+**The reservation resolved in A's favour.** The brief said to pin down where a
+requester resolves the responder key, because if a response header were not
+attacker-controlled the way a query's is, the comparison would buy nothing.
+`resolve_key(key_id)` is a flat lookup into a set the implementation already
+trusts — [P-014](prds/P-014-identity-pairing.md) §5, and
+[`crypto-suites.md`](../spec/crypto-suites.md) §3 says as much for the query
+side. A response header names a key the same way a query's does, so it is
+attacker-controlled in the same sense and A's step is doing real work.
+
+**Step 4a is lettered, not numbered.** §4's response steps 5 through 9 are cited
+elsewhere, and the query side already set this precedent with 9a and 11a — the
+step numbers are load-bearing across the repository, and renumbering them
+silently is worse than an irregular label.
+
+**`signature_suite` overlaps `signature.profile`, and the spec now says how.**
+§6's receipt already records the suite, on every outcome, so a response payload
+was never entirely without one — which is why B looked more defensible than it
+was. They are not redundant: `signature.profile` is the message's declaration,
+compared against the header at step 4a, and `signature_suite` is the receipt's
+durable record, assessable after the suite is deprecated and travelling with the
+receipt wherever it is retained. §6 now says they must agree and that a response
+whose two disagree is rejected — one of them is false and a verifier cannot tell
+which. Without that sentence, adding `signature.profile` would have put two
+authenticated suite names in one payload with nothing said about the case where
+they differ.
 
 
 ---
@@ -2352,6 +2379,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-29** | **`set` only**, and the field is the **domain's** size rather than a count of results — §1 admits one response, so a result count could carry no information. Other shapes narrow cardinality through their own dimension. The deposited report's `boolean` example, which had suggested a result count, is a draft artefact under either reading: as a domain size it narrows a two-value domain to one, which §3.2's `boolean` row has always prohibited. | `core-model.md` §2.5 · P-006 issue 4 |
 | **E-30** | **`number` is refused in an output schema**; a predicate whose answer is a decimal registers a **scaled integer** and states the scale in `question_notes`. The keyword that would bound a decimal is `multipleOf`, and it is the one two JSON Schema libraries most reliably disagree about — `0.1` has no exact binary representation — which is the failure §4.1's frozen profile exists to exclude. §3.1 makes the same trade carrying capacity as integer millibits. Admitting `number` later accepts schemas refused now, so nothing authored against this breaks. | `scope.md` §4.1 · `terminology.md` §4 · `registry/validate.py` |
 | **E-31** | **The model has a signature; the suite says where it travels.** §2.7 keeps `signature.value` and states that, and `crypto-suites.md` §3 says `eddsa-jws-2026` carries it in the compact form's third segment and therefore not in the payload — a payload carrying it would sign itself. §5.1–§5.3's response `signature` rows point at the same rule. The alternative of striking the field would have put a JWS assumption in the document that disclaims serialization, and the next suite would reopen it. | `core-model.md` §2.7, §5.1, §5.2, §5.3 · `crypto-suites.md` §3 · P-001 issues 12, 13, 14 |
+| **E-32** | **Symmetric.** A response payload carries `signature.profile` and `signature.key_id` exactly as a query's does, and §4's response order gains step **4a** to compare them against the protected header. The check catches a producer signing a payload declaring one suite or key under a header declaring another, and that producer is no less able to lie to a requester than to a responder — the check had existed in one direction only. §6 reconciles the receipt's `signature_suite` with the new `signature.profile`: not redundant, and a response whose two disagree is rejected. | `core-model.md` §5.1, §5.2, §5.3, §6, §4 response step 4a · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-012 §4, §5 · P-001 issue 12 |
 
 ### What did not change, deliberately
 

@@ -692,6 +692,7 @@ whose violation is a vulnerability, not every action a runtime performs.
 | 2 | Read the suite identifier; reject if below the requester's minimum acceptable policy | Symmetric to responder step 3. A requester that accepts any suite the responder chose has no floor. |
 | 3 | Resolve the responder key; **verify the signature over the exact signed bytes** | **Nothing below this line runs for an unauthenticated response.** |
 | 4 | Parse the verified response object | After verification, so parser behaviour is outside the security boundary. |
+| 4a | Confirm the protected header's `suite` and `key_id` equal the payload's `signature.profile` and `signature.key_id` | Symmetric to the query side ([`crypto-suites.md`](crypto-suites.md) §3). The header is read before verification and is untrusted; the payload's copies are authoritative. Lettered so the steps below do not renumber. |
 | 5 | Check the response binds the query that was sent | Q2D-C-05. A valid signature over *some* exchange is not evidence about *this* one. |
 | 6 | Read `status`, and branch on it as a closed set | An `escalate` or a `deny` is never coerced into an answer. See §5.3. |
 | 7 | Verify the receipt | Q2D-C-10. Every outcome carries one (§6); a signed response with no receipt is rejected, not accepted with a check skipped. |
@@ -732,7 +733,9 @@ applied.
 | `assurance.executor` | Identity of the computation executor. |
 | `evidence` | Reference or compact object, where the profile carries one. |
 | `receipt` | §6. |
-| `signature` | Covers all of the above. Carried where the suite says, as in §2.7. |
+| `signature.profile` | The suite identifier, as §2.7. |
+| `signature.key_id` | The responder key, as §2.7. |
+| `signature.value` | Covers all of the above. Carried where the suite says, as in §2.7. |
 
 **Exactly these fields, and no others**, with one conditional: `evidence` is
 present where the assurance profile in force carries one and absent where it
@@ -749,7 +752,9 @@ anything else, is a specification change.
 | `status` | `deny` |
 | `external_reason` | The **normalized class**, not the true cause. |
 | `receipt` | The **reduced shape** — §6 is the authoritative field list. |
-| `signature` | Covers all of the above. Carried where the suite says, as in §2.7. |
+| `signature.profile` | The suite identifier, as §2.7. |
+| `signature.key_id` | The responder key, as §2.7. |
+| `signature.value` | Covers all of the above. Carried where the suite says, as in §2.7. |
 
 **Exactly four fields, and no others.** Adding one — even an optional one — is a
 specification change, for the reason §6 gives about the receipt this response
@@ -783,7 +788,9 @@ and the choice is itself a policy decision.
 | `pending_token` | Opaque. Carries no information about the decision pending. |
 | `expires_at` | A timestamp — §2.2. |
 | `receipt` | The **reduced shape** — §6, with `decision_class: escalate`. |
-| `signature` | Covers all of the above. Carried where the suite says, as in §2.7. |
+| `signature.profile` | The suite identifier, as §2.7. |
+| `signature.key_id` | The responder key, as §2.7. |
+| `signature.value` | Covers all of the above. Carried where the suite says, as in §2.7. |
 
 It carries **no `external_reason`**: that field names a normalized class, and an
 explicit escalation is **not** denial-normalized and must never be described as
@@ -867,6 +874,14 @@ field list**; where any other document disagrees, this one governs.
 | `disclosure_capacity_debit_millibits` | integer |
 | `decided_at` | A timestamp — §2.2 |
 | `responder` | the computation executor's identity |
+
+**`signature_suite` and `signature.profile` name the same suite and must agree.**
+They are not redundant: `signature.profile` is the message's declaration,
+compared against the protected header at §4's response step 4a, and
+`signature_suite` is the receipt's durable record, which stays assessable after
+that suite is deprecated and travels with the receipt wherever it is retained. A
+response whose two disagree is rejected — one of them is false, and a verifier
+cannot tell which.
 
 **Reduced**, on a `deny` and on an explicit `escalate` — exactly five fields, and
 no others:
