@@ -429,9 +429,11 @@ This is not the general claim that every other shape composes cleanly. Two
 `object` field sets, two `scalar` ranges, and two `interval` granularities can
 each be incomparable, and §3 does not say what those compose to
 ([`open-escalations.md`](../docs/open-escalations.md) E-26). The difference is
-that each of those leaves a responder a **usable** candidate — a field set inside
-both, a range inside both, a granularity coarser than both — where two disagreeing
-`enum` mappings leave only the collapse to one label.
+that each of those leaves a responder something **inside both operands** to
+compute — a field set, a range, a granularity coarser than both — even where that
+turns out to be empty, which §3 already fails closed on. Two disagreeing `enum`
+mappings leave only the collapse to one label, which is not empty and is not
+what either party asked for.
 
 **Permitting it later forecloses nothing.** It would accept requests this rule
 rejects, so nothing built against this rule breaks. Nor does a modifier reach a
