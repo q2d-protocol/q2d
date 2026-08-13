@@ -291,17 +291,24 @@ four-hour bands are three granularities of one domain; composing them yields the
 coarsest, not the empty set a literal intersection of their values would give.
 
 Composition is defined per release shape, because what "coarser" means differs
-between a scalar, an interval, a set, and an object. The rules are in §3.2. Two
+between a scalar, an interval, a set, and an object. §3.2 gives what a single
+narrowing may do; §3.3 gives what two narrowings of one dimension compose to. Two
 properties hold across every shape:
 
 - **Composition never widens.** Each operand narrows the one before it, so the
   result is no broader than `registry_entry.canonical_domain` (Q2D-C-02).
-- **Every possible result retains an image throughout.** This is what §2.5's
-  prohibition on subsetting buys, and it is why composition cannot produce an
-  empty domain by narrowing alone.
+- **Every possible result retains an image through each narrowing.** This is what
+  §2.5's prohibition on subsetting buys: no single narrowing discards a result
+  that had one.
 
-A domain that is nevertheless empty — an unsatisfiable contract, or a modifier
-that cannot apply to the requested shape — **fails closed**. The capacity debit
+It does **not** follow that composition cannot reach an empty domain. Two
+narrowings that each retain an image can still have nothing in common with each
+other — a range of `[0, 10]` against `[15, 20]`, a field set of `{name}` against
+`{phone}` — and §3.3 composes those to nothing.
+
+An empty domain, however reached — an unsatisfiable contract, a modifier that
+cannot apply to the requested shape, or two narrowings with no common ground —
+**fails closed**. The capacity debit
 (Q2D-C-09) is computed from the composed value, not from anything the requester
 asserted.
 
@@ -466,6 +473,65 @@ a requester error: the entry has not published what a coarsened answer would
 cost. Every `enum` entry in the reference manifest is in that state today, so
 coarsening becomes available one predicate at a time, as each entry gains a
 table.
+
+### 3.3 Composing two narrowings of one dimension
+
+§3.2 says what one narrowing may do. Composition applies whenever more than one
+reaches the same dimension: the requester's contract and a policy modifier, or
+two modifiers from authorities that both permitted the request
+([`../docs/prds/P-007-policy-engine.md`](../docs/prds/P-007-policy-engine.md) §4.4).
+
+The composed narrowing is the **greatest lower bound** in that dimension's
+narrowing order — the most permissive value that satisfies every operand:
+
+| Dimension | Composed value |
+|---|---|
+| `scalar` precision | the lower precision |
+| `scalar` range | the **intersection** |
+| `interval` granularity | the coarser duration |
+| `interval` horizon | the shorter |
+| `set` `maximum_cardinality` | the smaller |
+| `object` `allowed_detail_fields` | the **intersection**, each surviving field then composed by its own shape's rule, recursively |
+| `enum` coarsening mapping | cannot arise — see below |
+| `boolean`, `attribute` | no narrowing is permitted, so there is nothing to compose |
+
+Four of these are a single number or duration, and any two of them are ranked by
+comparing it: *take the coarsest* is total there. **A range and a field set are
+ordered by containment instead**, so two narrowings need not be comparable —
+`[0, 10]` against `[5, 15]`, `{name, email}` against `{email, phone}` — and
+neither is *the coarser*. Their greatest lower bound is the intersection: the
+widest range, and the largest field set, inside all of the operands.
+
+Intersection is the right answer there for a reason worth stating, because it
+decides the disjoint case below. Every field in `{email}` is one that each
+authority was willing to release, and every value in `[5, 10]` is one each
+authority was willing to disclose. The composition returns nothing any operand
+withheld, and it returns everything all of them allowed — which is what
+*most-restrictive* means when the restrictions are not ranked.
+
+**Intersecting a narrowing is not intersecting a domain.** §3's warning above is
+about the *values*: the value sets of a two-hour-band domain and a four-hour-band
+domain share almost nothing, and intersecting those would deny a request that
+composes perfectly well to four-hour bands. What §3.3 intersects is the
+narrowing's own parameter — a set of field names, a pair of endpoints — where
+containment is exactly the narrowing order and the intersection is exactly the
+greatest lower bound.
+
+**An empty greatest lower bound fails closed.** Disjoint ranges or field sets
+compose to a domain with no values in it, and §3 rejects an empty effective
+domain however it was reached. A deployment can therefore make a class of
+requests unsatisfiable by adding an authority, and the requester sees a
+normalized denial (§6) that does not say so — which is the intended behaviour and
+not a diagnostic to be improved: a denial that explained *which* authority
+narrowed what would report policy structure to a requester.
+
+**`enum` cannot arise.** A policy modifier may not coarsen an `enum` (§3.2), and
+a requester declares at most one mapping in its contract, so no `enum` dimension
+ever carries two narrowings. That exclusion is what keeps this section total: an
+`enum` is the one dimension whose narrowings have no greatest lower bound inside
+the operands, because the finest coarsening two incomparable mappings share is
+strictly coarser than each, and its label set is therefore one neither party
+declared.
 
 ## 4. Processing order
 

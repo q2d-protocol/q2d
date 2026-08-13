@@ -3,7 +3,7 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready. **Two escalations are open** — E-26 and E-27. Three closed recently and
+All sixteen are ready. **One escalation is open** — E-27. Four closed recently and
 each changed what an implementer reads: **E-17** puts an `enum` coarsening
 mapping in the requester's answer contract, superseding §3.2's old equality rule;
 **E-16** moved the registry's JSON Schema profile into
@@ -12,14 +12,15 @@ mapping in the requester's answer contract, superseding §3.2's old equality rul
 coarsen an `enum` — a rule in
 [`core-model.md`](../../spec/core-model.md) §3.2 now, rather than the
 conservative position it was while the question was open. Writing E-25's reason
-down raised two questions that are open. **E-26**: §3 composes narrowings by
-taking *the coarsest*, and `object` field sets, `scalar` ranges and `interval`
-granularities need not be comparable — it blocks P-007 issue 4. **E-27**: §3.2's
-four conditions admit a coarsening onto a single label,
+down raised two more. **E-26** is closed and gave `core-model.md` a new **§3.3**:
+two narrowings of one dimension compose to their greatest lower bound — the
+coarser value for a number or duration, the intersection for a range or a field
+set — and to nothing, failing closed, when they are disjoint. **E-27** is open:
+§3.2's four conditions admit a coarsening onto a single label,
 [`registry/validate.py`](../../registry/validate.py) rejects one, and §3.2's own
 `boolean` rationale agrees with the validator — a standing disagreement between
-documents, blocking P-006 issue 4's `enum` half. Neither blocks decomposition.
-See
+documents, blocking P-006 issue 4's `enum` half. It does not block
+decomposition. See
 [`../open-escalations.md`](../open-escalations.md), which is where every
 escalation is recorded and where a new one goes.
 
@@ -31,7 +32,7 @@ escalation is recorded and where a new one goes.
 | [P-004](P-004-replay-idempotency.md) | Replay, expiry, idempotency | 1 | **Ready for decomposition** |
 | [P-005](P-005-registry-client.md) | Registry client: pinning, resolution, fail-closed | 2 | **Ready for decomposition** |
 | [P-006](P-006-request-validation.md) | Request validation and effective answer domain | 2 | **Ready for decomposition** — issue 4's `enum` half blocked on E-27 |
-| [P-007](P-007-policy-engine.md) | Policy engine contract and fail-closed invariants | 3 | **Ready for decomposition** — issue 4 blocked on E-26 |
+| [P-007](P-007-policy-engine.md) | Policy engine contract and fail-closed invariants | 3 | **Ready for decomposition** |
 | [P-008](P-008-capacity-accounting.md) | Disclosure-capacity accounting | 3 | **Ready for decomposition** |
 | [P-009](P-009-denial-normalization.md) | Denial normalization | 3 | **Ready for decomposition** |
 | [P-010](P-010-responder-pipeline.md) | Responder pipeline, predicate execution, output validation | 4 | **Ready for decomposition** |

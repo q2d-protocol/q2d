@@ -167,23 +167,27 @@ prevents. Any `escalate` from an authority that has not denied produces
 `escalate`.
 
 Modifiers from all permitting authorities are **unioned**, not merged — every
-narrowing applies. Two authorities coarsening the same dimension differently both
-take effect, and the result is the coarser of the two.
+narrowing applies. Two authorities narrowing the same dimension both take effect,
+and the composed value is the **greatest lower bound**
+([`core-model.md`](../../spec/core-model.md) §3.3, normative; E-26).
 
-*The coarser of the two* presumes the two are comparable.
-[`core-model.md`](../../spec/core-model.md) §3.2 excludes `enum` from modifier
-coarsening (E-25) precisely because two `enum` mappings need not be, and their
-common coarsening is strictly coarser than each — a label set neither party
-declared, which §3.2's second condition rejects. So this module never has to
-compose two mappings that do not factor. **The shapes it does compose are not all settled**:
-`object` field sets, `scalar` ranges, and `interval` granularities can each be
-incomparable, and §3 does not say which candidate wins. Open question below;
-issue 4 is blocked on it.
+Which is *the coarser of the two* only where the dimension is a single number or
+duration. A `scalar` range and an `object` field set are ordered by containment
+instead, so two of them need not be comparable — `[0,10]` against `[5,15]`,
+`{name,email}` against `{email,phone}` — and neither is the coarser. §3.3
+composes those to the intersection, and to nothing where they are disjoint, which
+fails closed. This module implements §3.3 and decides none of it.
+
+`enum` never reaches here: §3.2 excludes it from modifier coarsening (E-25),
+because two `enum` mappings that are not comparable have no greatest lower bound
+inside either party's declared label set.
 
 That is the same rule [`core-model.md`](../../spec/core-model.md) §3 states for
-the effective domain as a whole: composition of narrowings, taking the coarsest,
-rather than a set intersection. Two-hour bands composed with four-hour bands
-yield four-hour bands; as sets of values they would intersect to nothing.
+the effective domain as a whole: composition of narrowings rather than an
+intersection of their *values*. Two-hour bands composed with four-hour bands
+yield four-hour bands; as sets of values they would intersect to nothing. Where
+§3.3 does intersect, it intersects the narrowing's own parameter — a field set, a
+pair of endpoints — for which containment *is* the narrowing order.
 
 An authority that cannot be reached, times out, or returns something
 unparseable counts as a **mandatory deny**, not as absent.
@@ -252,7 +256,7 @@ discover the problem on a live request.
 | Group | Vectors |
 |---|---|
 | `policy/outcome/` | Each of the three outcomes from an explicit rule |
-| `policy/compose/` | Every pair and triple over `{allow, deny, escalate}`; modifier union |
+| `policy/compose/` | Every pair and triple over `{allow, deny, escalate}`; modifier union; two authorities narrowing one dimension — comparable (coarser wins), incomparable (greatest lower bound), and disjoint (fails closed), per [`core-model.md`](../../spec/core-model.md) §3.3 |
 | `policy/failclosed/` | F1–F6, each as a property over generated inputs |
 | `policy/modifiers/` | Valid coarsening; an attempted subset is an implementation error; **an attempted `enum` coarsening likewise**, per [`core-model.md`](../../spec/core-model.md) §3.2 — settled by E-25, so a vector asserting it is asserting a rule rather than a temporary position |
 | `policy/determinism/` | Same input twice; permuted authority order; permuted rule-set map order |
@@ -313,7 +317,7 @@ the value it would need.
 | ~~How are modifiers from two authorities coarsening the same dimension combined — coarser wins, or intersect?~~ | **Answered: coarser wins.** [`core-model.md`](../../spec/core-model.md) §3 now states the whole effective-domain computation as narrowing composition rather than intersection, and §4.4 here is that rule applied to two modifiers |
 | ~~**`PolicyInput` needs a grant field.**~~ | **Resolved and applied.** Grants are single-use ([`core-model.md`](../../spec/core-model.md) §5.3), so the field reports an *unconsumed* match and consumption happens at release rather than at step 14. §4.2 amended |
 | ~~Should a modifier be able to coarsen an `enum`, by carrying a mapping of its own?~~ | **Resolved: no** ([`open-escalations.md`](../open-escalations.md) E-25). The cost is not the field but the composition rule it would require. Two `enum` mappings need not be comparable, and their common coarsening is strictly coarser than each, so its label set is one neither party declared and §3.2's second condition rejects it. Other shapes leave something inside both operands; which candidate wins is E-26, below. No field is added to `Decision`; issue 8 rejects the attempt |
-| **What do two modifiers emitting incomparable narrowings of one dimension compose to?** `{name,email}` and `{email,phone}`; `[0,10]` and `[5,15]`; two-hour and three-hour granularity. None is *the coarser*, and §3 does not say. | **Open — E-26** ([`open-escalations.md`](../open-escalations.md)). Raised by E-25's cascade. Blocks issue 4: `compose` cannot be written without it, and choosing here would put the answer in a PRD instead of §3 |
+| ~~What do two modifiers emitting incomparable narrowings of one dimension compose to?~~ | **Resolved: the greatest lower bound** ([`open-escalations.md`](../open-escalations.md) E-26). [`core-model.md`](../../spec/core-model.md) **§3.3** is new and carries it per dimension; disjoint operands compose to nothing and fail closed. Two of the three shapes named when this was raised were genuinely incomparable — `object` field sets and `scalar` ranges. `interval` granularity was not: it is a duration, and durations are ranked |
 
 ## 11. Issues
 
@@ -322,7 +326,7 @@ the value it would need.
 | 1 | `PolicyInput` and `Decision` types, both languages | No private-derived field; `audit` and `external` separate |
 | 2 | `decide` over a fixture rule set | `policy/outcome/` passes |
 | 3 | F1–F6 as property tests | `policy/failclosed/` passes; generators cover each class |
-| 4 | `compose` with most-restrictive ordering and modifier union | **Blocked on E-26** — incomparable narrowings of one dimension have no stated composition. `policy/compose/` passes; coarser-wins per [`core-model.md`](../../spec/core-model.md) §3 |
+| 4 | `compose` with most-restrictive ordering and modifier union | `policy/compose/` passes; greatest lower bound per [`core-model.md`](../../spec/core-model.md) §3.3 — coarser-wins for a number or duration, intersection for a range or field set, fail-closed when disjoint |
 | 4a | `grant` field on `PolicyInput`, read-only | `policy/grant/` passes; no code path in this module consumes a grant |
 | 5 | `validate_rules` at load | `policy/rules/` passes; invariant override refuses to start |
 | 6 | Determinism: explicit rule ordering, no clock, no map iteration | `policy/determinism/` passes; dependency check clean |

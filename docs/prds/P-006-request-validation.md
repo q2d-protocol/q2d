@@ -78,11 +78,15 @@ applied before the contract is checked.
 not appear in a receipt, and must not leak into protocol documentation — only
 **effective domain** is a Q2D term.
 
-**`narrow` is not set intersection.** Two coarsenings of different granularity —
-two-hour bands against four-hour bands — compose to the coarser, where an
-intersection of their literal values would be empty. The per-shape rules are
-normative in [`core-model.md`](../../spec/core-model.md) §3.2; §4.5 below is how
-this module implements them and adds nothing. An implementation that reads §3's
+**`narrow` does not intersect domains.** Two coarsenings of different
+granularity — two-hour bands against four-hour bands — compose to the coarser,
+where an intersection of their literal values would be empty. It does intersect a
+*narrowing's parameter* where that parameter is ordered by containment: two
+ranges, or two `allowed_detail_fields` sets, compose to the largest inside both
+([`core-model.md`](../../spec/core-model.md) §3.3, which distinguishes the two).
+The per-shape rules are normative in
+[`core-model.md`](../../spec/core-model.md) §3.2 and §3.3; §4.5 below is how this
+module implements them and adds nothing. An implementation that reads §3's
 expression as a set operation denies requests it should serve and, where it does
 not deny, charges the wrong debit.
 
@@ -255,7 +259,7 @@ validated value is the only one it gets.
 | `domain/schema/` | Valid context; each profile keyword; a schema using a forbidden keyword rejects |
 | `domain/constraints/` | Slot below floor; horizon beyond limit; both boundaries exact |
 | `domain/narrowing/` | Per shape in §4.5: valid coarsening, attempted expansion, and attempted strict subset — the last two both reject. For `enum`, one vector per §3.2 condition: a mapping that is not total, whose image omits a requested label, whose image carries a label outside the requested domain, that is not non-expanding, and that is not a function |
-| `domain/compose/` | Admissible from `narrow(registry, requested)`; effective from `narrow(admissible, modifiers)`; two coarsenings of different granularity compose to the coarser rather than to nothing; an unsatisfiable domain at either phase fails closed |
+| `domain/compose/` | Admissible from `narrow(registry, requested)`; effective from `narrow(admissible, modifiers)`; two coarsenings of different granularity compose to the coarser rather than to nothing; two **incomparable** narrowings — ranges `[0,10]` and `[5,15]`, field sets `{name,email}` and `{email,phone}` — compose to the greatest lower bound per [`core-model.md`](../../spec/core-model.md) §3.3; two **disjoint** ones compose to nothing and fail closed; an unsatisfiable domain at either phase fails closed |
 | `domain/profile/` | Supported profile passes; unsupported rejects without downgrade |
 
 ## 7. Acceptance
@@ -287,7 +291,8 @@ validated value is the only one it gets.
 | Two implementations disagreeing on a schema edge case | `domain/schema/` cross-implementation comparison fails |
 | A constraint outside the closed vocabulary silently ignored | Unknown constraint key in an entry is a registry error, not a no-op |
 | An unsupported profile silently downgraded | Response carries a profile the request did not ask for |
-| **Composition implemented as set intersection** | `domain/compose/` denies a request whose requested and modifier granularities differ — the reading [`core-model.md`](../../spec/core-model.md) §3 was amended to rule out |
+| **Composition implemented as intersection of domain values** | `domain/compose/` denies a request whose requested and modifier granularities differ — the reading [`core-model.md`](../../spec/core-model.md) §3 was amended to rule out |
+| **Composition implemented as "first modifier wins", or as a ranking of incomparable operands** | `domain/compose/` returns a range or field set that one operand permitted and another did not, where §3.3 requires the greatest lower bound of both |
 
 Row 3 is the one the three-domain vocabulary in §4.1 exists to prevent, and it is
 worth a dedicated ordering vector: a modifier must never be able to rescue a
@@ -332,7 +337,7 @@ and the other does not.
 | 3 | Constraint evaluation, closed vocabulary | `domain/constraints/` passes; unknown key errors |
 | 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape **except `enum`**, which is **blocked on E-27**: a declared mapping that is total, whose image equals the requested domain, non-expanding and a function is admitted — but whether that list is complete is the open question, and a mapping onto a single label satisfies all four while `registry/validate.py` rejects its debit. No `enum` acceptance criterion is stated here until E-27 answers, because stating one is answering it. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
 | 5 | `object` recursion in narrowing | Nested invalid narrowing rejects |
-| 6 | `apply_modifiers` and the two-phase narrowing composition | `domain/compose/` passes; ordering vector passes; two coarsenings compose to the coarser |
+| 6 | `apply_modifiers` and the two-phase narrowing composition | `domain/compose/` passes; ordering vector passes; comparable coarsenings compose to the coarser, incomparable ones to the greatest lower bound, disjoint ones fail closed — [`core-model.md`](../../spec/core-model.md) §3.3 |
 | 7 | `supports_profile` | `domain/profile/` passes; no downgrade path exists |
 | 8 | Assert every registry entry validates under the profile | CI check over `registry/manifest.json` |
 | 9 | Author `domain/` corpus section | Five groups; `harness lint` clean |
