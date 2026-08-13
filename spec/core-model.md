@@ -811,12 +811,14 @@ which identities a custodian holds, which is why the three collapse.
 
 **One class — everything from the replay check onward.** From the replay-cache
 check at step **9**, the rate-limit check at **9a**, and registry resolution at
-step 10 onward, the value is the one the resolved entry's registry declares —
-`unavailable` in the reference manifest.
+step 10 onward, the value is the one the responder's **pinned registry** declares
+— `denial_normalization` in the reference manifest, whose value is `unavailable`.
 
-Steps 9 and 9a precede resolution, so no entry is in hand and the deployment's
-default is used. It must be the value an unknown predicate produces at step 10,
-or the earlier check reveals that resolution was never reached.
+It is the registry's and not a resolved entry's, which is what makes it available
+in the cases that need it most: steps 9 and 9a precede resolution, and an unknown
+predicate at step 10 never resolves one. All three therefore produce the same
+value as a policy refusal at step 14 — and they must, or reaching any of them
+would reveal how far a request got.
 
 A replay rejection belongs here rather than among the distinct values above, and
 the reason is the cache behind it. A store that cannot accept an entry also
