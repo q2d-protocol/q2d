@@ -60,8 +60,10 @@ bytes. **No canonicalization is involved**, and none is required.
 **A query payload is the §2 core object without `signature.value`**, which under
 this suite is not a member of it: the value is the third segment, and an object
 containing the signature over itself is not constructible. Every other field
-[`core-model.md`](core-model.md) §2 lists is present, `signature.profile` and
-`signature.key_id` included. §2.7 states the general rule — the model has a
+[`core-model.md`](core-model.md) §2 lists appears exactly as its **Required**
+column says — the required ones always, the optional ones when the requester
+sends them — and that includes `signature.profile` and `signature.key_id`, which
+are required. §2.7 states the general rule — the model has a
 signature and the suite says where it travels — and this is that rule applied.
 
 **A response payload is not yet settled the same way.** §5.1–§5.3 list a single

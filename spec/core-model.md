@@ -256,7 +256,7 @@ permitted. Neither predicts human behaviour (Q2D-NC-02).
 | `freshness.maximum_source_age` | no | Maximum acceptable age of source data or credential evidence. |
 | `signature.profile` | yes | The **signature suite** identifier — algorithm, serialization, and hash as one unit. See [`crypto-suites.md`](crypto-suites.md). |
 | `signature.key_id` | yes | Resolvable under the identity profile. |
-| `signature.value` | yes | Covers every field above. **The suite says where it travels** — see below. |
+| `signature.value` | yes, **carried per suite** | Covers every field above. Required of the *message*; the suite says whether that is inside the signed object or beside it — see below. A validator checking a parsed payload for required fields does not look for this one. |
 
 **`signature.value` is part of the model; the suite decides where it is
 carried.** This document fixes what is signed and by whom, and
@@ -268,7 +268,8 @@ is under-specified.
 For **`eddsa-jws-2026`**, the only suite registered today, it is the compact
 form's third segment and is therefore **not a member of the core object as that
 suite serializes it** — an object containing the signature over itself is not
-constructible. Every other field in §2 is present.
+constructible. The message still carries the signature, so the requirement is
+met; what changes is where a verifier finds it. Nothing else in §2 is affected.
 [`crypto-suites.md`](crypto-suites.md) §3 says so outright rather than leaving
 it to be inferred from the two members it does list as duplicated.
 
