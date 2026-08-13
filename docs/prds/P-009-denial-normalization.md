@@ -212,8 +212,11 @@ escalation_visible(sensitivity: SensitivityClass, policy) -> bool
 ```
 
 `ExternalClass` is [`core-model.md`](../../spec/core-model.md) §5.2.1's closed
-vocabulary — five Tier A values, `unauthenticated` for Tier B, and whatever the
-resolved entry's registry declares for Tier C. It is not this module's to extend:
+vocabulary — five Tier A values, `unauthenticated` for Tier B, and for Tier C
+whatever the responder's **pinned registry** declares, which is a manifest-level
+value rather than an entry's. That matters here because `external_class` is
+called for rejections that never resolve an entry: a replay at step 9, a rate
+limit at 9a, an unknown predicate at 10. It is not this module's to extend:
 adding a value is a `spec/` change, because a requester acts on it and one
 deployment inventing a name makes that value meaningless everywhere else.
 
