@@ -30,7 +30,8 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > registers a scaled integer — so `terminology.md` §4's `scalar` shape is an
 > integer.
 >
-> All sixteen PRDs are Ready for decomposition, and no issue is held.
+> All sixteen PRDs remain Ready for decomposition; the three issues E-31 holds
+> are corpus-authoring work inside P-001, not decomposition.
 >
 > **E-28 closed as A.** It grew twice on being checked — raised as a one-line
 > omission in §3.2's `object` row, found to be a maximum serialized size no field
