@@ -43,8 +43,9 @@ Q2D-C-03 and Q2D-C-09 both consume its output.
 
 ## 3. Module boundary
 
-**Inside:** public-context schema validation; the JSON Schema profile the
-registry may use; per-predicate constraint checks; contract narrowing validation;
+**Inside:** public-context schema validation; enforcing
+[`scope.md`](../../spec/scope.md) §4.1's JSON Schema profile — the rule is
+`spec/`'s, the enforcement is this module's; per-predicate constraint checks; contract narrowing validation;
 **implementing** the per-shape narrowing composition
 [`core-model.md`](../../spec/core-model.md) §3.2 defines; assurance-profile
 support check.
@@ -92,34 +93,26 @@ A domain that is genuinely unsatisfiable at either phase fails closed.
 Two JSON Schema libraries can disagree on edge cases, and a disagreement here is
 a cross-implementation divergence in what counts as a valid request.
 
-The registry may therefore use only this profile, and the validator rejects a
-schema using anything outside it:
+**The profile is [`scope.md`](../../spec/scope.md) §4.1's**, and this module
+enforces it: a registry schema using anything outside that subset is rejected.
+The list is there rather than here, and this section cites it rather than
+restating it.
 
-`type` · `required` · `properties` · `additionalProperties: false` · `enum` ·
-`minItems` / `maxItems` · `minLength` / `maxLength` · `minimum` / `maximum` ·
-`format: date-time`
+It was here, and E-16 moved it. The reason is worth keeping: a rejection rule
+about *registry content* stated only in a PRD means a third implementation built
+from `spec/` alone accepts manifests this PRD specifies ours to reject —
+neither wrong by the document it was built from, which is the divergence the
+context hierarchy exists to prevent, with the rule one level too low.
 
-No `$ref`, no `oneOf` / `anyOf` / `allOf` / `not`, no `patternProperties`, no
-regular expressions, no remote schema resolution. Every current entry in
-[`registry/manifest.json`](../../registry/manifest.json) already fits.
-
-Restricting the schema language is cheaper than reconciling two implementations
-of all of it, and a predicate needing more expressiveness is a signal the
-predicate is too complicated to review.
-
-**This profile is currently defined here and nowhere in `spec/`, which is a
-problem this PRD cannot fix.** It is a rejection rule about *registry content*, so
-a third implementation built from `spec/` alone would accept manifests both
-reference implementations reject — the divergence the context hierarchy exists to
-prevent, with the rule one level too low. [`open-escalations.md`](../open-escalations.md)
-**E-16** carries it.
-
-It does not block issue 2. The keyword list is settled and every entry in
-[`registry/manifest.json`](../../registry/manifest.json) already satisfies it;
-E-16 decides **where the rule lives**, not what it says, so resolving it moves
-this section's content into `spec/` and leaves §4.2 citing it. What must not
-happen meanwhile is any artifact describing the profile as a Q2D requirement —
-until E-16 resolves it is a property of these two implementations.
+Moving it surfaced **two keywords the list had missed**, both used by every
+relevant entry in [`registry/manifest.json`](../../registry/manifest.json):
+`$schema`, and `items` for array element schemas. The claim here that every
+entry already fitted the profile was therefore not true of the list as written.
+§4.1 carries both — `$schema` required, because two implementations validating
+against different dialects is the same divergence one level up — and
+`registry/validate.py` now enforces the profile over the manifest rather than
+leaving it to the implementations — across all three of an entry's schemas, and
+`additionalProperties: false` on every object rather than only the root.
 
 ### 4.3 Constraints are separate from schemas
 
@@ -271,7 +264,9 @@ validated value is the only one it gets.
       every `domain/narrowing/` and `domain/compose/` vector.
 - [ ] Composing two coarsenings of different granularity yields the coarser, and
       **not** an empty domain — the failure a set-intersection reading produces.
-- [ ] A schema using a keyword outside the §4.2 profile is rejected **as a
+- [ ] A schema outside [`scope.md`](../../spec/scope.md) §4.1's profile — a
+      keyword it does not list, a nested `$schema`, a boolean subschema, or an
+      object without `additionalProperties: false` — is rejected **as a
       registry error**, distinctly from a request that fails validation against a
       valid schema.
 - [ ] Every current entry in `registry/manifest.json` validates under the profile.
@@ -304,8 +299,10 @@ and the other does not.
 
 ## 9. Escalate-if-changed decisions
 
-1. **The registry may use only the §4.2 JSON Schema profile.** Widening it
-   reintroduces cross-implementation disagreement about validity.
+1. **The registry may use only [`scope.md`](../../spec/scope.md) §4.1's JSON
+   Schema profile.** Widening it reintroduces cross-implementation disagreement
+   about validity — and widening it is now a `spec/` change, not this module's
+   to make, which is what E-16 moved and why.
 2. **The constraint vocabulary is closed**, and an unknown key is an error rather
    than a no-op.
 3. **`check_narrowing` returns the admissible domain.** A boolean would let a
@@ -321,7 +318,7 @@ and the other does not.
 |---|---|
 | ~~§4.4 — subset narrowing is a free oracle~~ | **Resolved as (A).** Spec amended; see §4.4 |
 | ~~Does an unsatisfiable domain reject before or after policy?~~ | **Resolved: before**, at step 12. An inadmissible request must not consult policy authorities: doing so would send the purpose, recipient, and sink set of a request that was never admissible to every configured authority, some of which are people. It also keeps the two phases in §4.1 honest — the admissible domain is computed and checked before policy runs, so a modifier can never rescue a contract the registry already rejected |
-| Should the schema profile be stated in `spec/` rather than only here? Proposed: yes — it constrains what a registry may contain, which is protocol surface | **Escalation** — [`open-escalations.md`](../open-escalations.md) **E-16**. A `spec/` addition that carries meaning: it would make a manifest using an unlisted keyword non-conforming. **Does not block** — see §4.2 for what may be built meanwhile |
+| ~~Should the schema profile be stated in `spec/` rather than only here?~~ | **Resolved: yes** — [`scope.md`](../../spec/scope.md) §4.1 ([`open-escalations.md`](../open-escalations.md) E-16). §4.2 cites it and this module enforces it; widening the list is now a `spec/` change rather than this module's to make. Moving it found `$schema` missing from the list while present in every entry |
 | ~~Does a coarsening mapping need to be declared by the requester, or inferred?~~ | **Resolved: declared** ([`open-escalations.md`](../open-escalations.md) E-17). `answer_contract.coarsening` carries it, and this module validates it against [`core-model.md`](../../spec/core-model.md) §3.2's four conditions — total, image exactly equal to the requested domain, non-expanding, a function. All are set comparisons and counts; §4.5 records that no judgement about a label's *meaning* is made here |
 
 ## 11. Issues
@@ -329,7 +326,7 @@ and the other does not.
 | # | Issue | Done when |
 |---|---|---|
 | 1 | ~~Escalate §4.4~~ — **done** | Resolved as (A); `core-model.md` §2.5, `terminology.md` §6, `claims.md` Q2D-C-09 amended |
-| 2 | JSON Schema profile validator | Forbidden keywords rejected as registry errors; `domain/schema/` passes |
+| 2 | JSON Schema profile validator, per [`scope.md`](../../spec/scope.md) §4.1 | Forbidden keywords rejected as registry errors; a missing `$schema` likewise; `domain/schema/` passes |
 | 3 | Constraint evaluation, closed vocabulary | `domain/constraints/` passes; unknown key errors |
 | 4 | `check_narrowing` per shape, implementing [`core-model.md`](../../spec/core-model.md) §3.2 | `domain/narrowing/` passes for every shape, `enum` included: a declared mapping that is total, whose image equals the requested domain, non-expanding and a function is admitted, and one failing any of the four is rejected. The interim rule this row used to carry — reject any `enum` domain not equal to the registered one — is superseded by E-17 |
 | 5 | `object` recursion in narrowing | Nested invalid narrowing rejects |
