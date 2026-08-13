@@ -172,9 +172,10 @@ take effect, and the result is the coarser of the two.
 
 *The coarser of the two* presumes the two are comparable.
 [`core-model.md`](../../spec/core-model.md) §3.2 excludes `enum` from modifier
-coarsening (E-25) precisely because two `enum` mappings need not be, and no
-third mapping agrees with both — so this module never has to compose two mappings
-that do not factor. **The shapes it does compose are not all settled**:
+coarsening (E-25) precisely because two `enum` mappings need not be, and the
+only mapping both refine collapses every registered value onto one label — a
+constant neither party asked for, and one whose own admissibility is open
+(E-27). So this module never has to compose two mappings that do not factor. **The shapes it does compose are not all settled**:
 `object` field sets, `scalar` ranges, and `interval` granularities can each be
 incomparable, and §3 does not say which candidate wins. Open question below;
 issue 4 is blocked on it.
