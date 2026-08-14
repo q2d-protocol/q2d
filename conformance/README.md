@@ -66,7 +66,7 @@ Built: the vector schema and `lint` (issue 1), the projection
 the determinism check (issue 5), `coverage` (issue 6), the two cross-vector
 assertions (issues 7 and 8), comparison (issue 16), `cross` (issue 9), the
 dependency assertion (issue 15), the test key material (issue 10), the
-`registry/` section (issue 11), `message/` (issue 12), `suite/` (issue 13), and `ordering/`'s twelve authorable steps (issue 14).
+`registry/` section (issue 11), `message/` (issue 12), `suite/` (issue 13), and `ordering/`'s first six steps (issue 14).
 
 **`message/` has both halves.** Three vectors that sign, verify and project, and
 three rejections — a signature from the wrong key, a routing projection that
@@ -106,10 +106,19 @@ partly artefacts of which operation each vector used. Each request is wrong in
 exactly one way, since a request wrong in two rejects at the earlier of them
 whatever the implementation does with the later.
 
-Twelve of §4's rejection steps are covered, each supplying the responder's clock as `environment.now` — §4 step 6 is the first thing in the pipeline that needs a time, and a runner may not read one. Five wait on fixture formats other
-PRDs define — a delegation profile for step 7, replay and rate-limit state for 9
-and 9a, a rule set for 14, budget state for 15 — and step 2 gets none by design,
-since §4 makes it optional and never a security decision.
+**Six of §4's rejection steps are covered, and the section stops at 7 for a
+reason stronger than a missing fixture.** A vector asserting rejection at step N
+must *pass* steps 1 to N-1, so a request that cannot get past an earlier step is
+wrong in two ways and a fail-closed implementation correctly rejects it there —
+such a vector fails *conforming* implementations. Step 7 is delegation
+verification and no fixture format exists for a profile or its evidence, so
+nothing at or after it is authorable, including steps whose own defects are
+perfectly expressible.
+
+Each vector supplies the responder's clock as `environment.now`, since §4 step 6
+is the first thing in the pipeline that needs a time and a runner may not read
+one. Step 2 gets none by design: §4 makes it optional and never a security
+decision.
 [`tests/test_ordering_section.py`](tests/test_ordering_section.py) reads §4's own
 table to check that every asserted step exists, and holds the covered set to
 exactly what is not deferred, so a step that quietly lost its vector turns it

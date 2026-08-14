@@ -24,21 +24,27 @@ Each request is wrong in **exactly one way**, and the vector asserts the step
 that catches it. A request wrong in two ways establishes nothing: it would reject
 at the earlier of them whatever the implementation did with the later.
 
-## What is here, and what is not
+## Where this section stops, and why it is a hard line
 
-A vector's `input` has to carry everything the operation needs (P-001 §4.3), and
-for the pipeline that means responder-side state. Where that state is a **pinned
-registry**, it is in hand: `registry/manifest.json` is what a runner embeds, so
-every step from 10 to 13 is expressible today. Where it is anything else, the
-fixture format belongs to the PRD that defines the state, and none exists yet:
+**A vector asserting rejection at step N must *pass* steps 1 to N-1.** That is
+the constraint that bounds this section, and it is stricter than it first looks:
+it is not enough that step N's own defect be expressible, because a request that
+cannot get past an earlier step is a request wrong in two ways, and a fail-closed
+implementation will correctly reject it at the earlier one. Such a vector fails
+*conforming* implementations.
 
-| Step | Needs | Owner |
-|---|---|---|
-| 7 | a delegation profile and evidence | [P-014](../docs/prds/P-014-identity-pairing.md) |
-| 9 | a replay cache with a prior entry | [P-004](../docs/prds/P-004-replay-idempotency.md) |
-| 9a | a configured rate limit | [P-004](../docs/prds/P-004-replay-idempotency.md), [P-008](../docs/prds/P-008-capacity-accounting.md) |
-| 14 | a fixture rule set | [P-007](../docs/prds/P-007-policy-engine.md) |
-| 15 | budget state | [P-008](../docs/prds/P-008-capacity-accounting.md) |
+**Step 7 is where that line falls.** Delegation verification needs a profile and
+evidence, and [P-014](../docs/prds/P-014-identity-pairing.md) has not defined a
+fixture format for either. Nothing at or after step 7 can be authored, because
+nothing can be shown to get past it — not step 8, whose defect is otherwise
+perfectly expressible, and not steps 10 to 13, whose registry is in hand.
+
+So this file covers steps **1, 3, 4, 5, 5a and 6**, and the section is completed
+by [P-010](../docs/prds/P-010-responder-pipeline.md) issue 11 once the fixtures
+exist: a delegation profile (P-014), replay and rate-limit state
+([P-004](../docs/prds/P-004-replay-idempotency.md)), a rule set
+([P-007](../docs/prds/P-007-policy-engine.md)), budget state
+([P-008](../docs/prds/P-008-capacity-accounting.md)).
 
 **Step 2 gets no vector, and that is a statement rather than a gap.** §4 makes it
 *optional* and *"never a security decision"*, so there is no rejection to assert:
@@ -78,20 +84,7 @@ UNREGISTERED_SUITE = "eddsa-jcs-2022"
 # each of them assert an ordering it does not test.
 ENVIRONMENT = {"now": "2026-07-31T09:01:00Z"}
 
-# The second reference predicate, for step 11a. `menu-compatible` has no
-# constraint its input schema cannot express, so the step that exists to be
-# different from step 11 needs an entry that does.
-AVAILABILITY = {
-    "id": "https://q2d.dev/predicates/scheduling/availability-window",
-    "version": "0.1",
-    "registry_digest": (
-        "sha256:6ca481a555da633ffbd1ecbd37c7897091e8d01af036fd2610c6460a271d3ffd"
-    ),
-}
-# `registry/manifest.json` declares one external class for everything its
-# entries govern. Steps 10 onward are Tier C, so they all carry it -- which is
-# the point of the class rather than a limitation of these vectors.
-TIER_C = "unavailable"
+
 
 
 def signed(query=None, key=REQUESTER, header=None) -> str:
@@ -189,72 +182,6 @@ def vectors() -> list[dict]:
                    expires_at="2026-07-31T08:05:00Z"))},
                "request_expired", "expired"),
 
-        vector(8, "routing-disagrees",
-               "A routing projection whose `expires_at` differs from the "
-               "verified object's. Step 8 runs after verification, so a "
-               "disagreement is judged against a signed value rather than "
-               "against another piece of attacker-controlled data.",
-               {"signed": valid,
-                "routing": dict(ROUTING, expires_at="2026-07-31T09:05:01Z")},
-               "routing_signed_mismatch", "routing_mismatch"),
-
-        vector(10, "unknown-predicate",
-               "A predicate identifier no entry in the pinned registry "
-               "declares. Step 10 fails closed on anything unrecognized, and "
-               "the requester receives the registry's declared class — the "
-               "same one a policy refusal produces at step 14, so reaching "
-               "either tells a requester nothing about how far it got.",
-               {"signed": signed(query_with(predicate=dict(
-                   QUERY["predicate"],
-                   id="https://q2d.dev/predicates/dietary/not-registered")))},
-               "predicate_unknown", TIER_C),
-
-        vector(11, "public-context-fails-the-entry-schema",
-               "An empty `menu`, where the entry's input schema requires at "
-               "least one item. The schema comes from the registry rather than "
-               "from the request, which is why this cannot be checked before "
-               "step 10 resolved the entry.",
-               {"signed": signed(query_with(predicate=dict(
-                   QUERY["predicate"], public_context={"menu": []})))},
-               "public_context_schema_violation", TIER_C),
-
-        vector("11a", "slot-below-the-granularity-floor",
-               "A candidate slot of five minutes, where the "
-               "`availability-window` entry sets a `minimum_slot_duration` of "
-               "thirty. The entry's input schema cannot express that — a "
-               "duration floor is a relation between two fields — so step 11 "
-               "passes and 11a catches it. That is the whole reason 11a is a "
-               "separate step: an implementation folding it into 11 would "
-               "satisfy §4 by running a schema validator and stopping.",
-               {"signed": signed(query_with(
-                   predicate=dict(AVAILABILITY, public_context={"candidates": [
-                       {"start": "2026-08-10T18:00:00Z",
-                        "end": "2026-08-10T18:05:00Z"}]}),
-                   answer_contract={"release_shape": "interval",
-                                    "domain": "registered",
-                                    "allowed_detail_fields": [],
-                                    "precision": "PT30M"}))},
-               "constraint_violation_minimum_slot_duration", TIER_C),
-
-        vector(12, "contract-broader-than-the-entry",
-               "An answer contract requesting a `scalar` where the entry's "
-               "registered release shape is `boolean` — broader than the entry "
-               "permits, which Q2D-C-02 refuses. After step 11, because a "
-               "contract is judged against an entry that has been resolved and "
-               "whose public context has been validated.",
-               {"signed": signed(query_with(answer_contract=dict(
-                   QUERY["answer_contract"], release_shape="scalar")))},
-               "contract_not_narrowable", TIER_C),
-
-        vector(13, "unsupported-assurance-profile",
-               "A requested assurance profile the entry does not support. "
-               "§4 step 13 refuses rather than downgrading, and it is the last "
-               "step before policy is consulted — so a request refused here "
-               "has reached no policy authority.",
-               {"signed": signed(query_with(predicate=dict(
-                   QUERY["predicate"],
-                   requested_assurance="attested-enclave-0.1")))},
-               "assurance_profile_unsupported", TIER_C),
     ]
 
 

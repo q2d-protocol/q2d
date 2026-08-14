@@ -25,10 +25,17 @@ AUTHOR = REPO / "tools" / "author_ordering.py"
 SECTION = REPO / "conformance" / "corpus" / "ordering"
 CORE_MODEL = REPO / "spec" / "core-model.md"
 
-# Steps whose input needs responder state no PRD has defined a fixture format
-# for yet. Listed rather than inferred: a section that quietly stopped covering
-# step 12 would otherwise look complete.
-DEFERRED = {7, 9, "9a", 14, 15}
+# A vector asserting rejection at step N must *pass* steps 1 to N-1, so this
+# section stops at the first step it cannot get past rather than at the first
+# defect it cannot express. Step 7 is delegation verification and P-014 has
+# defined no fixture format for a profile or its evidence, so nothing at or
+# after 7 is authorable -- including step 8, whose own defect is expressible,
+# and steps 10 to 13, whose registry is in hand.
+#
+# A request that cannot pass an earlier step is wrong in two ways, and a
+# fail-closed implementation rejects it at the earlier one. Such a vector fails
+# *conforming* implementations, which is worse than not existing.
+FIRST_UNPASSABLE_STEP = 7
 
 # §4 makes step 2 optional and "never a security decision", so there is no
 # rejection to assert -- a responder that sheds there and one that does not are
@@ -118,18 +125,15 @@ class StepsAreRealTest(unittest.TestCase):
         # Which steps are absent, and why, is the thing worth asserting: the
         # section is incomplete on purpose and a reader has to be able to tell
         # that from a check rather than from prose.
-        # Steps 16-19 are what a *successful* request reaches, so they have no
-        # rejection vector here; a lettered step is kept whatever its number,
-        # since 5a and 11a are exactly the checks an implementation is most
-        # likely to fold into their neighbours.
-        def in_scope(step):
-            return isinstance(step, str) or step <= 15
+        def number(step):
+            return int(step[:-1]) if isinstance(step, str) else step
 
         rejecting = {s for s in self.query_steps()
-                     if in_scope(s) and s not in NO_REJECTION and s not in DEFERRED}
+                     if number(s) < FIRST_UNPASSABLE_STEP and s not in NO_REJECTION}
         self.assertEqual(set(steps()), rejecting,
-                         "a step gained or lost a vector — if a fixture format "
-                         "landed, move it out of DEFERRED")
+                         "a step gained or lost a vector — if a delegation "
+                         "fixture format landed, raise FIRST_UNPASSABLE_STEP "
+                         "and author the steps it unblocks")
 
 
 if __name__ == "__main__":
