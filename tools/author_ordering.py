@@ -124,11 +124,16 @@ def vectors() -> list[dict]:
     head, payload, signature = valid.split(".")
 
     return [
-        vector(1, "envelope-not-json",
-               "An envelope that is not JSON at all. Step 1 parses the envelope "
-               "before any allocation on attacker-controlled data, so this is "
-               "refused before a suite is read or a key resolved — nothing "
-               "below step 1 runs.",
+        vector(1, "signed-is-not-a-compact-serialization",
+               "An envelope whose `signed` is not three dot-separated base64url "
+               "segments. Step 1 parses the envelope before any allocation on "
+               "attacker-controlled data, so this is refused before a suite is "
+               "read or a key resolved — nothing below step 1 runs.\n\n"
+               "It does **not** cover a transport delivering bytes that are not "
+               "JSON at all: a vector file is JSON and a runner is handed a "
+               "parsed object, so that case cannot travel through this corpus. "
+               "It belongs to the binding that owns framing "
+               "([P-013](../docs/prds/P-013-https-binding.md)).",
                {"signed": "not-a-compact-serialization"},
                "envelope_malformed", "malformed"),
 

@@ -66,7 +66,7 @@ Built: the vector schema and `lint` (issue 1), the projection
 the determinism check (issue 5), `coverage` (issue 6), the two cross-vector
 assertions (issues 7 and 8), comparison (issue 16), `cross` (issue 9), the
 dependency assertion (issue 15), the test key material (issue 10), the
-`registry/` section (issue 11), `message/` (issue 12), `suite/` (issue 13), and `ordering/`'s first six steps (issue 14).
+`registry/` section (issue 11), `message/` (issue 12), `suite/` (issue 13), and `ordering/`'s steps 1, 3, 4, 5, 5a and 6 (issue 14).
 
 **`message/` has both halves.** Three vectors that sign, verify and project, and
 three rejections — a signature from the wrong key, a routing projection that
@@ -106,8 +106,8 @@ partly artefacts of which operation each vector used. Each request is wrong in
 exactly one way, since a request wrong in two rejects at the earlier of them
 whatever the implementation does with the later.
 
-**Six of §4's rejection steps are covered, and the section stops at 7 for a
-reason stronger than a missing fixture.** A vector asserting rejection at step N
+**Six of §4's rejection steps are covered — 1, 3, 4, 5, 5a and 6 — and the
+section stops at 7 for a reason stronger than a missing fixture.** A vector asserting rejection at step N
 must *pass* steps 1 to N-1, so a request that cannot get past an earlier step is
 wrong in two ways and a fail-closed implementation correctly rejects it there —
 such a vector fails *conforming* implementations. Step 7 is delegation
