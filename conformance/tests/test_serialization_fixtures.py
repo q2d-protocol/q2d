@@ -165,6 +165,18 @@ class RefusalTest(unittest.TestCase):
         self.refused({"a": lone_surrogate})
         self.refused({lone_surrogate: "a"})
 
+    def test_an_integer_outside_the_pair_s_range_is_refused(self):
+        # E-37. Python's `int` is arbitrary-precision and both value models hold
+        # a signed 64-bit one, so without this the tool could author a vector
+        # neither implementation can reproduce — and the first sign would be a
+        # byte disagreement blamed on the implementations rather than the
+        # vector. The boundaries themselves serialize, since `profile-edges`
+        # carries both and all three agree on them.
+        self.refused({"a": 2**63})
+        self.refused({"a": -2**63 - 1})
+        self.accepted({"a": 2**63 - 1})
+        self.accepted({"a": -2**63})
+
     def test_a_refusal_names_the_field_and_nothing_else(self):
         message = self.refused({
             "issued_at": "2026-07-31t09:00:00Z",

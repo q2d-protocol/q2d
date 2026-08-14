@@ -24,6 +24,12 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > implementations now do what §2.2 states and no more, pending the decision.
 > §E-36 has the options.
 >
+> **E-37 is open**, from the same build: nothing in `spec/` bounds an integer,
+> and both value models use a signed 64-bit one. The authoring tool now refuses
+> anything outside that range so it cannot author a vector the pair cannot
+> reproduce — the safe direction under either resolution, but a bound the
+> specification does not state.
+>
 > **E-35** closed as A: §4's query order gains a lettered
 > step **5a** for the header/payload comparison, symmetric with the response
 > order's 4a. Adding it touched seven documents plus both schemas and both served
@@ -141,6 +147,7 @@ question is still fresh than after the answer arrives.
 | **E-34** | Which class does a well-formed message that is not a Q2D message produce? | P-001 issue 13 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-009 §4.1, §5 | **Closed** |
 | **E-35** | At which §4 step does a query's header/payload comparison happen? | E-34's cascade | `core-model.md` §4 query order, §5.2.1 · `crypto-suites.md` §3 · both schemas | **Closed** |
 | **E-36** | Does §2.2's timestamp spelling bind every string that looks like a timestamp, or only the fields §2.2 names? | P-002 issue 2 | `core-model.md` §2.2, §2.6 · P-002 §4.2 · `tools/author_vectors.py` · both implementations | **Open** |
+| **E-37** | Does an integer in a signed structure have a range, and is it `core-model.md`'s to state? | P-002 issue 2 | `core-model.md` §2 · P-002 §4.2, §4.3 · `scope.md` §4.1 · `tools/author_vectors.py` · both implementations | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -2981,6 +2988,89 @@ tool, Rust, and Go. The fourth was `test_authoring.py`'s
 is the failure mode [CLAUDE.md](../CLAUDE.md)'s *Closing an escalation* section
 describes — a rule living in more places than the person changing it
 remembered — arriving on an escalation being *opened* rather than closed.
+
+---
+
+## E-37 — Does an integer in a signed structure have a range?
+
+**Raised by:** P-002 issue 2. **Found by:** Codex, reviewing the value models.
+
+### Context
+
+[P-002](prds/P-002-message-envelope.md) §4.2 says *"integers — no exponent, no
+leading `+`, no leading zeros"* and states no range.
+[`core-model.md`](../spec/core-model.md) states none either. So the accepted
+domain is whatever each producer's integer type is, and the three producers
+disagree: `src/value.rs` and `value.go` both hold a signed 64-bit integer, and
+Python's `int` is arbitrary-precision.
+
+That is not a style difference. `tools/author_vectors.py` produces the corpus's
+expected bytes, so an unbounded tool can author a vector neither implementation
+can reproduce — and the first sign would be a byte disagreement blamed on the
+implementations rather than on the vector.
+
+### Concretely
+
+Nothing in the protocol approaches the boundary. Every integer Q2D carries today
+is a count, a cardinality, or a capacity in integer millibits — §3.1's unit, and
+the largest capacity in the reference manifest is four figures. The gap is
+structural rather than live.
+
+But `public_context` is operation-defined (§2.6), and `scope.md` §4.1's schema
+profile bounds a *string*'s length and an *array*'s size without bounding an
+integer's magnitude. A predicate could register an entry admitting one, and
+nothing in the repository would object until two implementations produced
+different bytes.
+
+### Options
+
+**A. `core-model.md` states the range: a signed 64-bit integer.** One sentence,
+and every producer's accepted domain becomes the same by specification rather
+than by coincidence. Cost: a wire-format constraint chosen for an implementation
+convenience — 64 bits is what Rust and Go reach for, not something the protocol
+needs.
+
+**B. `scope.md` §4.1 bounds it, as it already bounds strings and arrays.** The
+constraint lands where the other boundedness rules are, and applies to registry
+data — which is the only place an unbounded integer can arrive. Cost: it leaves
+protocol fields unbounded, which is fine today because every one of them is a
+count, and is the same "fine today" that E-36 turned out to be built on.
+
+**C. Neither: leave it, and treat 64-bit as an implementation detail.** Cost:
+the tool has to be bounded anyway, or it can author unreproducible vectors — so
+this option still ships the constraint, just without recording why.
+
+### Recommendation — B
+
+**§4.1 already exists to make registry data bounded**, and gives the reason: a
+predicate must not be able to register an entry that admits an unbounded
+release. An integer's magnitude is the one dimension it currently misses, and
+E-28 established the shape of the argument — the entry's schema is what bounds
+what a predicate can carry.
+
+B also keeps `core-model.md` free of a number chosen because two languages have
+that type. The protocol's own integers are counts and capacities; if one ever
+needs a range, the field can state its own, which is what a specification
+normally does.
+
+**A is the fallback** if it turns out that protocol fields need the bound too —
+but that would be an argument about a specific field, and it should be made
+about that field rather than pre-emptively about all of them.
+
+### Where the recommendation stops being right
+
+**If a predicate ever needs an integer larger than 64 bits** — a nanosecond
+epoch is 2^61 and would fit, but a hash treated as a number would not — then B
+is a bound the registry cannot honestly enforce and the right answer is to say
+so in `question_notes` and register a string, as E-30 decided for decimals. That
+precedent is close enough that B may be a special case of it.
+
+### What is built today, pending the decision
+
+The tool refuses an integer outside the signed 64-bit range, so it cannot author
+what the pair cannot serialize. That is the safe direction under every option —
+C included, since C still needs it — and it constrains no vector that exists.
+Both implementations are unchanged: their types already are the bound.
 
 ---
 

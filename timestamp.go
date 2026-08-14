@@ -3,9 +3,11 @@ package q2d
 // core-model.md §2.2's timestamp, and the RFC 3339 spellings it forbids.
 //
 // Written from the specification text rather than shared with
-// tools/author_vectors.py, which reads the same section. Three independent
-// readings is the arrangement those tools exist for, and a disagreement between
-// them is a specification ambiguity found rather than a bug in one.
+// tools/author_vectors.py, which reads the same section. Three separate
+// readings — not independent ones; they share an author, and CLAUDE.md reserves
+// that word for a reason. What separateness buys is narrower and still worth
+// having: a disagreement between two readings of §2.2 is a specification
+// ambiguity surfaced, where shared code would have hidden it by construction.
 //
 // No regexp, and no time.Parse: the grammar is fixed-width, and a library that
 // interprets a timestamp differently from the other two implementations would be

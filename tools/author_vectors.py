@@ -139,11 +139,17 @@ def json_type(value) -> str:
 # core-model.md §2.2's timestamp, and RFC 3339 §5.6's grammar for the spellings
 # it forbids. Written here from the specification text rather than imported
 # from `conformance/harness/lint.py`, which reads the same section: two
-# independent readings is the arrangement this tool exists for, and a
+# separate readings is the arrangement this tool exists for -- not independent
+# ones, per the note at the top of this file -- and a
 # disagreement between them is a specification ambiguity found.
 # Fields core-model.md gives a timestamp: §2.2's `issued_at` and `expires_at`,
 # §5.3's `expires_at`, §6's `decided_at`.
 TIMESTAMP_FIELDS = frozenset({"issued_at", "expires_at", "decided_at"})
+
+# The range of a signed 64-bit integer, which is what `src/value.rs` and
+# `value.go` hold. See the integer branch of `_serialize`.
+INT64_MIN = -2**63
+INT64_MAX = 2**63 - 1
 
 Q2D_TIMESTAMP = re.compile(
     r"\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z\Z")
@@ -290,6 +296,24 @@ def _serialize(value, protocol_level: bool = False) -> str:
         # repr is exactly that, for every magnitude -- there is no 2^53 cliff
         # here, which is one of the hazards crypto-suites.md §3 cites against
         # a JCS-based suite.
+        #
+        # Bounded to what the two implementations can hold, which Python cannot
+        # otherwise be stopped from exceeding: `int` is arbitrary-precision and
+        # both value models use a 64-bit signed integer. Without this the tool
+        # could author a vector neither implementation can reproduce, and the
+        # first sign of it would be a byte disagreement blamed on the
+        # implementations.
+        #
+        # §4.2 says "integers" and states no bound; whether `core-model.md`
+        # should is E-37. Refusing here is the safe direction either way --
+        # every value the protocol carries today is a count, a cardinality, or a
+        # capacity in integer millibits, none of which approaches 2**63.
+        if not INT64_MIN <= value <= INT64_MAX:
+            raise ProfileError(
+                f"integer is outside the signed 64-bit range both "
+                f"implementations use. P-002 §4.2 states no bound and E-37 "
+                f"asks whether the specification should; until then the tool "
+                f"does not author what the pair cannot serialize")
         return str(value)
     if kind == "string":
         encodable(value, "string")

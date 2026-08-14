@@ -109,12 +109,27 @@ class NumberTest(unittest.TestCase):
         big = 2**53 + 1
         self.assertEqual(author.serialize({"n": big}),
                          f'{{"n":{big}}}'.encode("utf-8"))
-        self.assertEqual(author.serialize(2**64), str(2**64).encode("utf-8"))
+        # Up to the range the two implementations hold, exactly -- E-37.
+        self.assertEqual(author.serialize(2**63 - 1), str(2**63 - 1).encode("utf-8"))
+
+    def test_an_integer_beyond_the_pair_s_range_is_refused_not_rounded(self):
+        # E-37's bound, and it is not the cliff the test above is about. JCS
+        # inherits a *silent* loss above 2^53: the value round-trips to a
+        # different number and nothing says so. This refuses, which is the
+        # opposite failure -- no vector is authored at all, so none can assert
+        # bytes an implementation cannot produce.
+        with self.assertRaises(author.ProfileError):
+            author.serialize(2**63)
+        with self.assertRaises(author.ProfileError):
+            author.serialize(-2**63 - 1)
 
     def test_integers_carry_no_exponent_or_leading_zero(self):
         self.assertEqual(author.serialize(0), b"0")
         self.assertEqual(author.serialize(-7), b"-7")
-        self.assertEqual(author.serialize(10**21), str(10**21).encode("utf-8"))
+        # 10**21 would be rendered in exponent form by a naive float path and
+        # is above E-37's bound, so the assertion that carries the point is the
+        # largest value the profile admits -- twenty digits, no exponent.
+        self.assertEqual(author.serialize(2**63 - 1), b"9223372036854775807")
 
     def test_a_boolean_is_not_a_number(self):
         # In Python `True == 1` and `isinstance(True, int)`. A serializer that
