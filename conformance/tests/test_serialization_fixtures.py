@@ -98,6 +98,37 @@ class ProfileEdgesTest(unittest.TestCase):
         self.assertIn("<a>&b'c/d", serialized("profile-edges").decode("utf-8"))
 
 
+class RoutingProjectionTest(unittest.TestCase):
+    def test_the_fixture_is_the_corpus_s_own_routing(self):
+        # `canonical-routing.serialized` exists so both implementations can
+        # check §4.5's projection against something authored independently of
+        # it: `author_message.py`'s ROUTING is a hand-written literal that every
+        # `message/` vector's envelope carries.
+        #
+        # Python's side of that is this — the fixture is what the tool says —
+        # and the derivation is Rust's and Go's, since neither Python tool
+        # implements §4.5.
+        self.assertEqual(av.serialize(am.ROUTING), serialized("canonical-routing"))
+
+    def test_the_corpus_routing_is_a_strict_subset_of_the_query(self):
+        # §2.1: `routing` may never introduce a field. Asserted against the
+        # literal rather than against a projection, because the literal is what
+        # the vectors carry.
+        def subset(projection, core):
+            if isinstance(projection, dict) and isinstance(core, dict):
+                return all(key in core and subset(value, core[key])
+                           for key, value in projection.items())
+            return projection == core
+
+        self.assertTrue(subset(am.ROUTING, am.QUERY))
+
+    def test_it_withholds_what_the_protocol_exists_to_bound(self):
+        for withheld in ("purpose", "delivery", "answer_contract"):
+            self.assertNotIn(withheld, am.ROUTING)
+        self.assertNotIn("subjects", am.ROUTING.get("target", {}))
+        self.assertNotIn("public_context", am.ROUTING.get("predicate", {}))
+
+
 class RefusalTest(unittest.TestCase):
     """What the profile refuses, and where it stops caring.
 

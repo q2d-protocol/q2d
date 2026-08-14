@@ -53,6 +53,23 @@ payload. So these are edges a real message can reach and no *realistic-looking*
 message will — which is the combination that makes them worth authoring and
 easy to miss.
 
+## `canonical-routing`
+
+§4.5's projection of `canonical-query`, and the one fixture here that checks a
+*rule* rather than an encoding.
+
+`tools/author_message.py`'s `ROUTING` is a **hand-written literal**, and every
+`message/` vector's envelope carries it. The two implementations derive their
+projection from the query by §4.5's allowlist and are held to these bytes — so
+if the rule and the literal disagree, either §4.5 is wrong or five merged
+vectors are, and the test says which.
+
+Python's side is the fixture itself: neither Python tool implements §4.5, so
+`author_vectors.py` states what the corpus believes and the derivation is Rust's
+and Go's. That makes this a **two-way** agreement with an independently authored
+expectation, which is a different and stronger thing than three implementations
+of one function agreeing.
+
 ## What is *not* here
 
 Refusals. All three implementations agree on what the profile rejects, and
@@ -76,7 +93,7 @@ same something:
 |---|---|
 | Invalid UTF-8 | Go — a `string` is arbitrary bytes; ranging over one would substitute U+FFFD and sign a value the caller never supplied |
 | An unpaired surrogate | Python — a `str` is code points, and that one has no UTF-8 encoding |
-| A nil value, typed or untyped | Go — the `Value` interface admits both, and no concrete type is either. A `*String` is in the method set because the write methods have value receivers, so a nil one is an interface holding a type and no value: not equal to `nil`, and a panic on dispatch. A panic is not a refusal |
+| Anything that is not one of the six concrete types | Go — the `Value` interface admits a nil, a *typed* nil, and a pointer to any of the six, because the write methods have value receivers. Rust's enum admits none of them. Review found three of these one at a time — the nil, the typed nil, then a `*Object` aliasing its caller's map — which is a wrong model rather than three bugs, so the dispatcher now refuses any dynamic type outside the six |
 | An integer outside −2^63 … 2^63 − 1 | Python — `int` is arbitrary-precision, and both value models are not. The range is `scope.md` §4.1's ([E-37](../docs/open-escalations.md)), which chose it *because* it is the width every conforming producer carries exactly |
 
 Rust appears in none of those rows, which is the point of the table rather than
