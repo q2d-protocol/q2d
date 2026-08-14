@@ -187,10 +187,13 @@ def vectors() -> list[dict]:
                             "core-model.md#5.2.1"],
             "description": (
                 "The signature segment altered by one character, over an "
-                "untouched header and payload. Indistinguishable from the "
-                "tampered payload above in what a requester receives — §5.2.1 "
-                "gives one class for the whole of authentication — and distinct "
-                "in what the responder records."
+                "untouched header and payload. §5.2.1 gives one class for the "
+                "whole of authentication, so this reaches the same "
+                "`external_reason` as the tampered payload above while the "
+                "responder records a different internal reason. That the two "
+                "are *indistinguishable* is more than this asserts: the wire "
+                "here is a projection, and the whole response — receipt and "
+                "signature included — is `denial/`'s to compare."
             ),
             "operation": "verify_query",
             "input": envelope(f"{head}.{payload}.{signature[:-1]}{'A' if signature[-1] != 'A' else 'B'}"),
