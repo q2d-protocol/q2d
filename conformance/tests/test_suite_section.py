@@ -130,11 +130,16 @@ class OrderingTest(unittest.TestCase):
 class StructurallyInvalidTest(unittest.TestCase):
     """The three cases E-34 gave a value to.
 
-    Each parses and authenticates and is still not a Q2D message: the declared
-    suite is registered and acceptable, and the signature verifies. That is why
-    neither `unsupported_suite` nor `unauthenticated` describes them, and why
-    `malformed` — which means "did not parse" — would send a requester to its
-    serializer instead of to how its header is assembled.
+    Each parses, and what is wrong with it is neither a parse failure nor an
+    authentication one: in all three the declared suite is registered and
+    acceptable. That is why `unsupported_suite` does not describe them, and why
+    `malformed` -- which means "did not parse" -- would send a requester to its
+    serializer instead of to how its header is built.
+
+    The `alg` case is caught at step 3, before any signature is checked, so it
+    is not an authenticated message; the two disagreements are caught at step 4
+    because they need the payload. The class is not "authentic but wrong" -- it
+    is "well formed, and not this protocol's".
     """
 
     CASES = ("suite/downgrade/header-carries-alg",

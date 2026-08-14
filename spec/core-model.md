@@ -794,7 +794,7 @@ bytes, so precision here costs nothing and makes the protocol debuggable.
 | `unsupported_suite` | Suite unregistered, **or** below the verifier's minimum acceptable policy | step 3 |
 | `routing_mismatch` | `routing` disagrees with the verified object | step 8 |
 | `expired` | Request expired or future-dated | step 6 |
-| `structurally_invalid` | The message parses and authenticates and is still not a Q2D message: a protected header carrying a member [`crypto-suites.md`](crypto-suites.md) §3 does not permit, or a header whose `suite` or `key_id` disagrees with the payload's `signature.profile` or `signature.key_id` | step 3 for the header alone; step 4 for a disagreement, which cannot be seen until the payload is verified |
+| `structurally_invalid` | The message parses, and what is wrong with it is neither a parse failure nor an authentication one: a protected header carrying a member [`crypto-suites.md`](crypto-suites.md) §3 does not permit, or a header whose `suite` or `key_id` disagrees with the payload's `signature.profile` or `signature.key_id` | step 3 for the header alone, which needs no signature; step 4 for a disagreement, which cannot be seen until the payload is verified |
 
 `unsupported_suite` is one value for two causes on purpose. Separating them would
 tell a requester whether the custodian *knows* a suite it declined, which is the
@@ -810,9 +810,16 @@ vocabulary exists to prevent one.
 
 It is separate from `malformed` rather than folded into it because the two send a
 requester to different code. A `malformed` message did not parse — the serializer
-is where to look. A `structurally_invalid` one parsed and verified, and is wrong
-in how its header was assembled from its payload. Collapsing them would name the
-larger class and lose the only thing the value is for.
+is where to look. A `structurally_invalid` one parsed, and is wrong in how its
+header was built or in how it agrees with its payload. Collapsing them would name
+the larger class and lose the only thing the value is for.
+
+**Two of its three causes are caught after verification and one before**, and
+that asymmetry is not a defect. A header carrying `alg` is visible in the header
+alone, and §4 step 3 reads the header — so rejecting it there is the *least*
+work, not extra work done ahead of authentication. The two disagreements need the
+payload, which §2.1 forbids parsing until the bytes verify, so they cannot be
+seen before step 4. Nothing in this class licenses reading a payload early.
 
 **What this vocabulary is for**, since `structurally_invalid` is the first value
 added after the list was closed and the next one will need the same test: it
