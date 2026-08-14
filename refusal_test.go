@@ -1,6 +1,9 @@
 package q2d
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // What the production profile refuses, and where it stops caring.
 //
@@ -169,6 +172,39 @@ func TestOperationDataIsSerializableOnItsOwn(t *testing.T) {
 	if string(viaProtocol) != string(viaData) {
 		t.Errorf("the two entry points emit different bytes: %s vs %s", viaProtocol, viaData)
 	}
+}
+
+func TestOnlyTheSixConcreteTypesAreValues(t *testing.T) {
+	// Rust's Value is an enum and admits exactly six shapes. Go's is an
+	// interface and admits more: a pointer to any of the six satisfies it,
+	// because every write method has a value receiver.
+	//
+	// A *Object serialized through the old dispatcher aliased its caller's map,
+	// which is the third aliasing bug review found in this area — so the set is
+	// closed here rather than patched there.
+	object := Object{"a": Int(1)}
+	array := Array{Int(1)}
+	text := String("a")
+	for _, pointer := range []Value{&object, &array, &text} {
+		message := refused(t, pointer)
+		if !strings.Contains(message, "not one of the six") {
+			t.Errorf("%T: %s", pointer, message)
+		}
+	}
+
+	// And the six themselves still serialize.
+	if got := text2(t, Object{"a": Array{Null{}, Bool(true), Int(1), String("s")}}); got != `{"a":[null,true,1,"s"]}` {
+		t.Errorf("the six: %s", got)
+	}
+}
+
+func text2(t *testing.T, v Value) string {
+	t.Helper()
+	bytes, err := Serialize(v)
+	if err != nil {
+		t.Fatalf("serializing: %v", err)
+	}
+	return string(bytes)
 }
 
 func TestATypedNilIsRefusedToo(t *testing.T) {

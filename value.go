@@ -33,7 +33,6 @@ package q2d
 
 import (
 	"fmt"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -140,53 +139,50 @@ func SerializeOperationData(v Value) ([]byte, error) {
 	return []byte(b.String()), nil
 }
 
-// write dispatches, refusing the one Value the interface admits and none of the
-// concrete types is: a nil interface.
+// write dispatches, refusing anything that is not **exactly** one of the six
+// concrete types.
 //
-// Calling write on it panics, and a panic is not a refusal — a serializer whose
-// malformed-input path is a stack trace is not fail-closed, and this one runs
-// over responses and receipts where the caller is a pipeline rather than a
-// literal. The other two implementations have nothing to check: Rust's Value is
-// an enum with no null-pointer state, and Python's None is the Null case.
+// Rust's `Value` is an enum: six shapes, checked by the compiler, nothing else
+// representable. Go's is an interface, and an interface admits more than an
+// enum does — a nil interface, a typed nil, and a pointer to any of the six,
+// since every write method has a value receiver and `*T`'s method set therefore
+// includes it. Each of those is a value the type says exists and the profile
+// cannot render.
 //
-// Null{} is the JSON null and is unaffected. This is the absence of a value,
-// which is a different thing and not one §4.2 can render.
+// Three review rounds fixed three of them one at a time: the nil interface, the
+// typed nil, then a `*Object` aliasing its caller's map. That is the shape of a
+// wrong model rather than three bugs, so this closes the set instead: the
+// dynamic type is one of the six or it is refused, and the whole class goes
+// with it. `deepCopy` below is then total over four immutable types and two
+// containers, with nothing left to alias.
+//
+// Null{} is the JSON null and is unaffected. A nil *interface* is the absence
+// of a value, which is a different thing and not one §4.2 can render.
 func write(v Value, b *strings.Builder, protocolLevel bool) error {
-	if isNil(v) {
-		return fmt.Errorf("a nil Value has no serialization. P-002 §4.2 renders " +
-			"JSON values, and the absence of one is not null — use Null{} for that")
+	if err := concrete(v); err != nil {
+		return err
 	}
 	return v.write(b, protocolLevel)
 }
 
-// isNil reports whether v is nil, including a *typed* nil.
+// concrete refuses a Value whose dynamic type is not one of the six.
 //
-// `v == nil` catches only the zero interface. Every write method has a value
-// receiver, so a pointer to one of the concrete types is also in Value's method
-// set — and a nil *String is an interface holding a type and no value, which is
-// not equal to nil and panics on dispatch. A serializer whose malformed-input
-// path is a stack trace is not fail-closed.
-//
-// reflect for four lines, once per value, is the cheap half of that trade;
-// performance is a Stage 8 concern (CLAUDE.md) and correctness here is not.
-// Neither of the other two implementations needs this: Rust's Value is an enum
-// and Python's None is the Null case.
-func isNil(v Value) bool {
-	if v == nil {
-		return true
-	}
-	switch reflected := reflect.ValueOf(v); reflected.Kind() {
-	case reflect.Pointer, reflect.Interface, reflect.Map, reflect.Slice, reflect.Func:
-		// A nil Array or Object is *not* nil for this purpose — an Array(nil)
-		// serializes as [] and an Object(nil) as {}, which is what an empty one
-		// means. Only their named types reach here, and both handle nil
-		// already, so this arm is for a nil pointer or a nil interface.
-		if reflected.Kind() == reflect.Pointer || reflected.Kind() == reflect.Interface {
-			return reflected.IsNil()
-		}
-		return false
+// A type switch rather than reflection: it names the six, so adding a seventh
+// concrete type means touching this list, which is the reminder a reflective
+// check would not give.
+func concrete(v Value) error {
+	switch v.(type) {
+	case Null, Bool, Int, String, Array, Object:
+		return nil
+	case nil:
+		return fmt.Errorf("a nil Value has no serialization. P-002 §4.2 renders " +
+			"JSON values, and the absence of one is not null — use Null{} for that")
 	default:
-		return false
+		// A pointer to one of the six, or anything else that satisfies the
+		// interface. Named without its contents: the type is the caller's own
+		// mistake and the value may be data.
+		return fmt.Errorf("%T is not one of the six Value types. P-002 §4.2 "+
+			"renders JSON values, and a pointer to one is not one", v)
 	}
 }
 
