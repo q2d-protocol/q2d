@@ -138,3 +138,26 @@ func TestTheProjectionOfAProjectionIsItself(t *testing.T) {
 			routingText(t, once), routingText(t, twice))
 	}
 }
+
+func TestAReadProjectionCannotBeMutatedBackIntoTheRouting(t *testing.T) {
+	// Object is a map, so returning the stored value would hand a caller the
+	// projection's own memory — and authoring a routing field is exactly what
+	// this type exists to prevent. Rust's as_value is an immutable borrow;
+	// Go has to copy, and this is the test that says it does.
+	routing := ProjectRouting(routingQuery())
+	before := routingText(t, routing)
+
+	read := routing.Value().(Object)
+	read["purpose"] = String("social.meal-planning")
+	read["target"].(Object)["custodian"] = String("https://attacker.example")
+	delete(read, "type")
+
+	if after := routingText(t, routing); after != before {
+		t.Errorf("mutating a read projection changed the routing\n before: %s\n after:  %s",
+			before, after)
+	}
+	// The nested mutation is the one a shallow copy would miss.
+	if !strings.Contains(before, "friend.example") {
+		t.Fatal("the fixture no longer exercises the nested case")
+	}
+}

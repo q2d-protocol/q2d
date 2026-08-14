@@ -61,9 +61,40 @@ type Routing struct {
 
 // Value gives the projection for serializing into an envelope.
 //
-// There is no constructor going the other way: a caller can read a projection
-// and cannot mint one.
-func (r Routing) Value() Value { return r.value }
+// A **copy**, and that is the whole of it: Object is a map, so returning the
+// stored value would hand a caller the projection's own memory, and
+// `r.Value().(q2d.Object)["purpose"] = …` would author a routing field through
+// an API whose entire purpose is that they cannot. Rust's `as_value` is an
+// immutable borrow and gets this from the type system; Go has to copy.
+//
+// There is no constructor going the other way either: a caller can read a
+// projection and cannot mint one. What neither language prevents is a caller
+// building its own Value and serializing that into an envelope by hand — §8's
+// last row says so. The copy removes the accident, not the determined bypass.
+func (r Routing) Value() Value { return deepCopy(r.value) }
+
+// deepCopy returns a value sharing no memory with its argument.
+//
+// Only Array and Object need it: the other four are immutable by construction,
+// since String, Int, Bool and Null are value types with no interior state.
+func deepCopy(value Value) Value {
+	switch typed := value.(type) {
+	case Object:
+		copied := make(Object, len(typed))
+		for key, item := range typed {
+			copied[key] = deepCopy(item)
+		}
+		return copied
+	case Array:
+		copied := make(Array, len(typed))
+		for i, item := range typed {
+			copied[i] = deepCopy(item)
+		}
+		return copied
+	default:
+		return value
+	}
+}
 
 // ProjectRouting derives routing from a core object.
 //
