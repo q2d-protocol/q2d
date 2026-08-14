@@ -3220,6 +3220,11 @@ files.
   spelling is required exactly where `format: date-time` is declared. Every
   date-shaped string in the reference manifest is under such a declaration, so
   nothing about our own manifest changed — which is why five passes missed it.
+  The same narrowing reaches the **leap-second stop**, which exits 2 to say
+  *this tool cannot judge this manifest*: over a declared timestamp that is
+  honest, and over a prose field containing `2016-12-31T23:59:60Z` it would have
+  refused to judge a manifest on the strength of a string that is not a
+  timestamp at all.
 
 **E-37 — B:**
 

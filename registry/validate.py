@@ -487,30 +487,6 @@ def entry_timestamps(manifest):
                                                where)
 
 
-def timestamps(value, path="manifest"):
-    """Every string in the manifest that is shaped like a date-time.
-
-    Retained for the leap-second stop below, which is a statement about what
-    this *tool* can parse rather than about what the manifest may contain, and
-    therefore has to see every value it will later hand to `ts()`.
-    """
-    if isinstance(value, str):
-        # Any date-prefixed string, whatever separator follows. Matching only
-        # `T`/`t` would skip `2026-01-01 00:00:00Z`, which Python's
-        # `fromisoformat` accepts and §2.2 does not.
-        # A date *and* a time. Matching a date prefix alone would reject prose
-        # or a label that happens to begin with one -- "2026-01-01 draft" is
-        # not a timestamp, and §4.1 constrains values, not sentences.
-        if re.match(r"\A\d{4}-\d{2}-\d{2}[^0-9]\d{2}:\d{2}", value):
-            yield path, value
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            yield from timestamps(item, f"{path}.{key}")
-    elif isinstance(value, list):
-        for index, item in enumerate(value):
-            yield from timestamps(item, f"{path}[{index}]")
-
-
 def main(argv: list[str]) -> int:
     path = Path(argv[1]) if len(argv) > 1 else Path(__file__).with_name("manifest.json")
     print(f"validating {path}\n")
@@ -551,11 +527,17 @@ def main(argv: list[str]) -> int:
     # non-conformance -- the distinction matters, because narrowing §2.2 to
     # what this file can parse would be a specification change made by a
     # convenience.
+    #
+    # Over the **declared** timestamps, for the same reason `wrong` is: those
+    # are the values `ts()` is handed, because a predicate reads the fields its
+    # schema declares. A prose field containing `2016-12-31T23:59:60Z` reaches
+    # no parser here, and halting on one would refuse to judge a manifest over
+    # a string that is not a timestamp at all.
     # Only a `:60` that is otherwise conforming. One at the wrong hour or on a
     # wrong date is non-conforming outright, `wrong` above already holds it,
     # and calling that indeterminate would classify a registry error as
     # something this tool cannot judge.
-    leap = [f"{path}={value}" for path, value in timestamps(manifest)
+    leap = [f"{path}={value}" for path, value in entry_timestamps(manifest)
             if value[17:19] == "60" and q2d_timestamp(value)]
     if leap:
         # Exit 2, not 1: 1 means the manifest is wrong, and this manifest may
