@@ -18,11 +18,11 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-35 is open**, raised by E-34's cascade: E-32 added §4's response step 4a
-> for the header/payload comparison and the **query** order still has no step for
-> it, though `crypto-suites.md` §3 and P-003 §4.2 both require the check. Two
-> `suite/` vectors assert no step meanwhile, which P-001 §4.8 makes a claim about
-> nothing rather than a wrong one. It blocks nothing else.
+> **Nothing is open.** **E-35** closed as A: §4's query order gains a lettered
+> step **5a** for the header/payload comparison, symmetric with the response
+> order's 4a. Adding it touched seven documents plus both schemas and both served
+> copies, which is the reason it was worth escalating rather than adding in
+> passing.
 >
 > **E-34** closed as B: `structurally_invalid`, a sixth
 > Tier A value for a message that parses and is wrong in a way that is neither a
@@ -133,7 +133,7 @@ question is still fresh than after the answer arrives.
 | **E-32** | What does a signed *response* payload contain? | E-31's cascade | `core-model.md` §5.1–§5.3, §6, §4 response step 4a (new) · `crypto-suites.md` §3 | **Closed** |
 | **E-33** | What are the external denial classes a requester actually receives? | P-001 issue 12 | `core-model.md` §5.2.1 (new) · P-009 §4.1, §5 | **Closed** |
 | **E-34** | Which class does a well-formed message that is not a Q2D message produce? | P-001 issue 13 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-009 §4.1, §5 | **Closed** |
-| **E-35** | At which §4 step does a query's header/payload comparison happen? | E-34's cascade | `core-model.md` §4 query order | **Open** |
+| **E-35** | At which §4 step does a query's header/payload comparison happen? | E-34's cascade | `core-model.md` §4 query order, §5.2.1 · `crypto-suites.md` §3 · both schemas | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -2604,10 +2604,8 @@ parse failure.
 **Raised by** E-34's cascade ·
 **Decides** [`core-model.md`](../spec/core-model.md) §4's **query** processing
 order ·
-**Blocks** the `step` field of two vectors —
-`suite/downgrade/header-payload-suite-mismatch` and `-key-mismatch`. Both are
-committed and asserting no step, which P-001 §4.8 makes a claim about nothing
-rather than a wrong claim. Nothing else.
+**Decided: A — a lettered query step 5a**, immediately after parsing and
+symmetric with the response order's 4a. Both vectors assert it.
 
 ### Context
 
@@ -2675,7 +2673,7 @@ including after step 6 or 7, which would act on a payload whose declarations wer
 never checked. It also leaves the corpus permanently unable to assert the
 ordering, which is what `ordering/` exists for.
 
-### Recommendation — A
+### Recommendation — A. **Adopted.**
 
 E-32 already made this call for the response and gave the reasoning: the header
 is untrusted, the payload's copies are authoritative, and comparing them catches
@@ -2695,6 +2693,31 @@ also forging a signature may not earn a row. That would argue for C plus a
 sentence in §4 pointing at `crypto-suites.md` §3. Worth deciding which §4 is,
 since it currently reads as exhaustive on the query side and selective on the
 response side.
+
+
+### What the cascade touched
+
+**Both schemas, and both served copies.** `step`'s lettered enum is closed —
+*"a vector citing step 12b would otherwise assert an ordering the specification
+does not have"* — so adding a step to §4 means adding it to
+`vector.schema.json` and `result.schema.json` together, or a conforming runner
+could not report the step a conforming vector asserts. That pairing is the defect
+E-24's cascade found the hard way, by updating one and not the other.
+
+`result.schema.json` turns out to be **served too**, and
+[`test_vector_schema.py`](../conformance/tests/test_vector_schema.py) caught the
+stale copy — the second published schema, where the checklist in
+[CLAUDE.md](../CLAUDE.md) names only the first.
+
+**Six documents list the lettered steps**, and each said *9a and 11a*:
+`conformance-classes.md` CC-2, `mvp-scope.md`'s Stage gate, P-010 §2 twice and
+its `ordering/` row and issue 2, P-001 §5's section table and issue 14, and a
+comment in `test_runner_stub.py`. A step added to §4 without them is a step no
+conformance class requires and no corpus section covers.
+
+That is worth stating as a rule rather than a list: **adding a step to §4 is a
+seven-document change**, and the count is why 5a was worth escalating rather than
+adding in passing.
 
 
 ---
@@ -2791,6 +2814,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-32** | **Symmetric.** A response payload carries `signature.profile` and `signature.key_id` exactly as a query's does, and §4's response order gains step **4a** to compare them against the protected header. The check catches a producer signing a payload declaring one suite or key under a header declaring another, and that producer is no less able to lie to a requester than to a responder — the check had existed in one direction only. §6 reconciles the receipt's `signature_suite` with the new `signature.profile`: not redundant, and a response whose two disagree is rejected. | `core-model.md` §5.1, §5.2, §5.3, §6, §4 response step 4a · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-012 §4, §5 · P-001 issue 12 |
 | **E-33** | **`spec/` enumerates Tiers A and B; the registry keeps Tier C.** New `core-model.md` **§5.2.1**: `malformed`, `unsupported_version`, `unsupported_suite`, `routing_mismatch` and `expired` are distinct because each describes the *request*; `unauthenticated` collapses the whole of authentication, since distinguishing an unknown key from a bad signature would let a requester probe which identities a custodian holds; Tier C stays the responder's pinned registry's declared value — manifest-level, so it is in hand for the rejections that never resolve an entry: a replay at step 9, a rate limit at 9a, an unknown predicate at 10. An unrecognised value is an **opaque rejection**, so adding one later does not break an older requester. | `core-model.md` §5.2, §5.2.1 · P-009 §4.1, §5, §3 · P-012 §5, §6 · P-001 issue 12 |
 | **E-34** | **One new value, `structurally_invalid`** — a sixth Tier A value for a message that parses and is wrong in a way that is neither a parse failure nor an authentication one: a header carrying `alg`, or one whose `suite` or `key_id` disagrees with the payload's. Not `unsupported_suite` or `unauthenticated`, because the suite was acceptable and nothing failed to authenticate — the `alg` case is refused at step 3 before a signature is checked at all; not `malformed`, because those parse. One value for three causes because which part disagreed is visible in the message the requester itself produced — unlike `unsupported_suite`, which collapses to withhold the custodian's floor. §5.2.1 now states the test a future value must pass: it must send a requester somewhere a neighbouring value would not. | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-009 §4.1, §5 · P-001 issue 13 |
+| **E-35** | **A lettered query step 5a**, immediately after parsing: confirm the protected header's `suite` and `key_id` equal the payload's copies. It cannot precede step 5, since it needs the parsed object, and it precedes every step that acts on a payload field. Symmetric with the response order's 4a, which E-32 added for the same check — the requirement had existed in `crypto-suites.md` §3 and P-003 §4.2 with no slot in the query order that cites it. Lettered so steps 6–19 do not renumber. | `core-model.md` §4 query order, §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · `conformance-classes.md` CC-2 · `mvp-scope.md` · P-010 · P-001 §5, issue 14 · both schemas and both served copies |
 
 ### What did not change, deliberately
 

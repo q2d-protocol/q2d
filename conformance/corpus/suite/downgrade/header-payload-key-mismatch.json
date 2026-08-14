@@ -20,7 +20,8 @@
       "wire": {
         "status": "deny",
         "external_reason": "structurally_invalid"
-      }
+      },
+      "step": "5a"
     },
     "comparison": "bytes"
   }

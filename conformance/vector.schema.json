@@ -112,10 +112,10 @@
                   "minProperties": 1
                 },
                 "step": {
-                  "description": "The core-model.md §4 step at which rejection occurred. Optional in general, and how the ordering/ section asserts ordering without instrumenting the implementation. An integer for a numbered step, or one of the lettered steps §4's table defines -- today 9a, the rate-limit check, and 11a, the registry entry's non-schema constraints. Closed rather than patterned, for the reason the operation vocabulary is closed: a vector citing step 12b would otherwise assert an ordering the specification does not have.",
+                  "description": "The core-model.md §4 step at which rejection occurred. Optional in general, and how the ordering/ section asserts ordering without instrumenting the implementation. An integer for a numbered step, or one of the lettered steps §4's table defines -- today 5a, the header/payload declaration comparison, 9a, the rate-limit check, and 11a, the registry entry's non-schema constraints. Closed rather than patterned, for the reason the operation vocabulary is closed: a vector citing step 12b would otherwise assert an ordering the specification does not have.",
                   "oneOf": [
                     { "type": "integer", "minimum": 1, "maximum": 19 },
-                    { "enum": ["9a",
+                    { "enum": ["5a", "9a",
                       "11a"] }
                   ]
                 }
