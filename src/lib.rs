@@ -22,4 +22,4 @@ pub use envelope::{parse_envelope, Envelope};
 pub use parse::{parse, ParseError};
 pub use routing::{check_routing, project_routing, Routing, RoutingMismatch};
 pub use value::{serialize, serialize_operation_data, ProfileError, Value};
-pub use version::{check_version, UnsupportedVersion, SUPPORTED};
+pub use version::{check_version, VersionProblem, SUPPORTED};

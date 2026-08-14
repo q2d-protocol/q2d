@@ -35,15 +35,38 @@ import "fmt"
 // One value, not a range. A range implies a negotiation, and §1 has none.
 const Supported = "0.1"
 
-// An UnsupportedVersion is a message this build will not interpret.
+// A VersionProblem says why a verified core object is not one this build
+// interprets.
 //
-// It carries no value: q2d_version is the sender's own claim, and an unknown one
-// is exactly the field this build has no vocabulary for. §5.2.1's external value
-// is unsupported_version, which P-009 emits; this is the internal one.
-type UnsupportedVersion struct{}
+// Two values because §5.2.1 gives them two external ones. That is the opposite
+// of routing's two internal reasons, which both normalize to routing_mismatch —
+// there, collapsing them on the wire is the point; here, collapsing them in the
+// internal value would make the external one unrecoverable, and a requester told
+// unsupported_version about a message that simply omitted the field would go
+// looking for a version it does not have.
+//
+// Neither carries a value. q2d_version is the sender's own claim, and an unknown
+// one is exactly the field this build has no vocabulary for.
+type VersionProblem int
 
-func (UnsupportedVersion) Error() string {
-	return fmt.Sprintf("`q2d_version` is absent or not %s — core-model.md §4 step 5", Supported)
+const (
+	// VersionMalformed is §5.2.1's malformed: absent, or not a string. §2.2
+	// requires the field, and "the verified core object malformed, or missing a
+	// field §2 requires" is that row rather than the version one.
+	VersionMalformed VersionProblem = iota
+	// VersionUnsupported is §5.2.1's unsupported_version: present, a string, and
+	// not Supported. The only case in which the sender got the shape right and
+	// this build still cannot read the message.
+	VersionUnsupported
+)
+
+func (p VersionProblem) Error() string {
+	if p == VersionUnsupported {
+		return fmt.Sprintf("`q2d_version` names a version this build does not "+
+			"implement; it implements %s — core-model.md §4 step 5", Supported)
+	}
+	return "`q2d_version` is absent or is not a string — §2.2 requires it, so " +
+		"this is core-model.md §5.2.1's `malformed`"
 }
 
 // CheckVersion reports whether this build interprets the verified core object.
@@ -53,14 +76,24 @@ func (UnsupportedVersion) Error() string {
 func CheckVersion(core Value) error {
 	pairs, isObject := core.(Object)
 	if !isObject {
-		return UnsupportedVersion{}
+		return VersionMalformed
 	}
 	version, present := pairs["q2d_version"]
 	if !present {
-		return UnsupportedVersion{}
+		return VersionMalformed
 	}
-	if text, isString := version.(String); isString && string(text) == Supported {
+	text, isString := version.(String)
+	if !isString {
+		// §2.2 requires a string here, so §5.2.1's malformed row — "missing a
+		// field §2 requires" — is the one that applies. Telling a requester
+		// unsupported_version would send it looking for a version it does not
+		// have.
+		return VersionMalformed
+	}
+	if string(text) == Supported {
 		return nil
 	}
-	return UnsupportedVersion{}
+	// The sender got the shape right, which is the one case §5.2.1 calls
+	// unsupported_version.
+	return VersionUnsupported
 }

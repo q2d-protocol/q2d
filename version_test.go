@@ -14,19 +14,29 @@ func TestTheSupportedVersionPasses(t *testing.T) {
 	}
 }
 
-func TestEverythingElseDenies(t *testing.T) {
-	// Unknown, missing and indeterminate all deny. A version this build does not
-	// implement is not a thing to negotiate: §1 has no round trip in which to
-	// negotiate it.
-	for _, core := range []Value{
+func TestAVersionThisBuildDoesNotImplementIsUnsupported(t *testing.T) {
+	// A version this build does not implement is not a thing to negotiate: §1
+	// has no round trip in which to negotiate it.
+	for _, version := range []string{
 		// A version from the future, and one from a past that never was.
-		Object{"q2d_version": String("0.2")},
-		Object{"q2d_version": String("0.0")},
-		// Prefixes and suffixes, which a HasPrefix check would admit.
-		Object{"q2d_version": String("0.10")},
-		Object{"q2d_version": String("0.1.0")},
-		Object{"q2d_version": String(" 0.1")},
-		Object{"q2d_version": String("0.1 ")},
+		"0.2", "0.0",
+		// Prefixes and suffixes, which a HasPrefix or trimming check would
+		// admit, and none of which is this version.
+		"0.10", "0.1.0", " 0.1", "0.1 ",
+	} {
+		if err := CheckVersion(Object{"q2d_version": String(version)}); err != VersionUnsupported {
+			t.Errorf("%q: %v", version, err)
+		}
+	}
+}
+
+func TestAnAbsentOrMistypedVersionIsMalformedRatherThanUnsupported(t *testing.T) {
+	// §5.2.1 gives these two rows: "the verified core object malformed, or
+	// missing a field §2 requires" is malformed, and only an unknown value is
+	// unsupported_version. Collapsing them here would make the external value
+	// unrecoverable, and a requester told unsupported_version about a message
+	// that omitted the field would go looking for a version it does not have.
+	for _, core := range []Value{
 		// The number rather than the string: §2.2's field is a string, and a
 		// check that coerced would accept a shape the profile refuses.
 		Object{"q2d_version": Int(0)},
@@ -36,8 +46,8 @@ func TestEverythingElseDenies(t *testing.T) {
 		Null{},
 		Array{},
 	} {
-		if err := CheckVersion(core); err == nil {
-			t.Errorf("%v was accepted", core)
+		if err := CheckVersion(core); err != VersionMalformed {
+			t.Errorf("%v: %v", core, err)
 		}
 	}
 }
@@ -76,8 +86,13 @@ func TestTheMessageCarriesNoValue(t *testing.T) {
 	// this build has no vocabulary for — so repeating it in a log line is
 	// repeating something unparsed. The message names the field and the version
 	// this build does implement, both of which are ours.
-	message := UnsupportedVersion{}.Error()
+	message := VersionUnsupported.Error()
 	if !strings.Contains(message, "q2d_version") || !strings.Contains(message, Supported) {
 		t.Errorf("got %s", message)
+	}
+	// And the malformed one names §2.2's requirement rather than a version.
+	malformed := VersionMalformed.Error()
+	if !strings.Contains(malformed, "§2.2") || strings.Contains(malformed, "does not implement") {
+		t.Errorf("got %s", malformed)
 	}
 }

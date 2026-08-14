@@ -33,37 +33,68 @@ use crate::value::Value;
 /// One value, not a range. A range implies a negotiation, and §1 has none.
 pub const SUPPORTED: &str = "0.1";
 
-/// A message this build will not interpret.
+/// Why a verified core object is not one this build interprets.
 ///
-/// Carries no value: `q2d_version` is the sender's own claim, and an unknown
-/// one is exactly the field this build has no vocabulary for. §5.2.1's external
-/// value is `unsupported_version`, which P-009 emits; this is the internal one.
+/// **Two variants because §5.2.1 gives them two external values.** That is the
+/// opposite of `routing`'s two internal reasons, which both normalize to
+/// `routing_mismatch` — there, collapsing them on the wire is the point; here,
+/// collapsing them in the *internal* value would make the external one
+/// unrecoverable, and a requester told `unsupported_version` about a message
+/// that simply omitted the field would go looking for a version it does not
+/// have.
+///
+/// Neither carries a value. `q2d_version` is the sender's own claim, and an
+/// unknown one is exactly the field this build has no vocabulary for, so
+/// repeating it is repeating something unparsed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct UnsupportedVersion;
+pub enum VersionProblem {
+    /// §5.2.1 `malformed`: absent, or not a string. §2.2 requires the field,
+    /// and *the verified core object malformed, or missing a field §2 requires*
+    /// is that row rather than this one's.
+    Malformed,
+    /// §5.2.1 `unsupported_version`: present, a string, and not [`SUPPORTED`].
+    /// The only case in which the sender got the shape right and this build
+    /// still cannot read the message.
+    Unsupported,
+}
 
-impl std::fmt::Display for UnsupportedVersion {
+impl std::fmt::Display for VersionProblem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "`q2d_version` is absent or not {SUPPORTED} — core-model.md §4 step 5"
-        )
+        match self {
+            VersionProblem::Malformed => f.write_str(
+                "`q2d_version` is absent or is not a string — §2.2 requires it, \
+                 so this is core-model.md §5.2.1's `malformed`",
+            ),
+            VersionProblem::Unsupported => write!(
+                f,
+                "`q2d_version` names a version this build does not implement; \
+                 it implements {SUPPORTED} — core-model.md §4 step 5"
+            ),
+        }
     }
 }
 
-impl std::error::Error for UnsupportedVersion {}
+impl std::error::Error for VersionProblem {}
 
 /// Whether this build interprets the verified core object.
 ///
 /// Absent, not a string, and any other value all reject: unknown, missing and
 /// indeterminate deny.
-pub fn check_version(core: &Value) -> Result<(), UnsupportedVersion> {
+pub fn check_version(core: &Value) -> Result<(), VersionProblem> {
     let version = match core {
         Value::Object(pairs) => pairs.get("q2d_version"),
         _ => None,
     };
     match version {
         Some(Value::String(text)) if text == SUPPORTED => Ok(()),
-        _ => Err(UnsupportedVersion),
+        // A string this build does not implement. The sender got the shape
+        // right, which is the one case §5.2.1 calls `unsupported_version`.
+        Some(Value::String(_)) => Err(VersionProblem::Unsupported),
+        // Absent, or some other type. §2.2 requires a string here, so §5.2.1's
+        // `malformed` row — *missing a field §2 requires* — is the one that
+        // applies, and telling a requester `unsupported_version` would send it
+        // looking for a version it does not have.
+        _ => Err(VersionProblem::Malformed),
     }
 }
 
@@ -81,19 +112,35 @@ mod tests {
     }
 
     #[test]
-    fn everything_else_denies() {
+    fn a_version_this_build_does_not_implement_is_unsupported() {
         // Unknown, missing and indeterminate all deny. A version this build
         // does not implement is not a thing to negotiate: §1 has no round trip
         // in which to negotiate it.
-        for core in [
+        for version in [
             // A version from the future, and one from a past that never was.
-            Value::object([("q2d_version", Value::string("0.2"))]),
-            Value::object([("q2d_version", Value::string("0.0"))]),
-            // Prefixes and suffixes, which a `starts_with` check would admit.
-            Value::object([("q2d_version", Value::string("0.10"))]),
-            Value::object([("q2d_version", Value::string("0.1.0"))]),
-            Value::object([("q2d_version", Value::string(" 0.1"))]),
-            Value::object([("q2d_version", Value::string("0.1 "))]),
+            "0.2", "0.0",
+            // Prefixes and suffixes, which a `starts_with` or trimming check
+            // would admit, and none of which is this version.
+            "0.10", "0.1.0", " 0.1", "0.1 ",
+        ] {
+            let core = Value::object([("q2d_version", Value::string(version))]);
+            assert_eq!(
+                check_version(&core),
+                Err(VersionProblem::Unsupported),
+                "{version:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_absent_or_mistyped_version_is_malformed_rather_than_unsupported() {
+        // §5.2.1 gives these two rows: *the verified core object malformed, or
+        // missing a field §2 requires* is `malformed`, and only an unknown
+        // value is `unsupported_version`. Collapsing them here would make the
+        // external value unrecoverable, and a requester told
+        // `unsupported_version` about a message that omitted the field would go
+        // looking for a version it does not have.
+        for core in [
             // The number rather than the string: §2.2's field is a string, and
             // a check that coerced would accept a shape the profile refuses.
             Value::object([("q2d_version", Value::Integer(0))]),
@@ -103,7 +150,11 @@ mod tests {
             Value::Null,
             Value::Array(vec![]),
         ] {
-            assert_eq!(check_version(&core), Err(UnsupportedVersion), "{core:?}");
+            assert_eq!(
+                check_version(&core),
+                Err(VersionProblem::Malformed),
+                "{core:?}"
+            );
         }
     }
 
@@ -121,7 +172,7 @@ mod tests {
             ("predicate", Value::string("not an object")),
             ("expires_at", Value::Integer(-1)),
         ]);
-        assert_eq!(check_version(&nonsense), Err(UnsupportedVersion));
+        assert_eq!(check_version(&nonsense), Err(VersionProblem::Unsupported));
 
         // And the same object with a supported version passes *this* check,
         // which is what makes the assertion above about the version rather
@@ -141,8 +192,12 @@ mod tests {
         // the field this build has no vocabulary for — so repeating it in a log
         // line is repeating something unparsed. The message names the field and
         // the version this build *does* implement, both of which are ours.
-        let message = UnsupportedVersion.to_string();
+        let message = VersionProblem::Unsupported.to_string();
         assert!(message.contains("q2d_version"));
         assert!(message.contains(SUPPORTED));
+        // And the malformed one names §2.2's requirement rather than a version.
+        let malformed = VersionProblem::Malformed.to_string();
+        assert!(malformed.contains("§2.2"), "{malformed}");
+        assert!(!malformed.contains("does not implement"), "{malformed}");
     }
 }
