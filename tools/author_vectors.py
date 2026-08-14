@@ -87,8 +87,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-from calendar import monthrange
-from datetime import datetime
 import re
 import sys
 from pathlib import Path
@@ -158,36 +156,47 @@ RFC3339_ANY = re.compile(
     r"([Zz]|[+-]\d{2}:\d{2})\Z")
 
 
+def days_in_month(year: int, month: int) -> int:
+    """Gregorian, proleptic. Month 0 or 13 has no days, which the caller uses."""
+    if month in (1, 3, 5, 7, 8, 10, 12):
+        return 31
+    if month in (4, 6, 9, 11):
+        return 30
+    if month == 2:
+        leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+        return 29 if leap else 28
+    return 0
+
+
 def valid_q2d_timestamp(value: str) -> bool:
     """core-model.md §2.2's timestamp: the one spelling, and a real instant.
 
     Shape *and* meaning. `2026-99-99T99:99:99Z` has §2.2's spelling exactly and
     is no date, so a check on the spelling alone would sign it into a payload
-    that nothing downstream can read as text.
+    that nothing downstream can read as text. RFC 3339's own grammar requires
+    this much -- its `date-mday` says the maximum "varies based on the month and
+    year" -- so it is §2.2's rule rather than an addition to it.
+
+    Arithmetic rather than `datetime`, which cannot represent a year below 1 and
+    would therefore refuse `0000-01-01T00:00:00Z`. RFC 3339's `date-fullyear` is
+    four digits and admits it, §2.2 adds a spelling and no floor, and the two
+    implementations do their own arithmetic and accept it. A library's range is
+    not a specification's, and the tool that authors the corpus must not be the
+    narrowest reader in the room.
     """
     matched = Q2D_TIMESTAMP.match(value)
     if not matched:
         return False
-    year, month, day, hour, minute, second = matched.groups()
-    if second == "60":
+    year, month, day, hour, minute, second = (int(g) for g in matched.groups())
+    if second == 60:
         # RFC 3339 §5.7: 23:59 at a month end. Which leap seconds were actually
         # inserted is IERS data and not statically decidable -- see the harness,
         # which reaches the same conclusion from the same section.
-        if (hour, minute) != ("23", "59"):
+        if (hour, minute) != (23, 59) or day != days_in_month(year, month):
             return False
-        try:
-            date = datetime(int(year), int(month), int(day))
-        except ValueError:
-            return False
-        if date.day != monthrange(date.year, date.month)[1]:
-            return False
-        second = "59"
-    try:
-        datetime.strptime(f"{year}-{month}-{day}T{hour}:{minute}:{second}",
-                          "%Y-%m-%dT%H:%M:%S")
-    except ValueError:
-        return False
-    return True
+        second = 59
+    return (1 <= month <= 12 and 1 <= day <= days_in_month(year, month)
+            and hour <= 23 and minute <= 59 and second <= 59)
 
 
 def encodable(value: str, what: str) -> None:

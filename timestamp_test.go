@@ -46,17 +46,20 @@ func TestTheRightShapeIsNotEnough(t *testing.T) {
 		"2026-13-01T00:00:00Z",
 		"2026-01-32T00:00:00Z",
 		"2026-01-01T24:00:00Z",
-		// RFC 3339's grammar admits year zero and no calendar has one.
-		"0000-01-01T00:00:00Z",
 	} {
 		if isQ2DTimestamp(impossible) {
 			t.Errorf("%s: accepted an instant that never existed", impossible)
 		}
 	}
-	// The first year that does exist, so the bound is a bound and not an
-	// off-by-one.
-	if !isQ2DTimestamp("0001-01-01T00:00:00Z") {
-		t.Error("0001-01-01T00:00:00Z: refused the first year there is")
+	// Year zero is accepted: RFC 3339's grammar admits it and §2.2 adds a
+	// spelling, not a range. It is absurd and it is not this function's job to
+	// say so — §4 step 6 compares expires_at against a clock, and no year-zero
+	// query survives that. A floor here would be a rule the specification does
+	// not have.
+	for _, low := range []string{"0000-01-01T00:00:00Z", "0001-01-01T00:00:00Z"} {
+		if !isQ2DTimestamp(low) {
+			t.Errorf("%s: refused a year RFC 3339 admits", low)
+		}
 	}
 }
 

@@ -68,13 +68,13 @@ pub fn is_q2d_timestamp(value: &str) -> bool {
         second = 59;
     }
 
-    // `year >= 1` because RFC 3339's grammar admits `0000` and no calendar
-    // does. Python's `strptime` refuses it (`datetime.MINYEAR` is 1), and a
-    // year the authoring tool cannot express is a year no vector can assert —
-    // so accepting it here would be an acceptance divergence with the tool that
-    // produces the corpus's bytes, which is the one that matters most.
-    year >= 1
-        && month >= 1
+    // No year floor. RFC 3339's `date-fullyear` is four digits and admits
+    // `0000`; §2.2 adds a spelling and says nothing about a range. This briefly
+    // had one, because Python's `datetime` starts at year 1 and the authoring
+    // tool refused what these accepted — but a library's range is not a
+    // specification's, and the fix belonged in the tool. `year` is still read,
+    // because February needs it.
+    month >= 1
         && month <= 12
         && day >= 1
         && day <= days_in_month(year, month)
@@ -195,13 +195,15 @@ mod tests {
             "2026-13-01T00:00:00Z",
             "2026-01-32T00:00:00Z",
             "2026-01-01T24:00:00Z",
-            // RFC 3339's grammar admits year zero and no calendar has one.
-            "0000-01-01T00:00:00Z",
         ] {
             assert!(!is_q2d_timestamp(impossible), "{impossible}");
         }
-        // The first year that does exist, so the bound is a bound and not an
-        // off-by-one.
+        // Year zero is *accepted*: RFC 3339's grammar admits it and §2.2 adds a
+        // spelling, not a range. It is absurd and it is not this function's job
+        // to say so — §4 step 6 compares `expires_at` against a clock, and no
+        // year-zero query survives that. A floor here would be a rule the
+        // specification does not have.
+        assert!(is_q2d_timestamp("0000-01-01T00:00:00Z"));
         assert!(is_q2d_timestamp("0001-01-01T00:00:00Z"));
     }
 

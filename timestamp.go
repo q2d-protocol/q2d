@@ -64,12 +64,13 @@ func isQ2DTimestamp(value string) bool {
 		second = 59
 	}
 
-	// year >= 1 because RFC 3339's grammar admits 0000 and no calendar does.
-	// Python's strptime refuses it (datetime.MINYEAR is 1), and a year the
-	// authoring tool cannot express is a year no vector can assert — so
-	// accepting it here would be an acceptance divergence with the tool that
-	// produces the corpus's bytes, which is the one that matters most.
-	return year >= 1 && month >= 1 && month <= 12 &&
+	// No year floor. RFC 3339's date-fullyear is four digits and admits 0000;
+	// §2.2 adds a spelling and says nothing about a range. This briefly had one,
+	// because Python's datetime starts at year 1 and the authoring tool refused
+	// what these accepted — but a library's range is not a specification's, and
+	// the fix belonged in the tool. year is still read, because February needs
+	// it.
+	return month >= 1 && month <= 12 &&
 		day >= 1 && day <= daysInMonth(year, month) &&
 		hour <= 23 && minute <= 59 && second <= 59
 }
