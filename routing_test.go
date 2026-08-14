@@ -184,3 +184,20 @@ func TestMutatingTheCoreAfterwardsDoesNotChangeTheProjection(t *testing.T) {
 			before, after)
 	}
 }
+
+func TestTheZeroRoutingIsTheProjectionOfNothing(t *testing.T) {
+	// Go admits q2d.Routing{} where Rust's private tuple field does not. That
+	// is harmless rather than a hole: the zero value carries no fields, so the
+	// most a caller gets by writing one is an empty projection — a legal strict
+	// subset under §2.1, and the same thing ProjectRouting gives for a core
+	// object with nothing to project.
+	//
+	// What a caller still cannot do is choose what is in one, which is the
+	// property §4.5 asks for.
+	if got := routingText(t, Routing{}); got != "{}" {
+		t.Errorf("the zero value: %s", got)
+	}
+	if got := routingText(t, ProjectRouting(Object{"nonce": String("x")})); got != "{}" {
+		t.Errorf("a core object with nothing to project: %s", got)
+	}
+}

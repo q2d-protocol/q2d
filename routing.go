@@ -53,8 +53,16 @@ var projected = [][]string{
 
 // A Routing is a projection of a core object, derived by ProjectRouting.
 //
-// The wrapped value is unexported: §4.5's "never authored" is a property of this
-// type rather than a rule a caller has to keep.
+// The wrapped value is unexported, so a caller cannot choose what is in one:
+// §4.5's "never authored" is a property of this type rather than a rule a caller
+// has to keep.
+//
+// Go admits `q2d.Routing{}` where Rust's private tuple field does not, and that
+// is harmless rather than a hole — **the zero value is the projection of
+// nothing**, which is what Value returns for it. An empty projection is a legal
+// strict subset (§2.1) and the same thing ProjectRouting gives for a core object
+// with no projected field, so the invariant holds for every Routing that can be
+// constructed: its fields, if any, came from a core object.
 type Routing struct {
 	value Value
 }
@@ -71,7 +79,13 @@ type Routing struct {
 // projection and cannot mint one. What neither language prevents is a caller
 // building its own Value and serializing that into an envelope by hand — §8's
 // last row says so. The copy removes the accident, not the determined bypass.
-func (r Routing) Value() Value { return deepCopy(r.value) }
+func (r Routing) Value() Value {
+	if r.value == nil {
+		// The zero value, which a caller can write and which projects nothing.
+		return Object{}
+	}
+	return deepCopy(r.value)
+}
 
 // deepCopy returns a value sharing no memory with its argument.
 //
