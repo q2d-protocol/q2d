@@ -165,13 +165,25 @@ class StructurallyInvalidTest(unittest.TestCase):
         self.assertEqual(len(set(internal)), len(self.CASES))
 
     def test_the_header_only_case_is_caught_before_verification(self):
-        # `alg` is visible in the header alone, so it needs no signature -- and
-        # the two disagreements do, since the payload cannot be read until the
-        # bytes verify.
-        step = lambda name: by_id()[name]["expect"]["rejection"]["step"]
-        self.assertEqual(step("suite/downgrade/header-carries-alg"), 3)
-        self.assertEqual(step("suite/downgrade/header-payload-suite-mismatch"), 4)
-        self.assertEqual(step("suite/downgrade/header-payload-key-mismatch"), 4)
+        # `alg` is visible in the header alone, so it needs no signature and §4
+        # step 3 has already read the header.
+        rejection = by_id()["suite/downgrade/header-carries-alg"]["expect"]["rejection"]
+        self.assertEqual(rejection["step"], 3)
+
+    def test_the_disagreements_assert_no_step(self):
+        # They need the parsed payload, so they cannot precede §4 step 5 -- and
+        # §4's query order has no step for the comparison at all. The response
+        # order gained 4a for the same check (E-32); the query side never
+        # enumerated one, which is E-35.
+        #
+        # A step-less vector asserts no ordering (P-001 §4.8), which is weaker
+        # and true. `fold_registry.py` set the precedent before §4 gained 11a.
+        for name in ("suite/downgrade/header-payload-suite-mismatch",
+                     "suite/downgrade/header-payload-key-mismatch"):
+            with self.subTest(vector=name):
+                self.assertNotIn(
+                    "step", by_id()[name]["expect"]["rejection"],
+                    "E-35 has presumably closed — assert the step it determined")
 
 
 class ExpectedStateTest(unittest.TestCase):

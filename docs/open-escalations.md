@@ -18,7 +18,13 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** **E-34** closed as B: `structurally_invalid`, a sixth
+> **E-35 is open**, raised by E-34's cascade: E-32 added §4's response step 4a
+> for the header/payload comparison and the **query** order still has no step for
+> it, though `crypto-suites.md` §3 and P-003 §4.2 both require the check. Two
+> `suite/` vectors assert no step meanwhile, which P-001 §4.8 makes a claim about
+> nothing rather than a wrong one. It blocks nothing else.
+>
+> **E-34** closed as B: `structurally_invalid`, a sixth
 > Tier A value for a message that parses and is wrong in a way that is neither a
 > parse failure nor an authentication one. §5.2.1 also now states the test a future value must pass — it must
 > send a requester somewhere a neighbouring value would not.
@@ -127,6 +133,7 @@ question is still fresh than after the answer arrives.
 | **E-32** | What does a signed *response* payload contain? | E-31's cascade | `core-model.md` §5.1–§5.3, §6, §4 response step 4a (new) · `crypto-suites.md` §3 | **Closed** |
 | **E-33** | What are the external denial classes a requester actually receives? | P-001 issue 12 | `core-model.md` §5.2.1 (new) · P-009 §4.1, §5 | **Closed** |
 | **E-34** | Which class does a structurally invalid but authentic message produce? | P-001 issue 13 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-009 §4.1, §5 | **Closed** |
+| **E-35** | At which §4 step does a query's header/payload comparison happen? | E-34's cascade | `core-model.md` §4 query order | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -2587,6 +2594,106 @@ next reader treating privacy as the reason.
 `malformed_message` would sit beside `malformed` and mean something different,
 which two implementers will blur. `structurally_invalid` cannot be misread as the
 parse failure.
+
+
+---
+
+## E-35 — At which §4 step does a query's header/payload comparison happen?
+
+**Raised by** E-34's cascade ·
+**Decides** [`core-model.md`](../spec/core-model.md) §4's **query** processing
+order ·
+**Blocks** the `step` field of two vectors —
+`suite/downgrade/header-payload-suite-mismatch` and `-key-mismatch`. Both are
+committed and asserting no step, which P-001 §4.8 makes a claim about nothing
+rather than a wrong claim. Nothing else.
+
+### Context
+
+E-32 settled that a verifier confirms the protected header's `suite` and `key_id`
+equal the payload's `signature.profile` and `signature.key_id`, in **both**
+directions. On the response side it added §4's response step **4a** for it. On
+the query side the check already existed —
+[`crypto-suites.md`](../spec/crypto-suites.md) §3 and
+[P-003](prds/P-003-crypto-suites.md) §4.2 step 4 — and §4's query order has never
+had a step for it.
+
+So the requirement is stated twice and located nowhere:
+
+| | Requirement | Step in §4 |
+|---|---|---|
+| Query | `crypto-suites.md` §3, P-003 §4.2 step 4 | **none** |
+| Response | `crypto-suites.md` §3, E-32 | response step **4a** |
+
+P-003's "step 4" is its own four-step verification sequence, not a §4 step, which
+is what made this easy to miss — I wrote `step: 4` into both vectors, and §4 step
+4 is *"Resolve the key; verify the signature"*. The comparison cannot happen
+there: the payload is not parsed until step 5.
+
+### Why it is not just a number
+
+A vector's `step` is a claim about ordering, and P-001 §4.8 treats a wrong one as
+a failure. But the deeper reason to place it deliberately is that the comparison
+sits between two things that must not be reordered: it needs the parsed payload
+(so, after step 5), and it must precede anything that *acts* on the payload's
+declarations. Where exactly it lands decides whether, for instance, expiry at
+step 6 runs before or after a message with contradictory declarations has been
+refused.
+
+### Options
+
+**A. A lettered step 5a**, immediately after parsing, mirroring the response
+order's 4a.
+
+*For:* symmetric with the response side, which E-32 established for the same
+check with the same reasoning; lettered, so the steps below do not renumber,
+which is the convention 9a and 11a already set. It places the comparison before
+every step that reads a payload field, which is the property that matters.
+*Against:* another lettered step in an order that now has three, and each one is
+a small tax on anyone reading the list for the first time.
+
+**B. Fold it into step 5.** *"Parse the verified core object"* becomes parse and
+confirm its declarations match the header.
+
+*For:* no new step, and it is arguably what step 5 already means — an object
+whose declarations contradict the header it arrived under has not been
+successfully accepted.
+*Against:* step 5's whole point is that it is *only* parsing, sitting after
+verification so that parser behaviour is outside the security boundary. Giving it
+a second job blurs a boundary §4 draws deliberately, and the response side would
+still have 4a, so the two orders would describe one check two ways.
+
+**C. Leave it unnumbered**, with the requirement living in `crypto-suites.md` §3
+and P-003 alone.
+
+*For:* no change; the check is required and implementations that read those
+documents will do it.
+*Against:* §4 is the document that says what order things happen in, and a
+security check with no place in it is one an implementer can position anywhere —
+including after step 6 or 7, which would act on a payload whose declarations were
+never checked. It also leaves the corpus permanently unable to assert the
+ordering, which is what `ordering/` exists for.
+
+### Recommendation — A
+
+E-32 already made this call for the response and gave the reasoning: the header
+is untrusted, the payload's copies are authoritative, and comparing them catches
+a producer no verifier would otherwise notice. The query side needs the same
+check in the same place relative to parsing, and giving it a differently-shaped
+home would mean two orders describing one requirement two ways — which is how the
+response side came to be missing it in the first place.
+
+B is tempting and loses the thing step 5 is for. The separation between "verify"
+and "parse" is one of §4's load-bearing boundaries, and adding a semantic check to
+the parse step erodes it for no gain beyond one fewer row.
+
+**Where A stops being right:** if §4's query order is meant to name only the
+orderings whose violation is a *vulnerability* — which is what its response
+counterpart says of itself — then a mismatch that cannot be exploited without
+also forging a signature may not earn a row. That would argue for C plus a
+sentence in §4 pointing at `crypto-suites.md` §3. Worth deciding which §4 is,
+since it currently reads as exhaustive on the query side and selective on the
+response side.
 
 
 ---

@@ -78,7 +78,7 @@ SECOND_KEY_QUERY = dict(
     QUERY, signature=dict(QUERY["signature"], key_id=IMPOSTOR))
 
 
-def rejects(internal: str, external: str, step) -> dict:
+def rejects(internal: str, external: str, step=None) -> dict:
     """A rejection asserting both halves, with `wire` as a projection.
 
     These vectors test suite resolution and verification, not response
@@ -87,15 +87,17 @@ def rejects(internal: str, external: str, step) -> dict:
     normalized denial's uniformity structural and declaring `semantic` would say
     the specification requires no determinism here.
     """
-    return {
-        "outcome": "rejected",
-        "rejection": {
-            "internal_reason": internal,
-            "wire": {"status": "deny", "external_reason": external},
-            "step": step,
-        },
-        "comparison": "bytes",
+    rejection = {
+        "internal_reason": internal,
+        "wire": {"status": "deny", "external_reason": external},
     }
+    # A step is asserted only where §4 determines one. `fold_registry.py` set
+    # this precedent for `constraint_violation_minimum_slot_duration` before §4
+    # gained step 11a: a step-less vector asserts no ordering (P-001 §4.8),
+    # which is weaker and true, where a guessed step is stronger and wrong.
+    if step is not None:
+        rejection["step"] = step
+    return {"outcome": "rejected", "rejection": rejection, "comparison": "bytes"}
 
 
 def envelope(signed: str) -> dict:
@@ -257,15 +259,18 @@ def vectors() -> list[dict]:
                 "verification by P-003 §4.2 step 4, which is the point: the "
                 "payload's copy is authoritative, the header's is not, and "
                 "comparing them catches a producer no verifier would otherwise "
-                "notice."
+                "notice. **No §4 step is asserted.** The comparison needs the "
+                "parsed payload, so it cannot precede §4 step 5, and §4's query "
+                "order has no step for it — the response order gained 4a for "
+                "the same check (E-32) and the query side never enumerated one. "
+                "E-35."
             ),
             "operation": "verify_query",
             "input": envelope(av.jws_compact(
                 seed, REQUESTER,
                 dict(QUERY, signature=dict(QUERY["signature"],
                                            profile=UNREGISTERED_SUITE)))),
-            "expect": rejects("header_payload_suite_mismatch",
-                              "structurally_invalid", 4),
+            "expect": rejects("header_payload_suite_mismatch", "structurally_invalid"),
         },
         {
             "id": "suite/downgrade/header-payload-key-mismatch",
@@ -286,8 +291,7 @@ def vectors() -> list[dict]:
                 seed, REQUESTER,
                 dict(QUERY, signature=dict(QUERY["signature"],
                                            key_id=IMPOSTOR)))),
-            "expect": rejects("header_payload_key_mismatch",
-                              "structurally_invalid", 4),
+            "expect": rejects("header_payload_key_mismatch", "structurally_invalid"),
         },
         {
             "id": "suite/keys/unresolvable",

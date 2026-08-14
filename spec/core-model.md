@@ -794,7 +794,7 @@ bytes, so precision here costs nothing and makes the protocol debuggable.
 | `unsupported_suite` | Suite unregistered, **or** below the verifier's minimum acceptable policy | step 3 |
 | `routing_mismatch` | `routing` disagrees with the verified object | step 8 |
 | `expired` | Request expired or future-dated | step 6 |
-| `structurally_invalid` | The message parses, and what is wrong with it is neither a parse failure nor an authentication one: a protected header carrying a member [`crypto-suites.md`](crypto-suites.md) §3 does not permit, or a header whose `suite` or `key_id` disagrees with the payload's `signature.profile` or `signature.key_id` | step 3 for the header alone, which needs no signature; step 4 for a disagreement, which cannot be seen until the payload is verified |
+| `structurally_invalid` | The message parses, and what is wrong with it is neither a parse failure nor an authentication one: a protected header carrying a member [`crypto-suites.md`](crypto-suites.md) §3 does not permit, or a header whose `suite` or `key_id` disagrees with the payload's `signature.profile` or `signature.key_id` | step 3 for the header alone, which needs no signature. A disagreement needs the parsed payload, so it cannot precede step 5, and §4 does not yet name a step for the comparison — [`open-escalations.md`](../docs/open-escalations.md) E-35 |
 
 `unsupported_suite` is one value for two causes on purpose. Separating them would
 tell a requester whether the custodian *knows* a suite it declined, which is the
@@ -818,8 +818,15 @@ the larger class and lose the only thing the value is for.
 that asymmetry is not a defect. A header carrying `alg` is visible in the header
 alone, and §4 step 3 reads the header — so rejecting it there is the *least*
 work, not extra work done ahead of authentication. The two disagreements need the
-payload, which §2.1 forbids parsing until the bytes verify, so they cannot be
-seen before step 4. Nothing in this class licenses reading a payload early.
+parsed payload, which §2.1 forbids reading until the bytes verify, so they cannot
+be seen before step 5. Nothing in this class licenses reading a payload early.
+
+**§4's query order does not name the step at which the comparison happens.** The
+response order gained step 4a for exactly this check (E-32) and the query side
+was never enumerated, so the requirement exists — [`crypto-suites.md`](crypto-suites.md)
+§3 and P-003 §4.2 — with no slot in the order that cites it. That is
+[`open-escalations.md`](../docs/open-escalations.md) **E-35**, and the corpus
+vectors assert no step meanwhile.
 
 **What this vocabulary is for**, since `structurally_invalid` is the first value
 added after the list was closed and the next one will need the same test: it

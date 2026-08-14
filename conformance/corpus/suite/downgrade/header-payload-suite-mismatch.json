@@ -6,7 +6,7 @@
     "core-model.md#2.7",
     "core-model.md#5.2.1"
   ],
-  "description": "A header declaring the registered suite over a payload whose `signature.profile` declares another. The signature verifies — the verifier used the header's suite — so this is caught after verification by P-003 §4.2 step 4, which is the point: the payload's copy is authoritative, the header's is not, and comparing them catches a producer no verifier would otherwise notice.",
+  "description": "A header declaring the registered suite over a payload whose `signature.profile` declares another. The signature verifies — the verifier used the header's suite — so this is caught after verification by P-003 §4.2 step 4, which is the point: the payload's copy is authoritative, the header's is not, and comparing them catches a producer no verifier would otherwise notice. **No §4 step is asserted.** The comparison needs the parsed payload, so it cannot precede §4 step 5, and §4's query order has no step for it — the response order gained 4a for the same check (E-32) and the query side never enumerated one. E-35.",
   "operation": "verify_query",
   "input": {
     "envelope": {
@@ -20,8 +20,7 @@
       "wire": {
         "status": "deny",
         "external_reason": "structurally_invalid"
-      },
-      "step": 4
+      }
     },
     "comparison": "bytes"
   }
