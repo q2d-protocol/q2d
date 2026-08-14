@@ -18,15 +18,13 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-38 is open**, raised while building P-002's envelope parser: may an
-> envelope omit `routing`? `core-model.md` §2.1 says *"a message has two parts"*;
-> ten authored `suite/` vectors omitted it deliberately, on a reading `spec/`
-> does not state.
-> §E-38 has the options. Both implementations require it meanwhile, which is
-> what §2.1 says; the recommendation is the other way.
+> **Nothing is open.** **E-38** closed as B, **E-36** as C and **E-37** as B —
+> all three raised while building P-002, all three cascaded.
 >
-> **E-36** closed as C and **E-37** as B, both raised while
-> building P-002's serializer and both cascaded.
+> **E-38:** `routing` **may be absent**, and §2.1 now says so. It exists for a
+> party that need not be there; a direct exchange has no intermediary to
+> dispatch, and requiring the projection would put `predicate.id` and
+> `target.custodian` in the clear for nobody's benefit.
 >
 > **E-36:** §2.2's timestamp spelling reaches the fields §2.2 names and no
 > further, and §2.2 now says so. A predicate wanting one spelling for a field of
@@ -156,7 +154,7 @@ question is still fresh than after the answer arrives.
 | **E-35** | At which §4 step does a query's header/payload comparison happen? | E-34's cascade | `core-model.md` §4 query order, §5.2.1 · `crypto-suites.md` §3 · both schemas | **Closed** |
 | **E-36** | Does §2.2's timestamp spelling bind every string that looks like a timestamp, or only the fields §2.2 names? | P-002 issue 2 | `core-model.md` §2.2 · `scope.md` §4.1 · P-002 §4.2, §10 · `tools/author_vectors.py` · both implementations | **Closed** |
 | **E-37** | Does an integer in a signed structure have a range, and is it `core-model.md`'s to state? | P-002 issue 2 | `scope.md` §4.1 · `registry/validate.py` · P-006 issue 2 · P-002 §10 · `tools/author_vectors.py` | **Closed** |
-| **E-38** | May an envelope omit `routing`? | P-002 issue 5 | `core-model.md` §2.1 · P-002 §4.4, §4.5 · `conformance/corpus/suite/downgrade/` · both implementations | **Open** |
+| **E-38** | May an envelope omit `routing`? | P-002 issue 5 | `core-model.md` §2.1 · P-002 §4.4, §4.5, §10 · `tools/author_suite.py`, `tools/author_ordering.py` · both implementations | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -3337,34 +3335,98 @@ case — a direct exchange — where it could be best.
 and a requester that cannot predict whether its envelope will be accepted has to
 send the projection always, which is A wearing B's clothes.
 
-### What is built today, pending the decision
+## Resolution — B
 
-**A's behaviour: both implementations require `routing`.** That is what §2.1
-says, and it is what *missing denies* implies.
+**`routing` may be absent, and §2.1 says so.** A responder must accept a message
+carrying only `signed`.
 
-This was implemented the other way first, and the reasoning is worth recording
+The wording that made this ambiguous is gone: §2.1 opened *"A message has two
+parts"* and now opens *"A message has an authoritative part and an optional
+advisory one"* — which says the same thing about authority and stops implying
+something about presence it never meant to. The permission is a bullet in the
+`routing` list, beside the other three, with the reason: it exists for a party
+that need not be there.
+
+Two things the resolution turns on, both worth keeping:
+
+- **Absence removes no guarantee.** Everything the signature covers is still
+  covered. A projection that is *present* is the thing that can disagree, so an
+  envelope without one is strictly less attack surface — the §4.6 check has
+  nothing to compare and therefore nothing it can fail to catch.
+- **Requiring it would make least disclosure worse in the one case it could be
+  best.** A direct exchange has no intermediary; projecting `predicate.id` and
+  `target.custodian` there publishes them for nobody.
+
+**C was the option to avoid** and is worth recording as such: leaving it to the
+transport is B with the answer hidden behind a deployment, and a requester that
+cannot predict whether its envelope will be accepted has to send the projection
+always — A wearing B's clothes.
+
+### What was built while it was open
+
+**A's behaviour: both implementations required `routing`.** That is what §2.1
+said, and what *missing denies* implies.
+
+It was implemented the *other* way first, and that reasoning is worth recording
 because it was wrong in an instructive way. The argument was that the corpus
 already contained an envelope without `routing` — authored, reviewed and merged
-— so implementing A would retroactively invalidate landed work, and the
+— so requiring it would retroactively invalidate landed work, and the
 repository's own artifact was better evidence of intent than a parser written
 this week.
 
-The flaw is that [CLAUDE.md](../CLAUDE.md)'s hierarchy answers it directly:
-`spec/` outranks the corpus, and a PRD, and a tool. `tools/author_suite.py`'s
-`envelope()` had a docstring explaining why it omitted the projection, so the
-repository was carrying a **practice** built on a reading `spec/` does not
-state — which is E-36's shape exactly, one level down. Evidence of intent is not
-authority, and letting an authored vector override §2.1 puts the rule one tier
-too low.
+[CLAUDE.md](../CLAUDE.md)'s hierarchy answers that directly: `spec/` outranks
+the corpus, and a PRD, and a tool. `tools/author_suite.py`'s `envelope()` had a
+docstring explaining why it omitted the projection, so the repository was
+carrying a **practice** built on a reading `spec/` does not state — E-36's shape
+exactly, one tier down. Evidence of intent is not authority.
 
-So the ten `suite/` vectors now carry a projection. Their author's third reason
-for omitting it — *"a projection would give each one a second way to fail"* — was
-the real one and is answered rather than contradicted: the projection is
-**correct** for `QUERY`, so §4 step 8 passes and each vector still fails on its
-own suite defect.
+So the ten `suite/` vectors gained a projection for one commit, and the
+resolution took it away again. That is the right sequence rather than a wasted
+one: the vectors are generated, so both moves cost a regeneration, and the
+alternative was to let a tool's docstring settle a question about `spec/`.
 
-If this closes as B — which is the recommendation — it is one line in each
-implementation and one line in `author_suite.py`, and the vectors regenerate.
+**The outcome is better than either starting point.** `suite/` carries the
+one-part shape and `message/` carries the two-part shape, so the corpus now
+exercises both — where before it had the one-part shape by accident and no rule
+saying it was allowed.
+
+---
+
+## What E-38 cascaded into
+
+- [`core-model.md`](../spec/core-model.md) §2.1 — the opening sentence, the
+  envelope sketch, and a new first bullet stating the permission and its reason.
+- `src/envelope.rs`, `envelope.go` — `routing` optional again, and the reason at
+  the type rather than in a commit.
+- `tools/author_suite.py` — back to the routing-less envelope, with the
+  docstring now citing §2.1 rather than asserting the reading it depended on.
+- `tools/author_ordering.py` and `conformance/tests/test_ordering_section.py` —
+  **the premise, not the practice.** Both justified `routing` on every ordering
+  envelope by *"a responder validating envelope shape at step 1 could reject one
+  carrying only `signed`"*. Under B a conforming responder must not, so the
+  reason is gone and the practice stands on a better one: these vectors assert
+  *where* a request is rejected, and a projection is one more thing each holds
+  constant.
+- P-002 §4.4, §4.5 and §10 — §4.5 said a producer *derives* `routing` and
+  *"never constructs one independently"*, which now reads as *if it sends one*.
+
+- [`conformance-classes.md`](../spec/conformance-classes.md) — **both sides, and
+  found by review rather than by the checklist run that should have caught it.**
+  CC-1 required a requester to *"emit a `routing` projection"*, which §2.1 now
+  says it need not; it derives *any* projection it emits. CC-2 gains the
+  responder's half — *accept a message carrying only `signed`* — because §2.1's
+  permission is only real if the other side is required to honour it, and
+  "absence is not disagreement" is the sentence that keeps it distinct from the
+  rejection rule beside it.
+
+  CLAUDE.md's closing-an-escalation list names this file as one of three to
+  re-check, and the first pass recorded the other two as checked and skipped it.
+
+**Checked and unchanged:** [`claims.md`](../spec/claims.md)'s Q2D-C-05 mention
+of `routing` is about disagreement, not presence. `crypto-suites.md` §115 says
+`routing` cannot supply the suite *because* it is advisory — an argument
+absence strengthens. [P-013](prds/P-013-https-binding.md) §2 cites §2.1 rather
+than restating it.
 
 ---
 

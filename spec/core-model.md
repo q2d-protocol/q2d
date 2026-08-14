@@ -37,12 +37,12 @@ different query.
 
 ### 2.1 Envelope
 
-A message has two parts. Only one of them is authoritative.
+A message has an authoritative part and an optional advisory one.
 
 ```
 {
   "signed":  "<opaque: the core object and its signature>",
-  "routing": { ... non-authoritative projection ... }
+  "routing": { ... non-authoritative projection, optional ... }
 }
 ```
 
@@ -54,6 +54,12 @@ object **only after** verifying those bytes.
 **`routing`** is a projection for intermediaries that must dispatch or
 capability-match without unwrapping. It is advisory:
 
+- `routing` **may be absent**, and a responder must accept a message carrying
+  only `signed`. It exists for a party that need not be there: a direct
+  exchange has no intermediary to dispatch, and requiring the projection would
+  put `predicate.id` and `target.custodian` in the clear for nobody's benefit.
+  Its absence removes no guarantee — everything the signature covers is still
+  covered, and a projection that is *present* is the thing that can disagree;
 - a responder **must not** use `routing` for any decision the signature covers;
 - `routing` **must** be a strict subset of what `signed` contains — it may
   never introduce a field;

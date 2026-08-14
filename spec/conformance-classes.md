@@ -38,8 +38,9 @@ There is no certification program and no conformance mark. See
 delegated agent identity through the interfaces in
 [`core-model.md`](core-model.md) §2.3; sign queries covering every field in
 [`core-model.md`](core-model.md) §2 under the mandatory-to-implement suite
-`eddsa-jws-2026`; emit a `routing` projection that is a strict subset of the
-signed object; **process every response in the order in
+`eddsa-jws-2026`; derive any `routing` projection it emits from the signed
+object, as a strict subset — §2.1 permits emitting none; **process every response
+in the order in
 [`core-model.md`](core-model.md) §4.1**; handle all three response statuses;
 verify response signatures against its own minimum acceptable suite policy before
 exposing an answer; store receipts; honour idempotency on retry.
@@ -60,7 +61,8 @@ without reordering steps 1–16 **or the lettered steps among them, 5a, 9a and 1
 check the signature suite against its minimum
 acceptable policy before verifying; authenticate and verify delegation through
 the interfaces in [`core-model.md`](core-model.md) §2.3; reject any `routing` /
-`signed` disagreement; enforce replay and expiry; **enforce a configured rate
+`signed` disagreement; **accept a message carrying only `signed`** — §2.1 makes
+the projection optional, and absence is not disagreement; enforce replay and expiry; **enforce a configured rate
 limit at step 9a**, keyed on the relationship only
 ([`core-model.md`](core-model.md) §9.1); resolve the predicate against a pinned
 registry and fail closed on anything unknown; compute the effective answer domain

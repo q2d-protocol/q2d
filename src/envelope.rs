@@ -33,21 +33,21 @@
 use crate::parse::{parse_within, ParseError, MAX_ENVELOPE, MAX_STRING};
 use crate::value::Value;
 
-/// A parsed envelope: both of §2.1's parts.
+/// A parsed envelope.
 ///
-/// Whether `routing` may be absent is **E-38, open**. §2.1 opens *"a message
-/// has two parts"* and calls `routing` advisory, which answers what it may be
-/// *used for* rather than whether it may be *absent* — and
-/// `tools/author_suite.py` had been omitting it deliberately, so the repository
-/// carried a practice on a reading `spec/` does not state.
+/// `routing` is optional, and §2.1 now says so: *"`routing` may be absent, and
+/// a responder must accept a message carrying only `signed`"*. It exists for a
+/// party that need not be there — a direct exchange has no intermediary to
+/// dispatch, and requiring the projection would put `predicate.id` and
+/// `target.custodian` in the clear for nobody's benefit. E-38, closed as B.
 ///
-/// This requires it, which is what §2.1 says and what missing-denies implies.
-/// The register recommends the other answer; the code follows the specification
-/// until that is decided, because `spec/` outranks both a tool and a PRD.
+/// This is one of the few places the *permissive* reading is the safe one.
+/// Absence removes no guarantee: everything the signature covers is still
+/// covered, and a projection that is present is the thing that can disagree.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Envelope {
     pub signed: String,
-    pub routing: Value,
+    pub routing: Option<Value>,
 }
 
 /// Parse an envelope under §4.8's limits.
@@ -116,17 +116,12 @@ pub fn parse_envelope(bytes: &[u8]) -> Result<Envelope, ParseError> {
     }
 
     let signed = signed.ok_or_else(|| ParseError("no `signed` member — §4.4".into()))?;
-    // §2.1: "A message has two parts." E-38 asks whether both are required and
-    // is open; until it closes this enforces what §2.1 says, because `spec/`
-    // outranks a practice built on reading it differently, and because missing
-    // denies. See the module note.
-    let routing = routing.ok_or_else(|| ParseError("no `routing` member — §2.1".into()))?;
 
     // §4.8's 2 KiB, over the part of the envelope it can reach. Post-parse
     // rather than during, because the parser applied the envelope bound to
     // every string so that `signed` would fit; this narrows the rest back.
     // Bounded work: the envelope was capped before any of it was read.
-    if let Some(len) = longest_string(&routing) {
+    if let Some(len) = routing.as_ref().and_then(longest_string) {
         if len > MAX_STRING {
             return Err(ParseError(format!(
                 "a `routing` string of {len} bytes, above P-002 §4.8's {MAX_STRING}"
@@ -172,25 +167,31 @@ mod tests {
     fn an_envelope_is_both_of_2_1_s_parts() {
         let one = envelope(r#"{"signed":"aGVhZGVy.cGF5bG9hZA.c2ln","routing":{}}"#);
         assert_eq!(one.signed, "aGVhZGVy.cGF5bG9hZA.c2ln");
-        assert_eq!(one.routing, Value::object(Vec::<(&str, Value)>::new()));
+        assert_eq!(
+            one.routing,
+            Some(Value::object(Vec::<(&str, Value)>::new()))
+        );
 
         let two = envelope(r#"{"signed":"a.b.c","routing":{"type":"query"}}"#);
         assert_eq!(
             two.routing,
-            Value::object([("type", Value::string("query"))])
+            Some(Value::object([("type", Value::string("query"))]))
         );
     }
 
     #[test]
-    fn an_envelope_without_routing_is_refused() {
-        // §2.1: "A message has two parts." **E-38, open** — the register
-        // recommends the other answer, and this follows §2.1 until it closes,
-        // because `spec/` outranks the practice that had grown against it.
+    fn an_envelope_without_routing_is_accepted() {
+        // §2.1, as E-38 closed it: "`routing` may be absent, and a responder
+        // must accept a message carrying only `signed`."
         //
-        // An empty `routing` is present and is a different thing: §4.6 compares
-        // each field present in it, and none is a vacuous comparison rather
-        // than an absent part.
-        assert!(refused(r#"{"signed":"a.b.c"}"#).contains("no `routing`"));
+        // Absent and empty are still different, and both are legal. An empty
+        // `routing` is a projection of nothing, which §4.6 compares field by
+        // field and finds no field to compare; an absent one is no projection.
+        assert_eq!(envelope(r#"{"signed":"a.b.c"}"#).routing, None);
+        assert_eq!(
+            envelope(r#"{"signed":"a.b.c","routing":{}}"#).routing,
+            Some(Value::object(Vec::<(&str, Value)>::new()))
+        );
     }
 
     #[test]

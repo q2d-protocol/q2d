@@ -152,15 +152,18 @@ func TestTwoDefectsGiveTheSameReasonEveryRun(t *testing.T) {
 	}
 }
 
-func TestAnEnvelopeWithoutRoutingIsRefused(t *testing.T) {
-	// §2.1: "A message has two parts." E-38, open — the register recommends the
-	// other answer, and this follows §2.1 until it closes, because spec/
-	// outranks the practice that had grown against it.
+func TestAnEnvelopeWithoutRoutingIsAccepted(t *testing.T) {
+	// §2.1, as E-38 closed it: "routing may be absent, and a responder must
+	// accept a message carrying only signed."
 	//
-	// An empty routing is present and is a different thing: §4.6 compares each
-	// field present in it, and none is a vacuous comparison rather than an
-	// absent part.
-	if message := refusedEnvelope(t, `{"signed":"a.b.c"}`); !strings.Contains(message, "no `routing`") {
-		t.Errorf("message does not name the defect: %s", message)
+	// Absent and empty are still different, and both are legal. An empty routing
+	// is a projection of nothing, which §4.6 compares field by field and finds
+	// no field to compare; an absent one is no projection.
+	if got := envelope(t, `{"signed":"a.b.c"}`).Routing; got != nil {
+		t.Errorf("routing should be absent: %v", got)
+	}
+	empty := envelope(t, `{"signed":"a.b.c","routing":{}}`).Routing
+	if empty == nil {
+		t.Error("an empty routing is present, not absent")
 	}
 }

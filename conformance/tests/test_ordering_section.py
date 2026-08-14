@@ -96,9 +96,10 @@ class ShapeTest(unittest.TestCase):
 
 class EnvelopeTest(unittest.TestCase):
     def test_every_envelope_carries_routing(self):
-        # §2.1 shows a message as two parts, and a responder validating envelope
-        # shape at step 1 could reject one carrying only `signed` -- failing
-        # these vectors at step 1 rather than at the step each asserts.
+        # Not because one carrying only `signed` would be rejected -- E-38
+        # settled that it must not be, and §2.1 says so. These vectors assert
+        # *where* a request is rejected, and a projection is one more thing each
+        # holds constant; `suite/` covers the routing-less shape.
         for vector in vectors():
             with self.subTest(vector=vector["id"]):
                 self.assertIn("routing", vector["input"]["envelope"])
