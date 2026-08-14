@@ -163,17 +163,21 @@ while the other refused it would make `cross` report a divergence about JSON.
 twenty-four documents chosen because a permissive parser would differ on them —
 duplicate keys at two depths, `NaN`, `Infinity`, a trailing document, an
 unescaped control character, malformed UTF-8, a lone surrogate of each half, and
-eight numeric forms RFC 8259 §6 forbids —
-and both must give the same exit code for each, plus a valid surrogate pair both
-must *accept*, since a list of refusals alone is satisfied by a runner that
-refuses everything.
+eight numeric forms RFC 8259 §6 forbids — and both must give the same exit code
+for each, plus three documents both must *accept*: a valid surrogate pair, and
+two numbers outside `float64`'s range. A list of refusals alone is satisfied by a
+runner that refuses everything, and one that rejects valid vectors is worse than
+a permissive one — it fails a conforming producer.
 
-Four of those cases were divergences when first written, all about encoding
+Five of those cases were divergences when first written, all about encoding
 rather than about Q2D: Go substituted U+FFFD for malformed UTF-8 and for an
 unpaired surrogate where Rust refused both, and Rust refused the first half of a
 valid pair where Go decoded it, and Rust validated numbers with `f64::from_str`,
-which accepts `01` and `1.` where `encoding/json` refuses them. Each would have
-surfaced through `cross` as two implementations disagreeing about the protocol. Establishing the parity now is
+which accepts `01` and `1.` where `encoding/json` refuses them. Go, in turn,
+converted every number to `float64` and so refused `1e400`, a valid RFC 8259
+number the Rust scanner accepts — fixed with `UseNumber`, since neither runner
+has any use for a numeric value. Each would have surfaced through `cross` as two
+implementations disagreeing about the protocol. Establishing the parity now is
 cheapest, because with neither answering a vector there is nothing else a
 difference could be blamed on.
 

@@ -120,7 +120,16 @@ jobs:
       - name: The corpus fails against both runners, as it must today
         run: |
           for runner in target/debug/q2d-conform target/q2d-go; do
-            if python3 conformance/harness run --impl "$runner" | tee /tmp/run.txt; then
+            # The status is captured rather than piped. The default shell has no
+            # `pipefail`, so `harness run | tee` would report tee's success and
+            # this assertion would fire on every run — passing the gate it
+            # exists to guard would look identical to failing it.
+            set +e
+            python3 conformance/harness run --impl "$runner" > /tmp/run.txt
+            status=$?
+            set -e
+            cat /tmp/run.txt
+            if [ "$status" -eq 0 ]; then
               echo "::error::$runner passed a vector — P-001 §7's gate has moved"
               exit 1
             fi

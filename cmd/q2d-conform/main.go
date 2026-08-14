@@ -87,6 +87,11 @@ var knownOperations = map[string]bool{
 // It is a second pass over the same bytes rather than a custom Unmarshaler,
 // because a custom one would have to model the whole vector — and the runner
 // deliberately models none of it.
+// Both walks below call UseNumber, so a number stays the text it was written as
+// instead of becoming a float64. Without it `encoding/json` rejects a value
+// outside float64's range -- `1e400` is a valid RFC 8259 number and this runner
+// would refuse a projection the Rust scanner, which validates only the grammar,
+// accepts. Neither runner has any use for a numeric *value*.
 func refuseDuplicateKeys(dec *json.Decoder) error {
 	token, err := dec.Token()
 	if err != nil {
@@ -223,11 +228,14 @@ func parseStrictly(data []byte) (map[string]any, error) {
 		return nil, err
 	}
 
-	if err := refuseDuplicateKeys(json.NewDecoder(bytes.NewReader(data))); err != nil {
+	duplicates := json.NewDecoder(bytes.NewReader(data))
+	duplicates.UseNumber()
+	if err := refuseDuplicateKeys(duplicates); err != nil {
 		return nil, err
 	}
 
 	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber()
 	var value any
 	if err := dec.Decode(&value); err != nil {
 		return nil, err

@@ -84,6 +84,15 @@ for _bad in ("01", "1.", ".5", "+1", "-", "1e", "1e+", "00"):
 # refuse a legitimate vector.
 ACCEPTED = {
     "a surrogate pair": '{"id":"\\ud83d\\ude00","operation":"digest","input":{}}',
+    # A valid RFC 8259 number outside float64's range. `encoding/json` refuses
+    # it unless told `UseNumber`, and the Rust scanner validates only the
+    # grammar -- so a runner that converted would reject a projection the other
+    # answers. Neither has any use for a numeric value.
+    "a number beyond float64":
+        '{"id":"a","operation":"digest","input":{"x":1e400}}',
+    "a number with many digits":
+        '{"id":"a","operation":"digest","input":{"x":'
+        + "1" * 400 + '}}',
 }
 
 # Bytes rather than text, because the point is that they are not valid UTF-8 and
