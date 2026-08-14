@@ -49,9 +49,12 @@ class IntegerRangeTest(unittest.TestCase):
                 self.assertEqual(len(findings(schema)), 1)
 
     def test_an_enum_names_its_values_and_needs_no_range(self):
-        # It has said exactly which values it admits, so `minimum`/`maximum`
-        # would add nothing — and §4.1's release rule already treats `enum` as
-        # a complete bound.
+        # §4.1 states this exemption rather than leaving it to the validator:
+        # an `enum` has named the values it admits, so a range beside it would
+        # add nothing, and §4.1's release rule already treats `enum` as a
+        # complete bound. Review caught the spec text and this check
+        # disagreeing about it, which is the drift a registry rule stated in
+        # two places produces.
         self.assertEqual(findings({"type": "integer", "enum": [1, 2, 3]}), [])
 
     def test_an_enum_literal_is_still_checked(self):

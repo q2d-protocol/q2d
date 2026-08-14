@@ -106,15 +106,19 @@ with a `maxLength`, and a booking time carrying `+01:00` travels unaltered. Both
 are conforming, and the difference is a predicate author's decision rather than
 an accident of which field name they chose.
 
-The rule binds the value validated against the schema, **however it travelled**.
+The rule binds the value validated against the schema, **however it travelled**,
+and this schema is the only thing that binds it — `core-model.md` §2.2 does not
+reach operation-defined data, which is what makes the declaration meaningful
+rather than a restatement.
+
 §2.4 lets public context arrive inline in the signed core object or as a digest
-with the value carried separately; in the first case §2.2 reaches it directly,
-and in the second `predicate.public_context_digest` — which is in the signed
-object — commits to the value's bytes, so a different spelling produces a
-different digest and the separately-carried value no longer matches what was
-signed. (Not the *entry* digest, which §2.4.1 defines over the registry entry
-and which says nothing about a request's values.) Either way one spelling is the
-only one that works.
+with the value carried separately. Validation happens against this schema in
+both cases, so both get the assertion. What the second adds is that
+`predicate.public_context_digest` — which is in the signed object — commits to
+the value's bytes, so a value that was validated and then altered in transit no
+longer matches what was signed. (Not the *entry* digest, which §2.4.1 defines
+over the registry entry and says nothing about a request's values.) Either way
+the spelling this entry declared is the only one that works for it.
 
 `$schema` is required and declares the dialect —
 `https://json-schema.org/draft/2020-12/schema` for 0.1. It is a declaration
@@ -209,7 +213,10 @@ answer most of it.
 
 **One exception, and it is about neither: an `integer` in any of an entry's
 schemas states `minimum` and `maximum`, and both lie within
-−2^63 … 2^63 − 1.** JSON's grammar admits an integer of any length and gives
+−2^63 … 2^63 − 1** — or carries an `enum`, whose every integer literal lies
+within it. An `enum` has named the values it admits, so a range beside it would
+add nothing; the literals themselves are still checked, because a finite set can
+name an unrepresentable value and `enum: [12345678901234567890123]` does. JSON's grammar admits an integer of any length and gives
 implementations no common range — RFC 8259 §6 says so itself, recommending
 ±(2^53 − 1) for interoperability without requiring it. So a predicate could
 register an entry admitting an integer that one conforming producer represents
