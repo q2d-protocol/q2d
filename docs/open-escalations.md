@@ -132,7 +132,7 @@ question is still fresh than after the answer arrives.
 | **E-31** | Is `signature.value` a field of the signed core object? | P-001 issue 12 | `core-model.md` §2.7, §5.1–§5.3 · `crypto-suites.md` §3 | **Closed** |
 | **E-32** | What does a signed *response* payload contain? | E-31's cascade | `core-model.md` §5.1–§5.3, §6, §4 response step 4a (new) · `crypto-suites.md` §3 | **Closed** |
 | **E-33** | What are the external denial classes a requester actually receives? | P-001 issue 12 | `core-model.md` §5.2.1 (new) · P-009 §4.1, §5 | **Closed** |
-| **E-34** | Which class does a structurally invalid but authentic message produce? | P-001 issue 13 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-009 §4.1, §5 | **Closed** |
+| **E-34** | Which class does a well-formed message that is not a Q2D message produce? | P-001 issue 13 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-009 §4.1, §5 | **Closed** |
 | **E-35** | At which §4 step does a query's header/payload comparison happen? | E-34's cascade | `core-model.md` §4 query order | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
@@ -2465,7 +2465,7 @@ did not adjust the count. The fields are still four; the sentence now says which
 
 ---
 
-## E-34 — Which class does a structurally invalid but authentic message produce?
+## E-34 — Which class does a well-formed message that is not a Q2D message produce?
 
 **Raised by** [P-001](prds/P-001-conformance-corpus.md) issue 13, on authoring
 `suite/downgrade/` ·
@@ -2488,7 +2488,7 @@ receives is not stated, and §5.2.1 has no cell that fits:
 | Value | What §5.2.1 defines it as | Fits a mismatch? |
 |---|---|---|
 | `unsupported_suite` | Suite unregistered, **or** below the verifier's floor | No — in all three the declared suite is registered and acceptable, which is why the message got as far as it did |
-| `unauthenticated` | Unresolvable key, invalid signature, invalid or expired delegation | No — the key resolved and the signature verified |
+| `unauthenticated` | Unresolvable key, invalid signature, invalid or expired delegation | No — nothing failed to authenticate. In the two disagreements the key resolved and the signature verified; the `alg` header is refused at step 3, before any of that is attempted |
 | `malformed` | Envelope malformed or oversized; verified object malformed or missing a required field | Arguably — see below |
 
 What the three share is that the message is **structurally invalid while being
@@ -2500,8 +2500,9 @@ and the message is still not a Q2D message.
 
 `unsupported_suite` and `unauthenticated` are the intuitive picks — one per
 field that went wrong — and both describe the *cause a reader expects* rather
-than what happened. In all three the signature verified: the suite was acceptable
-and the key resolved. Reporting either would tell a requester its credentials
+than what happened. In none of the three did authentication fail: the two
+disagreements are found *after* a signature verifies, and the `alg` header is
+refused at step 3 without one being checked at all. Reporting either would tell a requester its credentials
 failed when they did not, and would put these into a normalized class whose whole
 content is that its members are indistinguishable *because they are the same kind
 of failure*.
@@ -2550,8 +2551,8 @@ the distinction matters to the protocol. It does not.
 ### Recommendation — B. **Adopted.**
 
 The vocabulary should say what happened, and neither existing value does. A
-requester told `unauthenticated` when its signature verified will look in the
-wrong place, and a requester told `malformed` when its message parsed cleanly
+requester told `unauthenticated` when nothing failed to authenticate will look in
+the wrong place, and a requester told `malformed` when its message parsed cleanly
 will look almost as far off.
 
 B over C for the reason §5.2.1 already gives about `unsupported_suite`: one value
@@ -2789,7 +2790,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-31** | **The model has a signature; the suite says where it travels.** §2.7 keeps `signature.value` and states that, and `crypto-suites.md` §3 says `eddsa-jws-2026` carries it in the compact form's third segment and therefore not in the payload — a payload carrying it would sign itself. §5.1–§5.3's response `signature` rows point at the same rule. The alternative of striking the field would have put a JWS assumption in the document that disclaims serialization, and the next suite would reopen it. | `core-model.md` §2.7, §5.1, §5.2, §5.3 · `crypto-suites.md` §3 · P-001 issues 12, 13, 14 |
 | **E-32** | **Symmetric.** A response payload carries `signature.profile` and `signature.key_id` exactly as a query's does, and §4's response order gains step **4a** to compare them against the protected header. The check catches a producer signing a payload declaring one suite or key under a header declaring another, and that producer is no less able to lie to a requester than to a responder — the check had existed in one direction only. §6 reconciles the receipt's `signature_suite` with the new `signature.profile`: not redundant, and a response whose two disagree is rejected. | `core-model.md` §5.1, §5.2, §5.3, §6, §4 response step 4a · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-012 §4, §5 · P-001 issue 12 |
 | **E-33** | **`spec/` enumerates Tiers A and B; the registry keeps Tier C.** New `core-model.md` **§5.2.1**: `malformed`, `unsupported_version`, `unsupported_suite`, `routing_mismatch` and `expired` are distinct because each describes the *request*; `unauthenticated` collapses the whole of authentication, since distinguishing an unknown key from a bad signature would let a requester probe which identities a custodian holds; Tier C stays the responder's pinned registry's declared value — manifest-level, so it is in hand for the rejections that never resolve an entry: a replay at step 9, a rate limit at 9a, an unknown predicate at 10. An unrecognised value is an **opaque rejection**, so adding one later does not break an older requester. | `core-model.md` §5.2, §5.2.1 · P-009 §4.1, §5, §3 · P-012 §5, §6 · P-001 issue 12 |
-| **E-34** | **One new value, `structurally_invalid`** — a sixth Tier A value for a message that parses and is wrong in a way that is neither a parse failure nor an authentication one: a header carrying `alg`, or one whose `suite` or `key_id` disagrees with the payload's. Not `unsupported_suite` or `unauthenticated`, because the suite was acceptable and the signature verified; not `malformed`, because those parse. One value for three causes because which part disagreed is visible in the message the requester itself produced — unlike `unsupported_suite`, which collapses to withhold the custodian's floor. §5.2.1 now states the test a future value must pass: it must send a requester somewhere a neighbouring value would not. | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-009 §4.1, §5 · P-001 issue 13 |
+| **E-34** | **One new value, `structurally_invalid`** — a sixth Tier A value for a message that parses and is wrong in a way that is neither a parse failure nor an authentication one: a header carrying `alg`, or one whose `suite` or `key_id` disagrees with the payload's. Not `unsupported_suite` or `unauthenticated`, because the suite was acceptable and nothing failed to authenticate — the `alg` case is refused at step 3 before a signature is checked at all; not `malformed`, because those parse. One value for three causes because which part disagreed is visible in the message the requester itself produced — unlike `unsupported_suite`, which collapses to withhold the custodian's floor. §5.2.1 now states the test a future value must pass: it must send a requester somewhere a neighbouring value would not. | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-009 §4.1, §5 · P-001 issue 13 |
 
 ### What did not change, deliberately
 
