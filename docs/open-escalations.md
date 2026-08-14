@@ -3410,6 +3410,18 @@ saying it was allowed.
 - P-002 §4.4, §4.5 and §10 — §4.5 said a producer *derives* `routing` and
   *"never constructs one independently"*, which now reads as *if it sends one*.
 
+- [`conformance-classes.md`](../spec/conformance-classes.md) — **both sides, and
+  found by review rather than by the checklist run that should have caught it.**
+  CC-1 required a requester to *"emit a `routing` projection"*, which §2.1 now
+  says it need not; it derives *any* projection it emits. CC-2 gains the
+  responder's half — *accept a message carrying only `signed`* — because §2.1's
+  permission is only real if the other side is required to honour it, and
+  "absence is not disagreement" is the sentence that keeps it distinct from the
+  rejection rule beside it.
+
+  CLAUDE.md's closing-an-escalation list names this file as one of three to
+  re-check, and the first pass recorded the other two as checked and skipped it.
+
 **Checked and unchanged:** [`claims.md`](../spec/claims.md)'s Q2D-C-05 mention
 of `routing` is about disagreement, not presence. `crypto-suites.md` §115 says
 `routing` cannot supply the suite *because* it is advisory — an argument
