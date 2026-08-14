@@ -384,3 +384,27 @@ func TestALiteralDottedKeyIsAnIntroducedField(t *testing.T) {
 		t.Errorf("the nested path of the same name: %v", err)
 	}
 }
+
+func TestAMalformedValueIsComparedRatherThanValidated(t *testing.T) {
+	// Step 8 asks whether two values agree, not whether either is well formed.
+	// A malformed §2.2 timestamp is refused at the step that owns it — this one
+	// only compares.
+	//
+	// Comparing serialized bytes would import the serializer's validation into
+	// the comparison, so an identical malformed expires_at would be a mismatch
+	// in Go and equal in Rust, whose == is structural.
+	core := Object{
+		"expires_at": String("not a date"),
+		"type":       String("query"),
+	}
+	routing := Object{"expires_at": String("not a date")}
+	if err := CheckRouting(core, routing); err != nil {
+		t.Errorf("identical malformed values disagreed: %v", err)
+	}
+
+	// And the serializer does still refuse it, which is what makes this a
+	// question about *where* the rule lives rather than whether it exists.
+	if _, err := Serialize(core); err == nil {
+		t.Error("the fixture no longer exercises a value the profile refuses")
+	}
+}

@@ -16,14 +16,23 @@ fn a_literal_dotted_key_is_an_introduced_field() {
     // Both objects carry the *literal* key, so a dotted comparison would find
     // it in the signed object, call it projectable, and pass.
     let core = Value::object([
-        ("predicate.id", Value::string("https://q2d.dev/predicates/p")),
+        (
+            "predicate.id",
+            Value::string("https://q2d.dev/predicates/p"),
+        ),
         ("type", Value::string("query")),
     ]);
-    let routing = Value::object([("predicate.id", Value::string("https://q2d.dev/predicates/p"))]);
+    let routing = Value::object([(
+        "predicate.id",
+        Value::string("https://q2d.dev/predicates/p"),
+    )]);
 
     let mismatch = check_routing(&core, Some(&routing)).expect_err("a literal key");
     assert_eq!(mismatch.path, "predicate.id");
-    assert_eq!(mismatch.because, q2d::routing::Because::RoutingIntroducedField);
+    assert_eq!(
+        mismatch.because,
+        q2d::routing::Because::RoutingIntroducedField
+    );
 }
 
 #[test]

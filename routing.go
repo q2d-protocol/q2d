@@ -311,6 +311,58 @@ func CheckRouting(core Value, routing Value) error {
 	return compareRouting(ProjectRouting(core).Value(), routing, nil)
 }
 
+// equalValues reports whether two values are the same: same type, same value,
+// and for a string the same characters — §4 step 8's comparison, with no
+// coercion. An Int never equals a String that spells it.
+//
+// Rust gets this from `#[derive(PartialEq)]` on a closed enum. Go has to write
+// it out, and writing it out is what keeps the two agreeing: the obvious
+// shortcut, comparing serialized bytes, silently imports the serializer's
+// validation into a comparison.
+func equalValues(a, b Value) bool {
+	switch left := a.(type) {
+	case Null:
+		_, ok := b.(Null)
+		return ok
+	case Bool:
+		right, ok := b.(Bool)
+		return ok && left == right
+	case Int:
+		right, ok := b.(Int)
+		return ok && left == right
+	case String:
+		right, ok := b.(String)
+		return ok && left == right
+	case Array:
+		right, ok := b.(Array)
+		if !ok || len(left) != len(right) {
+			return false
+		}
+		for i := range left {
+			if !equalValues(left[i], right[i]) {
+				return false
+			}
+		}
+		return true
+	case Object:
+		right, ok := b.(Object)
+		if !ok || len(left) != len(right) {
+			return false
+		}
+		for key, value := range left {
+			found, present := right[key]
+			if !present || !equalValues(value, found) {
+				return false
+			}
+		}
+		return true
+	default:
+		// Not one of the six. Never equal to anything, including itself: the
+		// profile cannot render it, so no comparison over it is meaningful.
+		return false
+	}
+}
+
 // shown renders a path as target.custodian, for a message. Only ever for a
 // message: the comparison walks segments, because a key may contain a dot.
 func shown(path []string) string {
@@ -352,13 +404,15 @@ func compareRouting(derived, routing Value, path []string) error {
 		return nil
 	}
 
-	// Anything else: equal or it is tampering. Compared as serialized bytes,
-	// which does not coerce — an Int never equals a String that spells it,
-	// which is what "same type, same value" asks for — and which refuses a
-	// value the profile cannot render rather than calling it equal.
-	a, errA := Serialize(derived)
-	b, errB := Serialize(routing)
-	if errA == nil && errB == nil && string(a) == string(b) {
+	// Anything else: equal or it is tampering.
+	//
+	// Structural, not serialized. Comparing bytes would run the profile's
+	// *validation* as a side effect — Serialize refuses a malformed §2.2
+	// timestamp — so `expires_at: "not a date"` present identically in both
+	// would be a step-8 mismatch here and equal in Rust, whose `==` is
+	// structural. Step 8 asks whether two values agree, not whether either is
+	// well formed; a malformed one is refused at the step that owns it.
+	if equalValues(derived, routing) {
 		return nil
 	}
 	return RoutingMismatch{Path: shown(path), Because: RoutingSignedMismatch}
