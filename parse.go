@@ -284,11 +284,24 @@ func (p *parser) object() (Value, error) {
 		// where it was afterwards.
 		outer := p.at2
 		p.at2 = outer.member(key)
+		// §2.8 caps predicate.public_context as a whole, not each string in it:
+		// two 20 KiB values are each under the per-string bound and the object
+		// is not. Measured on the source span, which is what the sender
+		// transmitted and what a relay held.
+		enteringPublicContext := outer == wherePredicate && p.at2 == whereOperationDefined
+		began := p.at
 		item, err := p.value()
-		p.at2 = outer
 		if err != nil {
+			p.at2 = outer
 			return nil, err
 		}
+		if enteringPublicContext && p.at-began > MaxPublicContext {
+			p.at2 = outer
+			return nil, p.fail(fmt.Sprintf(
+				"`public_context` of %d bytes, above core-model.md §2.8's %d",
+				p.at-began, MaxPublicContext))
+		}
+		p.at2 = outer
 		// §4.2: rejected on parse, not resolved.
 		//
 		// The key is not in the message. It reads as the sender's own label,

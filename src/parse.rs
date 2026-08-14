@@ -264,7 +264,21 @@ impl<'a> Parser<'a> {
                 // returns to where it was afterwards.
                 let outer = p.where_;
                 p.where_ = outer.member(&key);
+                // §2.8 caps `predicate.public_context` **as a whole**, not each
+                // string in it: two 20 KiB values are each under the per-string
+                // bound and the object is not. Measured on the source span,
+                // which is what the sender transmitted and what a relay held.
+                let entering_public_context =
+                    outer == Where::Predicate && p.where_ == Where::OperationDefined;
+                let began = p.at;
                 let item = p.value()?;
+                if entering_public_context && p.at - began > MAX_PUBLIC_CONTEXT {
+                    return Err(p.fail(&format!(
+                        "`public_context` of {} bytes, above core-model.md §2.8's \
+                         {MAX_PUBLIC_CONTEXT}",
+                        p.at - began
+                    )));
+                }
                 p.where_ = outer;
                 // §4.2: rejected on parse, not resolved.
                 //
@@ -677,6 +691,23 @@ mod tests {
         // under a purpose is an ordinary protocol field.
         let elsewhere = format!(r#"{{"purpose":{{"public_context":"{three_kib}"}}}}"#);
         assert!(refused(&elsewhere).contains("§2.8"));
+    }
+
+    #[test]
+    fn public_context_is_capped_as_a_whole_and_not_only_per_string() {
+        // Two values each under the per-string bound, and an object over it.
+        // A per-string check alone accepts this, which is the gap review found.
+        let half = "d".repeat(20 * 1024);
+        let case = format!(r#"{{"predicate":{{"public_context":{{"a":"{half}","b":"{half}"}}}}}}"#);
+        let message = refused(&case);
+        assert!(message.contains("public_context"), "{message}");
+        assert!(message.contains("§2.8"), "{message}");
+
+        // And an object comfortably inside it still parses.
+        let small = "d".repeat(4 * 1024);
+        let fits =
+            format!(r#"{{"predicate":{{"public_context":{{"a":"{small}","b":"{small}"}}}}}}"#);
+        parse(fits.as_bytes()).expect("well inside the limit");
     }
 
     #[test]

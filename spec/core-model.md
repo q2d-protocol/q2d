@@ -341,6 +341,12 @@ carries a whole signed payload, so the envelope limit is what bounds it. A 2 KiB
 cap there would leave a few hundred bytes for `public_context` and no conforming
 query with predicate data would fit.
 
+`predicate.public_context`'s limit is on the **object**, not on each string in
+it: two 20 KiB values are each inside the string limit and the object they sit
+in is not. It is measured on the bytes as transmitted, which is what a sender
+sent and a relay held — not on what those bytes would canonicalize to, since
+§4.1 forbids a verifier from depending on the production profile.
+
 **Only the envelope limit can be enforced before allocation**, which is what §4
 step 1 requires of it. The rest are enforced as the message is read, and are
 bounded by it: once the envelope is capped, the remaining limits constrain shape

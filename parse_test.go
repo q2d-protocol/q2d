@@ -221,3 +221,18 @@ func TestEvenAPredicatesStringIsBoundedByPublicContext(t *testing.T) {
 		t.Errorf("past the outer bound: %s", message)
 	}
 }
+
+func TestPublicContextIsCappedAsAWholeAndNotOnlyPerString(t *testing.T) {
+	// Two values each under the per-string bound, and an object over it. A
+	// per-string check alone accepts this, which is the gap review found.
+	half := strings.Repeat("d", 20*1024)
+	text := `{"predicate":{"public_context":{"a":"` + half + `","b":"` + half + `"}}}`
+	message := rejected(t, text)
+	if !strings.Contains(message, "public_context") || !strings.Contains(message, "§2.8") {
+		t.Errorf("message does not name the limit: %s", message)
+	}
+
+	// And an object comfortably inside it still parses.
+	small := strings.Repeat("d", 4*1024)
+	parsed(t, `{"predicate":{"public_context":{"a":"`+small+`","b":"`+small+`"}}}`)
+}
