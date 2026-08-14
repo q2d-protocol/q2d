@@ -59,13 +59,14 @@ Standard library only, like [`registry/validate.py`](../registry/validate.py).
 ## State
 
 **Every mode exists. The corpus holds the folded `registry/` section and the
-authored `message/` one, and there is no implementation to run it against.**
+authored `message/` and `suite/` ones, and there is no implementation to run it
+against.**
 Built: the vector schema and `lint` (issue 1), the projection
 (issue 2), the runner contract and reference stub (issue 3), `run` (issue 4),
 the determinism check (issue 5), `coverage` (issue 6), the two cross-vector
 assertions (issues 7 and 8), comparison (issue 16), `cross` (issue 9), the
 dependency assertion (issue 15), the test key material (issue 10), the
-`registry/` section (issue 11), and `message/`'s positive vectors (issue 12).
+`registry/` section (issue 11), `message/` (issue 12), and `suite/` (issue 13).
 
 **`message/` has both halves.** Three vectors that sign, verify and project, and
 three rejections — a signature from the wrong key, a routing projection that
@@ -77,8 +78,30 @@ requester receives.
 [`tests/test_message_section.py`](tests/test_message_section.py) holds them to
 that vocabulary, and to keeping the internal reason and the wire response apart.
 
-**`conformance/corpus/message/` is generated, not written**, by
-[`tools/author_message.py`](../tools/author_message.py) — the bytes come from
+**`suite/` is seven vectors and mostly refusals** — a tampered payload, header
+and signature, an unregistered suite, an unresolvable key — plus a valid
+verification and a construction under a second key. What it pins down beyond the refusals is **where** each happens: a header is
+read at §4 step 3, before there is a signature to rely on, and everything else
+waits for step 4, so the unregistered-suite vector rejects earlier than the rest.
+[`tests/test_suite_section.py`](tests/test_suite_section.py) asserts that rather
+than leaving it to the descriptions, and asserts that every authentication
+cause reaches the same class. It does **not** assert they are indistinguishable:
+these vectors project `status` and `external_reason`, so comparing them across
+causes compares two constants. Uniformity of the whole response is `denial/`'s,
+which is the one section the schema forbids from projecting.
+
+Six cases are absent and each absence is asserted, so it turns red when its
+blocker goes: an `alg`-carrying header and the two header/payload mismatch
+vectors on [`open-escalations.md`](../docs/open-escalations.md) **E-34**, which
+asks what class a structurally invalid but authentic message produces; `suite/rfc8032/` on P-001
+issue 17, since signing a raw message needs an operation §4.5 does not have; and
+`suite/status/` plus the below-floor downgrade on a second registered suite,
+where [`crypto-suites.md`](../spec/crypto-suites.md) §3 registers one and it is
+active.
+
+**`conformance/corpus/message/` and `corpus/suite/` are generated, not written**,
+by [`tools/author_message.py`](../tools/author_message.py) and
+[`tools/author_suite.py`](../tools/author_suite.py) — the bytes come from
 [`tools/author_vectors.py`](../tools/author_vectors.py)'s
 specification-derived serializer and signer, and `--check` runs in the suite so
 the committed vectors and the tool cannot drift. They are still authored data:
