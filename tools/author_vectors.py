@@ -87,8 +87,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-from calendar import monthrange
-from datetime import datetime
 import re
 import sys
 from pathlib import Path
@@ -139,17 +137,41 @@ def json_type(value) -> str:
 # core-model.md §2.2's timestamp, and RFC 3339 §5.6's grammar for the spellings
 # it forbids. Written here from the specification text rather than imported
 # from `conformance/harness/lint.py`, which reads the same section: two
-# independent readings is the arrangement this tool exists for, and a
+# separate readings is the arrangement this tool exists for -- not independent
+# ones, per the note at the top of this file -- and a
 # disagreement between them is a specification ambiguity found.
 # Fields core-model.md gives a timestamp: §2.2's `issued_at` and `expires_at`,
 # §5.3's `expires_at`, §6's `decided_at`.
 TIMESTAMP_FIELDS = frozenset({"issued_at", "expires_at", "decided_at"})
 
+# The range of a signed 64-bit integer, which is what `src/value.rs` and
+# `value.go` hold. See the integer branch of `_serialize`.
+INT64_MIN = -2**63
+INT64_MAX = 2**63 - 1
+
+# `[0-9]` rather than `\d`, which in Python matches every Unicode
+# decimal digit -- Arabic-Indic, Devanagari, and about thirty others --
+# and `int()` accepts them all. RFC 3339's grammar is `DIGIT`, which is
+# ASCII, and both implementations compare bytes against `b'0'..=b'9'`.
+# `strptime` used to refuse them and hid this; replacing it with
+# arithmetic exposed it.
 Q2D_TIMESTAMP = re.compile(
-    r"\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z\Z")
+    r"\A([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})Z\Z")
 RFC3339_ANY = re.compile(
-    r"\A\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?"
-    r"([Zz]|[+-]\d{2}:\d{2})\Z")
+    r"\A[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?"
+    r"([Zz]|[+-][0-9]{2}:[0-9]{2})\Z")
+
+
+def days_in_month(year: int, month: int) -> int:
+    """Gregorian, proleptic. Month 0 or 13 has no days, which the caller uses."""
+    if month in (1, 3, 5, 7, 8, 10, 12):
+        return 31
+    if month in (4, 6, 9, 11):
+        return 30
+    if month == 2:
+        leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+        return 29 if leap else 28
+    return 0
 
 
 def valid_q2d_timestamp(value: str) -> bool:
@@ -157,31 +179,56 @@ def valid_q2d_timestamp(value: str) -> bool:
 
     Shape *and* meaning. `2026-99-99T99:99:99Z` has §2.2's spelling exactly and
     is no date, so a check on the spelling alone would sign it into a payload
-    that nothing downstream can read as text.
+    that nothing downstream can read as text. RFC 3339's own grammar requires
+    this much -- its `date-mday` says the maximum "varies based on the month and
+    year" -- so it is §2.2's rule rather than an addition to it.
+
+    Arithmetic rather than `datetime`, which cannot represent a year below 1 and
+    would therefore refuse `0000-01-01T00:00:00Z`. RFC 3339's `date-fullyear` is
+    four digits and admits it, §2.2 adds a spelling and no floor, and the two
+    implementations do their own arithmetic and accept it. A library's range is
+    not a specification's, and the tool that authors the corpus must not be the
+    narrowest reader in the room.
     """
     matched = Q2D_TIMESTAMP.match(value)
     if not matched:
         return False
-    year, month, day, hour, minute, second = matched.groups()
-    if second == "60":
+    year, month, day, hour, minute, second = (int(g) for g in matched.groups())
+    if second == 60:
         # RFC 3339 §5.7: 23:59 at a month end. Which leap seconds were actually
         # inserted is IERS data and not statically decidable -- see the harness,
         # which reaches the same conclusion from the same section.
-        if (hour, minute) != ("23", "59"):
+        if (hour, minute) != (23, 59) or day != days_in_month(year, month):
             return False
-        try:
-            date = datetime(int(year), int(month), int(day))
-        except ValueError:
-            return False
-        if date.day != monthrange(date.year, date.month)[1]:
-            return False
-        second = "59"
+        second = 59
+    return (1 <= month <= 12 and 1 <= day <= days_in_month(year, month)
+            and hour <= 23 and minute <= 59 and second <= 59)
+
+
+def encodable(value: str, what: str) -> None:
+    """Refuse a `str` Python can hold and the profile cannot emit.
+
+    §4.2 produces UTF-8. A Python `str` is a sequence of code points and may
+    contain an unpaired surrogate, which has no UTF-8 encoding at all.
+
+    Go and Rust refuse the same value -- Go because a string carrying invalid
+    UTF-8 would otherwise be silently substituted with U+FFFD, Rust because its
+    `String` cannot hold one in the first place. Without this the three
+    implementations would differ on which values *exist* rather than on what
+    they produce, and the error would arrive as an encoding failure from
+    somewhere inside the profile rather than as the profile refusing it.
+
+    The message names what was being encoded and nothing else -- not the
+    character, and not the position either: where a string first goes wrong is
+    a fact about the string, and this serializer runs over responses and
+    receipts whose strings come from data the requester never sees.
+    """
     try:
-        datetime.strptime(f"{year}-{month}-{day}T{hour}:{minute}:{second}",
-                          "%Y-%m-%dT%H:%M:%S")
-    except ValueError:
-        return False
-    return True
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        raise ProfileError(
+            f"{what} is not encodable as UTF-8. P-002 §4.2 produces UTF-8, and "
+            f"an unpaired surrogate has no encoding in it") from None
 
 
 def sort_key(key: str) -> bytes:
@@ -236,12 +283,33 @@ PROTOCOL_SUBOBJECTS = frozenset({"receipt", "routing"})
 
 
 def serialize(value) -> bytes:
-    """A value as P-002 §4.2's profile produces it. UTF-8, no BOM.
+    """A protocol structure as P-002 §4.2's profile produces it. UTF-8, no BOM.
+
+    A core object, a response, a receipt, or `routing`. For a predicate's own
+    data use `serialize_operation_data`: the bytes are the same and the
+    field-name rules are not.
 
     Returns bytes rather than a string, because the profile is about bytes and
     a caller that wants to sign them must not have to guess an encoding.
     """
     return _serialize(value, protocol_level=True).encode("utf-8")
+
+
+def serialize_operation_data(value) -> bytes:
+    """Operation-defined data under the same profile.
+
+    Identical bytes, and one difference in what is refused: §2.6 says a
+    predicate's `public_context` may mean anything at all, so a field there
+    called `issued_at` is the predicate's and not §2.2's.
+
+    Two entry points rather than one, because protocol level is a property of
+    *what the caller is serializing* and cannot be read off the nesting.
+    Reached through a query, `public_context` is already below protocol level;
+    digested on its own for P-002 §4.7's `public_context_digest` it would be the
+    root, and a single entry point would hold the same bytes to two different
+    rules depending on how they were reached.
+    """
+    return _serialize(value, protocol_level=False).encode("utf-8")
 
 
 def _serialize(value, protocol_level: bool = False) -> str:
@@ -265,20 +333,32 @@ def _serialize(value, protocol_level: bool = False) -> str:
         # repr is exactly that, for every magnitude -- there is no 2^53 cliff
         # here, which is one of the hazards crypto-suites.md §3 cites against
         # a JCS-based suite.
+        #
+        # Bounded to what the two implementations can hold, which Python cannot
+        # otherwise be stopped from exceeding: `int` is arbitrary-precision and
+        # both value models use a 64-bit signed integer. Without this the tool
+        # could author a vector neither implementation can reproduce, and the
+        # first sign of it would be a byte disagreement blamed on the
+        # implementations.
+        #
+        # §4.2 says "integers" and states no bound; whether `core-model.md`
+        # should is E-37. Refusing here is the safe direction either way --
+        # every value the protocol carries today is a count, a cardinality, or a
+        # capacity in integer millibits, none of which approaches 2**63.
+        if not INT64_MIN <= value <= INT64_MAX:
+            raise ProfileError(
+                f"integer is outside the signed 64-bit range both "
+                f"implementations use. P-002 §4.2 states no bound and E-37 "
+                f"asks whether the specification should; until then the tool "
+                f"does not author what the pair cannot serialize")
         return str(value)
     if kind == "string":
-        # §2.2 permits one spelling of a timestamp, and P-002 §4.2's profile
-        # cites it. Enforced here for the same reason §4.3's float ban is: this
-        # is the last point at which a value can be rejected before it becomes
-        # bytes somebody signs, and inside a signed payload it is past the
-        # reach of anything that reads the vector as text.
-        if RFC3339_ANY.match(value) and not valid_q2d_timestamp(value):
-            raise ProfileError(
-                f"timestamp {value!r} is not core-model.md §2.2's — uppercase "
-                f"`T`, uppercase `Z`, second precision, and a real instant. "
-                f"Checking the spelling alone would pass "
-                f"'2026-99-99T99:99:99Z', which has the right shape and is no "
-                f"date")
+        encodable(value, "string")
+        # A string is written as it is. §2.2 states its spelling for the fields
+        # it names, and the object branch below enforces it there; a string
+        # elsewhere is not a Q2D timestamp, whatever it looks like. Whether it
+        # should be -- E-36 -- is open, and until it is decided this tool
+        # produces what §2.2 says rather than more.
         return escape_string(value)
     if kind == "array":
         return "[" + ",".join(_serialize(item) for item in value) + "]"
@@ -286,6 +366,11 @@ def _serialize(value, protocol_level: bool = False) -> str:
         for key in value:
             if not isinstance(key, str):
                 raise ProfileError(f"object key {key!r} is not a string")
+            # Before sorting, not during: `sort_key` encodes to UTF-16BE and
+            # would raise a `UnicodeEncodeError` from inside the comparison --
+            # a refusal, but not one that names what was wrong or comes from
+            # the profile. The other two implementations refuse the same value.
+            encodable(key, "object key")
         # Duplicate keys cannot occur in a Python dict, so §4.2's production
         # rule is structurally satisfied. Parsing is where it has to be
         # enforced, and conformance/harness/corpus.py does that.
@@ -299,12 +384,16 @@ def _serialize(value, protocol_level: bool = False) -> str:
             if protocol_level and key in TIMESTAMP_FIELDS:
                 if not isinstance(value[key], str):
                     raise ProfileError(
-                        f"{key} is a timestamp field and "
-                        f"{type(value[key]).__name__} is not a string. "
+                        f"{key} is a timestamp field and holds a "
+                        f"{type(value[key]).__name__} rather than a string. "
                         f"core-model.md §2.2's timestamp is one")
                 if not valid_q2d_timestamp(value[key]):
+                    # The value is not in the message. This serializer runs over
+                    # responses and receipts too, whose strings derive from data
+                    # the requester never sees, and an error is a place one of
+                    # them could reach a log.
                     raise ProfileError(
-                        f"{key} is a timestamp field and {value[key]!r} is not "
+                        f"{key} is a timestamp field and its value is not "
                         f"core-model.md §2.2's timestamp — uppercase `T`, "
                         f"uppercase `Z`, second precision, and a real instant")
         # `receipt` re-enters protocol level only from protocol level. A

@@ -109,12 +109,27 @@ class NumberTest(unittest.TestCase):
         big = 2**53 + 1
         self.assertEqual(author.serialize({"n": big}),
                          f'{{"n":{big}}}'.encode("utf-8"))
-        self.assertEqual(author.serialize(2**64), str(2**64).encode("utf-8"))
+        # Up to the range the two implementations hold, exactly -- E-37.
+        self.assertEqual(author.serialize(2**63 - 1), str(2**63 - 1).encode("utf-8"))
+
+    def test_an_integer_beyond_the_pair_s_range_is_refused_not_rounded(self):
+        # E-37's bound, and it is not the cliff the test above is about. JCS
+        # inherits a *silent* loss above 2^53: the value round-trips to a
+        # different number and nothing says so. This refuses, which is the
+        # opposite failure -- no vector is authored at all, so none can assert
+        # bytes an implementation cannot produce.
+        with self.assertRaises(author.ProfileError):
+            author.serialize(2**63)
+        with self.assertRaises(author.ProfileError):
+            author.serialize(-2**63 - 1)
 
     def test_integers_carry_no_exponent_or_leading_zero(self):
         self.assertEqual(author.serialize(0), b"0")
         self.assertEqual(author.serialize(-7), b"-7")
-        self.assertEqual(author.serialize(10**21), str(10**21).encode("utf-8"))
+        # 10**21 would be rendered in exponent form by a naive float path and
+        # is above E-37's bound, so the assertion that carries the point is the
+        # largest value the profile admits -- twenty digits, no exponent.
+        self.assertEqual(author.serialize(2**63 - 1), b"9223372036854775807")
 
     def test_a_boolean_is_not_a_number(self):
         # In Python `True == 1` and `isinstance(True, int)`. A serializer that
@@ -262,6 +277,34 @@ class JwsTest(unittest.TestCase):
                 with self.assertRaises(author.ProfileError):
                     self.signed({"issued_at": wrong})
 
+    def test_a_non_ascii_digit_is_not_a_digit(self):
+        # Python's `\d` matches every Unicode decimal digit -- Arabic-Indic,
+        # Devanagari, about thirty scripts -- and `int()` accepts them all. RFC
+        # 3339's grammar is `DIGIT`, which is ASCII, and both implementations
+        # compare bytes against b'0'..=b'9'.
+        #
+        # `strptime` refused them and hid this. Replacing it with arithmetic
+        # exposed it, which is the hazard in swapping a library for your own
+        # code: the library was enforcing something nobody had written down.
+        arabic_indic = "\u0662\u0660\u0662\u0666-\u0660\u0667-\u0663\u0661T\u0660\u0669:\u0660\u0660:\u0660\u0660Z"
+        self.assertFalse(author.valid_q2d_timestamp(arabic_indic))
+        with self.assertRaises(author.ProfileError):
+            self.signed({"issued_at": arabic_indic})
+
+    def test_year_zero_is_accepted_because_rfc_3339_admits_it(self):
+        # This tool used `datetime.strptime`, which starts at year 1, and so
+        # refused a spelling both implementations accept. §2.2 adds a spelling
+        # to RFC 3339 and says nothing about a range, and `date-fullyear` is
+        # four digits -- so the refusal was a library's range standing in for a
+        # specification's. It validates arithmetically now.
+        #
+        # Year zero is absurd and this is not where that is caught: §4 step 6
+        # compares `expires_at` against a clock, and no year-zero query
+        # survives it.
+        for low in ("0000-01-01T00:00:00Z", "0001-01-01T00:00:00Z"):
+            with self.subTest(value=low):
+                self.assertTrue(author.valid_q2d_timestamp(low))
+
     def test_empty_objects_and_arrays_serialize(self):
         # A `query` is legitimately empty in the minimal message vector, and a
         # serializer that crashed on one could author no signed vector at all.
@@ -310,11 +353,22 @@ class JwsTest(unittest.TestCase):
             author.serialize({"routing": {"expires_at": "soon"}})
         author.serialize({"routing": {"expires_at": "2026-01-01T00:00:00Z"}})
 
-    def test_the_shape_rule_still_reaches_everywhere(self):
-        # A wrong spelling is a wrong spelling wherever it sits, and needs no
-        # knowledge of what the field means.
+    def test_the_spelling_rule_reaches_the_fields_2_2_names_and_no_further(self):
+        # This asserted the opposite until E-36 was raised: any string with an
+        # RFC 3339 spelling that was not §2.2's was refused wherever it sat, on
+        # the reasoning that "a wrong spelling is a wrong spelling". The
+        # reasoning presumes the string is a timestamp, and §2.6 says a
+        # predicate's `public_context` may mean anything at all -- so an offset
+        # spelling there is the predicate's data, not a malformed §2.2 value.
+        #
+        # The rule was never in `spec/`. E-23 settled the *spelling* and its
+        # reach over `routing`, which §4 step 8 compares byte for byte; it did
+        # not settle whether §2.2 binds every string. Until E-36 does, this tool
+        # produces what §2.2 states and no more.
+        author.serialize({"public_context": {"a": "2026-01-01t00:00:00z"}})
+        # The field-name rule is unaffected: it is what §2.2 actually says.
         with self.assertRaises(author.ProfileError):
-            author.serialize({"public_context": {"a": "2026-01-01t00:00:00z"}})
+            author.serialize({"issued_at": "2026-01-01t00:00:00z"})
 
     def test_a_leap_second_serializes(self):
         # RFC 3339 §5.7 permits it and §2.2 does not exclude it.

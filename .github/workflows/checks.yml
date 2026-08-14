@@ -77,9 +77,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # src/lib.rs and doc.go are placeholders holding the crate and module
-      # names. Building them is cheap and catches a broken Cargo.toml or go.mod
-      # before Stage 1 needs them.
+      # No longer placeholders: both carry P-002's value model and production
+      # serializer, and both are held to `testdata/canonical-query.serialized`
+      # — the same bytes `tools/author_vectors.py` produces, asserted from all
+      # three sides so no two of them can agree while the third drifts.
       - name: Rust builds
         run: cargo build --verbose
 
@@ -95,6 +96,12 @@ jobs:
 
       - name: Go vets
         run: go vet ./...
+
+      # Not present before P-002, because the Go side had nothing to test. The
+      # Rust half of the byte agreement was already covered by `cargo test`
+      # above, so without this the pair could diverge with CI green.
+      - name: Go tests
+        run: go test ./...
 
       # The two conformance runners, and the assertion that they implement the
       # contract identically. `harness cross` reports a disagreement as two

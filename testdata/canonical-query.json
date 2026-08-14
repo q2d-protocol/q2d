@@ -1,0 +1,60 @@
+{
+  "q2d_version": "0.1",
+  "type": "query",
+  "query_id": "urn:uuid:0e183389-0f37-4c5f-8c56-1ea7e5818e18",
+  "issued_at": "2026-07-31T09:00:00Z",
+  "expires_at": "2026-07-31T09:05:00Z",
+  "nonce": "Ux7kFQ2mS0aVvJ1cPzN4bw",
+  "requester": {
+    "principal": "did:key:z6MkRequesterPrincipal",
+    "agent": "did:key:z6MkRequesterAgent",
+    "delegation": {
+      "profile": "local-pairing-0.1",
+      "reference": "sha256:7ef1"
+    }
+  },
+  "target": {
+    "custodian": "https://friend.example/.well-known/q2d"
+  },
+  "predicate": {
+    "id": "https://q2d.dev/predicates/dietary/menu-compatible",
+    "version": "0.1",
+    "registry_digest": "sha256:bd08ff230de0d8ce34de99967f7a9097988b49058f0a21dd35b9444c24098e35",
+    "public_context": {
+      "menu": [
+        {
+          "item_id": "risotto",
+          "contains": [
+            "milk"
+          ]
+        },
+        {
+          "item_id": "salad",
+          "contains": []
+        }
+      ]
+    }
+  },
+  "answer_contract": {
+    "release_shape": "boolean",
+    "domain": [
+      false,
+      true
+    ],
+    "allowed_detail_fields": []
+  },
+  "purpose": {
+    "code": "social.meal-planning",
+    "description": "Choose a dinner venue for 2026-07-31"
+  },
+  "delivery": {
+    "answer_recipient": "did:key:z6MkRequesterRuntime",
+    "permitted_sinks": [
+      "urn:q2d:sink:model:local"
+    ]
+  },
+  "signature": {
+    "profile": "eddsa-jws-2026",
+    "key_id": "test-requester-1"
+  }
+}

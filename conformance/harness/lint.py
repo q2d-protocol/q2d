@@ -411,8 +411,14 @@ DENY_STATUS = ("deny", "escalate")
 # core-model.md §2.2: uppercase `T`, uppercase `Z`, second precision, and no
 # other spelling of the instant. This was an inference from §6's length argument
 # until §2.2 stated it; it is now a citation.
+# `[0-9]` rather than `\d`, which in Python matches every Unicode
+# decimal digit -- Arabic-Indic, Devanagari, and about thirty others --
+# and `int()` accepts them all. RFC 3339's grammar is `DIGIT`, which is
+# ASCII, and both implementations compare bytes against `b'0'..=b'9'`.
+# `strptime` used to refuse them and hid this; replacing it with
+# arithmetic exposed it.
 RFC3339_SECOND = re.compile(
-    r"\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z\Z")
+    r"\A([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})Z\Z")
 
 # RFC 3339 §5.6's grammar, as written rather than as the cases I thought of:
 #
@@ -425,8 +431,8 @@ RFC3339_SECOND = re.compile(
 # patching individual spellings -- lowercase `t` with uppercase `Z`, fractional
 # seconds -- is what a grammar is for.
 RFC3339_ANY = re.compile(
-    r"\A(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(\.\d+)?"
-    r"([Zz]|[+-](\d{2}):(\d{2}))\Z")
+    r"\A([0-9]{4})-([0-9]{2})-([0-9]{2})[Tt]([0-9]{2}):([0-9]{2}):([0-9]{2})"
+    r"(\.[0-9]+)?([Zz]|[+-]([0-9]{2}):([0-9]{2}))\Z")
 
 
 def valid_rfc3339(value: str) -> bool:
@@ -456,6 +462,14 @@ def valid_rfc3339(value: str) -> bool:
             # different position, and the arithmetic read a digit as the sign.
             sign = -1 if matched.group(8).startswith("-") else 1
             shift = (int(offset_hour) * 60 + int(offset_minute)) * sign
+        # `datetime` here and arithmetic everywhere else, deliberately. This
+        # branch shifts an instant across a possible midnight and month
+        # boundary, which is what a date library is for -- and its year-1 floor
+        # is reachable only by a leap second in year zero *with* an offset,
+        # which would be reported as not-valid-RFC-3339. That is the one case
+        # this file is narrower than the RFC, it is recorded rather than fixed,
+        # and hand-rolling a timezone shift to close it would trade a listed
+        # gap for an unlisted bug.
         try:
             local = datetime(int(year), int(month), int(day),
                              int(hour), int(minute))
@@ -467,12 +481,12 @@ def valid_rfc3339(value: str) -> bool:
         if utc.day != monthrange(utc.year, utc.month)[1]:
             return False
         second = "59"
-    try:
-        datetime.strptime(f"{year}-{month}-{day}T{hour}:{minute}:{second}",
-                          "%Y-%m-%dT%H:%M:%S")
-    except ValueError:
-        return False
-    return True
+    # Arithmetic rather than `strptime`, for the reason `valid_timestamp` gives:
+    # `datetime` starts at year 1 and RFC 3339 does not, and this function's
+    # answer becomes the sentence "is valid RFC 3339".
+    return (1 <= int(month) <= 12
+            and 1 <= int(day) <= days_in_month(int(year), int(month))
+            and int(hour) <= 23 and int(minute) <= 59 and int(second) <= 59)
 
 
 # Fields core-model.md gives a timestamp: §2.2's `issued_at` and `expires_at`,
@@ -523,6 +537,17 @@ def expected_timestamp_errors(vector: dict) -> list[str]:
             # **By shape**: a timestamp somewhere those names do not reach is
             # caught if it looks like one, which covers a field a later section
             # adds without this list being updated.
+            #
+            # The shape rule stays here after E-36 removed it from the three
+            # serializers, and the difference is the subject rather than the
+            # rule. A serializer produces bytes somebody signs, so refusing by
+            # shape stops a requester sending operation-defined data §2.6
+            # permits. This lints **authored vectors**, which are ours: a
+            # stricter rule on our own corpus costs no requester anything and
+            # catches an authoring slip, which is what a linter is for. If E-36
+            # closes as B or C and a vector needs an offset timestamp under
+            # `expect.output`, this is where to relax it -- deliberately, with
+            # that vector as the reason.
             if named or RFC3339_ANY.match(value):
                 if not valid_timestamp(value):
                     errors.append(timestamp_error(path, value))
@@ -570,6 +595,23 @@ def timestamp_error(where: str, value: str) -> str:
             f"for RFC 3339 at second precision, as `2026-01-01T00:00:00Z`")
 
 
+def days_in_month(year: int, month: int) -> int:
+    """Gregorian, proleptic. Month 0 or 13 has no days, which callers use.
+
+    The same table as `tools/author_vectors.py` and both implementations, from
+    the same reading of RFC 3339's `date-mday`: "the maximum value varies based
+    on the month and year".
+    """
+    if month in (1, 3, 5, 7, 8, 10, 12):
+        return 31
+    if month in (4, 6, 9, 11):
+        return 30
+    if month == 2:
+        leap = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+        return 29 if leap else 28
+    return 0
+
+
 def valid_timestamp(value: str) -> bool:
     """core-model.md §2.2's timestamp: `2026-01-01T00:00:00Z`, and no other
     spelling of that instant.
@@ -591,29 +633,25 @@ def valid_timestamp(value: str) -> bool:
     decidable, and is the wrong question anyway: a vector *supplies*
     `decided_at`, so what conformance turns on is whether an implementation
     parses RFC 3339, not whether the instant occurred.
+
+    Arithmetic rather than `datetime`, which cannot represent a year below 1.
+    RFC 3339's `date-fullyear` is four digits and admits `0000`, §2.2 adds a
+    spelling and no range, and both implementations accept it -- so refusing it
+    here would have this linter reject a vector the serializers produce. A
+    library's range is not a specification's.
     """
     matched = RFC3339_SECOND.match(value)
     if not matched:
         return False
 
-    year, month, day, hour, minute, second = matched.groups()
-    if second == "60":
-        if (hour, minute) != ("23", "59"):
+    year, month, day, hour, minute, second = (int(g) for g in matched.groups())
+    if second == 60:
+        if (hour, minute) != (23, 59) or day != days_in_month(year, month):
             return False
-        try:
-            date = datetime(int(year), int(month), int(day))
-        except ValueError:
-            return False
-        if date.day != monthrange(date.year, date.month)[1]:
-            return False
-        second = "59"
+        second = 59
 
-    try:
-        datetime.strptime(f"{year}-{month}-{day}T{hour}:{minute}:{second}",
-                          "%Y-%m-%dT%H:%M:%S")
-    except ValueError:
-        return False
-    return True
+    return (1 <= month <= 12 and 1 <= day <= days_in_month(year, month)
+            and hour <= 23 and minute <= 59 and second <= 59)
 
 
 def nonempty_string(where: str, value) -> list[str]:
