@@ -158,3 +158,26 @@ fn the_fixture_round_trips_through_the_parser() {
     );
     assert_eq!(value, canonical_query(), "and it is the same query");
 }
+
+#[test]
+fn projecting_the_canonical_query_reproduces_the_corpus_routing() {
+    // The check that tests the *derivation* rather than the code that wrote
+    // it. `tools/author_message.py`'s `ROUTING` is a hand-written literal, and
+    // every `message/` vector's envelope carries it — so if §4.5's projection
+    // and that literal disagree, either the rule is wrong or five merged
+    // vectors are.
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("testdata")
+        .join("canonical-routing.serialized");
+    let expected = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+
+    let derived = q2d::project_routing(&canonical_query());
+    let produced = q2d::serialize(derived.as_value()).expect("a projection");
+    assert_eq!(
+        produced,
+        expected,
+        "\n derived: {}\n corpus:  {}",
+        String::from_utf8_lossy(&produced),
+        String::from_utf8_lossy(&expected)
+    );
+}

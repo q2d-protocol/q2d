@@ -111,3 +111,22 @@ func TestTheFixtureRoundTripsThroughTheParser(t *testing.T) {
 		t.Errorf("round trip changed the bytes:\n got: %s\nwant: %s", again, expected)
 	}
 }
+
+func TestProjectingTheCanonicalQueryReproducesTheCorpusRouting(t *testing.T) {
+	// The check that tests the derivation rather than the code that wrote it.
+	// tools/author_message.py's ROUTING is a hand-written literal, and every
+	// message/ vector's envelope carries it — so if §4.5's projection and that
+	// literal disagree, either the rule is wrong or five merged vectors are.
+	expected, err := os.ReadFile("testdata/canonical-routing.serialized")
+	if err != nil {
+		t.Fatalf("cannot read the fixture: %v", err)
+	}
+	produced, err := Serialize(ProjectRouting(canonicalQuery()).Value())
+	if err != nil {
+		t.Fatalf("serializing the projection: %v", err)
+	}
+	if string(produced) != string(expected) {
+		t.Errorf("derived and corpus routing differ\n derived: %s\n corpus:  %s",
+			produced, expected)
+	}
+}

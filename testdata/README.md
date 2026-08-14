@@ -53,6 +53,23 @@ payload. So these are edges a real message can reach and no *realistic-looking*
 message will — which is the combination that makes them worth authoring and
 easy to miss.
 
+## `canonical-routing`
+
+§4.5's projection of `canonical-query`, and the one fixture here that checks a
+*rule* rather than an encoding.
+
+`tools/author_message.py`'s `ROUTING` is a **hand-written literal**, and every
+`message/` vector's envelope carries it. The two implementations derive their
+projection from the query by §4.5's allowlist and are held to these bytes — so
+if the rule and the literal disagree, either §4.5 is wrong or five merged
+vectors are, and the test says which.
+
+Python's side is the fixture itself: neither Python tool implements §4.5, so
+`author_vectors.py` states what the corpus believes and the derivation is Rust's
+and Go's. That makes this a **two-way** agreement with an independently authored
+expectation, which is a different and stronger thing than three implementations
+of one function agreeing.
+
 ## What is *not* here
 
 Refusals. All three implementations agree on what the profile rejects, and
