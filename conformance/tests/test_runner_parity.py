@@ -155,6 +155,17 @@ class ParityTest(unittest.TestCase):
                          {"q2d-rust", "q2d-go"},
                          "each runner names itself, so a result can be attributed")
 
+    def test_the_documented_counts_are_the_real_ones(self):
+        # RUNNER-CONTRACT.md and conformance/README.md quote these numbers as
+        # evidence for what the parity covers, and a count that drifted would
+        # overstate it. Asserted here rather than trusted, since the two
+        # documents cannot check themselves.
+        self.assertEqual(len(CASES), 22, "refused documents")
+        self.assertEqual(len(ACCEPTED), 3, "accepted documents")
+        self.assertEqual(len(CASES) + len(ACCEPTED) + 1, 26,
+                         "twenty-six in total, the malformed-UTF-8 bytes "
+                         "included — update both READMEs with this number")
+
     def test_neither_answers_a_vector_yet(self):
         # The state this file exists to record, and the assertion that turns red
         # the day it stops being true -- which is the day `cross` starts meaning

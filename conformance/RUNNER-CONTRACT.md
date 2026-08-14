@@ -160,12 +160,13 @@ the protocol already matches. A runner that accepted a duplicate object key
 while the other refused it would make `cross` report a divergence about JSON.
 
 [`tests/test_runner_parity.py`](tests/test_runner_parity.py) holds them to that:
-twenty-four documents chosen because a permissive parser would differ on them —
+twenty-six documents chosen because a permissive parser would differ on them.
+Twenty-two must be **refused** —
 duplicate keys at two depths, `NaN`, `Infinity`, a trailing document, an
 unescaped control character, malformed UTF-8, a lone surrogate of each half, and
-eight numeric forms RFC 8259 §6 forbids — and both must give the same exit code
-for each, plus three documents both must *accept*: a valid surrogate pair, and
-two numbers outside `float64`'s range. A list of refusals alone is satisfied by a
+eight numeric forms RFC 8259 §6 forbids, and a file that is not valid UTF-8 —
+with the same exit code from both for each. Three must be **accepted**: a valid
+surrogate pair, and two numbers outside `float64`'s range. A list of refusals alone is satisfied by a
 runner that refuses everything, and one that rejects valid vectors is worse than
 a permissive one — it fails a conforming producer.
 
