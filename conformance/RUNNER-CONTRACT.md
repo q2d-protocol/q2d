@@ -166,9 +166,11 @@ twenty-six documents, twenty-two of which must be **refused** and four
 Most are chosen because a permissive parser would differ on them: duplicate keys
 at two depths, `NaN`, `Infinity`, a trailing document, an unescaped control
 character, a file that is not valid UTF-8, a lone surrogate of each half, and
-eight numeric forms RFC 8259 §6 forbids. Four of the accepted ones are the other
-half of that: a valid surrogate pair and two numbers outside `float64`'s range,
-which a runner must not refuse.
+eight numeric forms RFC 8259 §6 forbids. **Three** of the accepted ones are the
+other half of that — a valid surrogate pair and two numbers outside `float64`'s
+range, which a runner must not refuse. The fourth is an ordinary projection,
+which is there so the suite is not satisfied by a runner that refuses
+everything.
 
 The rest are **contract** cases rather than parser ones — an unprojected vector
 carrying `expect`, an unknown operation, a missing `input`, a non-string `id`, a
