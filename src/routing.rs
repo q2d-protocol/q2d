@@ -14,9 +14,13 @@
 //! dispatch or capability-match without unwrapping.
 //!
 //! **Never** `purpose`, `delivery`, `answer_contract`, `target.subjects`, or
-//! `public_context`. Anything projected travels in the clear, and those are
-//! what the protocol exists to bound. The list is closed: adding to it is a
-//! disclosure decision rather than a plumbing one, and an escalation (§9.4).
+//! `public_context`. Not because withholding them hides them — the 0.1 suite
+//! signs the payload without encrypting it, so an intermediary reads them from
+//! `signed` regardless, and `claims.md` **Q2D-NC-13** says so. Because a
+//! projected field is legible *without decoding*, and is therefore the one
+//! infrastructure indexes and retains at scale. The list is closed: adding to
+//! it is a disclosure decision rather than a plumbing one, and an escalation
+//! (§9.4).
 //!
 //! ## Why this type has no other constructor
 //!
@@ -160,13 +164,8 @@ pub enum Because {
     /// vector exists to pin: its `purpose` is byte-identical to the signed
     /// one, so agreement is not what fails. §2.1 says `routing` carries at
     /// most those six, and a field outside the list is rejected whether or not
-    /// it agrees.
-    ///
-    /// *Why* §2.1 says so is [E-41], open: its stated reason is that
-    /// projecting those fields would expose them, and the 0.1 suite signs the
-    /// payload without encrypting it. The rule is not in question.
-    ///
-    /// [E-41]: https://github.com/q2d-protocol/q2d/blob/main/docs/open-escalations.md
+    /// it agrees — a relay that copies `purpose` up from the payload has made
+    /// it legible without decoding, which is the difference §2.1 is about.
     RoutingIntroducedField,
 }
 
@@ -557,10 +556,14 @@ mod tests {
         // and introduce no field, and an empty object carries none and
         // introduces none. Rejecting it would be a rule §2.1 does not state.
         //
-        // **E-42, open**: nothing derives it and nothing forbids it, so both
-        // implementations accept it — the minimum §2.1 states — and the
-        // register carries the question. This is the one case where *not
-        // derivable* and *not permitted* come apart.
+        // **E-42, closed as A**, and §2.1 now says so rather than leaving it
+        // to be inferred: `routing` *"may carry fewer, or none of them, at any
+        // depth — an empty object where a projection could have gone is a
+        // projection of nothing, and asserts nothing."*
+        //
+        // It is the one case where *not derivable* and *not permitted* come
+        // apart, which is why it was worth a sentence in `spec/` rather than a
+        // comment here: the next implementation will meet it too.
         let core = query();
         let empty_prefix = Value::object([("target", Value::object(Vec::<(&str, Value)>::new()))]);
         assert_eq!(check_routing(&core, Some(&empty_prefix)), Ok(()));
