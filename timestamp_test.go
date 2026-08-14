@@ -96,19 +96,32 @@ func TestAStringThatIsNotATimestampIsLeftAlone(t *testing.T) {
 	}
 }
 
-func TestANonASCIIDigitIsNotADigit(t *testing.T) {
-	// Go's byte comparison gives this for free, and Python's \d did not: it
-	// matches every Unicode decimal digit and int() accepts them all. RFC
-	// 3339's grammar is DIGIT, which is ASCII.
+func TestOnlyAnASCIIDigitIsADigit(t *testing.T) {
+	// RFC 3339's grammar is DIGIT, which is ASCII. Python's \d matches every
+	// Unicode decimal digit and int() accepts them all, so the authoring tool
+	// accepted a timestamp in Arabic-Indic digits until [0-9] replaced it.
+	// Asserted here because a property only one of three implementations has is
+	// not one the corpus can rely on.
 	//
-	// Asserted here rather than assumed, because the property is only useful if
-	// all three have it — and the one that lacked it was the tool that authors
-	// the corpus.
+	// Two guards, and the first is the one that fires: a non-ASCII digit is at
+	// least two bytes in UTF-8, so no such string is twenty bytes long and the
+	// length check refuses it before any digit is examined.
 	arabicIndic := "٢٠٢٦-٠٧-٣١T٠٩:٠٠:٠٠Z"
-	if isQ2DTimestamp(arabicIndic) {
+	if len(arabicIndic) != 34 {
+		t.Fatalf("expected 34 bytes for 20 characters, got %d", len(arabicIndic))
+	}
+	if isQ2DTimestamp(arabicIndic) || looksLikeRFC3339(arabicIndic) {
 		t.Error("accepted a timestamp written in non-ASCII digits")
 	}
-	if looksLikeRFC3339(arabicIndic) {
-		t.Error("treated non-ASCII digits as an RFC 3339 spelling")
+
+	// So the digit check itself needs a case that reaches it: twenty bytes,
+	// ASCII throughout, and not a digit where a digit belongs.
+	for _, notADigit := range []string{"2026-07-31T09:00:0xZ", "202x-07-31T09:00:00Z"} {
+		if isQ2DTimestamp(notADigit) {
+			t.Errorf("%s: accepted a non-digit where a digit belongs", notADigit)
+		}
+	}
+	if looksLikeRFC3339("202x-07-31T09:00:00Z") {
+		t.Error("treated a non-digit year as an RFC 3339 spelling")
 	}
 }

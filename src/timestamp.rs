@@ -219,17 +219,27 @@ mod tests {
     }
 
     #[test]
-    fn a_non_ascii_digit_is_not_a_digit() {
-        // `is_ascii_digit` gives this for free, and Python's `\d` did not: it
-        // matches every Unicode decimal digit and `int()` accepts them all. RFC
-        // 3339's grammar is `DIGIT`, which is ASCII.
+    fn only_an_ascii_digit_is_a_digit() {
+        // RFC 3339's grammar is `DIGIT`, which is ASCII. Python's `\d` matches
+        // every Unicode decimal digit and `int()` accepts them all, so the
+        // authoring tool accepted a timestamp in Arabic-Indic digits until
+        // `[0-9]` replaced it. Asserted here because a property only one of
+        // three implementations has is not one the corpus can rely on.
         //
-        // Asserted rather than assumed, because the property is only useful if
-        // all three have it — and the one that lacked it was the tool that
-        // authors the corpus.
-        let arabic_indic = "\u{662}\u{660}\u{662}\u{666}-\u{660}\u{667}-\u{663}\u{661}                            T\u{660}\u{669}:\u{660}\u{660}:\u{660}\u{660}Z";
+        // Two guards, and the first is the one that fires: a non-ASCII digit is
+        // at least two bytes in UTF-8, so no such string is twenty bytes long
+        // and the length check refuses it before any digit is examined.
+        let arabic_indic = "\u{662}\u{660}\u{662}\u{666}-\u{660}\u{667}-\u{663}\u{661}T\u{660}\u{669}:\u{660}\u{660}:\u{660}\u{660}Z";
+        assert_eq!(arabic_indic.chars().count(), 20, "twenty characters");
+        assert_eq!(arabic_indic.len(), 34, "and not twenty bytes, which is why");
         assert!(!is_q2d_timestamp(arabic_indic));
         assert!(!looks_like_rfc3339(arabic_indic));
+
+        // So the digit check itself needs a case that reaches it: twenty bytes,
+        // ASCII throughout, and not a digit where a digit belongs.
+        assert!(!is_q2d_timestamp("2026-07-31T09:00:0xZ"));
+        assert!(!is_q2d_timestamp("202x-07-31T09:00:00Z"));
+        assert!(!looks_like_rfc3339("202x-07-31T09:00:00Z"));
     }
 
     #[test]
