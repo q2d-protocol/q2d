@@ -68,10 +68,12 @@ func ParseEnvelope(payload []byte) (Envelope, error) {
 			"limit of %d", len(payload), MaxEnvelope)
 	}
 
-	// MaxEnvelope as the string bound, not MaxString: signed is a whole JWS
-	// compact string and the envelope limit is what bounds it. Nothing is
-	// unbounded — a string here cannot exceed the envelope that contains it.
-	value, err := parseWithin(payload, MaxEnvelope)
+	// whereEnvelope bounds every string at the envelope limit, not at §2.8's
+	// 2 KiB: signed is a whole JWS compact string. Nothing is unbounded — a
+	// string here cannot exceed the envelope that contains it — and routing's
+	// strings are narrowed back to 2 KiB below, because at this layer they are
+	// known to be protocol fields.
+	value, err := parseWithin(payload, whereEnvelope)
 	if err != nil {
 		return Envelope{}, err
 	}

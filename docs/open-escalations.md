@@ -3577,17 +3577,18 @@ in private input.
 
 ### What it cost the implementations
 
-A general parser cannot tell a protocol field from a predicate's own, so it
-cannot apply a limit that distinguishes them. Both now bound every string at
-`public_context`'s 32 KiB — the largest any string in a conforming message may
-be, so nothing is unbounded and nothing conforming is refused — and the 2 KiB is
-applied where the field set is known: `parse_envelope` for `routing` today,
-`parse_core` for the payload when it exists.
+A limit that distinguishes protocol fields from a predicate's own can only be
+applied by something that knows which is which, so both parsers now track it:
+2 KiB everywhere, 32 KiB inside `predicate.public_context`, and the envelope
+limit for `signed`.
 
-**That leaves a gap and P-002 issue 4 records it:** a payload's *protocol* string
-between 2 and 32 KiB parses and nothing catches it yet. It is the same shape as
-`public_context`'s own limit waiting for step 5, and it closes with the same
-function.
+That is protocol knowledge in a parser. It is the same knowledge the serializer
+already carries for §2.2's field names — the mechanism mirrors its protocol
+level — and the first version of this did the other thing: bound every string at
+32 KiB and owe the 2 KiB to a `parse_core` that does not exist. Review pointed
+out that this accepts protocol fields §2.8 refuses, which is a specification
+violation shipped against a promise to fix it later. Owing a check to a function
+nobody has written is not a plan.
 
 ### Where this stops being right
 

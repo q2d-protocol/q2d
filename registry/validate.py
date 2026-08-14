@@ -768,10 +768,18 @@ def main(argv: list[str]) -> int:
     # §4.1 says "an entry's schemas", and an entry carries three. Checking only
     # the public-context one would leave the other two able to drift from a
     # rule spec/ states about all of them.
+    #
+    # `input_schema` is in the list and is **not** required to exist: §4.1
+    # covers any schema an entry carries, and an entry today carries three. A
+    # field named in a condition but absent from this loop is a check that
+    # matches nothing while reading as coverage -- which is exactly what the
+    # first version of the requester-string rule did.
     for p in preds:
         name = p["id"].rsplit("/", 1)[-1]
         for field in ("public_context_schema", "private_input_schema",
-                      "output_schema"):
+                      "output_schema", "input_schema"):
+            if field == "input_schema" and field not in p:
+                continue
             schema = p.get(field)
             where = f"{name}.{field}"
             if not isinstance(schema, dict):

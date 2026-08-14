@@ -240,18 +240,17 @@ question and belongs at this level:
 | Any single string field | wherever the fields are known: `parse_envelope` for `routing`, `parse_core` for the payload |
 | `predicate.public_context` | `parse_core`, at step 5 |
 
-The last two rows are the ones to read carefully. §2.8's string limit covers the
-fields the specification defines and **stops at `public_context`**
-([E-40](../open-escalations.md)), so a general parser cannot apply it: it cannot
-tell a protocol field from a predicate's own. Both implementations therefore
-bound every string at `public_context`'s 32 KiB — the largest any string in a
-conforming message may be, so nothing is unbounded and nothing conforming is
-refused — and apply the 2 KiB where the field set is known.
+The string row is the one to read carefully. §2.8's limit covers the fields the
+specification defines and **stops at `public_context`**
+([E-40](../open-escalations.md)), so applying it means knowing which subtree a
+string is in. Both parsers track that: 2 KiB everywhere, 32 KiB inside
+`predicate.public_context`, and the envelope limit for `signed`.
 
-**One gap follows from that, and issue 4 records it:** until `parse_core`
-exists, a payload's *protocol* string between 2 and 32 KiB parses and nothing
-catches it. `routing`'s strings are already checked, because `parse_envelope`
-knows they are protocol fields.
+That is protocol knowledge in a parser, and it is the same knowledge
+`serialize` already carries for §2.2's field names — the mechanism mirrors its
+protocol level. The alternative was to bound every string at 32 KiB and owe the
+2 KiB to a `parse_core` that does not exist, which would have accepted protocol
+fields §2.8 refuses.
 
 ## 5. Interfaces
 
