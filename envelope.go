@@ -35,8 +35,14 @@ import (
 	"sort"
 )
 
-// An Envelope is a parsed §4.4 envelope. Routing is optional — §2.1 makes it
-// advisory, and a transport that needs no projection sends none.
+// An Envelope is a parsed §4.4 envelope.
+//
+// Routing is optional here, and whether it may be is E-38, open: §2.1 opens "a
+// message has two parts" and calls routing advisory, which answers what it may
+// be used for rather than whether it may be absent. The corpus already contains
+// an envelope without one, so this is the reading the repository's own artifacts
+// take. If E-38 closes the other way it is one line here and one reauthored
+// vector.
 type Envelope struct {
 	Signed  string
 	Routing Value

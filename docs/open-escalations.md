@@ -18,7 +18,13 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** **E-36** closed as C and **E-37** as B, both raised while
+> **E-38 is open**, raised while building P-002's envelope parser: may an
+> envelope omit `routing`? `core-model.md` §2.1 says *"a message has two parts"*;
+> the corpus contains an authored vector whose envelope has one. Both
+> implementations accept the omission today, which is the corpus's reading.
+> §E-38 has the options.
+>
+> **E-36** closed as C and **E-37** as B, both raised while
 > building P-002's serializer and both cascaded.
 >
 > **E-36:** §2.2's timestamp spelling reaches the fields §2.2 names and no
@@ -149,6 +155,7 @@ question is still fresh than after the answer arrives.
 | **E-35** | At which §4 step does a query's header/payload comparison happen? | E-34's cascade | `core-model.md` §4 query order, §5.2.1 · `crypto-suites.md` §3 · both schemas | **Closed** |
 | **E-36** | Does §2.2's timestamp spelling bind every string that looks like a timestamp, or only the fields §2.2 names? | P-002 issue 2 | `core-model.md` §2.2 · `scope.md` §4.1 · P-002 §4.2, §10 · `tools/author_vectors.py` · both implementations | **Closed** |
 | **E-37** | Does an integer in a signed structure have a range, and is it `core-model.md`'s to state? | P-002 issue 2 | `scope.md` §4.1 · `registry/validate.py` · P-006 issue 2 · P-002 §10 · `tools/author_vectors.py` | **Closed** |
+| **E-38** | May an envelope omit `routing`? | P-002 issue 5 | `core-model.md` §2.1 · P-002 §4.4, §4.5 · `conformance/corpus/suite/downgrade/` · both implementations | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -3244,6 +3251,103 @@ files.
 untouched by narrowing the reach. `conformance-classes.md` and
 [`trust-matrix.md`](../threat-model/trust-matrix.md) mention neither timestamp
 spelling nor integer range.
+
+---
+
+## E-38 — May an envelope omit `routing`?
+
+**Raised by:** P-002 issue 5, building `parse_envelope`. **Found by:** Codex,
+which read the parsed model's optional `routing` as an acceptance the
+specification does not grant.
+
+### Context
+
+[`core-model.md`](../spec/core-model.md) §2.1 opens *"A message has two
+parts"* and shows both. It then says `routing` is **advisory** — a projection
+for intermediaries, never authoritative, a strict subset, rejected rather than
+reconciled on disagreement.
+
+*Advisory* answers what `routing` may be **used for**. It does not answer
+whether it may be **absent**, and §2.1 says nothing else about the question.
+
+### The evidence points both ways, which is why this is here
+
+**For required:**
+
+- §2.1's own first sentence: *a message has two parts.*
+- P-002 §4.5: a producer **derives** `routing` by projection and *"never
+  constructs one independently"*. Nothing in it describes a producer choosing
+  not to. If derivation is total, every producer has one to send.
+- Omitting it removes the §4.6 consistency check's subject, which is the
+  surface that turns a tampered projection into a rejection.
+
+**For optional:**
+
+- **The corpus already contains one.** `suite/downgrade/header-carries-alg.json`
+  has an envelope of `{"signed": …}` and no `routing`, authored under
+  [P-001](prds/P-001-conformance-corpus.md) issue 13 by `tools/author_suite.py`,
+  linted clean, and merged. If `routing` were required that vector is malformed,
+  and it has been in the corpus since.
+- §4.6 checks *"each field present in `routing`"*, which already contemplates
+  fields being absent; a `routing` with no fields present and a `routing` that
+  is absent differ by very little.
+- `routing` exists for intermediaries. A direct HTTPS exchange has none, and
+  §2.1's *"for intermediaries that must dispatch or capability-match without
+  unwrapping"* describes a need that a direct caller does not have.
+
+### Options
+
+**A. Required.** §2.1's two parts are both mandatory; an envelope with one is
+malformed and rejected at step 1. Cost: `suite/downgrade/header-carries-alg.json`
+becomes malformed and must be reauthored, and every producer must project even
+where no intermediary will read it.
+
+**B. Optional, and §2.1 says so.** An envelope carries `signed` and *may* carry
+`routing`. Cost: a producer can omit the projection and there is then nothing
+for §4.6 to check — which is not a weakness in itself, since `routing` is
+advisory and its absence removes no guarantee, but it is one more shape a
+responder must handle.
+
+**C. Optional, and the transport decides.** §2.1 stays as it is;
+[P-013](prds/P-013-https-binding.md) says whether its binding requires the
+projection. Cost: two conformant responders differ on what they accept, which
+is the divergence the specification exists to remove — and a requester cannot
+know which it is talking to without asking.
+
+### Recommendation — B
+
+**`routing` is an optimisation for a party that may not exist.** §2.1 grounds it
+in intermediaries dispatching without unwrapping; a direct exchange has no such
+party, and requiring the projection there is asking a producer to publish
+`predicate.id` and `target.custodian` in the clear for nobody's benefit. That is
+a small disclosure with no corresponding gain, and §4.5's own field table is
+built around the principle that anything projected travels in the clear.
+
+Absence removes no guarantee. Everything the signature covers is still covered;
+§4.6 has nothing to compare and therefore nothing to fail to catch, where a
+*present* `routing` is the thing that can lie. An envelope with no projection is
+strictly less attack surface, not more.
+
+**A is defensible** and I do not recommend it, for a reason beyond the vector it
+invalidates: it makes the protocol's least-disclosure posture worse in the one
+case — a direct exchange — where it could be best.
+
+**C is the one to avoid.** It is B with the answer hidden behind a deployment,
+and a requester that cannot predict whether its envelope will be accepted has to
+send the projection always, which is A wearing B's clothes.
+
+### What is built today, pending the decision
+
+**B's behaviour**, in both implementations: `routing` parses as optional, and
+`Envelope.routing` is `Option` in Rust and nil-able in Go.
+
+This is the *permissive* direction, which is the opposite of the default the
+E-36 note argues for — so the reason is worth stating. The corpus already
+contains an envelope without `routing`, authored, reviewed and merged under
+P-001. Implementing A would retroactively make landed work malformed on the
+strength of a reading nobody has confirmed, and the repository's own artifact is
+better evidence of intent than a parser written this week. If A is chosen, the
+change is one line in each implementation and one reauthored vector.
 
 ---
 

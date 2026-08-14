@@ -33,8 +33,14 @@
 use crate::parse::{parse_within, ParseError, MAX_ENVELOPE, MAX_STRING};
 use crate::value::Value;
 
-/// A parsed envelope. `routing` is optional — §2.1 makes it advisory, and a
-/// transport that needs no projection sends none.
+/// A parsed envelope.
+///
+/// `routing` is optional here, and whether it may be is **E-38, open**: §2.1
+/// opens *"a message has two parts"* and calls `routing` advisory, which
+/// answers what it may be used for rather than whether it may be absent. The
+/// corpus already contains an envelope without one, so this is the reading the
+/// repository's own artifacts take. If E-38 closes the other way it is one line
+/// here and one reauthored vector.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Envelope {
     pub signed: String,
@@ -74,7 +80,15 @@ pub fn parse_envelope(bytes: &[u8]) -> Result<Envelope, ParseError> {
 
     let mut signed = None;
     let mut routing = None;
-    for (key, item) in pairs {
+    // By UTF-16 code unit, not `BTreeMap` order, which is by Unicode scalar
+    // value. The two differ above the BMP, so an envelope with two unknown
+    // members named U+10000 and U+E000 would be reported by a different one
+    // here than in Go. A rejection reason two implementations disagree about is
+    // a divergence even when both reject — the same rule §4.2 states for keys,
+    // applied to the order they are *examined* in.
+    let mut ordered: Vec<(String, Value)> = pairs.into_iter().collect();
+    ordered.sort_by_key(|(key, _)| key.encode_utf16().collect::<Vec<u16>>());
+    for (key, item) in ordered {
         match (key.as_str(), item) {
             ("signed", Value::String(text)) => signed = Some(text),
             ("signed", _) => {
