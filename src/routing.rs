@@ -213,22 +213,40 @@ impl std::error::Error for RoutingMismatch {}
 pub fn check_routing(core: &Value, routing: Option<&Value>) -> Result<(), RoutingMismatch> {
     match routing {
         None => Ok(()),
-        Some(routing) => compare(core, routing, ""),
+        Some(routing) => compare(core, routing, &mut Vec::new()),
     }
 }
 
-/// Whether a dotted path is one §4.5 projects, or a prefix of one.
+/// A path as `target.custodian`, for a message. Only ever for a message: the
+/// comparison walks segments, because a key may contain a dot.
+fn shown(path: &[String]) -> String {
+    if path.is_empty() {
+        "<root>".into()
+    } else {
+        path.join(".")
+    }
+}
+
+/// Whether a path is one §4.5 projects, or a prefix of one.
 ///
 /// A prefix counts because the walk meets `target` before `target.custodian`,
 /// and refusing the parent would refuse every projection there is.
-fn is_projectable(path: &str) -> bool {
+///
+/// Compared **segment by segment**, never as a joined string. A key may contain
+/// a dot — nothing forbids `{"predicate.id": …}` as a literal member name — and
+/// a dotted comparison would read that single key as the nested path and admit
+/// a field no projection can produce.
+fn is_projectable(path: &[String]) -> bool {
     PROJECTED.iter().any(|projected| {
-        let full = projected.join(".");
-        full == path || full.starts_with(&format!("{path}."))
+        projected.len() >= path.len()
+            && projected
+                .iter()
+                .zip(path)
+                .all(|(segment, step)| *segment == step.as_str())
     })
 }
 
-fn compare(core: &Value, routing: &Value, path: &str) -> Result<(), RoutingMismatch> {
+fn compare(core: &Value, routing: &Value, path: &mut Vec<String>) -> Result<(), RoutingMismatch> {
     // Both objects: `routing` may carry a subset of the fields, so descend.
     if let (Value::Object(signed), Value::Object(projected)) = (core, routing) {
         // By UTF-16 code unit, not `BTreeMap` order, so a projection with two
@@ -240,29 +258,26 @@ fn compare(core: &Value, routing: &Value, path: &str) -> Result<(), RoutingMisma
 
         for key in keys {
             let value = &projected[key];
-            let here = if path.is_empty() {
-                key.clone()
-            } else {
-                format!("{path}.{key}")
-            };
+            path.push(key.clone());
             // §2.1: `routing` *carries at most* the six §4.5 projects. Checked
             // before the value is compared, because a field that should not be
             // there is refused whether or not it agrees.
-            if !is_projectable(&here) {
+            if !is_projectable(path) {
                 return Err(RoutingMismatch {
-                    path: here,
+                    path: shown(path),
                     because: Because::RoutingIntroducedField,
                 });
             }
             match signed.get(key) {
-                Some(found) => compare(found, value, &here)?,
+                Some(found) => compare(found, value, path)?,
                 None => {
                     return Err(RoutingMismatch {
-                        path: here,
+                        path: shown(path),
                         because: Because::RoutingSignedMismatch,
                     })
                 }
             }
+            path.pop();
         }
         return Ok(());
     }
@@ -274,11 +289,7 @@ fn compare(core: &Value, routing: &Value, path: &str) -> Result<(), RoutingMisma
         Ok(())
     } else {
         Err(RoutingMismatch {
-            path: if path.is_empty() {
-                "<root>".into()
-            } else {
-                path.into()
-            },
+            path: shown(path),
             because: Because::RoutingSignedMismatch,
         })
     }

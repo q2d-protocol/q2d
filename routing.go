@@ -298,25 +298,47 @@ func CheckRouting(core Value, routing Value) error {
 	if routing == nil {
 		return nil
 	}
-	return compareRouting(core, routing, "")
+	return compareRouting(core, routing, nil)
 }
 
-// isProjectable reports whether a dotted path is one §4.5 projects, or a prefix
-// of one.
+// isProjectable reports whether a path is one §4.5 projects, or a prefix of one.
 //
 // A prefix counts because the walk meets target before target.custodian, and
 // refusing the parent would refuse every projection there is.
-func isProjectable(path string) bool {
-	for _, p := range projected {
-		full := strings.Join(p, ".")
-		if full == path || strings.HasPrefix(full, path+".") {
+//
+// Compared segment by segment, never as a joined string. A key may contain a dot
+// — nothing forbids {"predicate.id": …} as a literal member name — and a dotted
+// comparison would read that single key as the nested path and admit a field no
+// projection can produce.
+func isProjectable(path []string) bool {
+	for _, candidate := range projected {
+		if len(candidate) < len(path) {
+			continue
+		}
+		same := true
+		for i, step := range path {
+			if candidate[i] != step {
+				same = false
+				break
+			}
+		}
+		if same {
 			return true
 		}
 	}
 	return false
 }
 
-func compareRouting(core, routing Value, path string) error {
+// shown renders a path as target.custodian, for a message. Only ever for a
+// message: the comparison walks segments, because a key may contain a dot.
+func shown(path []string) string {
+	if len(path) == 0 {
+		return "<root>"
+	}
+	return strings.Join(path, ".")
+}
+
+func compareRouting(core, routing Value, path []string) error {
 	// Both objects: routing may carry a subset of the fields, so descend.
 	signed, coreIsObject := core.(Object)
 	projected, routingIsObject := routing.(Object)
@@ -331,19 +353,16 @@ func compareRouting(core, routing Value, path string) error {
 		sort.Slice(keys, func(i, j int) bool { return lessUTF16(keys[i], keys[j]) })
 
 		for _, key := range keys {
-			here := key
-			if path != "" {
-				here = path + "." + key
-			}
+			here := append(path, key)
 			// §2.1: routing "carries at most" the six §4.5 projects. Checked
 			// before the value is compared, because a field that should not be
 			// there is refused whether or not it agrees.
 			if !isProjectable(here) {
-				return RoutingMismatch{Path: here, Because: RoutingIntroducedField}
+				return RoutingMismatch{Path: shown(here), Because: RoutingIntroducedField}
 			}
 			found, present := signed[key]
 			if !present {
-				return RoutingMismatch{Path: here, Because: RoutingSignedMismatch}
+				return RoutingMismatch{Path: shown(here), Because: RoutingSignedMismatch}
 			}
 			if err := compareRouting(found, projected[key], here); err != nil {
 				return err
@@ -361,8 +380,5 @@ func compareRouting(core, routing Value, path string) error {
 	if errA == nil && errB == nil && string(a) == string(b) {
 		return nil
 	}
-	if path == "" {
-		path = "<root>"
-	}
-	return RoutingMismatch{Path: path, Because: RoutingSignedMismatch}
+	return RoutingMismatch{Path: shown(path), Because: RoutingSignedMismatch}
 }

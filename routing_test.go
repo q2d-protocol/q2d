@@ -339,3 +339,29 @@ func TestTheMismatchNamesAPathAndNeverAValue(t *testing.T) {
 		}
 	}
 }
+
+func TestALiteralDottedKeyIsAnIntroducedField(t *testing.T) {
+	// §4.5's allowlist is walked segment by segment. Nothing forbids
+	// {"predicate.id": …} as a single member name, and comparing a joined
+	// "predicate.id" against the allowlist would read that one key as the
+	// nested path and admit a field no projection can produce.
+	//
+	// Both objects carry the literal key, so a dotted comparison would find it
+	// in the signed object, call it projectable, and pass.
+	core := Object{
+		"predicate.id": String("https://q2d.dev/predicates/p"),
+		"type":         String("query"),
+	}
+	routing := Object{"predicate.id": String("https://q2d.dev/predicates/p")}
+	mismatch, ok := CheckRouting(core, routing).(RoutingMismatch)
+	if !ok || mismatch.Path != "predicate.id" || mismatch.Because != RoutingIntroducedField {
+		t.Fatalf("got %+v", mismatch)
+	}
+
+	// And the shape §4.5 actually projects is unaffected, which is what makes
+	// the segment walk a fix rather than a tightening.
+	nested := Object{"predicate": Object{"id": String("https://q2d.dev/predicates/p")}}
+	if err := CheckRouting(nested, nested); err != nil {
+		t.Errorf("the nested path of the same name: %v", err)
+	}
+}
