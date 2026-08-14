@@ -18,8 +18,20 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** **E-38** closed as B, **E-36** as C and **E-37** as B —
-> all three raised while building P-002, all three cascaded.
+> **Nothing is open.** **E-36** through **E-40** all closed, every one raised
+> while building P-002's message layer, every one cascaded.
+>
+> **E-39:** `core-model.md` gains **§2.8**, which carries the size limits P-002
+> §4.8 had held. E-16's argument, unchanged: `spec/` said only *reject
+> oversized*, so a third implementation enforced nothing and accepted messages
+> both of ours reject.
+>
+> **E-40:** §2.8's string limit covers the fields the specification defines and
+> **stops at `predicate.public_context`**. A predicate's own field is bounded by
+> its registry entry, where `scope.md` §4.1 now requires a `maxLength` on the
+> input side.
+>
+> **E-38** closed as B, **E-36** as C and **E-37** as B.
 >
 > **E-38:** `routing` **may be absent**, and §2.1 now says so. It exists for a
 > party that need not be there; a direct exchange has no intermediary to
@@ -155,6 +167,8 @@ question is still fresh than after the answer arrives.
 | **E-36** | Does §2.2's timestamp spelling bind every string that looks like a timestamp, or only the fields §2.2 names? | P-002 issue 2 | `core-model.md` §2.2 · `scope.md` §4.1 · P-002 §4.2, §10 · `tools/author_vectors.py` · both implementations | **Closed** |
 | **E-37** | Does an integer in a signed structure have a range, and is it `core-model.md`'s to state? | P-002 issue 2 | `scope.md` §4.1 · `registry/validate.py` · P-006 issue 2 · P-002 §10 · `tools/author_vectors.py` | **Closed** |
 | **E-38** | May an envelope omit `routing`? | P-002 issue 5 | `core-model.md` §2.1 · P-002 §4.4, §4.5, §10 · `tools/author_suite.py`, `tools/author_ordering.py` · both implementations | **Closed** |
+| **E-39** | Should §4.8's size limits live in `spec/` rather than in a PRD? | P-002 issue 5 | `core-model.md` §2.8 (new), §4 step 1 · P-002 §4.8 | **Closed** |
+| **E-40** | Does the 2 KiB string limit reach inside `public_context`? | P-002 issue 5 | `core-model.md` §2.8 · `scope.md` §4.1 · `registry/validate.py` · both parsers | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -3392,6 +3406,42 @@ saying it was allowed.
 
 ---
 
+## What E-39 and E-40 cascaded into
+
+Recorded together: E-39 moved the limits and E-40 changed what one of them
+means, so the same paragraphs carry both.
+
+- [`core-model.md`](../spec/core-model.md) **§2.8, new** — the five limits, the
+  `public_context` and `signed` exceptions, where each can be enforced, and that
+  lowering one is a specification change.
+- §4 step 1, **both order tables** — cites §2.8 rather than saying only
+  *oversized*. The query and response orders are separate tables and each
+  carries the row.
+- [`scope.md`](../spec/scope.md) §4.1 — `maxLength` required on input and
+  public-context schemas, and the *"this document does not decide it"* sentence
+  replaced with the reason it now does.
+- `registry/validate.py` — `unbounded_request_string`, applied to
+  `public_context_schema` and deliberately not to `private_input_schema`. An
+  entry carries no `input_schema` today; the caller names it anyway because
+  §4.1 covers any an entry later gains, and **review caught the first version
+  naming only `input_schema` in its condition — a check that matched nothing
+  and passed**.
+- P-002 §4.8 — cites §2.8, and keeps only the enforcement-point table, which is
+  implementation guidance rather than protocol.
+- Both parsers — §2.8's three bounds, by position: 2 KiB for a protocol field,
+  32 KiB inside `predicate.public_context` and on that object as a whole, and
+  the envelope limit for `signed`, which carries a payload.
+
+**Checked and unchanged:** the reference manifest, whose only unbounded string
+is in `private_input_schema`. [`claims.md`](../spec/claims.md) Q2D-C-08 rests on
+the *receipt's* fields being fixed-width, which §2.8 does not touch.
+[`conformance-classes.md`](../spec/conformance-classes.md) CC-2 requires
+executing §4's order *"without reordering steps 1–16"*, which reaches step 1 and
+therefore §2.8 without naming either — a citation of the order rather than of
+its contents, which is what keeps the class stable as the steps gain detail.
+
+---
+
 ## What E-38 cascaded into
 
 - [`core-model.md`](../spec/core-model.md) §2.1 — the opening sentence, the
@@ -3427,6 +3477,130 @@ of `routing` is about disagreement, not presence. `crypto-suites.md` §115 says
 `routing` cannot supply the suite *because* it is advisory — an argument
 absence strengthens. [P-013](prds/P-013-https-binding.md) §2 cites §2.1 rather
 than restating it.
+
+---
+
+## E-39 — Should §4.8's size limits live in `spec/`?
+
+**Raised by:** P-002 issue 5. **Closed as A.**
+
+### The gap
+
+[`core-model.md`](../spec/core-model.md) §4 step 1 said *"reject oversized or
+malformed input"* and named no number. P-002 §4.8 held all five — envelope,
+depth, members, string, `public_context` — and §10 had already settled that they
+are **normative**. So the repository carried normative wire constraints in a PRD.
+
+An implementer building from `spec/` alone enforced **nothing** and accepted a
+10 MB envelope both of ours reject. Neither wrong by the document it was built
+from, which is E-16 word for word — the escalation that moved the registry
+schema profile out of P-006 into `scope.md` §4.1 on precisely this reasoning.
+
+### Resolution — A
+
+**New `core-model.md` §2.8**, cited from §4 step 1 in both order tables. P-002
+§4.8 keeps what is genuinely implementation-level — *where* each limit can be
+applied — and cites §2.8 for the values.
+
+Three things §4.8 had learned went into §2.8 with them, because they are facts
+about the protocol rather than about our code:
+
+- **Only the envelope limit can run before allocation**, which is what step 1
+  asks of it. The rest are enforced as the message is read and are bounded by it.
+- **`public_context`'s limit is enforced at step 5**, since it is inside the
+  payload that step 4 verifies before step 5 parses.
+- **`signed` is exempt from the string limit**, by arithmetic rather than
+  judgement: it carries a whole signed payload, and a 2 KiB cap would leave a few
+  hundred bytes for `public_context`.
+
+### Why not the alternatives
+
+**A floor with implementation-defined limits above it** is HTTP's answer to URI
+length, and HTTP is the cautionary case rather than the model: RFC 9110 declines
+to bound it, and the result is Apache at 8190, nginx at 4k–8k, IIS at 16384, and
+two decades of *works against one server, 414s against another*. Q2D has less
+room than HTTP, because §1 admits no negotiation round trip — a requester cannot
+ask what a responder accepts, so it must assume the floor, which makes the floor
+the real limit.
+
+TLS puts its record maximum in the RFC and nobody has filed an interop bug about
+it. DNS put 512 in the protocol, and when it became too small the fix was EDNS0
+— an in-protocol extension, designable *because* the number was normative.
+
+### Where this stops being right
+
+**If deployments genuinely need different limits** — a constrained embedded
+custodian, a batch integration — the answer is a capability advertisement rather
+than a per-implementation choice, and [P-013](prds/P-013-https-binding.md)
+already has `GET /capabilities` to carry one. That would supersede this, and it
+is a larger design than this decision.
+
+**The values are still estimates**, and §2.8 says so. Stage 8 measures real
+payloads. Lowering one is now a specification change, which is the point: a
+change to a normative limit has to reach every implementation at once.
+
+---
+
+## E-40 — Does the 2 KiB string limit reach inside `public_context`?
+
+**Raised by:** P-002 issue 5. **Closed as B**, consistent with E-36.
+
+### The gap
+
+§2.8's row says *any single string field, 2 KiB*, and `public_context` has its
+own row at 32 KiB. Read plainly the 2 KiB includes a predicate's own strings —
+so a menu description or an accessibility note of 3 KiB could not be sent, and
+the failure would cite a protocol limit for a field the protocol does not define.
+
+### Resolution — B
+
+**The string limit covers the fields the specification defines and stops at
+`predicate.public_context`.** §2.6 makes that object operation-defined; the
+protocol bounds it as a whole at 32 KiB, and a predicate's own field is bounded
+by its registry entry.
+
+That needed a second change, because the owner did not exist yet.
+[`scope.md`](../spec/scope.md) §4.1 required `maxLength` on **output** schemas
+only, and said of the input side that it was *"a resource question, and this
+document does not decide it"*. §2.8 decided the message-level part of that
+question, which would have left the per-field part with no owner at all — an
+entry could admit a string bounded only by the 32 KiB whole-object limit. §4.1
+now requires `maxLength` on every schema describing what a requester may send —
+`public_context_schema` today — with `format: date-time` and `enum` as the two
+ways of satisfying it otherwise, and refuses a subschema that omits `type`,
+which would admit an unbounded string among everything else.
+
+**`private_input_schema` is excluded.** A requester cannot send it, so it is not
+attacker-controlled, and what it costs to hold is the custodian's own question
+about its own store. That exclusion is why the reference manifest needed no
+change: its one unbounded string is `contactable_for`'s `purpose_code` pattern,
+in private input.
+
+### What it cost the implementations
+
+A limit that distinguishes protocol fields from a predicate's own can only be
+applied by something that knows which is which, so both parsers now track it:
+2 KiB everywhere, 32 KiB inside `predicate.public_context`, and the envelope
+limit for `signed`.
+
+That is protocol knowledge in a parser. It is the same knowledge the serializer
+already carries for §2.2's field names — the mechanism mirrors its protocol
+level — and the first version of this did the other thing: bound every string at
+32 KiB and owe the 2 KiB to a `parse_core` that does not exist. Review pointed
+out that this accepts protocol fields §2.8 refuses, which is a specification
+violation shipped against a promise to fix it later. Owing a check to a function
+nobody has written is not a plan.
+
+### Where this stops being right
+
+**If predicate authors omit `maxLength` in practice**, the effective bound is
+32 KiB per string. The mitigation is that `registry/validate.py` enforces §4.1,
+so an entry that omits it fails validation rather than shipping.
+
+**If Stage 8 shows per-field bounds matter for timing uniformity** rather than
+only for memory, a uniform 2 KiB becomes easier to reason about than a
+per-predicate bound. That is a Q2D-C-08 question and should reopen this if it
+lands that way.
 
 ---
 

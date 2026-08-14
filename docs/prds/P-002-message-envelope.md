@@ -222,47 +222,35 @@ purpose.
 
 ### 4.8 Size limits
 
-| Limit | Value | Enforced |
-|---|---|---|
-| Envelope | 64 KiB | §4 step 1, on the byte slice |
-| Nesting depth | 16 | during the parse |
-| Object members per object | 64 | during the parse |
-| Any single string field | 2 KiB | during the parse — **except `signed`** |
-| `public_context` | 32 KiB | `parse_core`, at step 5 |
+**The limits are [`core-model.md`](../../spec/core-model.md) §2.8's**, and this
+section cites them rather than restating them. They were here, and
+[E-39](../open-escalations.md) moved them, on E-16's reasoning: normative wire
+constraints stated only in a PRD mean a third implementation built from `spec/`
+alone accepts messages both of ours reject, neither wrong by the document it was
+built from.
 
-Values are proposed, not derived; §10's third question settles that they are
-normative rather than advisory, and is the statement of it. Repeating the
-reasoning here would be the second source of truth CLAUDE.md's hierarchy exists
-to prevent, one section away.
+What stays here is where each one can be applied, which is an implementation
+question and belongs at this level:
 
-**These numbers are in this PRD and in no specification**, which is worth saying
-plainly because it is the situation [E-16](../open-escalations.md) was raised
-about: `spec/` says only *reject oversized* (`core-model.md` §4 step 1), so an
-implementer building from `spec/` alone enforces no limit at all and accepts
-envelopes ours reject — *"neither wrong by the document it was built from"*.
-E-16 moved the registry schema profile into `scope.md` for exactly that reason.
-Whether these belong there too is §10's question; this section states the rule
-either way, and the clarifications below are its own to make while it holds it.
+| Limit | Enforced |
+|---|---|
+| Envelope | §4 step 1, on the byte slice — the only one that runs before allocation |
+| Nesting depth | during the parse |
+| Object members per object | during the parse |
+| Any single string field | wherever the fields are known: `parse_envelope` for `routing`, `parse_core` for the payload |
+| `predicate.public_context` | `parse_core`, at step 5 |
 
-**Only the first row runs before allocation**, and it is the one §4 step 1's
-*before any allocation on attacker-controlled data* is about. Everything below
-it is bounded by it: once the envelope is capped at 64 KiB, the remaining checks
-constrain *shape* rather than prevent exhaustion. This table used to say all
-five were enforced at step 1, which the envelope's own structure does not allow.
+The string row is the one to read carefully. §2.8's limit covers the fields the
+specification defines and **stops at `public_context`**
+([E-40](../open-escalations.md)), so applying it means knowing which subtree a
+string is in. Both parsers track that: 2 KiB everywhere, 32 KiB inside
+`predicate.public_context`, and the envelope limit for `signed`.
 
-**`public_context` is inside the signed payload**, which is base64url text at
-step 1. Enforcing its limit there would mean decoding and parsing an unverified
-payload — the thing §4's order exists to prevent, since parsing is step 5 and
-verification is step 4. So it belongs to `parse_core`, and the row says so.
-
-**The 2 KiB cannot reach `signed`.** A JWS compact of the canonical query is
-about 1.6 KiB before the predicate carries any public context at all: 1083 bytes
-of payload, 1444 base64url, plus a header and a signature. A 2 KiB cap on that
-member would leave a few hundred bytes for `public_context` and the protocol
-could not carry its own worked example. `signed` is bounded by the envelope
-limit; the 2 KiB applies to every other string, which at the envelope layer
-means `routing`'s — values *and* keys, since a relay that read a 3 KiB member
-name has held it either way.
+That is protocol knowledge in a parser, and it is the same knowledge
+`serialize` already carries for §2.2's field names — the mechanism mirrors its
+protocol level. The alternative was to bound every string at 32 KiB and owe the
+2 KiB to a `parse_core` that does not exist, which would have accepted protocol
+fields §2.8 refuses.
 
 ## 5. Interfaces
 
@@ -392,8 +380,8 @@ what `AGENTS.md`'s architectural-pivot rule exists for.
 | ~~Second-precision timestamps sufficient, or is sub-second needed for replay windows?~~ | **Answered: sufficient.** Uniqueness comes from the nonce, not the clock. [P-004](P-004-replay-idempotency.md) §4.3 |
 | ~~Does `semantic` comparison from P-001 apply to `routing`, given it is unsigned?~~ | **Answered: yes**, and only because it is outside the signature. Anything inside `signed` compares as `bytes`. [P-001](P-001-conformance-corpus.md) §4.4 |
 | ~~May an envelope omit `routing`?~~ | **Resolved: yes**, and [`core-model.md`](../../spec/core-model.md) §2.1 says so — *"`routing` may be absent, and a responder must accept a message carrying only `signed`"*. [E-38](../open-escalations.md), closed as B. §2.1's opening sentence changed with it: *"a message has two parts"* implied something about presence it never meant, and now reads *"an authoritative part and an optional advisory one"*. Absence removes no guarantee — a projection that is *present* is the thing that can disagree — and requiring it would publish `predicate.id` and `target.custodian` in the clear in the one case, a direct exchange, where least disclosure could be best. **I implemented the opposite first**, arguing the corpus was evidence of intent; CLAUDE.md's hierarchy answers that directly, and the register keeps the reasoning because the mistake is the reusable part. `suite/` is routing-less again and `message/` carries the projection, so the corpus exercises both shapes |
-| **Should §4.8's limits live in `spec/` rather than here?** | Open, and [E-16](../open-escalations.md)-shaped. `core-model.md` §4 step 1 says *reject oversized* and names no number, so an implementer building from `spec/` alone enforces nothing and accepts envelopes both of ours reject — neither wrong by the document it was built from, which is the divergence the context hierarchy exists to prevent with the rule one level too low. E-16 moved the registry schema profile into `scope.md` on exactly this reasoning. My view is that the same move is right and the same objection applies — but it is a `spec/` change, and the limits are enforced identically in both implementations meanwhile, so nothing diverges today. Worth deciding before a third implementation exists, which is the point at which it stops being theoretical |
-| **Does the 2 KiB string limit reach inside `public_context`?** | Open, and narrow. §4.8's row says *any single string field*, which read plainly includes a predicate's own. The counter-argument is [E-36](../open-escalations.md)'s, decided a fortnight ago on the same shape of question: §2.6 makes `public_context` operation-defined, the protocol bounds it as a whole at 32 KiB, and what its individual fields look like is the entry's schema's business — `scope.md` §4.1 already has `maxLength` for exactly that. My view is that E-36's precedent governs and the 2 KiB should not reach inside; a predicate needing a 5 KiB description should be able to declare one. **Nothing implements either reading yet**: the choice belongs to `parse_core`, which does not exist, and today's parser applies 2 KiB to every string, which is the stricter direction and the safe one to move from. Worth settling before issue 10 authors `message/reject/`, since the vector differs |
+| ~~Should §4.8's limits live in `spec/` rather than here?~~ | **Resolved: yes** — [`core-model.md`](../../spec/core-model.md) §2.8 now carries them and §4.8 cites it. [E-39](../open-escalations.md), closed as A. The argument was E-16's, unchanged: `spec/` said only *reject oversized*, so a third implementation enforced nothing. §2.8 also records what §4.8 had learned — that only the envelope limit can run before allocation, and why `signed` is exempt from the string limit. |
+| ~~Does the 2 KiB string limit reach inside `public_context`?~~ | **Resolved: no** — [E-40](../open-escalations.md), closed as B, consistent with E-36. §2.8's string limit covers the fields the specification defines; a predicate's own field is bounded by its registry entry, where [`scope.md`](../../spec/scope.md) §4.1 now requires a `maxLength` on every schema describing what a requester may send, and by the 32 KiB the whole object may not exceed. §4.1's *"this document does not decide it"* is gone: §2.8 decided the message-level part, which would have left the per-field part with no owner at all. `private_input_schema` is excluded — a requester cannot send it. |
 | ~~Does an integer in a signed structure have a range?~~ | **Resolved: [`scope.md`](../../spec/scope.md) §4.1** — an `integer` in any of an entry's schemas states `minimum` and `maximum`, both within −2^63 … 2^63 − 1. [E-37](../open-escalations.md), closed as B. `core-model.md` still states none, deliberately: every integer the protocol itself defines is a count, a cardinality, or a capacity in integer millibits, and the bound is a fact about registry data rather than about the protocol. So `i64` in both value models is the width §4.1 names rather than a choice the implementations made and the specification then followed. `registry/validate.py` enforces it across all three of an entry's schemas — wider than the release rule, which asks only about `output_schema`, because this is a representability question rather than a disclosure one |
 | ~~Does §2.2's timestamp spelling bind every string, or only the fields §2.2 names?~~ | **Resolved: only the fields §2.2 names**, and §2.2 now says so — *"the rule reaches the fields this specification names, and no further"*. [E-36](../open-escalations.md), closed as C. A predicate wanting one spelling for a field of its own declares `format: date-time` in its registry entry, where [`scope.md`](../../spec/scope.md) §4.1 makes that an assertion rather than the annotation JSON Schema leaves it as. The three serializers already had this behaviour; what changed is that it is now what the specification says, rather than the narrowest thing they could do while the question was open. `conformance/harness/lint.py` keeps the wider rule deliberately — it lints authored vectors, which are ours |
 | **Who owns `message/sign/` and `message/verify/`?** | Open, and surfaced by building §6's serializer. [P-001](P-001-conformance-corpus.md) issue 12 authored both, under P-001's §6 row naming signing and verification as part of `message/`; this PRD's §6 table names neither. Meanwhile [P-003](P-003-crypto-suites.md) §6 gives `suite/sign/` as *"JWS compact construction, byte-exact, over P-002 payloads"* — which is what `message/sign/query-minimal` already is. My view: leave the two vectors where they are and let P-003 own the mechanism, because `message/sign/` proves a P-002 payload is signable end to end and `suite/sign/` proves the suite, and those are different failures even when the bytes coincide. But that is a corpus-organisation call across three PRDs, so it belongs to whoever builds P-003, not to this one |
@@ -411,7 +399,7 @@ what `AGENTS.md`'s architectural-pivot rule exists for.
 | 7 | `check_routing` | Every disagreement case in `message/routing/` rejects |
 | 8 | Digest construction | `message/digest/` vectors match; prefix present |
 | 9 | Version field handling | Unknown version rejects without interpreting other fields |
-| 10 | Author `message/` corpus section | All five groups present; `harness lint` clean |
+| 10 | Author `message/` corpus section | All five groups present; `harness lint` clean **What the implementations owe this section**, gathered here rather than repeated in each issue row: duplicate keys, a float, invalid UTF-8, over-depth and over-wide input (issue 4); an oversize envelope, an unknown envelope member, and a `routing` string or key above 2 KiB (issue 5); and §2.8's three string bounds by position — a protocol field at 2 KiB, `predicate.public_context` at 32 KiB both per string and as an object, and `signed` at the envelope limit ([E-40](../open-escalations.md)). Each is asserted today by two suites written to mirror each other, which catches a divergence only where the same case was written twice. None can be *run* against the implementations until [P-001](P-001-conformance-corpus.md) issue 19 gives a runner that answers. |
 | 11 | Non-conformant-but-valid payload vector | Proves verification does not re-serialize |
 | 12 | `routing` carries `type`; §4.8 limits enforced as normative | `message/routing/` covers a `type` disagreement; an over-limit payload rejects identically in both implementations |
 

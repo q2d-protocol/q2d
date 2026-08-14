@@ -51,9 +51,19 @@ use std::collections::BTreeMap;
 pub const MAX_DEPTH: usize = 16;
 /// Members per object.
 pub const MAX_MEMBERS: usize = 64;
-/// Any single string field, in bytes. Bytes rather than characters: it bounds
-/// what has to be held, and a character is one to four of them.
+/// Any single string field the *specification defines*, in bytes. Bytes rather
+/// than characters: it bounds what has to be held, and a character is one to
+/// four of them.
+///
+/// §2.8 stops this at `predicate.public_context`, which §2.6 makes
+/// operation-defined — so it is applied where protocol fields are known, which
+/// is [`crate::parse_envelope`] for `routing` and `parse_core` for the payload.
 pub const MAX_STRING: usize = 2 * 1024;
+
+/// `predicate.public_context`, in bytes — and therefore the largest any single
+/// string in a conforming message may be, since a string inside it cannot
+/// exceed the object that holds it.
+pub const MAX_PUBLIC_CONTEXT: usize = 32 * 1024;
 /// The whole envelope, in bytes. Checked before parsing rather than during —
 /// §4 step 1's *before any allocation on attacker-controlled data*.
 pub const MAX_ENVELOPE: usize = 64 * 1024;
@@ -84,15 +94,67 @@ impl std::error::Error for ParseError {}
 /// Taking bytes rather than a string is deliberate: a payload arrives as bytes
 /// and its encoding is this function's to check, not its caller's to promise.
 pub fn parse(bytes: &[u8]) -> Result<Value, ParseError> {
-    parse_within(bytes, MAX_STRING)
+    // §2.8's 2 KiB, everywhere except inside `predicate.public_context`, where
+    // the bound is that object's own 32 KiB.
+    //
+    // Knowing where that subtree begins is protocol knowledge in a parser, and
+    // it is the same knowledge [`crate::serialize`] already carries for §2.2's
+    // field names — the mechanism is the mirror of its `protocol_level`. The
+    // alternative was to bound every string at 32 KiB and owe the 2 KiB to a
+    // `parse_core` that does not exist, which would accept protocol fields
+    // §2.8 refuses.
+    parse_within(bytes, Where::Root)
 }
 
-/// The same, with a string bound the caller sets.
+/// Where in a message the parser is, for §2.8's string bound.
 ///
-/// One caller: [`crate::parse_envelope`], because the envelope's `signed`
-/// member is a whole JWS compact string and §4.8's 2 KiB cannot reach it. See
-/// that function for the arithmetic.
-pub(crate) fn parse_within(bytes: &[u8], max_string: usize) -> Result<Value, ParseError> {
+/// The bound is 2 KiB for the fields the specification defines and 32 KiB
+/// inside `predicate.public_context`, so the parser has to know which it is
+/// looking at. Three states are enough: the path that matters is
+/// `predicate` → `public_context`, and everything else is *elsewhere*.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Where {
+    /// The top of a message, where `predicate` is a protocol field.
+    Root,
+    /// Inside `predicate`, where `public_context` is the subtree that relaxes.
+    Predicate,
+    /// Inside `predicate.public_context`, or below it. §2.6 data.
+    OperationDefined,
+    /// Anywhere else — a protocol field, at §2.8's 2 KiB.
+    Elsewhere,
+    /// An envelope, where `signed` carries a whole payload and the envelope
+    /// limit is what bounds it. [`crate::parse_envelope`] narrows `routing`
+    /// back to 2 KiB afterwards, because at that layer it knows which is which.
+    Envelope,
+}
+
+impl Where {
+    fn max_string(self) -> usize {
+        match self {
+            Where::OperationDefined => MAX_PUBLIC_CONTEXT,
+            Where::Envelope => MAX_ENVELOPE,
+            _ => MAX_STRING,
+        }
+    }
+
+    /// The state a member's value is parsed in.
+    fn member(self, key: &str) -> Where {
+        match (self, key) {
+            (Where::Root, "predicate") => Where::Predicate,
+            (Where::Predicate, "public_context") => Where::OperationDefined,
+            (Where::OperationDefined, _) => Where::OperationDefined,
+            (Where::Envelope, _) => Where::Envelope,
+            _ => Where::Elsewhere,
+        }
+    }
+}
+
+/// The same, from a stated position in a message.
+///
+/// One caller besides [`parse`]: [`crate::parse_envelope`], because the
+/// envelope's `signed` member is a whole JWS compact string and §2.8's 2 KiB
+/// cannot reach it. See that function for the arithmetic.
+pub(crate) fn parse_within(bytes: &[u8], where_: Where) -> Result<Value, ParseError> {
     let text = std::str::from_utf8(bytes).map_err(|e| {
         ParseError(format!(
             "not valid UTF-8 at byte {}. P-002 §4.2's profile is UTF-8 and \
@@ -104,7 +166,7 @@ pub(crate) fn parse_within(bytes: &[u8], max_string: usize) -> Result<Value, Par
         bytes: text.as_bytes(),
         at: 0,
         depth: 0,
-        max_string,
+        where_,
     };
     parser.skip_whitespace();
     let value = parser.value()?;
@@ -119,7 +181,7 @@ struct Parser<'a> {
     bytes: &'a [u8],
     at: usize,
     depth: usize,
-    max_string: usize,
+    where_: Where,
 }
 
 impl<'a> Parser<'a> {
@@ -198,7 +260,26 @@ impl<'a> Parser<'a> {
                 p.skip_whitespace();
                 p.expect(b':')?;
                 p.skip_whitespace();
+                // The value is parsed where the *key* puts it, and the parser
+                // returns to where it was afterwards.
+                let outer = p.where_;
+                p.where_ = outer.member(&key);
+                // §2.8 caps `predicate.public_context` **as a whole**, not each
+                // string in it: two 20 KiB values are each under the per-string
+                // bound and the object is not. Measured on the source span,
+                // which is what the sender transmitted and what a relay held.
+                let entering_public_context =
+                    outer == Where::Predicate && p.where_ == Where::OperationDefined;
+                let began = p.at;
                 let item = p.value()?;
+                if entering_public_context && p.at - began > MAX_PUBLIC_CONTEXT {
+                    return Err(p.fail(&format!(
+                        "`public_context` of {} bytes, above core-model.md §2.8's \
+                         {MAX_PUBLIC_CONTEXT}",
+                        p.at - began
+                    )));
+                }
+                p.where_ = outer;
                 // §4.2: rejected on parse, not resolved.
                 //
                 // The key is **not** in the message. It reads as the sender's
@@ -304,10 +385,10 @@ impl<'a> Parser<'a> {
     ///
     /// The overshoot is at most one character, four bytes.
     fn within_string_limit(&self, out: &str) -> Result<(), ParseError> {
-        if out.len() > self.max_string {
+        if out.len() > self.where_.max_string() {
             return Err(self.fail(&format!(
-                "a string longer than P-002 §4.8's {} bytes",
-                self.max_string
+                "a string longer than core-model.md §2.8's {} bytes",
+                self.where_.max_string()
             )));
         }
         Ok(())
@@ -582,6 +663,63 @@ mod tests {
         // survives on a small stack.
         let absurd = "[".repeat(100_000);
         assert!(refused(&absurd).contains("§4.8"));
+    }
+
+    #[test]
+    fn a_protocol_string_is_bounded_at_2_kib_and_a_predicate_s_is_not() {
+        // §2.8: the 2 KiB covers the fields the specification defines and stops
+        // at `predicate.public_context`, which §2.6 makes operation-defined.
+        // The parser knows which is which — the same protocol knowledge
+        // `serialize` carries for §2.2's field names.
+        let three_kib = "d".repeat(3 * 1024);
+
+        // A predicate's own description: accepted.
+        let allowed = format!(r#"{{"predicate":{{"public_context":{{"note":"{three_kib}"}}}}}}"#);
+        parse(allowed.as_bytes()).expect("§2.6 data, bounded by its entry");
+
+        // The same string in a protocol field: refused.
+        for refused_case in [
+            format!(r#"{{"nonce":"{three_kib}"}}"#),
+            format!(r#"{{"predicate":{{"id":"{three_kib}"}}}}"#),
+            format!(r#"{{"purpose":{{"code":"{three_kib}"}}}}"#),
+        ] {
+            let message = refused(&refused_case);
+            assert!(message.contains("§2.8"), "{message}");
+        }
+
+        // And `public_context` is not a magic word anywhere else: one nested
+        // under a purpose is an ordinary protocol field.
+        let elsewhere = format!(r#"{{"purpose":{{"public_context":"{three_kib}"}}}}"#);
+        assert!(refused(&elsewhere).contains("§2.8"));
+    }
+
+    #[test]
+    fn public_context_is_capped_as_a_whole_and_not_only_per_string() {
+        // Two values each under the per-string bound, and an object over it.
+        // A per-string check alone accepts this, which is the gap review found.
+        let half = "d".repeat(20 * 1024);
+        let case = format!(r#"{{"predicate":{{"public_context":{{"a":"{half}","b":"{half}"}}}}}}"#);
+        let message = refused(&case);
+        assert!(message.contains("public_context"), "{message}");
+        assert!(message.contains("§2.8"), "{message}");
+
+        // And an object comfortably inside it still parses.
+        let small = "d".repeat(4 * 1024);
+        let fits =
+            format!(r#"{{"predicate":{{"public_context":{{"a":"{small}","b":"{small}"}}}}}}"#);
+        parse(fits.as_bytes()).expect("well inside the limit");
+    }
+
+    #[test]
+    fn even_a_predicate_s_string_is_bounded_by_public_context() {
+        // Its own bound is its registry entry's `maxLength` (`scope.md` §4.1),
+        // which this layer has no access to — so the backstop here is the
+        // object's own 32 KiB.
+        // Nothing is unbounded: past `public_context`'s own limit, no
+        // conforming message can carry it, whoever defined the field.
+        let too_long = "d".repeat(MAX_PUBLIC_CONTEXT + 1);
+        let case = format!(r#"{{"predicate":{{"public_context":{{"note":"{too_long}"}}}}}}"#);
+        assert!(refused(&case).contains("§2.8"));
     }
 
     #[test]

@@ -471,6 +471,56 @@ def declared_timestamps(value, schema, path):
                 yield from declared_timestamps(item, items, f"{path}[{index}]")
 
 
+def unbounded_request_string(schema, path):
+    """Every string an entry's input or public-context schema leaves unbounded.
+
+    scope.md §4.1: every `string` those schemas admit states a `maxLength`, or
+    carries `format: date-time`, or an `enum`.
+
+    Separate from `unbounded_release`, which asks the same question of the
+    output schema for a different reason. That one is about **disclosure** --
+    what a released value may reveal. This is about **representation**:
+    core-model.md §2.8's 2 KiB string limit stops at `public_context`, so a
+    predicate's own text is bounded by its entry or by nothing but the 32 KiB
+    whole-object limit.
+
+    `private_input_schema` is not walked. A requester cannot send it, so it is
+    not attacker-controlled, and what it costs to hold is the custodian's own
+    question.
+
+    An entry carries `public_context_schema` today and no `input_schema`; §4.1
+    covers both, so the caller names both.
+    """
+    if not isinstance(schema, dict):
+        return
+    if "enum" in schema:
+        # A finite set of literals bounds every string in it, exactly as the
+        # release rule treats one.
+        return
+
+    if "type" not in schema:
+        # No `type` admits a string among everything else and bounds none of
+        # them, so the `maxLength` test below would never fire on it. One
+        # finding rather than silence: the fix is to say what the value is.
+        yield (f"{path}: no `type`, so it admits an unbounded string among "
+               f"everything else — §4.1")
+        return
+
+    declared = schema["type"]
+    types = declared if isinstance(declared, list) else [declared]
+    if "string" in types:
+        if "maxLength" not in schema and schema.get("format") != "date-time":
+            yield (f"{path}: string with no `maxLength`, which §4.1 requires of "
+                   f"a schema describing what a requester may send")
+
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for name, sub in properties.items():
+            yield from unbounded_request_string(sub, f"{path}.properties.{name}")
+    if "items" in schema:
+        yield from unbounded_request_string(schema["items"], f"{path}.items")
+
+
 def entry_timestamps(manifest):
     """`declared_timestamps` over every vector of every entry."""
     for index, entry in enumerate(manifest.get("predicates", [])):
@@ -718,10 +768,18 @@ def main(argv: list[str]) -> int:
     # §4.1 says "an entry's schemas", and an entry carries three. Checking only
     # the public-context one would leave the other two able to drift from a
     # rule spec/ states about all of them.
+    #
+    # `input_schema` is in the list and is **not** required to exist: §4.1
+    # covers any schema an entry carries, and an entry today carries three. A
+    # field named in a condition but absent from this loop is a check that
+    # matches nothing while reading as coverage -- which is exactly what the
+    # first version of the requester-string rule did.
     for p in preds:
         name = p["id"].rsplit("/", 1)[-1]
         for field in ("public_context_schema", "private_input_schema",
-                      "output_schema"):
+                      "output_schema", "input_schema"):
+            if field == "input_schema" and field not in p:
+                continue
             schema = p.get(field)
             where = f"{name}.{field}"
             if not isinstance(schema, dict):
@@ -809,6 +867,19 @@ def main(argv: list[str]) -> int:
             # can be *represented* rather than whether it can be released, and
             # an integer a producer cannot hold arrives through the input and
             # public-context schemas. E-37.
+            # §4.1's second boundedness rule, on what a requester may send.
+            # `public_context_schema` is that schema today; `input_schema` is
+            # named because §4.1 covers any an entry later carries, and a
+            # condition that silently matches nothing is how the first version
+            # of this check passed while enforcing nothing.
+            #
+            # **Not** `private_input_schema`: a requester cannot send it.
+            if field in ("public_context_schema", "input_schema"):
+                unbounded_in = sorted(unbounded_request_string(schema, where))
+                check(not unbounded_in,
+                      f"{where} bounds every string a requester may send",
+                      "; ".join(unbounded_in))
+
             unrepresentable = sorted(unrepresentable_integer(schema, where))
             check(not unrepresentable,
                   f"{where} keeps every integer inside the 64-bit range",

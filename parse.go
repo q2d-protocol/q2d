@@ -54,9 +54,18 @@ const (
 	MaxDepth = 16
 	// MaxMembers is the member count per object.
 	MaxMembers = 64
-	// MaxString bounds any single string field, in bytes. Bytes rather than
-	// characters: it bounds what has to be held, and a character is one to four.
+	// MaxString bounds any single string field the specification defines, in
+	// bytes. Bytes rather than characters: it bounds what has to be held, and a
+	// character is one to four.
+	//
+	// §2.8 stops this at predicate.public_context, which §2.6 makes
+	// operation-defined — so it is applied where protocol fields are known,
+	// which is ParseEnvelope for routing and parse_core for the payload.
 	MaxString = 2 * 1024
+	// MaxPublicContext bounds predicate.public_context, in bytes — and therefore
+	// the largest any single string in a conforming message may be, since a
+	// string inside it cannot exceed the object that holds it.
+	MaxPublicContext = 32 * 1024
 	// MaxEnvelope bounds the whole envelope, in bytes. Checked before parsing
 	// rather than during — §4 step 1's "before any allocation on
 	// attacker-controlled data".
@@ -74,18 +83,77 @@ const (
 // and its encoding is this function's to check rather than its caller's to
 // promise.
 func Parse(payload []byte) (Value, error) {
-	return parseWithin(payload, MaxString)
+	// §2.8's 2 KiB, everywhere except inside predicate.public_context, where the
+	// bound is that object's own 32 KiB.
+	//
+	// Knowing where that subtree begins is protocol knowledge in a parser, and
+	// it is the same knowledge Serialize already carries for §2.2's field names
+	// — the mechanism is the mirror of its protocolLevel. The alternative was to
+	// bound every string at 32 KiB and owe the 2 KiB to a parse_core that does
+	// not exist, which would accept protocol fields §2.8 refuses.
+	return parseWithin(payload, whereRoot)
 }
 
-// parseWithin is Parse with a string bound the caller sets. One caller:
-// ParseEnvelope, because the envelope's signed member is a whole JWS compact
-// string and §4.8's 2 KiB cannot reach it. See that function for the arithmetic.
-func parseWithin(payload []byte, maxString int) (Value, error) {
+// where says where in a message the parser is, for §2.8's string bound.
+//
+// The bound is 2 KiB for the fields the specification defines and 32 KiB inside
+// predicate.public_context, so the parser has to know which it is looking at.
+// The path that matters is predicate → public_context; everything else is
+// elsewhere.
+type where int
+
+const (
+	// whereRoot is the top of a message, where predicate is a protocol field.
+	whereRoot where = iota
+	// wherePredicate is inside predicate, where public_context relaxes.
+	wherePredicate
+	// whereOperationDefined is inside predicate.public_context or below. §2.6.
+	whereOperationDefined
+	// whereElsewhere is a protocol field, at §2.8's 2 KiB.
+	whereElsewhere
+	// whereEnvelope is an envelope, where signed carries a whole payload and the
+	// envelope limit bounds it. ParseEnvelope narrows routing back to 2 KiB
+	// afterwards, because at that layer it knows which is which.
+	whereEnvelope
+)
+
+func (w where) maxString() int {
+	switch w {
+	case whereOperationDefined:
+		return MaxPublicContext
+	case whereEnvelope:
+		return MaxEnvelope
+	default:
+		return MaxString
+	}
+}
+
+// member gives the state a member's value is parsed in.
+func (w where) member(key string) where {
+	switch {
+	case w == whereRoot && key == "predicate":
+		return wherePredicate
+	case w == wherePredicate && key == "public_context":
+		return whereOperationDefined
+	case w == whereOperationDefined:
+		return whereOperationDefined
+	case w == whereEnvelope:
+		return whereEnvelope
+	default:
+		return whereElsewhere
+	}
+}
+
+// parseWithin is Parse from a stated position in a message. One caller besides
+// Parse: ParseEnvelope, because the envelope's signed member is a whole JWS
+// compact string and §2.8's 2 KiB cannot reach it. See that function for the
+// arithmetic.
+func parseWithin(payload []byte, at where) (Value, error) {
 	if !utf8.Valid(payload) {
 		return nil, fmt.Errorf("payload is not valid UTF-8. P-002 §4.2's profile " +
 			"is UTF-8 and RFC 8259 §8.1 requires it for exchanged JSON")
 	}
-	p := &parser{text: string(payload), maxString: maxString}
+	p := &parser{text: string(payload), at2: at}
 	p.skipWhitespace()
 	value, err := p.value()
 	if err != nil {
@@ -99,10 +167,12 @@ func parseWithin(payload []byte, maxString int) (Value, error) {
 }
 
 type parser struct {
-	text      string
-	at        int
-	depth     int
-	maxString int
+	text  string
+	at    int
+	depth int
+	// at2 is where in the message this parser is, for §2.8's string bound.
+	// Named apart from `at`, which is the byte offset.
+	at2 where
 }
 
 // fail names a position and never a value: an offset is a fact about the
@@ -210,10 +280,28 @@ func (p *parser) object() (Value, error) {
 			return nil, err
 		}
 		p.skipWhitespace()
+		// The value is parsed where the key puts it, and the parser returns to
+		// where it was afterwards.
+		outer := p.at2
+		p.at2 = outer.member(key)
+		// §2.8 caps predicate.public_context as a whole, not each string in it:
+		// two 20 KiB values are each under the per-string bound and the object
+		// is not. Measured on the source span, which is what the sender
+		// transmitted and what a relay held.
+		enteringPublicContext := outer == wherePredicate && p.at2 == whereOperationDefined
+		began := p.at
 		item, err := p.value()
 		if err != nil {
+			p.at2 = outer
 			return nil, err
 		}
+		if enteringPublicContext && p.at-began > MaxPublicContext {
+			p.at2 = outer
+			return nil, p.fail(fmt.Sprintf(
+				"`public_context` of %d bytes, above core-model.md §2.8's %d",
+				p.at-began, MaxPublicContext))
+		}
+		p.at2 = outer
 		// §4.2: rejected on parse, not resolved.
 		//
 		// The key is not in the message. It reads as the sender's own label,
@@ -334,9 +422,9 @@ func (p *parser) string() (string, error) {
 //
 // The overshoot is at most one character, four bytes.
 func (p *parser) withinStringLimit(out *strings.Builder) error {
-	if out.Len() > p.maxString {
+	if out.Len() > p.at2.maxString() {
 		return p.fail(fmt.Sprintf(
-			"a string longer than P-002 §4.8's %d bytes", p.maxString))
+			"a string longer than core-model.md §2.8's %d bytes", p.at2.maxString()))
 	}
 	return nil
 }

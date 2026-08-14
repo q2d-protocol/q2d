@@ -30,7 +30,7 @@
 //!   bounded by the envelope limit; the 2 KiB applies to every other string,
 //!   which here means `routing`'s.
 
-use crate::parse::{parse_within, ParseError, MAX_ENVELOPE, MAX_STRING};
+use crate::parse::{parse_within, ParseError, Where, MAX_ENVELOPE, MAX_STRING};
 use crate::value::Value;
 
 /// A parsed envelope.
@@ -71,10 +71,12 @@ pub fn parse_envelope(bytes: &[u8]) -> Result<Envelope, ParseError> {
         )));
     }
 
-    // `MAX_ENVELOPE` as the string bound, not `MAX_STRING`: `signed` is a whole
-    // JWS compact string and the envelope limit is what bounds it. Nothing is
-    // unbounded — a string here cannot exceed the envelope that contains it.
-    let value = parse_within(bytes, MAX_ENVELOPE)?;
+    // `Where::Envelope` bounds every string at the envelope limit, not at
+    // §2.8's 2 KiB: `signed` is a whole JWS compact string. Nothing is
+    // unbounded — a string here cannot exceed the envelope that contains it —
+    // and `routing`'s strings are narrowed back to 2 KiB below, because at this
+    // layer they are known to be protocol fields.
+    let value = parse_within(bytes, Where::Envelope)?;
 
     let pairs = match value {
         Value::Object(pairs) => pairs,

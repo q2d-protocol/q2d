@@ -186,3 +186,53 @@ func mustSerialize(t *testing.T, v Value) []byte {
 	}
 	return bytes
 }
+
+func TestAProtocolStringIsBoundedAt2KiBAndAPredicatesIsNot(t *testing.T) {
+	// §2.8: the 2 KiB covers the fields the specification defines and stops at
+	// predicate.public_context, which §2.6 makes operation-defined. The parser
+	// knows which is which — the same protocol knowledge Serialize carries for
+	// §2.2's field names.
+	threeKiB := strings.Repeat("d", 3*1024)
+
+	// A predicate's own description: accepted.
+	parsed(t, `{"predicate":{"public_context":{"note":"`+threeKiB+`"}}}`)
+
+	// The same string in a protocol field: refused.
+	for _, text := range []string{
+		`{"nonce":"` + threeKiB + `"}`,
+		`{"predicate":{"id":"` + threeKiB + `"}}`,
+		`{"purpose":{"code":"` + threeKiB + `"}}`,
+		// And public_context is not a magic word anywhere else.
+		`{"purpose":{"public_context":"` + threeKiB + `"}}`,
+	} {
+		if message := rejected(t, text); !strings.Contains(message, "§2.8") {
+			t.Errorf("%.40s…: %s", text, message)
+		}
+	}
+}
+
+func TestEvenAPredicatesStringIsBoundedByPublicContext(t *testing.T) {
+	// Its own bound is its registry entry's maxLength (scope.md §4.1), which
+	// this layer has no access to — so the backstop here is the object's own
+	// 32 KiB. Nothing is unbounded, whoever defined the field.
+	tooLong := strings.Repeat("d", MaxPublicContext+1)
+	text := `{"predicate":{"public_context":{"note":"` + tooLong + `"}}}`
+	if message := rejected(t, text); !strings.Contains(message, "§2.8") {
+		t.Errorf("past the outer bound: %s", message)
+	}
+}
+
+func TestPublicContextIsCappedAsAWholeAndNotOnlyPerString(t *testing.T) {
+	// Two values each under the per-string bound, and an object over it. A
+	// per-string check alone accepts this, which is the gap review found.
+	half := strings.Repeat("d", 20*1024)
+	text := `{"predicate":{"public_context":{"a":"` + half + `","b":"` + half + `"}}}`
+	message := rejected(t, text)
+	if !strings.Contains(message, "public_context") || !strings.Contains(message, "§2.8") {
+		t.Errorf("message does not name the limit: %s", message)
+	}
+
+	// And an object comfortably inside it still parses.
+	small := strings.Repeat("d", 4*1024)
+	parsed(t, `{"predicate":{"public_context":{"a":"`+small+`","b":"`+small+`"}}}`)
+}
