@@ -84,9 +84,11 @@ verification and a construction under a second key. What it pins down beyond the
 read at §4 step 3, before there is a signature to rely on, and everything else
 waits for step 4, so the unregistered-suite vector rejects earlier than the rest.
 [`tests/test_suite_section.py`](tests/test_suite_section.py) asserts that rather
-than leaving it to the descriptions, and asserts the authentication failures are
-indistinguishable *across* causes, since a per-vector check cannot catch a
-divergence between two of them.
+than leaving it to the descriptions, and asserts that every authentication
+cause reaches the same class. It does **not** assert they are indistinguishable:
+these vectors project `status` and `external_reason`, so comparing them across
+causes compares two constants. Uniformity of the whole response is `denial/`'s,
+which is the one section the schema forbids from projecting.
 
 Five cases are absent and each absence is asserted, so it turns red when its
 blocker goes: an `alg`-carrying header and the two header/payload mismatch

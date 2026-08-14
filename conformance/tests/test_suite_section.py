@@ -99,11 +99,21 @@ class OrderingTest(unittest.TestCase):
             with self.subTest(vector=name):
                 self.assertEqual(by_id()[name]["expect"]["rejection"]["step"], 4)
 
-    def test_authentication_failures_are_indistinguishable_on_the_wire(self):
-        # §5.2.1 collapses an unresolvable key and an invalid signature into
-        # one class so a requester cannot probe which identities a custodian
-        # holds. Asserted across causes rather than per cause: a per-vector
-        # check cannot catch a divergence between two of them.
+    def test_authentication_causes_map_to_one_class(self):
+        # §5.2.1 collapses an unresolvable key and an invalid signature into one
+        # class so a requester cannot probe which identities a custodian holds.
+        #
+        # **This does not establish that they are indistinguishable**, and the
+        # distinction matters. These vectors project `status` and
+        # `external_reason` only, so comparing them across causes compares two
+        # constants -- exactly the vacuous check CLAUDE.md warns about, and what
+        # `harness lint`'s cross-vector report means when it says a partial
+        # response "cannot detect a receipt-level divergence".
+        #
+        # What is asserted is the mapping: every authentication cause here
+        # reaches the same class. Uniformity of the whole response, receipt
+        # included, is `denial/`'s -- P-009's to author, and the one section
+        # `vector.schema.json` forbids from projecting, for this reason.
         authentication = [
             v for v in vectors()
             if v["expect"]["outcome"] == "rejected"
