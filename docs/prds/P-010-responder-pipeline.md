@@ -346,7 +346,7 @@ should be a small, readable function rather than a convenient one.
 | 8 | `validate_output` against the effective domain and the entry's `output_schema` | `validate/` passes; no debit on failure; a value inside the domain but over its schema bound fails closed, and one inside the schema but outside the domain fails closed — [`core-model.md`](../../spec/core-model.md) §4 step 17. The first is `conformance/over-schema-bound-result`, named in [`claims.md`](../../spec/claims.md) Q2D-C-03 |
 | 9 | Answer construction | No field private-derived except the result |
 | 10 | Partial-failure handling for §4.7 | Each row leaves the system no more permissive |
-| 11 | Author `ordering/`'s remaining five steps, `evaluate/`, `validate/`, `pipeline/` | `harness lint` clean; `ordering/` covers every rejection step §4 has, and `test_ordering_section.py`'s deferred list is empty |
+| 11 | Author `ordering/` **from step 7 onward** — 7, 8, 9, 9a, 10, 11, 11a, 12, 13, 14, 15 — plus `evaluate/`, `validate/`, `pipeline/` | `harness lint` clean; `ordering/` covers every rejection step §4 has except 2, which gets none by design, and `test_ordering_section.py`'s `FIRST_UNPASSABLE_STEP` has been raised past 15 |
 
 Issue 1 blocks 2 and 6. Issue 7 is the least interesting and the most reassuring:
 if the fourteen vectors pass through the pipeline exactly as they pass against the
