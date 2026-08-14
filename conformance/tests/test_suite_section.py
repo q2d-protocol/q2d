@@ -136,10 +136,13 @@ class StructurallyInvalidTest(unittest.TestCase):
     `malformed` -- which means "did not parse" -- would send a requester to its
     serializer instead of to how its header is built.
 
-    The `alg` case is caught at step 3, before any signature is checked, so it
-    is not an authenticated message; the two disagreements are caught at step 4
-    because they need the payload. The class is not "authentic but wrong" -- it
-    is "well formed, and not this protocol's".
+    The `alg` case is caught at §4 step 3, before any signature is checked, so
+    it is not an authenticated message. The two disagreements need the parsed
+    payload, so they cannot be caught before step 5 -- and §4's query order names
+    no step for the comparison at all, which is E-35. They assert none.
+
+    The class is not "authentic but wrong": it is "well formed, and not this
+    protocol's".
     """
 
     CASES = ("suite/downgrade/header-carries-alg",
