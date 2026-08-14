@@ -94,11 +94,15 @@ def signed(query=None, key=REQUESTER, header=None) -> str:
     return av.jws_with_header(seed_of(key), header, query)
 
 
-# `routing` is present on every envelope. §2.1 shows a message as two parts, and
-# a responder validating envelope shape at step 1 could reject one carrying only
-# `signed` -- which would fail these vectors at step 1 rather than at the step
-# each asserts. The projection agrees with the signed object throughout, so §4
-# step 8 passes and no vector is wrong in a second way.
+# `routing` is present on every envelope, and after E-38 the reason is no longer
+# that a responder might otherwise reject it: §2.1 now says `routing` may be
+# absent and a responder must accept a message carrying only `signed`, so a
+# conforming one cannot fail these at step 1 for that.
+#
+# It stays because these vectors assert *where* a request is rejected, and a
+# projection is one more thing each of them holds constant. The projection agrees
+# with the signed object throughout, so §4 step 8 passes and no vector is wrong
+# in a second way. `suite/` covers the routing-less shape.
 #
 # The expired vector's projection **omits `expires_at`**. §4 step 2 may shed
 # obviously stale traffic using that field, and a responder that did would never

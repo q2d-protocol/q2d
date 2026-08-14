@@ -35,17 +35,17 @@ import (
 	"sort"
 )
 
-// An Envelope is a parsed §4.4 envelope: both of §2.1's parts.
+// An Envelope is a parsed §4.4 envelope.
 //
-// Whether Routing may be absent is E-38, open. §2.1 opens "a message has two
-// parts" and calls routing advisory, which answers what it may be used for
-// rather than whether it may be absent — and tools/author_suite.py had been
-// omitting it deliberately, so the repository carried a practice on a reading
-// spec/ does not state.
+// Routing is optional, and §2.1 now says so: "routing may be absent, and a
+// responder must accept a message carrying only signed". It exists for a party
+// that need not be there — a direct exchange has no intermediary to dispatch,
+// and requiring the projection would put predicate.id and target.custodian in
+// the clear for nobody's benefit. E-38, closed as B.
 //
-// This requires it, which is what §2.1 says and what missing-denies implies. The
-// register recommends the other answer; the code follows the specification until
-// that is decided, because spec/ outranks both a tool and a PRD.
+// This is one of the few places the permissive reading is the safe one. Absence
+// removes no guarantee: everything the signature covers is still covered, and a
+// projection that is present is the thing that can disagree.
 type Envelope struct {
 	Signed  string
 	Routing Value
@@ -119,21 +119,16 @@ func ParseEnvelope(payload []byte) (Envelope, error) {
 	if !seenSigned {
 		return Envelope{}, fmt.Errorf("no `signed` member — §4.4")
 	}
-	// §2.1: "A message has two parts." E-38 asks whether both are required and
-	// is open; until it closes this enforces what §2.1 says, because spec/
-	// outranks a practice built on reading it differently, and because missing
-	// denies. See the file note.
-	if envelope.Routing == nil {
-		return Envelope{}, fmt.Errorf("no `routing` member — §2.1")
-	}
 
 	// §4.8's 2 KiB, over the part of the envelope it can reach. Post-parse
 	// rather than during, because the parser applied the envelope bound to every
 	// string so that signed would fit; this narrows the rest back. Bounded work:
 	// the envelope was capped before any of it was read.
-	if longest := longestString(envelope.Routing); longest > MaxString {
-		return Envelope{}, fmt.Errorf("a `routing` string of %d bytes, above "+
-			"P-002 §4.8's %d", longest, MaxString)
+	if envelope.Routing != nil {
+		if longest := longestString(envelope.Routing); longest > MaxString {
+			return Envelope{}, fmt.Errorf("a `routing` string of %d bytes, above "+
+				"P-002 §4.8's %d", longest, MaxString)
+		}
 	}
 	return envelope, nil
 }

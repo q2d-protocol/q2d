@@ -54,7 +54,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import author_vectors as av  # noqa: E402
-from author_message import QUERY, ROUTING, REQUESTER, IMPOSTOR, seed_of  # noqa: E402
+from author_message import QUERY, REQUESTER, IMPOSTOR, seed_of  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 SECTION = REPO / "conformance" / "corpus" / "suite"
@@ -101,25 +101,21 @@ def rejects(internal: str, external: str, step=None) -> dict:
 
 
 def envelope(signed: str) -> dict:
-    """An envelope carrying both of §2.1's parts.
+    """A `routing`-less envelope, which **E-38 confirmed is a message**.
 
-    These vectors omitted `routing` until E-38 was raised, on the reasoning
-    that it is advisory, that §4 step 8 compares only what is present, and that
-    a projection would give each vector a second way to fail. The first two are
-    true and the conclusion did not follow: §2.1 opens *"a message has two
-    parts"*, and *advisory* answers what `routing` may be used for rather than
-    whether it may be absent.
+    `routing` is advisory and may be absent (§2.1), so omitting it keeps these
+    vectors about the suite: a projection would give each one a second way to
+    fail, and none of them is about routing.
 
-    The third reason was the real one, and it is answered rather than
-    contradicted: the projection here is **correct** for `QUERY`, so it agrees
-    with `signed` and step 8 passes. A vector fails on its suite defect, which
-    is what it is for.
+    This carried a projection for one commit, while E-38 was open and the
+    implementations enforced §2.1's older wording. The escalation closed as B
+    and it is back — which is why the tool regenerates these files rather than
+    anyone editing bytes.
 
-    E-38 is open and recommends the other answer. If it closes that way this
-    goes back to one member and these ten vectors change again — which is
-    exactly why the tool regenerates them rather than anyone editing bytes.
+    The corpus is better for it: `message/` covers the two-part shape and this
+    section covers the one-part shape, so both are exercised by something.
     """
-    return {"envelope": {"signed": signed, "routing": ROUTING}}
+    return {"envelope": {"signed": signed}}
 
 
 def vectors() -> list[dict]:
