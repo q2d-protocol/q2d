@@ -209,9 +209,13 @@ schema for that reason, and
 The requirement above is on the **output** schema, because what it bounds is
 disclosure.
 
-**A second requirement is on the input and public-context schemas: every
-`string` they admit states a `maxLength`** — or carries `format: date-time`,
-which fixes twenty characters, or an `enum`, which names what it admits. What
+**A second requirement is on every schema describing what a requester may
+send** — `public_context_schema` today, and any input schema an entry later
+carries. **Every `string` such a schema admits states a `maxLength`** — or
+carries `format: date-time`, which fixes twenty characters, or an `enum`, which
+names what it admits — **and no subschema in one omits `type`**, since a
+subschema that names no type admits a string among everything else and bounds
+none of them. What
 this bounds is not disclosure but *representation*, and it is the other half of
 [`core-model.md`](core-model.md) §2.8: that section's 2 KiB string limit covers
 the fields this specification defines and stops at `predicate.public_context`,
@@ -219,8 +223,8 @@ which §2.6 makes operation-defined. Something has to bound a predicate's own
 text, and its entry is where the field's meaning already lives — a protocol that
 capped it at 2 KiB would be deciding the shape of data it declines to define.
 
-This section previously said the input side was *"a resource question, and this
-document does not decide it"*. §2.8 decided the message-level part of that
+This section previously said the requester side was *"a resource question, and
+this document does not decide it"*. §2.8 decided the message-level part of that
 question, which leaves the per-field part with no owner, and an entry admitting
 an unbounded string then has only the 32 KiB whole-object limit between it and a
 single enormous field.

@@ -3421,8 +3421,11 @@ means, so the same paragraphs carry both.
   public-context schemas, and the *"this document does not decide it"* sentence
   replaced with the reason it now does.
 - `registry/validate.py` — `unbounded_request_string`, applied to
-  `input_schema` and `public_context_schema` and deliberately not to
-  `private_input_schema`.
+  `public_context_schema` and deliberately not to `private_input_schema`. An
+  entry carries no `input_schema` today; the caller names it anyway because
+  §4.1 covers any an entry later gains, and **review caught the first version
+  naming only `input_schema` in its condition — a check that matched nothing
+  and passed**.
 - P-002 §4.8 — cites §2.8, and keeps only the enforcement-point table, which is
   implementation guidance rather than protocol.
 - Both parsers — every string bounded at 32 KiB, with the 2 KiB applied where
@@ -3561,8 +3564,10 @@ only, and said of the input side that it was *"a resource question, and this
 document does not decide it"*. §2.8 decided the message-level part of that
 question, which would have left the per-field part with no owner at all — an
 entry could admit a string bounded only by the 32 KiB whole-object limit. §4.1
-now requires `maxLength` on input and public-context schemas too, with
-`format: date-time` and `enum` as the two ways of satisfying it otherwise.
+now requires `maxLength` on every schema describing what a requester may send —
+`public_context_schema` today — with `format: date-time` and `enum` as the two
+ways of satisfying it otherwise, and refuses a subschema that omits `type`,
+which would admit an unbounded string among everything else.
 
 **`private_input_schema` is excluded.** A requester cannot send it, so it is not
 attacker-controlled, and what it costs to hold is the custodian's own question

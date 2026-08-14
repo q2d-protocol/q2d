@@ -487,6 +487,9 @@ def unbounded_request_string(schema, path):
     `private_input_schema` is not walked. A requester cannot send it, so it is
     not attacker-controlled, and what it costs to hold is the custodian's own
     question.
+
+    An entry carries `public_context_schema` today and no `input_schema`; §4.1
+    covers both, so the caller names both.
     """
     if not isinstance(schema, dict):
         return
@@ -495,12 +498,20 @@ def unbounded_request_string(schema, path):
         # release rule treats one.
         return
 
-    declared = schema.get("type")
+    if "type" not in schema:
+        # No `type` admits a string among everything else and bounds none of
+        # them, so the `maxLength` test below would never fire on it. One
+        # finding rather than silence: the fix is to say what the value is.
+        yield (f"{path}: no `type`, so it admits an unbounded string among "
+               f"everything else — §4.1")
+        return
+
+    declared = schema["type"]
     types = declared if isinstance(declared, list) else [declared]
     if "string" in types:
         if "maxLength" not in schema and schema.get("format") != "date-time":
             yield (f"{path}: string with no `maxLength`, which §4.1 requires of "
-                   f"an input or public-context schema")
+                   f"a schema describing what a requester may send")
 
     properties = schema.get("properties")
     if isinstance(properties, dict):
@@ -849,8 +860,13 @@ def main(argv: list[str]) -> int:
             # an integer a producer cannot hold arrives through the input and
             # public-context schemas. E-37.
             # §4.1's second boundedness rule, on what a requester may send.
-            # Not `private_input_schema`: a requester cannot send it.
-            if field in ("input_schema", "public_context_schema"):
+            # `public_context_schema` is that schema today; `input_schema` is
+            # named because §4.1 covers any an entry later carries, and a
+            # condition that silently matches nothing is how the first version
+            # of this check passed while enforcing nothing.
+            #
+            # **Not** `private_input_schema`: a requester cannot send it.
+            if field in ("public_context_schema", "input_schema"):
                 unbounded_in = sorted(unbounded_request_string(schema, where))
                 check(not unbounded_in,
                       f"{where} bounds every string a requester may send",

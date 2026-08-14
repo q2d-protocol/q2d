@@ -160,5 +160,68 @@ class DeclaredTimestampTest(unittest.TestCase):
         self.assertTrue(all(validate.q2d_timestamp(value) for _, value in found))
 
 
+class RequesterStringBoundTest(unittest.TestCase):
+    """`scope.md` §4.1's second boundedness rule — E-40's other half.
+
+    `core-model.md` §2.8's 2 KiB string limit stops at
+    `predicate.public_context`, so a predicate's own text is bounded by its
+    entry or by nothing but the 32 KiB whole-object limit. This is the check
+    that makes "or by its entry" true.
+
+    The reference manifest bounds every string it admits, so as with the
+    integer rule the negative cases live here.
+    """
+
+    def findings(self, schema):
+        return sorted(validate.unbounded_request_string(schema, "s"))
+
+    def test_a_string_states_a_max_length(self):
+        self.assertEqual(len(self.findings({"type": "string"})), 1)
+        self.assertEqual(self.findings({"type": "string", "maxLength": 64}), [])
+
+    def test_a_timestamp_is_bounded_by_its_spelling(self):
+        # §2.2 fixes twenty characters, so `maxLength` would add nothing.
+        self.assertEqual(self.findings({"type": "string", "format": "date-time"}), [])
+
+    def test_an_enum_bounds_every_string_in_it(self):
+        self.assertEqual(self.findings({"type": "string", "enum": ["a", "bb"]}), [])
+
+    def test_a_subschema_with_no_type_is_refused(self):
+        # It admits a string among everything else and bounds none of them, so
+        # a `maxLength` test alone would never fire on it — the gap review
+        # found in the first version of this rule.
+        self.assertEqual(len(self.findings({"properties": {"a": {}}})), 1)
+
+    def test_the_rule_reaches_nested_schemas(self):
+        nested = {"type": "object", "properties": {
+            "menu": {"type": "array", "items": {"type": "object", "properties": {
+                "note": {"type": "string"}}}}}}
+        found = self.findings(nested)
+        self.assertEqual(len(found), 1)
+        self.assertIn("menu.items.properties.note", found[0])
+
+    def test_the_manifest_bounds_every_string_a_requester_may_send(self):
+        import json
+        manifest = json.loads((REPO / "registry" / "manifest.json").read_text("utf-8"))
+        for entry in manifest["predicates"]:
+            for field in ("public_context_schema", "input_schema"):
+                if field in entry:
+                    self.assertEqual(
+                        self.findings(entry[field]), [],
+                        f"{entry['id']}.{field}")
+
+    def test_private_input_is_not_reached(self):
+        # A requester cannot send it, so it is not attacker-controlled. The
+        # manifest's one unbounded string lives there, which is why the check
+        # above passes.
+        import json
+        manifest = json.loads((REPO / "registry" / "manifest.json").read_text("utf-8"))
+        unbounded = [
+            entry["id"] for entry in manifest["predicates"]
+            if self.findings(entry.get("private_input_schema", {}))
+        ]
+        self.assertTrue(unbounded, "if this ever empties, the exclusion is untested")
+
+
 if __name__ == "__main__":
     unittest.main()
