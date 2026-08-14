@@ -90,7 +90,7 @@ these vectors project `status` and `external_reason`, so comparing them across
 causes compares two constants. Uniformity of the whole response is `denial/`'s,
 which is the one section the schema forbids from projecting.
 
-Five cases are absent and each absence is asserted, so it turns red when its
+Six cases are absent and each absence is asserted, so it turns red when its
 blocker goes: an `alg`-carrying header and the two header/payload mismatch
 vectors on [`open-escalations.md`](../docs/open-escalations.md) **E-34**, which
 asks what class a structurally invalid but authentic message produces; `suite/rfc8032/` on P-001

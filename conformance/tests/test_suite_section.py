@@ -128,7 +128,7 @@ class OrderingTest(unittest.TestCase):
 
 
 class ExpectedStateTest(unittest.TestCase):
-    """What P-003 §5 names that this section does not have.
+    """What P-003 §6 names that this section does not have.
 
     `.github/workflows/checks.yml` prescribes an assertion over the expected
     state rather than a job that is red by design. These turn red when the thing
