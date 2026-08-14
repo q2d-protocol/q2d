@@ -399,7 +399,7 @@ what `AGENTS.md`'s architectural-pivot rule exists for.
 | 7 | `check_routing` | Every disagreement case in `message/routing/` rejects |
 | 8 | Digest construction | `message/digest/` vectors match; prefix present |
 | 9 | Version field handling | Unknown version rejects without interpreting other fields |
-| 10 | Author `message/` corpus section | All five groups present; `harness lint` clean |
+| 10 | Author `message/` corpus section | All five groups present; `harness lint` clean **What the implementations owe this section**, gathered here rather than repeated in each issue row: duplicate keys, a float, invalid UTF-8, over-depth and over-wide input (issue 4); an oversize envelope, an unknown envelope member, and a `routing` string or key above 2 KiB (issue 5); and §2.8's three string bounds by position — a protocol field at 2 KiB, `predicate.public_context` at 32 KiB both per string and as an object, and `signed` at the envelope limit ([E-40](../open-escalations.md)). Each is asserted today by two suites written to mirror each other, which catches a divergence only where the same case was written twice. None can be *run* against the implementations until [P-001](P-001-conformance-corpus.md) issue 19 gives a runner that answers. |
 | 11 | Non-conformant-but-valid payload vector | Proves verification does not re-serialize |
 | 12 | `routing` carries `type`; §4.8 limits enforced as normative | `message/routing/` covers a `type` disagreement; an over-limit payload rejects identically in both implementations |
 

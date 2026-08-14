@@ -3428,8 +3428,9 @@ means, so the same paragraphs carry both.
   and passed**.
 - P-002 §4.8 — cites §2.8, and keeps only the enforcement-point table, which is
   implementation guidance rather than protocol.
-- Both parsers — every string bounded at 32 KiB, with the 2 KiB applied where
-  the field set is known.
+- Both parsers — §2.8's three bounds, by position: 2 KiB for a protocol field,
+  32 KiB inside `predicate.public_context` and on that object as a whole, and
+  the envelope limit for `signed`, which carries a payload.
 
 **Checked and unchanged:** the reference manifest, whose only unbounded string
 is in `private_input_schema`. [`claims.md`](../spec/claims.md) Q2D-C-08 rests on
