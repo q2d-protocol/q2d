@@ -97,6 +97,15 @@ inside the profile. Here it is a constraint, and the value it constrains is
 second precision. A validator implementing this profile checks that form rather
 than deferring to a library's idea of a date.
 
+This is the mechanism [`core-model.md`](core-model.md) §2.2 points at. §2.2's
+spelling binds the fields §2.2 names and stops there; a timestamp inside
+operation-defined data is that predicate's, and whether it has one spelling is
+the entry's to say. An entry declaring `format: date-time` on a field of its own
+gets §2.2's spelling enforced on it; an entry that omits it declares a `string`
+with a `maxLength`, and a booking time carrying `+01:00` travels unaltered. Both
+are conforming, and the difference is a predicate author's decision rather than
+an accident of which field name they chose.
+
 The rule binds the value validated against the schema, **however it travelled**.
 §2.4 lets public context arrive inline in the signed core object or as a digest
 with the value carried separately; in the first case §2.2 reaches it directly,
@@ -193,9 +202,33 @@ by its schema or by nothing. §4 step 17 validates a released result against thi
 schema for that reason, and
 [`claims.md`](claims.md) **Q2D-C-03** rests on it.
 
-The requirement is on the **output** schema. An entry's input and public-context
-schemas bound what a requester may send, which is a resource question rather than
-a disclosure one, and this document does not decide it.
+The requirement above is on the **output** schema, because what it bounds is
+disclosure. An entry's input and public-context schemas bound what a requester
+may *send*, which is a resource question, and §4.8's message limits already
+answer most of it.
+
+**One exception, and it is about neither: an `integer` in any of an entry's
+schemas states `minimum` and `maximum`, and both lie within
+−2^63 … 2^63 − 1.** JSON's grammar admits an integer of any length and gives
+implementations no common range — RFC 8259 §6 says so itself, recommending
+±(2^53 − 1) for interoperability without requiring it. So a predicate could
+register an entry admitting an integer that one conforming producer represents
+and another does not, and the first sign would be two implementations emitting
+different bytes for the same logical message. That is a *divergence* question,
+which is why it is here rather than left to the requester.
+
+The range is the widest every conforming producer can be expected to carry
+exactly, and it is stated here rather than in
+[`core-model.md`](core-model.md) because it is a fact about registry data and
+not about the protocol: every integer Q2D itself defines is a count, a
+cardinality, or a capacity in integer millibits (§3.1), none of which approaches
+it. A predicate needing more registers a string and states the interpretation in
+`question_notes`, as a decimal does above.
+
+Nothing in the reference manifest carries an integer, so this constrains no
+entry that exists. It is written down before the first one does, which is the
+only time it costs nothing. [`open-escalations.md`](../docs/open-escalations.md)
+**E-37** records why.
 
 **The list is frozen, and extending it is a change to this document.** A
 predicate whose public context needs `oneOf` is complicated enough that its

@@ -109,13 +109,13 @@ class NumberTest(unittest.TestCase):
         big = 2**53 + 1
         self.assertEqual(author.serialize({"n": big}),
                          f'{{"n":{big}}}'.encode("utf-8"))
-        # Up to the range the two implementations hold, exactly -- E-37.
+        # Up to `scope.md` §4.1's range, exactly -- E-37, closed as B.
         self.assertEqual(author.serialize(2**63 - 1), str(2**63 - 1).encode("utf-8"))
 
     def test_an_integer_beyond_the_pair_s_range_is_refused_not_rounded(self):
-        # E-37's bound, and it is not the cliff the test above is about. JCS
-        # inherits a *silent* loss above 2^53: the value round-trips to a
-        # different number and nothing says so. This refuses, which is the
+        # `scope.md` §4.1's bound, and it is not the cliff the test above is
+        # about. JCS inherits a *silent* loss above 2^53: the value round-trips
+        # to a different number and nothing says so. This refuses, which is the
         # opposite failure -- no vector is authored at all, so none can assert
         # bytes an implementation cannot produce.
         with self.assertRaises(author.ProfileError):
@@ -127,8 +127,8 @@ class NumberTest(unittest.TestCase):
         self.assertEqual(author.serialize(0), b"0")
         self.assertEqual(author.serialize(-7), b"-7")
         # 10**21 would be rendered in exponent form by a naive float path and
-        # is above E-37's bound, so the assertion that carries the point is the
-        # largest value the profile admits -- twenty digits, no exponent.
+        # is above §4.1's bound, so the assertion that carries the point is the
+        # largest value the profile admits -- nineteen digits, no exponent.
         self.assertEqual(author.serialize(2**63 - 1), b"9223372036854775807")
 
     def test_a_boolean_is_not_a_number(self):
@@ -361,10 +361,12 @@ class JwsTest(unittest.TestCase):
         # predicate's `public_context` may mean anything at all -- so an offset
         # spelling there is the predicate's data, not a malformed §2.2 value.
         #
-        # The rule was never in `spec/`. E-23 settled the *spelling* and its
-        # reach over `routing`, which §4 step 8 compares byte for byte; it did
-        # not settle whether §2.2 binds every string. Until E-36 does, this tool
-        # produces what §2.2 states and no more.
+        # E-23 settled the *spelling* and its reach over `routing`, which §4
+        # step 8 compares byte for byte; it did not settle whether §2.2 binds
+        # every string. **E-36 did, as C**: §2.2 now says it reaches the fields
+        # it names and no further, and a predicate wanting one spelling for a
+        # field of its own declares `format: date-time` in its registry entry,
+        # where `scope.md` §4.1 makes that an assertion.
         author.serialize({"public_context": {"a": "2026-01-01t00:00:00z"}})
         # The field-name rule is unaffected: it is what §2.2 actually says.
         with self.assertRaises(author.ProfileError):

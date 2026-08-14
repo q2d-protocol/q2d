@@ -18,17 +18,18 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-36 is open**, raised while building P-002's serializer: does a string
-> that carries an RFC 3339 spelling but not `core-model.md` §2.2's get refused
-> *wherever* it appears, or only in the fields §2.2 names? All three
-> implementations now do what §2.2 states and no more, pending the decision.
-> §E-36 has the options.
+> **Nothing is open.** **E-36** closed as C and **E-37** as B, both raised while
+> building P-002's serializer and both cascaded.
 >
-> **E-37 is open**, from the same build: nothing in `spec/` bounds an integer,
-> and both value models use a signed 64-bit one. The authoring tool now refuses
-> anything outside that range so it cannot author a vector the pair cannot
-> reproduce — the safe direction under either resolution, but a bound the
-> specification does not state.
+> **E-36:** §2.2's timestamp spelling reaches the fields §2.2 names and no
+> further, and §2.2 now says so. A predicate wanting one spelling for a field of
+> its own declares `format: date-time` in its registry entry, where `scope.md`
+> §4.1 already made that an assertion rather than JSON Schema's annotation. The
+> mechanism existed; what was missing was §2.2 saying where its own rule stopped.
+>
+> **E-37:** `scope.md` §4.1 gains one value rule — an `integer` in any of an
+> entry's schemas states `minimum` and `maximum`, both within −2^63 … 2^63 − 1.
+> `core-model.md` still states no range, deliberately.
 >
 > **E-35** closed as A: §4's query order gains a lettered
 > step **5a** for the header/payload comparison, symmetric with the response
@@ -146,8 +147,8 @@ question is still fresh than after the answer arrives.
 | **E-33** | What are the external denial classes a requester actually receives? | P-001 issue 12 | `core-model.md` §5.2.1 (new) · P-009 §4.1, §5 | **Closed** |
 | **E-34** | Which class does a well-formed message that is not a Q2D message produce? | P-001 issue 13 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-009 §4.1, §5 | **Closed** |
 | **E-35** | At which §4 step does a query's header/payload comparison happen? | E-34's cascade | `core-model.md` §4 query order, §5.2.1 · `crypto-suites.md` §3 · both schemas | **Closed** |
-| **E-36** | Does §2.2's timestamp spelling bind every string that looks like a timestamp, or only the fields §2.2 names? | P-002 issue 2 | `core-model.md` §2.2, §2.6 · P-002 §4.2 · `tools/author_vectors.py` · both implementations | **Open** |
-| **E-37** | Does an integer in a signed structure have a range, and is it `core-model.md`'s to state? | P-002 issue 2 | `core-model.md` §2 · P-002 §4.2, §4.3 · `scope.md` §4.1 · `tools/author_vectors.py` · both implementations | **Open** |
+| **E-36** | Does §2.2's timestamp spelling bind every string that looks like a timestamp, or only the fields §2.2 names? | P-002 issue 2 | `core-model.md` §2.2 · `scope.md` §4.1 · P-002 §4.2, §10 · `tools/author_vectors.py` · both implementations | **Closed** |
+| **E-37** | Does an integer in a signed structure have a range, and is it `core-model.md`'s to state? | P-002 issue 2 | `scope.md` §4.1 · `registry/validate.py` · P-006 issue 2 · P-002 §10 · `tools/author_vectors.py` | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -2994,7 +2995,35 @@ one. That is an argument for revisiting when the registry has more than three
 entries, not for choosing A now — A forecloses the offset case permanently, and
 widening later is always available.
 
-### What is built today, pending the decision
+## Resolution — C
+
+**§2.2 reaches the fields it names, and the registry entry constrains the rest.**
+
+[`core-model.md`](../spec/core-model.md) §2.2 now states its own reach: the
+fields it names — `issued_at`, `expires_at`, §5.3's `expires_at`, §6's
+`decided_at` — at the top of a core object, a response, or a receipt, and inside
+`routing`, which §2.1 derives by projection. *"A string anywhere else is not a
+Q2D timestamp, whatever it resembles."*
+
+A predicate wanting one spelling for a field of its own declares
+`format: date-time` in its registry entry.
+[`scope.md`](../spec/scope.md) §4.1 already made that an **assertion** rather
+than the annotation JSON Schema 2020-12 leaves it as, and already bound it to
+§2.2's spelling — so C needed no new mechanism, only §2.2 saying where its own
+rule stopped and §4.1 saying what its `format` keyword is *for*.
+
+`availability_window` in the reference manifest already uses it, on
+`candidates[].start` and `candidates[].end` in its **public context**. That is
+the resolution working before it was written down: a predicate that wants §2.2's
+spelling for its own field says so, and one that wants a booking time carrying
+`+01:00` declares a bounded `string` instead. Both conform.
+
+The asymmetry this removes is the part worth keeping in mind. Under the old
+behaviour, whether a predicate's timestamp was validated depended on whether its
+author happened to reuse one of three field names — `issued_at` checked,
+`booked_for` not, for no reason either could state.
+
+### What was built before the decision
 
 **Option B's behaviour: §2.2 binds the fields §2.2 names, and no more.**
 
@@ -3008,9 +3037,11 @@ implementations agreeing on a rule the specification does not contain is not
 cross-implementation agreement; it is three copies of the same unrecorded
 choice.
 
-So all three now implement what §2.2 states, and E-36 decides whether to add
-more. Restoring the shape rule under option A is one line in each of the three
-serializers and one case in each of the three refusal suites.
+So all three implemented what §2.2 stated, and E-36 decided whether to add
+more. It did not: C keeps that behaviour and moves the *additional* constraint
+into the registry, where a predicate opts in. No serializer changed when this
+closed — which is why the escalation was worth opening rather than settling in
+code. The behaviour was right and its justification was missing.
 
 **No authored vector changed**, which is the check that this narrowing costs
 nothing today: `author_message.py --check`, `author_suite.py --check` and
@@ -3112,9 +3143,36 @@ is a bound the registry cannot honestly enforce and the right answer is to say
 so in `question_notes` and register a string, as E-30 decided for decimals. That
 precedent is close enough that B may be a special case of it.
 
-### What is built today, pending the decision
+## Resolution — B
 
-**64 bits is not a resolution of this question; it is the absence of one.** A
+**[`scope.md`](../spec/scope.md) §4.1 bounds it, where the other boundedness
+rules already are.** An `integer` in **any** of an entry's schemas states
+`minimum` and `maximum`, and both lie within −2^63 … 2^63 − 1.
+
+Three things about the shape of that rule:
+
+- **It is wider than §4.1's release rule**, which asks only about
+  `output_schema` because what that bounds is disclosure. This is a
+  *representability* question — an integer a producer cannot hold arrives
+  through the input and public-context schemas — so it applies to all three.
+- **`enum` does not prune it**, where it prunes the release rule. A finite set
+  of literals bounds a value's length, which is what the release rule asks; it
+  says nothing about whether each literal is representable, and
+  `enum: [12345678901234567890123]` is finite and unrepresentable. An `enum` of
+  integers is exempt from stating a range, because it has named every value it
+  admits — and each is checked.
+- **`core-model.md` still states no range**, deliberately. Every integer the
+  protocol itself defines is a count, a cardinality, or a capacity in integer
+  millibits, none of which approaches the boundary. The bound is a fact about
+  registry data.
+
+`registry/validate.py` enforces it. **Nothing in the reference manifest carries
+an integer at all**, so this constrains no entry that exists — which is the only
+moment a rule like it costs nothing to add.
+
+### What was built before the decision
+
+**64 bits was not a resolution of this question; it was the absence of one.** A
 compiled implementation has to choose an integer type, and the alternative to a
 fixed width is arbitrary-precision arithmetic — a dependency, a performance
 question, and a much larger decision than the one being asked. Rust and Go are
@@ -3125,6 +3183,53 @@ The tool refuses an integer outside the signed 64-bit range, so it cannot author
 what the pair cannot serialize. That is the safe direction under every option —
 C included, since C still needs it — and it constrains no vector that exists.
 Both implementations are unchanged: their types already are the bound.
+
+---
+
+## What E-36 and E-37 cascaded into
+
+Recorded together because they were decided together and touch overlapping
+files.
+
+**E-36 — C:**
+
+- [`core-model.md`](../spec/core-model.md) §2.2 — states the reach, and points
+  at the registry for operation-defined data.
+- [`scope.md`](../spec/scope.md) §4.1 — says what its `format: date-time`
+  assertion is *for*, now that §2.2 stops short of it.
+- P-002 §4.2 and §10 — the open question is resolved and the profile's
+  timestamp row explains why §2.2 says more than it did.
+- `src/value.rs`, `value.go`, `tools/author_vectors.py` — the three string arms,
+  which cited an open question and now cite §2.2 and §4.1.
+- `src/timestamp.rs`, `timestamp.go` — `looks_like_rfc3339` was kept *because*
+  E-36 might restore a caller for it. It is kept for a different reason now: the
+  tests that assert every other spelling is refused need it to say "still a
+  timestamp, wrong spelling" rather than "not a date".
+- `tests/refusal.rs`, `refusal_test.go`, `conformance/tests/` — four comments
+  describing the behaviour as provisional.
+- `conformance/harness/lint.py` — **deliberately unchanged.** It keeps the wider
+  rule, and the note there now says why in terms of the resolution rather than
+  in terms of a pending one: a serializer produces bytes somebody signs, a
+  linter checks vectors that are ours.
+
+**E-37 — B:**
+
+- [`scope.md`](../spec/scope.md) §4.1 — the rule, its range, and why it is there
+  rather than in `core-model.md`.
+- `registry/validate.py` — `unrepresentable_integer`, applied across all three
+  of an entry's schemas.
+- P-006 issue 2 — its acceptance said *"forbidden keywords rejected"*, and a
+  validator that checked only which keywords appear would pass an entry
+  admitting an unrepresentable integer. §4.1 is not only a keyword list.
+- P-002 §10, `tools/author_vectors.py`, `testdata/README.md`, and both value
+  models — `i64` is now the width §4.1 names rather than a choice the
+  implementations made and the specification then followed.
+
+**Checked and unchanged:** [`claims.md`](../spec/claims.md) Q2D-C-08 rests on
+§2.2 bounding `decided_at`'s length, which is a field §2.2 names and therefore
+untouched by narrowing the reach. `conformance-classes.md` and
+[`trust-matrix.md`](../threat-model/trust-matrix.md) mention neither timestamp
+spelling nor integer range.
 
 ---
 

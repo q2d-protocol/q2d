@@ -81,10 +81,15 @@ func isQ2DTimestamp(value string) bool {
 // isQ2DTimestamp is what enforces that; a string elsewhere is written as it is,
 // whatever it looks like.
 //
-// It is kept because E-36 asks whether §2.2 should reach further, and this is
-// the predicate that answer needs — under option A String.write refuses
-// anything this accepts and isQ2DTimestamp does not. Exercised by the tests, so
-// it is not untested code waiting for a decision.
+// It is kept because isQ2DTimestamp's tests need it: they assert that every
+// other RFC 3339 spelling is refused as §2.2's timestamp while still being
+// recognisable as a timestamp at all, and that second half is this function.
+// Without it those tests could not distinguish "refused because it is the wrong
+// spelling" from "refused because it is not a date".
+//
+// E-36 closed as C: §2.2 binds the fields it names, and a predicate wanting one
+// spelling for a field of its own declares format: date-time in its registry
+// entry. So no serializer will grow a caller for this.
 func looksLikeRFC3339(value string) bool {
 	if len(value) < 20 {
 		return false

@@ -377,6 +377,65 @@ def unbounded_release(schema, path):
         yield from unbounded_release(schema["items"], f"{path}.items")
 
 
+# scope.md §4.1: the widest range every conforming producer carries exactly.
+# Not a protocol constant -- core-model.md states no integer range, and every
+# integer Q2D itself defines is a count, a cardinality, or a capacity in integer
+# millibits. This bounds *registry* data. E-37, closed.
+INT64_MIN = -2**63
+INT64_MAX = 2**63 - 1
+
+
+def unrepresentable_integer(schema, path):
+    """Every integer subschema an implementation could fail to represent.
+
+    scope.md §4.1: an `integer` in **any** of an entry's schemas states
+    `minimum` and `maximum`, and both lie within the signed 64-bit range.
+
+    Wider than `unbounded_release`, which asks only about the output schema
+    because what it bounds is disclosure. This is a divergence question: JSON's
+    grammar admits an integer of any length and gives implementations no common
+    range, so an entry admitting one a producer cannot represent would surface
+    as two implementations emitting different bytes for the same message.
+
+    **`enum` does not prune here**, where it does there. A finite set of
+    literals bounds a value's *length*, which is what §4.1's release rule asks;
+    it says nothing about whether each literal is representable, and
+    `enum: [12345678901234567890123]` is finite and still unrepresentable.
+    """
+    if not isinstance(schema, dict):
+        return
+
+    for index, literal in enumerate(schema.get("enum", []) or []):
+        # `bool` before `int`: in Python `True` is an `int`, and a boolean
+        # literal is not an integer this rule has anything to say about.
+        if isinstance(literal, bool) or not isinstance(literal, int):
+            continue
+        if not INT64_MIN <= literal <= INT64_MAX:
+            yield (f"{path}.enum[{index}]: outside −2^63 … 2^63 − 1, which "
+                   f"§4.1 requires an integer to lie within")
+
+    declared = schema.get("type")
+    types = declared if isinstance(declared, list) else [declared]
+    if "integer" in types:
+        for keyword in ("minimum", "maximum"):
+            bound = schema.get(keyword)
+            if bound is None:
+                # An `enum` of integers is exempt from stating a range: it has
+                # named every value it admits, and each was checked above.
+                if "enum" not in schema:
+                    yield f"{path}: integer with no `{keyword}`"
+            elif isinstance(bound, int) and not INT64_MIN <= bound <= INT64_MAX:
+                yield (f"{path}: `{keyword}` is outside −2^63 … 2^63 − 1, which "
+                       f"§4.1 requires an integer to lie within")
+
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for name, sub in properties.items():
+            yield from unrepresentable_integer(sub, f"{path}.properties.{name}")
+    if "items" in schema:
+        yield from unrepresentable_integer(schema["items"], f"{path}.items")
+
+
 def timestamps(value, path="manifest"):
     """Every string in the manifest that is shaped like a date-time."""
     if isinstance(value, str):
@@ -706,6 +765,15 @@ def main(argv: list[str]) -> int:
                 check(not unbounded,
                       f"{where} bounds every variable-length value it releases",
                       "; ".join(unbounded))
+
+            # Every schema, not only the output one: this asks whether a value
+            # can be *represented* rather than whether it can be released, and
+            # an integer a producer cannot hold arrives through the input and
+            # public-context schemas. E-37.
+            unrepresentable = sorted(unrepresentable_integer(schema, where))
+            check(not unrepresentable,
+                  f"{where} keeps every integer inside the 64-bit range",
+                  "; ".join(unrepresentable))
             # And nowhere else: JSON Schema lets a nested `$schema` switch
             # dialects for that subschema, which is the divergence §4.1 pins
             # the dialect to prevent, reintroduced one level down.
