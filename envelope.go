@@ -30,7 +30,10 @@ package q2d
 //     by the envelope limit; the 2 KiB applies to every other string, which here
 //     means routing's.
 
-import "fmt"
+import (
+	"fmt"
+	"sort"
+)
 
 // An Envelope is a parsed §4.4 envelope. Routing is optional — §2.1 makes it
 // advisory, and a transport that needs no projection sends none.
@@ -70,7 +73,18 @@ func ParseEnvelope(payload []byte) (Envelope, error) {
 
 	var envelope Envelope
 	seenSigned := false
-	for key, item := range pairs {
+	// Sorted, because a Go map has no order at all: an envelope with two
+	// defects would otherwise be reported by whichever the runtime reached
+	// first, differing between runs and from Rust, whose BTreeMap walks in
+	// order. A rejection reason two implementations disagree about is a
+	// divergence even when both reject.
+	keys := make([]string, 0, len(pairs))
+	for key := range pairs {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool { return lessUTF16(keys[i], keys[j]) })
+	for _, key := range keys {
+		item := pairs[key]
 		switch key {
 		case "signed":
 			text, isString := item.(String)

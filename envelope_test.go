@@ -134,3 +134,23 @@ func TestThePayloadIsNotInspected(t *testing.T) {
 		t.Errorf("signed: %s", got)
 	}
 }
+
+func TestTwoDefectsGiveTheSameReasonEveryRun(t *testing.T) {
+	// A Go map has no order, so ranging over one reported whichever defect the
+	// runtime reached first — differing between runs and from Rust, whose
+	// BTreeMap walks in order. A rejection reason two implementations disagree
+	// about is a divergence even when both reject.
+	//
+	// Two unknown members, so which is named is decided by the walk order.
+	const twoDefects = `{"signed":"a.b.c","aaa":1,"zzz":2}`
+	first := refusedEnvelope(t, twoDefects)
+	for i := 0; i < 200; i++ {
+		if again := refusedEnvelope(t, twoDefects); again != first {
+			t.Fatalf("run %d disagreed:\n first: %s\n then:  %s", i, first, again)
+		}
+	}
+	// And it is the first by §4.2's key order, which is what Rust reports.
+	if !strings.Contains(first, "aaa") {
+		t.Errorf("reported a later member than the first: %s", first)
+	}
+}
