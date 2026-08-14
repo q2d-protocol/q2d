@@ -222,3 +222,97 @@ func TestAValueOutsideTheSixIsNotProjected(t *testing.T) {
 		t.Errorf("got %s, want only the concrete field", got)
 	}
 }
+
+func TestADerivedProjectionAgreesWithItsOwnCoreObject(t *testing.T) {
+	// The property that makes the check meaningful: if projection and
+	// comparison disagreed about the same message, every conforming exchange
+	// would fail step 8.
+	core := routingQuery()
+	if err := CheckRouting(core, ProjectRouting(core).Value()); err != nil {
+		t.Errorf("a derived projection disagreed with its own core object: %v", err)
+	}
+}
+
+func TestAnAbsentProjectionIsNotADisagreement(t *testing.T) {
+	// §2.1 permits a message with no projection (E-38), and nothing that is not
+	// there can disagree with anything.
+	if err := CheckRouting(routingQuery(), nil); err != nil {
+		t.Errorf("absent: %v", err)
+	}
+	// Nor is an empty one, which is a projection of nothing.
+	if err := CheckRouting(routingQuery(), Object{}); err != nil {
+		t.Errorf("empty: %v", err)
+	}
+}
+
+func TestAChangedValueIsTampering(t *testing.T) {
+	// message/routing/disagrees in miniature: a relay rewrites the custodian so
+	// the request reaches it instead.
+	tampered := Object{"target": Object{"custodian": String("https://attacker.example")}}
+	err := CheckRouting(routingQuery(), tampered)
+	mismatch, isMismatch := err.(RoutingMismatch)
+	if !isMismatch {
+		t.Fatalf("expected a RoutingMismatch, got %v", err)
+	}
+	if mismatch.Path != "target.custodian" || mismatch.Because != ADifferentValue {
+		t.Errorf("got %+v", mismatch)
+	}
+}
+
+func TestAFieldNotInTheSignedObjectIsRefused(t *testing.T) {
+	// message/routing/introduces-field. §2.1: routing may never introduce a
+	// field, and a relay that adds one is asking a responder to act on
+	// something nobody signed.
+	err := CheckRouting(routingQuery(), Object{"shortcut": String("skip-the-checks")})
+	mismatch, isMismatch := err.(RoutingMismatch)
+	if !isMismatch || mismatch.Path != "shortcut" || mismatch.Because != NotInTheSignedObject {
+		t.Fatalf("got %v", err)
+	}
+
+	// And nested, where the parent exists and the child does not.
+	nested := Object{"predicate": Object{"elevated": Bool(true)}}
+	if err := CheckRouting(routingQuery(), nested); err.(RoutingMismatch).Path != "predicate.elevated" {
+		t.Errorf("nested: %v", err)
+	}
+}
+
+func TestNothingIsCoerced(t *testing.T) {
+	// §4 step 8: same type, same value. A projection whose value is the number
+	// 1 does not agree with one that spells it — and a comparison that coerced
+	// would let a relay choose the spelling a responder compares.
+	core := Object{"expires_at": String("1")}
+	numeric := Object{"expires_at": Int(1)}
+	err := CheckRouting(core, numeric)
+	if mismatch, ok := err.(RoutingMismatch); !ok || mismatch.Because != ADifferentValue {
+		t.Errorf("got %v", err)
+	}
+}
+
+func TestAnArrayIsComparedWhole(t *testing.T) {
+	// No subset rule for arrays: §4.4 makes their order significant, and
+	// treating a shorter one as a projection would let a relay drop an element
+	// and call it a subset.
+	core := Object{"list": Array{Int(1), Int(2)}}
+	shortened := Object{"list": Array{Int(1)}}
+	if err := CheckRouting(core, shortened); err.(RoutingMismatch).Path != "list" {
+		t.Errorf("got %v", err)
+	}
+}
+
+func TestTheMismatchNamesAPathAndNeverAValue(t *testing.T) {
+	// The internal reason is what a responder logs, and the projection is
+	// attacker-supplied while the core object is the requester's. An operator
+	// needs to know which field; neither value belongs in the record, and
+	// neither belongs on the wire.
+	core := Object{"nonce": String("the-requesters-nonce")}
+	tampered := Object{"nonce": String("the-attackers-nonce")}
+	message := CheckRouting(core, tampered).Error()
+	if !strings.Contains(message, "nonce") {
+		t.Errorf("names no field: %s", message)
+	}
+	for _, value := range []string{"the-requesters-nonce", "the-attackers-nonce"} {
+		if strings.Contains(message, value) {
+			t.Errorf("carries %s: %s", value, message)
+		}
+	}
+}

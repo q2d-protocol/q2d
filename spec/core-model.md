@@ -67,11 +67,30 @@ capability-match without unwrapping. It is advisory:
   reconciled. Disagreement is a tampering signal;
 - an intermediary may read `routing`. It must not modify `signed`.
 
-`routing` is kept minimal, because it travels in the clear. It carries at most
-`q2d_version`, `type`, `target.custodian`, `predicate.id`, `predicate.version`,
-and `expires_at`. **Purpose, sinks, subjects, the answer contract, and public
-context are never projected** — a relay has no need for them, and exposing them
-would leak precisely what the protocol exists to bound.
+`routing` is kept minimal. It carries at most `q2d_version`, `type`,
+`target.custodian`, `predicate.id`, `predicate.version`, and `expires_at`.
+**Purpose, sinks, subjects, the answer contract, and public context are never
+projected** — a relay has no need for them.
+
+**This is not confidentiality, and 0.1 must not be read as offering any.** The
+registered suite signs the payload and does not encrypt it
+([`crypto-suites.md`](crypto-suites.md) §3), so an intermediary that decodes
+`signed` reads every field in it — purpose and public context included, with no
+key and no cooperation. Withholding them from `routing` withholds nothing from a
+party willing to look.
+
+What it does is narrower and still worth the rule. A projected field is legible
+without decoding, so it is the field that gets indexed, logged and retained at
+scale by infrastructure with no interest in the exchange; an unprojected one
+costs a deliberate act to read. And the rule is what makes the projection
+*correct* the day a payload-encryption suite exists — `crypto-suites.md` §7
+names one as the pressing post-quantum case — because a projection designed
+around what a relay may see does not have to be redesigned when the payload
+stops being readable.
+
+A deployment that needs the query itself confidential needs transport
+confidentiality ([P-013](../docs/prds/P-013-https-binding.md)'s TLS) or a suite
+0.1 does not register.
 
 This structure is what makes Q2D-C-05 hold by construction rather than by every
 intermediary's JSON library behaving identically. It also matters for

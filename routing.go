@@ -37,6 +37,11 @@ package q2d
 // and stays one: it is a claim, not a derivation, and issue 7's check_routing is
 // what compares the two.
 
+import (
+	"fmt"
+	"sort"
+)
+
 // projected is the fields §4.5 projects, as paths into the core object.
 //
 // Paths rather than names because three of them are nested, and flattening them
@@ -210,4 +215,118 @@ func insert(into Object, path []string, value Value) {
 		here = pairs
 	}
 	here[path[len(path)-1]] = value
+}
+
+// A RoutingMismatch is a routing projection that disagrees with the verified
+// core object.
+//
+// The internal reason. core-model.md §5.2.1 gives routing_mismatch as an
+// external value too, and the two coinciding is not a licence to use one
+// variable for both: P-009 builds the wire response, and this type is what a
+// responder logs. Carrying the path is the whole reason it exists — an operator
+// needs to know which field was tampered with, and a requester must not be told.
+type RoutingMismatch struct {
+	// Path is the path in routing that disagreed, as target.custodian.
+	Path string
+	// Because is why, in one of two ways, and never with either value: the
+	// projection is attacker-supplied and the core object is the requester's.
+	Because Because
+}
+
+// A Because is one of the two ways a projection can disagree.
+type Because int
+
+const (
+	// NotInTheSignedObject: the field is not in the verified object at all —
+	// §2.1's "may never introduce a field".
+	NotInTheSignedObject Because = iota
+	// ADifferentValue: the field is there and holds something else — §4 step
+	// 8's tampering.
+	ADifferentValue
+)
+
+func (m RoutingMismatch) Error() string {
+	because := "is not in the signed object"
+	if m.Because == ADifferentValue {
+		because = "holds a different value there"
+	}
+	return fmt.Sprintf("`routing.%s` %s — core-model.md §4 step 8", m.Path, because)
+}
+
+// CheckRouting compares a received routing against the verified core object.
+//
+// core-model.md §4 step 8, after verification and parse. For each field present
+// in routing, the same path must exist in the core object and hold the same
+// value — exactly, with no coercion: same type, same value, and for a string
+// the same characters. Any difference is tampering: reject, do not reconcile.
+//
+// # This reads nothing from routing
+//
+// It compares and returns a verdict. The projection is unauthenticated until
+// this passes and is not authoritative afterwards either — §2.1 forbids using
+// it for any decision the signature covers, and the way to keep that true is
+// for no value to leave here.
+//
+// # Objects recurse, everything else is exact
+//
+// A projection carrying target: {custodian: …} is a subset of a core object
+// whose target also has subjects, so an object is compared field by field. A
+// leaf, an array, or a type mismatch is compared whole: §4.4 makes array order
+// significant, and a subset rule for arrays would let a relay drop an element
+// and call it a projection.
+//
+// # An absent projection is not a disagreement
+//
+// A nil routing passes. §2.1 permits a message with no projection at all
+// (E-38), and nothing that is not there can disagree with anything.
+func CheckRouting(core Value, routing Value) error {
+	if routing == nil {
+		return nil
+	}
+	return compareRouting(core, routing, "")
+}
+
+func compareRouting(core, routing Value, path string) error {
+	// Both objects: routing may carry a subset of the fields, so descend.
+	signed, coreIsObject := core.(Object)
+	projected, routingIsObject := routing.(Object)
+	if coreIsObject && routingIsObject {
+		// Sorted, so an envelope with two disagreeing fields names the same one
+		// in both implementations — a rejection reason they differ on is a
+		// divergence even when both reject.
+		keys := make([]string, 0, len(projected))
+		for key := range projected {
+			keys = append(keys, key)
+		}
+		sort.Slice(keys, func(i, j int) bool { return lessUTF16(keys[i], keys[j]) })
+
+		for _, key := range keys {
+			here := key
+			if path != "" {
+				here = path + "." + key
+			}
+			found, present := signed[key]
+			if !present {
+				return RoutingMismatch{Path: here, Because: NotInTheSignedObject}
+			}
+			if err := compareRouting(found, projected[key], here); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// Anything else: equal or it is tampering. Compared as serialized bytes,
+	// which does not coerce — an Int never equals a String that spells it,
+	// which is what "same type, same value" asks for — and which refuses a
+	// value the profile cannot render rather than calling it equal.
+	a, errA := Serialize(core)
+	b, errB := Serialize(routing)
+	if errA == nil && errB == nil && string(a) == string(b) {
+		return nil
+	}
+	if path == "" {
+		path = "<root>"
+	}
+	return RoutingMismatch{Path: path, Because: ADifferentValue}
 }

@@ -124,6 +124,123 @@ fn insert(into: &mut Value, path: &[&str], value: Value) {
     }
 }
 
+/// A `routing` projection that disagrees with the verified core object.
+///
+/// The **internal** reason. `core-model.md` §5.2.1 gives `routing_mismatch` as
+/// an external value too, and the two coinciding is not a licence to use one
+/// variable for both: P-009 builds the wire response, and this type is what a
+/// responder logs. Carrying the path is the whole reason it exists — an
+/// operator needs to know which field was tampered with, and a requester must
+/// not be told.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RoutingMismatch {
+    /// The path in `routing` that disagreed, as `target.custodian`.
+    pub path: String,
+    /// Why, in one of two ways, and never with either value: the projection is
+    /// attacker-supplied and the core object is the requester's.
+    pub because: Because,
+}
+
+/// The two ways a projection can disagree.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Because {
+    /// The field is not in the verified object at all — §2.1's *may never
+    /// introduce a field*.
+    NotInTheSignedObject,
+    /// The field is there and holds something else — §4 step 8's tampering.
+    ADifferentValue,
+}
+
+impl std::fmt::Display for RoutingMismatch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let because = match self.because {
+            Because::NotInTheSignedObject => "is not in the signed object",
+            Because::ADifferentValue => "holds a different value there",
+        };
+        write!(
+            f,
+            "`routing.{}` {because} — core-model.md §4 step 8",
+            self.path
+        )
+    }
+}
+
+impl std::error::Error for RoutingMismatch {}
+
+/// Compare a received `routing` against the verified core object.
+///
+/// `core-model.md` §4 step 8, after verification and parse. For each field
+/// **present in** `routing`, the same path must exist in the core object and
+/// hold the same value — *exactly, with no coercion: same type, same value, and
+/// for a string the same characters.* Any difference is tampering: reject, do
+/// not reconcile.
+///
+/// # This reads nothing *from* `routing`
+///
+/// It compares and returns a verdict. The projection is unauthenticated until
+/// this passes and is not authoritative afterwards either — §2.1 forbids using
+/// it for any decision the signature covers, and the way to keep that true is
+/// for no value to leave here.
+///
+/// # Objects recurse, everything else is exact
+///
+/// A projection carrying `target: {custodian: …}` is a *subset* of a core
+/// object whose `target` also has `subjects`, so an object is compared field by
+/// field. A leaf, an array, or a type mismatch is compared whole: §4.4 makes
+/// array order significant, and a subset rule for arrays would let a relay drop
+/// an element and call it a projection.
+///
+/// # Absent `routing` is not a disagreement
+///
+/// [`None`] passes. §2.1 permits a message with no projection at all
+/// ([E-38](https://github.com/q2d-protocol/q2d/blob/main/docs/open-escalations.md)),
+/// and nothing that is not there can disagree with anything.
+pub fn check_routing(core: &Value, routing: Option<&Value>) -> Result<(), RoutingMismatch> {
+    match routing {
+        None => Ok(()),
+        Some(routing) => compare(core, routing, ""),
+    }
+}
+
+fn compare(core: &Value, routing: &Value, path: &str) -> Result<(), RoutingMismatch> {
+    // Both objects: `routing` may carry a subset of the fields, so descend.
+    if let (Value::Object(signed), Value::Object(projected)) = (core, routing) {
+        for (key, value) in projected {
+            let here = if path.is_empty() {
+                key.clone()
+            } else {
+                format!("{path}.{key}")
+            };
+            match signed.get(key) {
+                Some(found) => compare(found, value, &here)?,
+                None => {
+                    return Err(RoutingMismatch {
+                        path: here,
+                        because: Because::NotInTheSignedObject,
+                    })
+                }
+            }
+        }
+        return Ok(());
+    }
+
+    // Anything else: equal or it is tampering. `Value`'s equality is
+    // structural and does not coerce — an `Integer` never equals a `String`
+    // that spells it, which is what "same type, same value" asks for.
+    if core == routing {
+        Ok(())
+    } else {
+        Err(RoutingMismatch {
+            path: if path.is_empty() {
+                "<root>".into()
+            } else {
+                path.into()
+            },
+            because: Because::ADifferentValue,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -287,6 +404,112 @@ mod tests {
                 .all(|(key, value)| signed.get(key).is_some_and(|found| subset_of(value, found))),
             (a, b) => a == b,
         }
+    }
+
+    #[test]
+    fn a_derived_projection_agrees_with_its_own_core_object() {
+        // The property that makes the check meaningful: if projection and
+        // comparison disagreed about the same message, every conforming
+        // exchange would fail step 8.
+        let core = query();
+        let derived = project_routing(&core);
+        assert_eq!(check_routing(&core, Some(derived.as_value())), Ok(()));
+    }
+
+    #[test]
+    fn an_absent_projection_is_not_a_disagreement() {
+        // §2.1 permits a message with no projection (E-38), and nothing that
+        // is not there can disagree with anything.
+        assert_eq!(check_routing(&query(), None), Ok(()));
+        // Nor is an empty one, which is a projection of nothing.
+        let empty = Value::object(Vec::<(&str, Value)>::new());
+        assert_eq!(check_routing(&query(), Some(&empty)), Ok(()));
+    }
+
+    #[test]
+    fn a_changed_value_is_tampering() {
+        // `message/routing/disagrees` in miniature: a relay rewrites the
+        // custodian so the request reaches it instead.
+        let tampered = Value::object([(
+            "target",
+            Value::object([("custodian", Value::string("https://attacker.example"))]),
+        )]);
+        let mismatch = check_routing(&query(), Some(&tampered)).expect_err("tampering");
+        assert_eq!(mismatch.path, "target.custodian");
+        assert_eq!(mismatch.because, Because::ADifferentValue);
+    }
+
+    #[test]
+    fn a_field_not_in_the_signed_object_is_refused() {
+        // `message/routing/introduces-field`. §2.1: `routing` may never
+        // introduce a field, and a relay that adds one is asking a responder
+        // to act on something nobody signed.
+        let invented = Value::object([("shortcut", Value::string("skip-the-checks"))]);
+        let mismatch = check_routing(&query(), Some(&invented)).expect_err("invented");
+        assert_eq!(mismatch.path, "shortcut");
+        assert_eq!(mismatch.because, Because::NotInTheSignedObject);
+
+        // And nested, where the parent exists and the child does not.
+        let nested = Value::object([(
+            "predicate",
+            Value::object([("elevated", Value::Bool(true))]),
+        )]);
+        assert_eq!(
+            check_routing(&query(), Some(&nested))
+                .expect_err("invented")
+                .path,
+            "predicate.elevated"
+        );
+    }
+
+    #[test]
+    fn nothing_is_coerced() {
+        // §4 step 8: *same type, same value*. A projection whose `q2d_version`
+        // is the number 0.1 rather than the string does not agree with one that
+        // spells it — and a comparison that coerced would let a relay choose
+        // the spelling a responder compares.
+        let core = Value::object([("expires_at", Value::string("1"))]);
+        let numeric = Value::object([("expires_at", Value::Integer(1))]);
+        assert_eq!(
+            check_routing(&core, Some(&numeric))
+                .expect_err("no coercion")
+                .because,
+            Because::ADifferentValue
+        );
+    }
+
+    #[test]
+    fn an_array_is_compared_whole() {
+        // No subset rule for arrays: §4.4 makes their order significant, and
+        // treating a shorter one as a projection would let a relay drop an
+        // element and call it a subset.
+        let core = Value::object([(
+            "list",
+            Value::Array(vec![Value::Integer(1), Value::Integer(2)]),
+        )]);
+        let shortened = Value::object([("list", Value::Array(vec![Value::Integer(1)]))]);
+        assert_eq!(
+            check_routing(&core, Some(&shortened))
+                .expect_err("not a subset")
+                .path,
+            "list"
+        );
+    }
+
+    #[test]
+    fn the_mismatch_names_a_path_and_never_a_value() {
+        // The internal reason is what a responder logs, and the projection is
+        // attacker-supplied while the core object is the requester's. An
+        // operator needs to know which field; neither value belongs in the
+        // record, and neither belongs on the wire.
+        let core = Value::object([("nonce", Value::string("the-requesters-nonce"))]);
+        let tampered = Value::object([("nonce", Value::string("the-attackers-nonce"))]);
+        let message = check_routing(&core, Some(&tampered))
+            .expect_err("tampering")
+            .to_string();
+        assert!(message.contains("nonce"), "{message}");
+        assert!(!message.contains("the-requesters-nonce"), "{message}");
+        assert!(!message.contains("the-attackers-nonce"), "{message}");
     }
 
     #[test]
