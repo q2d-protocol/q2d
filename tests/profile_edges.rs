@@ -91,3 +91,17 @@ fn the_profile_edges_serialize_to_the_fixture_bytes() {
         String::from_utf8_lossy(&expected)
     );
 }
+
+#[test]
+fn the_edges_round_trip_through_the_parser() {
+    // The fixture that exists because realistic documents miss the profile's
+    // edges. A parser has the same blind spot, and this is the same fix:
+    // supplementary keys, every escape, and `i64`'s two boundaries.
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("testdata")
+        .join("profile-edges.serialized");
+    let expected = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let value = q2d::parse(&expected).expect("the profile's own output");
+    assert_eq!(q2d::serialize(&value).expect("all legal"), expected);
+    assert_eq!(value, profile_edges(), "and it is the same document");
+}

@@ -144,3 +144,17 @@ fn the_signature_block_carries_no_value() {
     assert!(text.contains(r#""signature":{"key_id""#));
     assert!(!text.contains(r#""value""#));
 }
+
+#[test]
+fn the_fixture_round_trips_through_the_parser() {
+    // P-002 issue 4's acceptance, against the document all three serializers
+    // are held to rather than a value invented for the test: parse the
+    // fixture's bytes and serialize them again, and nothing moves.
+    let expected = fixture();
+    let value = q2d::parse(&expected).expect("the profile's own output");
+    assert_eq!(
+        q2d::serialize(&value).expect("a conforming query"),
+        expected
+    );
+    assert_eq!(value, canonical_query(), "and it is the same query");
+}

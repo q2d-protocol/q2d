@@ -58,3 +58,23 @@ func TestProfileEdgesSerializeToTheFixtureBytes(t *testing.T) {
 		t.Errorf("serialized edges differ from the fixture\n got: %s\nwant: %s", got, want)
 	}
 }
+
+func TestTheEdgesRoundTripThroughTheParser(t *testing.T) {
+	// The fixture that exists because realistic documents miss the profile's
+	// edges. A parser has the same blind spot, and this is the same fix.
+	expected, err := os.ReadFile("testdata/profile-edges.serialized")
+	if err != nil {
+		t.Fatalf("cannot read the fixture: %v", err)
+	}
+	value, err := Parse(expected)
+	if err != nil {
+		t.Fatalf("the profile's own output did not parse: %v", err)
+	}
+	again, err := Serialize(value)
+	if err != nil {
+		t.Fatalf("re-serializing: %v", err)
+	}
+	if string(again) != string(expected) {
+		t.Errorf("round trip changed the bytes:\n got: %s\nwant: %s", again, expected)
+	}
+}
