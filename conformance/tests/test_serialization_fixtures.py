@@ -192,6 +192,17 @@ class RefusalTest(unittest.TestCase):
         self.accepted({"a": 2**63 - 1})
         self.accepted({"a": -2**63})
 
+    def test_a_refusal_carries_nothing_derived_from_the_value(self):
+        # Not the value, and not a position within it either. Where a string
+        # first goes wrong is a fact about the string, and this serializer runs
+        # over responses and receipts whose strings come from data the
+        # requester never sees.
+        #
+        # Two values differing only in where they go wrong must produce the
+        # same message.
+        early, late = "\ud800" + "a" * 7, "a" * 7 + "\ud800"
+        self.assertEqual(self.refused({"a": early}), self.refused({"a": late}))
+
     def test_a_refusal_names_the_field_and_nothing_else(self):
         message = self.refused({
             "issued_at": "2026-07-31t09:00:00Z",

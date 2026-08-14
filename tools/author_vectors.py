@@ -218,16 +218,17 @@ def encodable(value: str, what: str) -> None:
     they produce, and the error would arrive as an encoding failure from
     somewhere inside the profile rather than as the profile refusing it.
 
-    The message names the position, not the character: a private value must not
-    reach an error string.
+    The message names what was being encoded and nothing else -- not the
+    character, and not the position either: where a string first goes wrong is
+    a fact about the string, and this serializer runs over responses and
+    receipts whose strings come from data the requester never sees.
     """
     try:
         value.encode("utf-8")
-    except UnicodeEncodeError as bad:
+    except UnicodeEncodeError:
         raise ProfileError(
-            f"{what} is not encodable as UTF-8 at position {bad.start}. "
-            f"P-002 §4.2 produces UTF-8, and an unpaired surrogate has no "
-            f"encoding in it") from None
+            f"{what} is not encodable as UTF-8. P-002 §4.2 produces UTF-8, and "
+            f"an unpaired surrogate has no encoding in it") from None
 
 
 def sort_key(key: str) -> bytes:

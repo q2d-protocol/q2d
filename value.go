@@ -329,22 +329,18 @@ func typeName(v Value) string {
 // implementations differ on which values exist rather than on what they produce.
 // Refusing here makes the accepted set the same on both sides.
 //
-// The message carries no private data: it names the position of the first bad
-// byte, not the byte and not the string.
+// The message names what was being written and nothing else. It carried the
+// byte offset of the first invalid sequence until review pointed out that an
+// offset is derived from the value: where a string first goes wrong is a fact
+// about the string, and this runs over responses and receipts whose strings
+// come from data the requester never sees. There is no "small enough" exemption
+// in the rule, and a position is exactly the kind of thing that looks like one.
 func validUTF8(what, s string) error {
 	if utf8.ValidString(s) {
 		return nil
 	}
-	for at := 0; at < len(s); {
-		r, width := utf8.DecodeRuneInString(s[at:])
-		if r == utf8.RuneError && width <= 1 {
-			return fmt.Errorf("%s is not valid UTF-8 at byte %d. P-002 §4.2 produces "+
-				"UTF-8, and substituting U+FFFD would sign a value the caller did not "+
-				"supply", what, at)
-		}
-		at += width
-	}
-	return fmt.Errorf("%s is not valid UTF-8", what)
+	return fmt.Errorf("%s is not valid UTF-8. P-002 §4.2 produces UTF-8, and "+
+		"substituting U+FFFD would sign a value the caller did not supply", what)
 }
 
 // lessUTF16 compares two strings by UTF-16 code unit, as P-002 §4.2 requires.

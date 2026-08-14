@@ -186,3 +186,18 @@ func TestATypedNilIsRefusedToo(t *testing.T) {
 		t.Errorf("a nil slice or map was treated as an absent value: %s", got)
 	}
 }
+
+func TestARefusalCarriesNothingDerivedFromTheValue(t *testing.T) {
+	// Not the value, and not a position within it either. Where a string first
+	// goes wrong is a fact about the string, and Serialize runs over responses
+	// and receipts whose strings come from data the requester never sees.
+	//
+	// Asserted by refusing two values that differ only in where they go wrong:
+	// identical messages means the message carries nothing about which was
+	// which.
+	early := string([]byte{0x80, 'a', 'a', 'a', 'a', 'a', 'a', 'a'})
+	late := string([]byte{'a', 'a', 'a', 'a', 'a', 'a', 'a', 0x80})
+	if refused(t, Object{"a": String(early)}) != refused(t, Object{"a": String(late)}) {
+		t.Error("the refusal distinguishes two values by where each is invalid")
+	}
+}
