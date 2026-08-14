@@ -1,14 +1,14 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! Q2D reference implementation.
+//!
+//! A transport-neutral protocol for policy-bound, least-disclosure answers over
+//! data held by a participating custodian. See <https://q2d.dev>.
+//!
+//! Nothing here is usable as a protocol yet. What exists is
+//! [`P-002`]'s message layer, built bottom-up: the value model and the
+//! deterministic production serializer.
+//!
+//! [`P-002`]: https://github.com/q2d-protocol/q2d/blob/main/docs/prds/P-002-message-envelope.md
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub mod value;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub use value::{serialize, Value};

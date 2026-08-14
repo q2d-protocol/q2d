@@ -70,12 +70,13 @@ docs/                mvp-scope.md, versioning.md, operator docs
 paper/               technical report + reproducible build pipeline
 website/             q2d.dev  (serves the go-import tag — load-bearing)
 tools/               repo-wide hygiene checks CI runs
+testdata/            the three-way serialization fixture — see its README
 .github/workflows/   CI — everything in it must be green; see below
 private-docs/        gitignored: strategy, external review, decision record
 ```
 
-`src/` and `go.mod` are placeholders holding the crate and module names. Real
-implementations land under the plan in `docs/mvp-scope.md`.
+`src/` and the Go package root hold P-002's message layer, built bottom-up. The
+rest of the implementation lands under the plan in `docs/mvp-scope.md`.
 
 ## The workflow
 
@@ -362,7 +363,7 @@ python3 tools/check_links.py
 cd paper && make DRAFT=0.2.2 PAGES=43 verify
 cd paper && make repro          # rebuild 0.2.1 and diff against the published DOCX
 
-# Once implementations exist
+# Implementations — P-002's message layer, and the byte agreement between them
 cargo test                      # Rust
 go test ./...                   # Go
 # conformance harness across both — Stage 0 deliverable, not yet built
