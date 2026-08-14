@@ -67,11 +67,29 @@ capability-match without unwrapping. It is advisory:
   reconciled. Disagreement is a tampering signal;
 - an intermediary may read `routing`. It must not modify `signed`.
 
-`routing` is kept minimal, because it travels in the clear. It carries at most
-`q2d_version`, `type`, `target.custodian`, `predicate.id`, `predicate.version`,
-and `expires_at`. **Purpose, sinks, subjects, the answer contract, and public
-context are never projected** — a relay has no need for them, and exposing them
-would leak precisely what the protocol exists to bound.
+`routing` is kept minimal. It carries at most `q2d_version`, `type`,
+`target.custodian`, `predicate.id`, `predicate.version`, and `expires_at`, and
+it **may carry fewer, or none of them, at any depth** — an empty object where a
+projection could have gone is a projection of nothing, and asserts nothing.
+**Purpose, sinks, subjects, the answer contract, and public context are never
+projected.**
+
+**Withholding them is not confidentiality, and 0.1 offers none.** The registered
+suite signs the payload and does not encrypt it
+([`crypto-suites.md`](crypto-suites.md) §3), so an intermediary that decodes
+`signed` reads every field in it — purpose and public context included, with no
+key and no cooperation. See [`claims.md`](claims.md) **Q2D-NC-13**.
+
+The rule is narrower than that and still worth keeping, for two reasons. A
+projected field is legible **without decoding**, so it is the field that
+infrastructure with no interest in the exchange indexes, logs and retains at
+scale; an unprojected one costs a deliberate act to read. And the list is what
+makes the projection *correct* the day a payload-encryption suite exists —
+`crypto-suites.md` §7 names one as the pressing post-quantum case — rather than
+a design to redo then.
+
+A deployment that needs the query itself confidential needs transport
+confidentiality or a suite 0.1 does not register.
 
 This structure is what makes Q2D-C-05 hold by construction rather than by every
 intermediary's JSON library behaving identically. It also matters for

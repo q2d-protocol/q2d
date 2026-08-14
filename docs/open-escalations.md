@@ -18,16 +18,15 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-41 is open**, raised while building `check_routing`: `core-model.md` §2.1
-> justifies the `routing` allowlist by saying that projecting `purpose` and
-> `public_context` *"would leak precisely what the protocol exists to bound"* —
-> and the 0.1 suite signs the payload without encrypting it, so an intermediary
-> reads them from `signed` regardless. The **rule is not in question**; what it
-> rests on is. §E-41 has the options.
+> **Nothing is open.** **E-36** through **E-42** all closed, every one raised
+> while building P-002's message layer.
 >
-> **E-42 is open**, from the same function: is `{"target":{}}` — an empty prefix
-> object — a valid `routing`? Nothing derives it and nothing forbids it. Both
-> implementations accept it, which is the minimum §2.1 states.
+> **E-41:** §2.1 justified the `routing` allowlist by a confidentiality 0.1 does
+> not provide — the suite signs the payload without encrypting it. The rule
+> stands on two narrower grounds; §2.1 says so, and `claims.md` gains
+> **Q2D-NC-13**, *that a query is confidential from an intermediary*.
+>
+> **E-42:** an empty projection is valid at any depth, and §2.1 says that too.
 >
 > **E-36** through **E-40** all closed, every one raised
 > while building P-002's message layer, every one cascaded.
@@ -180,8 +179,8 @@ question is still fresh than after the answer arrives.
 | **E-38** | May an envelope omit `routing`? | P-002 issue 5 | `core-model.md` §2.1 · P-002 §4.4, §4.5, §10 · `tools/author_suite.py`, `tools/author_ordering.py` · both implementations | **Closed** |
 | **E-39** | Should §4.8's size limits live in `spec/` rather than in a PRD? | P-002 issue 5 | `core-model.md` §2.8 (new), §4 step 1 · P-002 §4.8 | **Closed** |
 | **E-40** | Does the 2 KiB string limit reach inside `public_context`? | P-002 issue 5 | `core-model.md` §2.8 · `scope.md` §4.1 · `registry/validate.py` · both parsers | **Closed** |
-| **E-41** | §2.1 justifies the `routing` allowlist by a confidentiality 0.1 does not provide | P-002 issue 7 | `core-model.md` §2.1 · P-002 §4.5 · `claims.md` Q2D-C-05 (checked, unaffected) | **Open** |
-| **E-42** | Is an empty prefix object a valid `routing`? | P-002 issue 7 | `core-model.md` §2.1, §4 step 8 · `message/routing/` · both implementations | **Open** |
+| **E-41** | §2.1 justifies the `routing` allowlist by a confidentiality 0.1 does not provide | P-002 issue 7 | `core-model.md` §2.1 · `claims.md` **Q2D-NC-13** (new) · P-002 §4.5, §10 · both implementations | **Closed** |
+| **E-42** | Is an empty prefix object a valid `routing`? | P-002 issue 7 | `core-model.md` §2.1 · P-002 §4.6 · both implementations | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -3711,6 +3710,25 @@ true as written and A is a correction to something that has stopped being wrong.
 strips `signed` for a first hop, which nothing today does — the confidentiality
 reading is the correct one and A would have to be undone.
 
+## Resolution — A, with B
+
+**§2.1 says plainly that this is not confidentiality**, and keeps the rule on
+the two grounds that survive: a projected field is legible *without decoding*,
+so it is the one infrastructure with no interest in the exchange indexes and
+retains at scale; and the list is what makes the projection correct the day a
+payload-encryption suite exists rather than a design to redo then. It closes by
+saying what a deployment that needs the query confidential actually needs —
+transport confidentiality, or a suite 0.1 does not register.
+
+**And B, because it belongs there whichever way §2.1 is worded.**
+[`claims.md`](../spec/claims.md) gains **Q2D-NC-13**: *that a query is
+confidential from an intermediary*. The non-claims list is long on purpose and
+this is the same instinct one level down — the cheapest overstatement to make is
+a rationale, because nobody tests one.
+
+**Q2D-C-05 is untouched.** It claims an intermediary cannot *alter* those
+fields, which is integrity, and it held exactly as written throughout.
+
 ### What was built
 
 **Nothing, and that is the correction this entry also records.** I wrote A into
@@ -3771,13 +3789,52 @@ rather than a value — then an empty object at its parent would be a way to
 assert the parent without asserting the field, and B becomes the safer rule.
 Nothing in §4.5's six behaves that way; all six are values.
 
-### What is built
+## Resolution — A, **and §2.1 says so**
 
-**A, in both**, and each suite has a test saying so and naming this entry. That
-is the permissive direction, which is not the default this register argues for —
-the reason is that B would be a rule the specification does not contain, and the
-E-38 note is explicit that a practice built on an unstated reading is the thing
-to avoid. Changing to B is one condition in each implementation.
+An empty projection is valid at any depth. §2.1 now reads *"it may carry fewer,
+or none of them, at any depth — an empty object where a projection could have
+gone is a projection of nothing, and asserts nothing."*
+
+The second half of the decision is the part worth keeping. A was already the
+behaviour and could have stayed an unstated one; saying it in `spec/` is the
+X.509 lesson rather than a formality. An empty container inside a security check
+is a classic parser differential — two libraries disagreeing about a structure
+neither specification writer considered — and the alternative here was that the
+third implementation finds the answer in two of our test files, or does not, and
+differs from us.
+
+### What was built
+
+**A, in both**, from the start, with a test in each. That was the permissive
+direction, which is not this register's default; the reason held: B would have
+been a rule the specification does not contain, and E-38's note is explicit that
+a practice built on an unstated reading is the thing to avoid. What changed on
+closing is that the reading is no longer unstated.
+
+---
+
+## What E-41 and E-42 cascaded into
+
+Together, because both land in the same paragraph of §2.1.
+
+- [`core-model.md`](../spec/core-model.md) §2.1 — the minimality rationale
+  rewritten (E-41), a clause permitting an empty projection at any depth
+  (E-42), and a pointer to the new non-claim.
+- [`claims.md`](../spec/claims.md) — **Q2D-NC-13**, appended after NC-12 rather
+  than inserted, so the existing numbers do not move.
+- P-002 §4.5, §4.6 and §10 — §4.5 stated the old rationale in its own words,
+  which is exactly the paraphrase-drift `CLAUDE.md` warns about; it cites §2.1
+  now.
+- `src/routing.rs` and `routing.go` — both module headers repeated the
+  confidentiality claim, and both `RoutingIntroducedField` comments named E-41
+  as open.
+- `routing_test.go` and `src/routing.rs`'s test — the empty-prefix tests named
+  E-42 as open and now cite §2.1's clause.
+
+**Checked and unchanged:** `Q2D-C-05` (integrity, not confidentiality);
+`conformance-classes.md`, whose CC-1 and CC-2 rows about `routing` are about
+derivation and disagreement; `crypto-suites.md` §7, which already named payload
+encryption as the pressing post-quantum case and is now cited from §2.1 for it.
 
 ---
 

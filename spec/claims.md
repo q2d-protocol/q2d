@@ -338,6 +338,7 @@ claims above; they are positions the project holds.
 | **Q2D-NC-10** | That a Phase 1 signature is a zero-knowledge proof, or proof that the correct source data was used or the predicate faithfully executed. |
 | **Q2D-NC-11** | That labels alone stop leakage when any sink, log, memory path, or side channel is unmediated. |
 | **Q2D-NC-12** | Novelty for source-side predicate APIs, information-flow control, capability authorization, cumulative leakage budgets, selective disclosure, trusted execution, or tamper-evident logs. The contribution is the composition. |
+| **Q2D-NC-13** | That a query is confidential from an intermediary. The 0.1 suite signs the payload and does not encrypt it, so a party holding the envelope reads every field of the core object — `routing`'s minimality (`core-model.md` §2.1) governs what is legible *without decoding*, which is a real difference and not a confidentiality boundary. A deployment needing one uses transport confidentiality or a suite 0.1 does not register. |
 
 Claims of being "the first" anything require a literature and patent search that
 has not been performed.

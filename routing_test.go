@@ -311,10 +311,13 @@ func TestAnEmptyPrefixObjectIsAccepted(t *testing.T) {
 	// field, and an empty object carries none and introduces none. Rejecting it
 	// would be a rule §2.1 does not state.
 	//
-	// E-42, open: nothing derives it and nothing forbids it, so both
-	// implementations accept it — the minimum §2.1 states — and the register
-	// carries the question. This is the one case where "not derivable" and
-	// "not permitted" come apart.
+	// E-42, closed as A, and §2.1 now says so rather than leaving it to be
+	// inferred: routing "may carry fewer, or none of them, at any depth — an
+	// empty object where a projection could have gone is a projection of
+	// nothing, and asserts nothing."
+	//
+	// It is the one case where "not derivable" and "not permitted" come apart,
+	// which is why it was worth a sentence in spec/ rather than a comment here.
 	if err := CheckRouting(routingQuery(), Object{"target": Object{}}); err != nil {
 		t.Errorf("an empty prefix: %v", err)
 	}

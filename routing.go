@@ -15,9 +15,12 @@ package q2d
 // without unwrapping.
 //
 // Never purpose, delivery, answer_contract, target.subjects, or public_context.
-// Anything projected travels in the clear, and those are what the protocol
-// exists to bound. The list is closed: adding to it is a disclosure decision
-// rather than a plumbing one, and an escalation (§9.4).
+// Not because withholding them hides them — the 0.1 suite signs the payload
+// without encrypting it, so an intermediary reads them from signed regardless,
+// and claims.md Q2D-NC-13 says so. Because a projected field is legible without
+// decoding, and is therefore the one infrastructure indexes and retains at
+// scale. The list is closed: adding to it is a disclosure decision rather than a
+// plumbing one, and an escalation (§9.4).
 //
 // # Why this type has no other constructor
 //
@@ -253,11 +256,9 @@ const (
 	// Refused however faithful the copy, which is the rule the corpus vector
 	// exists to pin: its purpose is byte-identical to the signed one, so
 	// agreement is not what fails. §2.1 says routing carries at most those six,
-	// and a field outside the list is rejected whether or not it agrees.
-	//
-	// Why §2.1 says so is E-41, open: its stated reason is that projecting those
-	// fields would expose them, and the 0.1 suite signs the payload without
-	// encrypting it. The rule is not in question.
+	// and a field outside the list is rejected whether or not it agrees — a
+	// relay that copies purpose up from the payload has made it legible without
+	// decoding, which is the difference §2.1 is about.
 	RoutingIntroducedField
 )
 
