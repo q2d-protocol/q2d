@@ -124,11 +124,12 @@ Both members are duplicated in a signed payload — `signature.profile` and
 Either disagreement rejects with `structurally_invalid`
 ([`core-model.md`](core-model.md) §5.2.1): the suite was acceptable and the
 signature verified, so neither `unsupported_suite` nor `unauthenticated` would be
-true of it. This holds in **both directions**: a query at
-[`core-model.md`](core-model.md) §4 step 5's sibling in
-[P-003](../docs/prds/P-003-crypto-suites.md) §4.2, and a response at §4's
-response step **4a**. The attack it catches does not care which way the message
-travels (E-32).
+true of it. This holds in **both directions**, at
+[`core-model.md`](core-model.md) §4's query step **5a** and its response step
+**4a** — both immediately after the payload is parsed, because neither
+comparison can be made before then, and both before any step that acts on a
+payload field. The attack it catches does not care which way the message travels
+(E-32, E-35).
 The duplication is not redundancy: the header's copies are read *before*
 verification and are therefore untrusted, and the payload's copies are the
 authoritative ones. Comparing them catches a producer that signs a payload

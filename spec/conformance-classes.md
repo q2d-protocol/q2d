@@ -56,7 +56,7 @@ whose suite falls below its minimum acceptable policy.
 ### CC-2 — Core responder
 
 **Must.** Execute the processing order in [`core-model.md`](core-model.md) §4
-without reordering steps 1–16 **or the lettered steps among them, 9a and 11a**;
+without reordering steps 1–16 **or the lettered steps among them, 5a, 9a and 11a**;
 check the signature suite against its minimum
 acceptable policy before verifying; authenticate and verify delegation through
 the interfaces in [`core-model.md`](core-model.md) §2.3; reject any `routing` /

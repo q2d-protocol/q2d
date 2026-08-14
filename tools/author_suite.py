@@ -259,18 +259,17 @@ def vectors() -> list[dict]:
                 "verification by P-003 §4.2 step 4, which is the point: the "
                 "payload's copy is authoritative, the header's is not, and "
                 "comparing them catches a producer no verifier would otherwise "
-                "notice. **No §4 step is asserted.** The comparison needs the "
-                "parsed payload, so it cannot precede §4 step 5, and §4's query "
-                "order has no step for it — the response order gained 4a for "
-                "the same check (E-32) and the query side never enumerated one. "
-                "E-35."
+                "notice. §4 step **5a** is where it happens — the comparison "
+                "needs the parsed payload, so it cannot precede step 5, and "
+                "E-35 added the step for symmetry with the response order's "
+                "4a."
             ),
             "operation": "verify_query",
             "input": envelope(av.jws_compact(
                 seed, REQUESTER,
                 dict(QUERY, signature=dict(QUERY["signature"],
                                            profile=UNREGISTERED_SUITE)))),
-            "expect": rejects("header_payload_suite_mismatch", "structurally_invalid"),
+            "expect": rejects("header_payload_suite_mismatch", "structurally_invalid", "5a"),
         },
         {
             "id": "suite/downgrade/header-payload-key-mismatch",
@@ -291,7 +290,7 @@ def vectors() -> list[dict]:
                 seed, REQUESTER,
                 dict(QUERY, signature=dict(QUERY["signature"],
                                            key_id=IMPOSTOR)))),
-            "expect": rejects("header_payload_key_mismatch", "structurally_invalid"),
+            "expect": rejects("header_payload_key_mismatch", "structurally_invalid", "5a"),
         },
         {
             "id": "suite/keys/unresolvable",

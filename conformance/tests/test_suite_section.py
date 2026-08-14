@@ -138,8 +138,8 @@ class StructurallyInvalidTest(unittest.TestCase):
 
     The `alg` case is caught at §4 step 3, before any signature is checked, so
     it is not an authenticated message. The two disagreements need the parsed
-    payload, so they cannot be caught before step 5 -- and §4's query order names
-    no step for the comparison at all, which is E-35. They assert none.
+    payload and are caught at step **5a**, which E-35 added for symmetry with
+    the response order's 4a.
 
     The class is not "authentic but wrong": it is "well formed, and not this
     protocol's".
@@ -173,20 +173,15 @@ class StructurallyInvalidTest(unittest.TestCase):
         rejection = by_id()["suite/downgrade/header-carries-alg"]["expect"]["rejection"]
         self.assertEqual(rejection["step"], 3)
 
-    def test_the_disagreements_assert_no_step(self):
-        # They need the parsed payload, so they cannot precede §4 step 5 -- and
-        # §4's query order has no step for the comparison at all. The response
-        # order gained 4a for the same check (E-32); the query side never
-        # enumerated one, which is E-35.
-        #
-        # A step-less vector asserts no ordering (P-001 §4.8), which is weaker
-        # and true. `fold_registry.py` set the precedent before §4 gained 11a.
+    def test_the_disagreements_are_caught_at_step_5a(self):
+        # They need the parsed object, so they cannot precede step 5, and they
+        # precede every step that acts on a payload field. E-35 added 5a for
+        # that, symmetric with the response order's 4a.
         for name in ("suite/downgrade/header-payload-suite-mismatch",
                      "suite/downgrade/header-payload-key-mismatch"):
             with self.subTest(vector=name):
-                self.assertNotIn(
-                    "step", by_id()[name]["expect"]["rejection"],
-                    "E-35 has presumably closed — assert the step it determined")
+                self.assertEqual(
+                    by_id()[name]["expect"]["rejection"]["step"], "5a")
 
 
 class ExpectedStateTest(unittest.TestCase):

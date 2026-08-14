@@ -591,6 +591,7 @@ A conforming responder processes in this order:
 | 3 | Read the suite identifier; reject if below the verifier's minimum acceptable policy | The sender's declared suite selects how to verify, so it is read before verification — but it is checked against local policy, never trusted. Prevents algorithm-confusion and downgrade. |
 | 4 | Resolve the key; **verify the signature over the exact signed bytes** | **Nothing below this line runs for an unauthenticated request.** |
 | 5 | Parse the verified core object | Parsing happens *after* verification, so parser behaviour is outside the security boundary. |
+| 5a | Confirm the protected header's `suite` and `key_id` equal the payload's `signature.profile` and `signature.key_id` | The header is untrusted and the payload's copies are authoritative ([`crypto-suites.md`](crypto-suites.md) §3). It needs the parsed object, so it cannot precede step 5, and it precedes every step that *acts* on a payload field. Symmetric with the response order's step 4a. |
 | 6 | Expiry and clock-skew check — authoritative | The signed value governs; step 2 was advisory. |
 | 7 | Delegation verification | Establishes the agent acts for the principal. |
 | 8 | `routing` / `signed` consistency | Each projected field must equal the verified object's **exactly, with no coercion** — same type, same value, and for a string the same characters. No normalizing, no re-parsing a value into another form to decide it matches. §2.2's single timestamp spelling is what makes that decidable for `expires_at`, which would otherwise be two spellings of one instant and a disagreement about whether they disagree. Any difference is tampering. Reject; do not reconcile. |
@@ -608,8 +609,8 @@ A conforming responder processes in this order:
 | 18 | Budget debited | Once, idempotently. |
 | 19 | Receipt constructed; response signed | Q2D-C-10. |
 
-Steps 9a and 11a are lettered rather than numbered because the step numbers are
-cited throughout this repository and renumbering them silently would be worse
+Steps 5a, 9a and 11a are lettered rather than numbered because the step numbers
+are cited throughout this repository and renumbering them silently would be worse
 than an irregular label.
 
 **Step 17 validates against two things, and needs both.** The effective domain
@@ -794,7 +795,7 @@ bytes, so precision here costs nothing and makes the protocol debuggable.
 | `unsupported_suite` | Suite unregistered, **or** below the verifier's minimum acceptable policy | step 3 |
 | `routing_mismatch` | `routing` disagrees with the verified object | step 8 |
 | `expired` | Request expired or future-dated | step 6 |
-| `structurally_invalid` | The message parses, and what is wrong with it is neither a parse failure nor an authentication one: a protected header carrying a member [`crypto-suites.md`](crypto-suites.md) §3 does not permit, or a header whose `suite` or `key_id` disagrees with the payload's `signature.profile` or `signature.key_id` | step 3 for the header alone, which needs no signature. A disagreement needs the parsed payload, so it cannot precede step 5, and §4 does not yet name a step for the comparison — [`open-escalations.md`](../docs/open-escalations.md) E-35 |
+| `structurally_invalid` | The message parses, and what is wrong with it is neither a parse failure nor an authentication one: a protected header carrying a member [`crypto-suites.md`](crypto-suites.md) §3 does not permit, or a header whose `suite` or `key_id` disagrees with the payload's `signature.profile` or `signature.key_id` | step 3 for the header alone, which needs no signature; step **5a** for a disagreement, which needs the parsed payload |
 
 `unsupported_suite` is one value for two causes on purpose. Separating them would
 tell a requester whether the custodian *knows* a suite it declined, which is the
@@ -821,12 +822,9 @@ work, not extra work done ahead of authentication. The two disagreements need th
 parsed payload, which §2.1 forbids reading until the bytes verify, so they cannot
 be seen before step 5. Nothing in this class licenses reading a payload early.
 
-**§4's query order does not name the step at which the comparison happens.** The
-response order gained step 4a for exactly this check (E-32) and the query side
-was never enumerated, so the requirement exists — [`crypto-suites.md`](crypto-suites.md)
-§3 and P-003 §4.2 — with no slot in the order that cites it. That is
-[`open-escalations.md`](../docs/open-escalations.md) **E-35**, and the corpus
-vectors assert no step meanwhile.
+§4's query order names step **5a** for the comparison, which E-35 added — the
+response order had gained 4a for the same check and the query side had never been
+enumerated, so the requirement existed with no slot in the order that cites it.
 
 **What this vocabulary is for**, since `structurally_invalid` is the first value
 added after the list was closed and the next one will need the same test: it

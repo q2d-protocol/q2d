@@ -224,7 +224,7 @@ class produces a byte-identical response — the same cross-vector invariant
 Where the previous stages become a responder.
 
 - The [`core-model.md`](../spec/core-model.md) §4 processing order, steps 1–19
-  **and the lettered steps 9a and 11a**, in order, with the ordering itself
+  **and the lettered steps 5a, 9a and 11a**, in order, with the ordering itself
   asserted by test. A pipeline that runs the numbered steps and skips the
   lettered ones is unlimited probing (9a) and an unchecked registry constraint
   (11a), and would satisfy a stage defined as "1–19".

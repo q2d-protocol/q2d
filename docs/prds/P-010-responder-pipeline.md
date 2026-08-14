@@ -29,12 +29,12 @@ first module where they can fail in combination rather than in isolation.
 
 | Source | What it constrains here |
 |---|---|
-| [`spec/core-model.md`](../../spec/core-model.md) §4 | The steps, their order, and the three invariants. **Nineteen numbered and two lettered** — 9a and 11a — so a pipeline that orchestrates 1–19 and stops has skipped two |
+| [`spec/core-model.md`](../../spec/core-model.md) §4 | The steps, their order, and the three invariants. **Nineteen numbered and three lettered** — 5a, 9a and 11a — so a pipeline that orchestrates 1–19 and stops has skipped three |
 | [`spec/core-model.md`](../../spec/core-model.md) §4 step 17 | Output validation fails closed; the runtime must not serialize an exception carrying private input |
 | [`spec/core-model.md`](../../spec/core-model.md) §5.1 | The `answer` response shape |
 | [`spec/claims.md`](../../spec/claims.md) Q2D-C-03 | Bounded output, and what it does not claim |
 | [`spec/claims.md`](../../spec/claims.md) Q2D-C-04 | Private input is not serialized into the response |
-| [`spec/conformance-classes.md`](../../spec/conformance-classes.md) CC-2 | Must not read private input before step 16; must not reorder steps 1–16, **or 9a and 11a among them** |
+| [`spec/conformance-classes.md`](../../spec/conformance-classes.md) CC-2 | Must not read private input before step 16; must not reorder steps 1–16, **or 5a, 9a and 11a among them** |
 | [`threat-model/trust-matrix.md`](../../threat-model/trust-matrix.md) §3 | The computation executor is the trusted component for C-03 and C-04 |
 | [`registry/manifest.json`](../../registry/manifest.json) | The three predicates and their vectors |
 
@@ -67,7 +67,7 @@ PrivateAccessAuthorized     // constructible ONLY by the budget check at step 15
 read_private_input(auth: PrivateAccessAuthorized, ...) -> PrivateInput
 ```
 
-The token has no public constructor. Steps 1–15, and 9a and 11a among them,
+The token has no public constructor. Steps 1–15, and 5a, 9a and 11a among them,
 produce it or the request is
 already rejected; step 16 consumes it. **"No private input before step 16"
 becomes a fact about what compiles**, rather than a rule a reviewer checks.
@@ -259,7 +259,7 @@ the design does not have.
 
 | Section | Owner | Content |
 |---|---|---|
-| `ordering/` | this PRD | One vector per rejection step, 1–15, plus 9a and 11a |
+| `ordering/` | this PRD | One vector per rejection step, 1–15, plus 5a, 9a and 11a |
 | `evaluate/` | this PRD | The three predicates against `registry/manifest.json`'s vectors, run through the full pipeline |
 | `validate/` | this PRD | Out-of-domain output; oversized output; cardinality and precision violations |
 | `pipeline/` | this PRD | End-to-end answer; end-to-end denial; end-to-end escalation in both modes; partial-failure cases from §4.7 |
@@ -337,7 +337,7 @@ should be a small, readable function rather than a convenient one.
 | # | Issue | Done when |
 |---|---|---|
 | 1 | `PrivateAccessAuthorized` capability type | No public constructor; step 16 is the only consumer |
-| 2 | Step orchestration, 1–19 **including 9a and 11a** | `pipeline/` end-to-end vectors pass |
+| 2 | Step orchestration, 1–19 **including 5a, 9a and 11a** | `pipeline/` end-to-end vectors pass |
 | 3 | Step recorder in the rejection value | `ordering/` passes; step never reaches the wire |
 | 4 | Predicate dispatch table and startup consistency check | Missing implementation or entry fails at startup |
 | 5 | Private-input adapter interface plus a fixture store | Open question 4 resolved |

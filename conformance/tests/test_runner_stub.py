@@ -95,7 +95,7 @@ class ResultSchemaTest(unittest.TestCase):
                             "does not name its implementation")
 
     def test_a_lettered_step_can_be_reported(self):
-        # core-model.md §4 carries 9a and 11a. A result schema that could not
+        # core-model.md §4 carries 5a, 9a and 11a. A result schema that could not
         # express one would force a conforming runner to misreport the ordering
         # the corpus exists to assert — and would make a corpus vector stating
         # that step impossible to pass, since the result is rejected before it

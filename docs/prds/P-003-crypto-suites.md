@@ -90,13 +90,15 @@ avoid reading the header — it is to never let the header *decide*.
 4. After verification, confirm the payload's signature.profile equals the
    header's `suite`, and signature.key_id equals the header's `key_id`.
    Either mismatch rejects, with `structurally_invalid`
-   ([`core-model.md`](../../spec/core-model.md) §5.2.1).
+   ([`core-model.md`](../../spec/core-model.md) §5.2.1). This is that
+   document's §4 query step **5a**, and its response step 4a — the numbering
+   here is this sequence's own.
 ```
 
 **This procedure is the same for a response.** E-32 settled that §5.1–§5.3's
-payloads carry the same two copies and that
-[`core-model.md`](../../spec/core-model.md) §4's response step **4a** performs
-step 4 above — the producer this catches is no less able to lie to a requester
+payloads carry the same two copies, and
+[`core-model.md`](../../spec/core-model.md) §4 performs step 4 above at its
+query step **5a** and its response step **4a** (E-35) — the producer this catches is no less able to lie to a requester
 than to a responder, and the check had existed in one direction only.
 
 Step 2 is the whole defence. A verifier that verifies with whatever the header
