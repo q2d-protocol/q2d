@@ -66,7 +66,7 @@ Built: the vector schema and `lint` (issue 1), the projection
 the determinism check (issue 5), `coverage` (issue 6), the two cross-vector
 assertions (issues 7 and 8), comparison (issue 16), `cross` (issue 9), the
 dependency assertion (issue 15), the test key material (issue 10), the
-`registry/` section (issue 11), `message/` (issue 12), `suite/` (issue 13), and `ordering/`'s eleven authorable steps (issue 14).
+`registry/` section (issue 11), `message/` (issue 12), `suite/` (issue 13), and `ordering/`'s twelve authorable steps (issue 14).
 
 **`message/` has both halves.** Three vectors that sign, verify and project, and
 three rejections — a signature from the wrong key, a routing projection that
@@ -106,7 +106,7 @@ partly artefacts of which operation each vector used. Each request is wrong in
 exactly one way, since a request wrong in two rejects at the earlier of them
 whatever the implementation does with the later.
 
-Eleven of §4's rejection steps are covered. Five wait on fixture formats other
+Twelve of §4's rejection steps are covered, each supplying the responder's clock as `environment.now` — §4 step 6 is the first thing in the pipeline that needs a time, and a runner may not read one. Five wait on fixture formats other
 PRDs define — a delegation profile for step 7, replay and rate-limit state for 9
 and 9a, a rule set for 14, budget state for 15 — and step 2 gets none by design,
 since §4 makes it optional and never a security decision.
