@@ -9,7 +9,9 @@
 //!
 //! [`P-002`]: https://github.com/q2d-protocol/q2d/blob/main/docs/prds/P-002-message-envelope.md
 
+pub mod parse;
 pub mod timestamp;
 pub mod value;
 
+pub use parse::{parse, ParseError};
 pub use value::{serialize, serialize_operation_data, ProfileError, Value};

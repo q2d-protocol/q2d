@@ -95,6 +95,24 @@ Agreement on refusals matters as much as agreement on bytes — a serializer tha
 matches on everything the others accept and *also* emits bytes for what they
 refuse is not the same serializer.
 
+## Parsing is a two-way agreement, not three
+
+Both fixtures are also **round-tripped**: parsed back and re-serialized, and the
+bytes must not move. `tests/canonical_query.rs`, `tests/profile_edges.rs`, and
+the two Go files do this; the Python column does not, and will not.
+
+`tools/author_vectors.py` produces bytes and never consumes a payload. P-002 §5
+gives `parse_core` to the implementations, and §7 asks for agreement between
+*both implementations* — two is the requirement rather than a shortfall against
+three. The serializer needed a third reading because the corpus's expected bytes
+come from Python; nothing about parsing has that dependency.
+
+What the round trip adds over the byte fixtures is the other direction. A
+serializer and a parser can each be wrong in a way the other hides — a parser
+that dropped an escape and a serializer that re-added it would agree with each
+other and with nothing else — so the fixtures pin the bytes and these pin the
+inverse.
+
 ## Regenerating
 
 `canonical-query.json` is a readable copy of `author_message.py`'s `QUERY`; the
