@@ -170,3 +170,19 @@ func TestOperationDataIsSerializableOnItsOwn(t *testing.T) {
 		t.Errorf("the two entry points emit different bytes: %s vs %s", viaProtocol, viaData)
 	}
 }
+
+func TestATypedNilIsRefusedToo(t *testing.T) {
+	// Every write method has a value receiver, so *String is in Value's method
+	// set: a nil *String is an interface holding a type and no value, which is
+	// not equal to nil and panics on dispatch. The plain nil check above misses
+	// it entirely.
+	var pointer *String
+	refused(t, pointer)
+	refused(t, Array{pointer})
+	refused(t, Object{"a": pointer})
+
+	// A nil Array or Object is not this: it is an empty one, which is a value.
+	if got := text(t, Object{"a": Array(nil), "b": Object(nil)}); got != `{"a":[],"b":{}}` {
+		t.Errorf("a nil slice or map was treated as an absent value: %s", got)
+	}
+}

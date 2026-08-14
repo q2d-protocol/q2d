@@ -33,6 +33,7 @@ package q2d
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -146,11 +147,42 @@ func SerializeOperationData(v Value) ([]byte, error) {
 // Null{} is the JSON null and is unaffected. This is the absence of a value,
 // which is a different thing and not one §4.2 can render.
 func write(v Value, b *strings.Builder, protocolLevel bool) error {
-	if v == nil {
+	if isNil(v) {
 		return fmt.Errorf("a nil Value has no serialization. P-002 §4.2 renders " +
 			"JSON values, and the absence of one is not null — use Null{} for that")
 	}
 	return v.write(b, protocolLevel)
+}
+
+// isNil reports whether v is nil, including a *typed* nil.
+//
+// `v == nil` catches only the zero interface. Every write method has a value
+// receiver, so a pointer to one of the concrete types is also in Value's method
+// set — and a nil *String is an interface holding a type and no value, which is
+// not equal to nil and panics on dispatch. A serializer whose malformed-input
+// path is a stack trace is not fail-closed.
+//
+// reflect for four lines, once per value, is the cheap half of that trade;
+// performance is a Stage 8 concern (CLAUDE.md) and correctness here is not.
+// Neither of the other two implementations needs this: Rust's Value is an enum
+// and Python's None is the Null case.
+func isNil(v Value) bool {
+	if v == nil {
+		return true
+	}
+	switch reflected := reflect.ValueOf(v); reflected.Kind() {
+	case reflect.Pointer, reflect.Interface, reflect.Map, reflect.Slice, reflect.Func:
+		// A nil Array or Object is *not* nil for this purpose — an Array(nil)
+		// serializes as [] and an Object(nil) as {}, which is what an empty one
+		// means. Only their named types reach here, and both handle nil
+		// already, so this arm is for a nil pointer or a nil interface.
+		if reflected.Kind() == reflect.Pointer || reflected.Kind() == reflect.Interface {
+			return reflected.IsNil()
+		}
+		return false
+	default:
+		return false
+	}
 }
 
 func (Null) write(b *strings.Builder, _ bool) error {
