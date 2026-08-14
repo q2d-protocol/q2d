@@ -9,12 +9,14 @@
 //!
 //! [`P-002`]: https://github.com/q2d-protocol/q2d/blob/main/docs/prds/P-002-message-envelope.md
 
+pub mod digest;
 pub mod envelope;
 pub mod parse;
 pub mod routing;
 pub mod timestamp;
 pub mod value;
 
+pub use digest::digest;
 pub use envelope::{parse_envelope, Envelope};
 pub use parse::{parse, ParseError};
 pub use routing::{check_routing, project_routing, Routing, RoutingMismatch};

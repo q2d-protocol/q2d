@@ -70,6 +70,25 @@ and Go's. That makes this a **two-way** agreement with an independently authored
 expectation, which is a different and stronger thing than three implementations
 of one function agreeing.
 
+## `digests.txt`
+
+P-002 §4.7's `"sha256:" + lowercase_hex(SHA-256(bytes))`, over every
+`.serialized` file here and over the empty input — the case a padding mistake
+reaches first.
+
+Three provenances, which is the point. Rust implements SHA-256 **by hand**,
+because its standard library has none and the crate takes no dependencies, and
+is gated on FIPS 180-4's published known answers besides. Go uses
+`crypto/sha256`. `hashlib` wrote the file. So a defect in the hand-written one
+shows up as a disagreement with two standard libraries rather than as its own
+private truth.
+
+This is the opposite arrangement from the serializer, and for the opposite
+reason: there, `encoding/json` had behaviours §4.2 forbids and the standard
+library was the thing to avoid. The question is never *stdlib or not* but
+*does the stdlib do what the specification says* — for SHA-256 it does, exactly,
+and for JSON it does not.
+
 ## What is *not* here
 
 Refusals. All three implementations agree on what the profile rejects, and
