@@ -186,3 +186,25 @@ func mustSerialize(t *testing.T, v Value) []byte {
 	}
 	return bytes
 }
+
+func TestAStringIsBoundedByPublicContextRatherThanByTheFieldLimit(t *testing.T) {
+	// §2.8's 2 KiB covers the fields the specification defines and stops at
+	// predicate.public_context (§2.6, operation-defined). This function cannot
+	// tell one from the other, so it applies the outer bound — 32 KiB, the
+	// largest any string in a conforming message may be.
+	//
+	// A predicate's 3 KiB description therefore parses, which is the point of
+	// the decision; its own bound is its registry entry's maxLength (scope.md
+	// §4.1), which this layer has no access to.
+	threeKiB := strings.Repeat("d", 3*1024)
+	if got := parsed(t, `"`+threeKiB+`"`); string(got.(String)) != threeKiB {
+		t.Error("a 3 KiB predicate string did not survive")
+	}
+
+	// And nothing is unbounded: past public_context's own limit, no conforming
+	// message can carry it.
+	tooLong := strings.Repeat("d", MaxPublicContext+1)
+	if message := rejected(t, `"`+tooLong+`"`); !strings.Contains(message, "§4.8") {
+		t.Errorf("past the outer bound: %s", message)
+	}
+}

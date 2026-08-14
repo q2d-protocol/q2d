@@ -54,9 +54,18 @@ const (
 	MaxDepth = 16
 	// MaxMembers is the member count per object.
 	MaxMembers = 64
-	// MaxString bounds any single string field, in bytes. Bytes rather than
-	// characters: it bounds what has to be held, and a character is one to four.
+	// MaxString bounds any single string field the specification defines, in
+	// bytes. Bytes rather than characters: it bounds what has to be held, and a
+	// character is one to four.
+	//
+	// §2.8 stops this at predicate.public_context, which §2.6 makes
+	// operation-defined — so it is applied where protocol fields are known,
+	// which is ParseEnvelope for routing and parse_core for the payload.
 	MaxString = 2 * 1024
+	// MaxPublicContext bounds predicate.public_context, in bytes — and therefore
+	// the largest any single string in a conforming message may be, since a
+	// string inside it cannot exceed the object that holds it.
+	MaxPublicContext = 32 * 1024
 	// MaxEnvelope bounds the whole envelope, in bytes. Checked before parsing
 	// rather than during — §4 step 1's "before any allocation on
 	// attacker-controlled data".
@@ -74,7 +83,17 @@ const (
 // and its encoding is this function's to check rather than its caller's to
 // promise.
 func Parse(payload []byte) (Value, error) {
-	return parseWithin(payload, MaxString)
+	// The bound is public_context's, not §2.8's 2 KiB string limit, because this
+	// function cannot tell a protocol field from a predicate's own — and §2.8's
+	// limit stops at predicate.public_context. 32 KiB is the largest any string
+	// in a conforming message may be, so nothing is unbounded and nothing
+	// conforming is refused.
+	//
+	// The 2 KiB is applied where the fields are known: ParseEnvelope does it for
+	// routing, and parse_core will for the payload. Until that exists, a
+	// payload's protocol string between 2 and 32 KiB parses here and is caught
+	// by nothing — recorded in P-002 issue 4.
+	return parseWithin(payload, MaxPublicContext)
 }
 
 // parseWithin is Parse with a string bound the caller sets. One caller:

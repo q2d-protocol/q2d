@@ -314,6 +314,43 @@ read before anything is authenticated and are therefore untrusted; they exist so
 a verifier can reach the point of verifying at all. A verifier confirms each pair
 agrees once the signature verifies, and a disagreement rejects.
 
+### 2.8 Size limits
+
+A message is bounded, and the bounds are **normative**. A limit an
+implementation may choose is not a limit: two responders that reject different
+payloads are two protocols, and §1 admits no negotiation round trip in which a
+requester could discover which one it is addressing.
+
+| Limit | Value |
+|---|---|
+| Envelope | 64 KiB |
+| Nesting depth | 16 |
+| Object members per object | 64 |
+| Any single string field | 2 KiB |
+| `predicate.public_context` | 32 KiB |
+
+**The string limit is on the fields this specification defines.** It does not
+reach inside `predicate.public_context`, which §2.6 makes operation-defined: a
+predicate's own field is bounded by its registry entry's schema, where
+[`scope.md`](scope.md) §4.1 requires a `maxLength`, and by the 32 KiB the whole
+object may not exceed. A protocol that capped a predicate's text at 2 KiB would
+be deciding the shape of data it declines to define.
+
+`signed` is the other exception, and it is arithmetic rather than judgement: it
+carries a whole signed payload, so the envelope limit is what bounds it. A 2 KiB
+cap there would leave a few hundred bytes for `public_context` and no conforming
+query with predicate data would fit.
+
+**Only the envelope limit can be enforced before allocation**, which is what §4
+step 1 requires of it. The rest are enforced as the message is read, and are
+bounded by it: once the envelope is capped, the remaining limits constrain shape
+rather than prevent exhaustion. `public_context`'s limit is enforced at step 5,
+because it is inside the payload that step verifies before parsing.
+
+The values are engineering estimates rather than measurements. Lowering one is a
+specification change; raising one is a specification change **and** an admission
+that the limit was not bounding anything.
+
 ## 3. Effective answer domain
 
 The responder computes, and never accepts:
@@ -612,7 +649,7 @@ A conforming responder processes in this order:
 
 | # | Step | Why here |
 |---|---|---|
-| 1 | Parse the **envelope**; reject oversized or malformed input | Before any allocation on attacker-controlled data. |
+| 1 | Parse the **envelope**; reject oversized or malformed input | Before any allocation on attacker-controlled data. §2.8 gives the limits; the envelope's is the one this step can apply. |
 | 2 | *Optional:* shed obviously stale traffic using `routing.expires_at` | Load shedding only. **Never a security decision** — `routing` is advisory. |
 | 3 | Read the suite identifier; reject if below the verifier's minimum acceptable policy | The sender's declared suite selects how to verify, so it is read before verification — but it is checked against local policy, never trusted. Prevents algorithm-confusion and downgrade. |
 | 4 | Resolve the key; **verify the signature over the exact signed bytes** | **Nothing below this line runs for an unauthenticated request.** |
@@ -715,7 +752,7 @@ whose violation is a vulnerability, not every action a runtime performs.
 
 | # | Step | Why here |
 |---|---|---|
-| 1 | Parse the **envelope**; reject oversized or malformed input | Before any allocation on attacker-controlled data. |
+| 1 | Parse the **envelope**; reject oversized or malformed input | Before any allocation on attacker-controlled data. §2.8 gives the limits; the envelope's is the one this step can apply. |
 | 2 | Read the suite identifier; reject if below the requester's minimum acceptable policy | Symmetric to responder step 3. A requester that accepts any suite the responder chose has no floor. |
 | 3 | Resolve the responder key; **verify the signature over the exact signed bytes** | **Nothing below this line runs for an unauthenticated response.** |
 | 4 | Parse the verified response object | After verification, so parser behaviour is outside the security boundary. |

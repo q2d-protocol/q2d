@@ -51,9 +51,19 @@ use std::collections::BTreeMap;
 pub const MAX_DEPTH: usize = 16;
 /// Members per object.
 pub const MAX_MEMBERS: usize = 64;
-/// Any single string field, in bytes. Bytes rather than characters: it bounds
-/// what has to be held, and a character is one to four of them.
+/// Any single string field the *specification defines*, in bytes. Bytes rather
+/// than characters: it bounds what has to be held, and a character is one to
+/// four of them.
+///
+/// §2.8 stops this at `predicate.public_context`, which §2.6 makes
+/// operation-defined — so it is applied where protocol fields are known, which
+/// is [`crate::parse_envelope`] for `routing` and `parse_core` for the payload.
 pub const MAX_STRING: usize = 2 * 1024;
+
+/// `predicate.public_context`, in bytes — and therefore the largest any single
+/// string in a conforming message may be, since a string inside it cannot
+/// exceed the object that holds it.
+pub const MAX_PUBLIC_CONTEXT: usize = 32 * 1024;
 /// The whole envelope, in bytes. Checked before parsing rather than during —
 /// §4 step 1's *before any allocation on attacker-controlled data*.
 pub const MAX_ENVELOPE: usize = 64 * 1024;
@@ -84,7 +94,17 @@ impl std::error::Error for ParseError {}
 /// Taking bytes rather than a string is deliberate: a payload arrives as bytes
 /// and its encoding is this function's to check, not its caller's to promise.
 pub fn parse(bytes: &[u8]) -> Result<Value, ParseError> {
-    parse_within(bytes, MAX_STRING)
+    // The bound is `public_context`'s, not §2.8's 2 KiB string limit, because
+    // this function cannot tell a protocol field from a predicate's own — and
+    // §2.8's limit stops at `predicate.public_context`. 32 KiB is the largest
+    // any string in a conforming message may be, so nothing is unbounded and
+    // nothing conforming is refused.
+    //
+    // The 2 KiB is applied where the fields *are* known: `parse_envelope` does
+    // it for `routing`, and `parse_core` will for the payload. Until that
+    // exists, a payload's protocol string between 2 and 32 KiB parses here and
+    // is caught by nothing — recorded in P-002 issue 4.
+    parse_within(bytes, MAX_PUBLIC_CONTEXT)
 }
 
 /// The same, with a string bound the caller sets.
@@ -582,6 +602,28 @@ mod tests {
         // survives on a small stack.
         let absurd = "[".repeat(100_000);
         assert!(refused(&absurd).contains("§4.8"));
+    }
+
+    #[test]
+    fn a_string_is_bounded_by_public_context_rather_than_by_the_field_limit() {
+        // §2.8's 2 KiB covers the fields the specification defines and stops at
+        // `predicate.public_context` (§2.6, operation-defined). This function
+        // cannot tell one from the other, so it applies the outer bound —
+        // 32 KiB, the largest any string in a conforming message may be.
+        //
+        // A predicate's 3 KiB description therefore parses, which is the point
+        // of the decision; its own bound is its registry entry's `maxLength`
+        // (`scope.md` §4.1), which this layer has no access to.
+        let three_kib = "d".repeat(3 * 1024);
+        assert_eq!(
+            parsed(&format!(r#""{three_kib}""#)),
+            Value::string(three_kib.clone())
+        );
+
+        // And nothing is unbounded: past `public_context`'s own limit, no
+        // conforming message can carry it.
+        let too_long = "d".repeat(MAX_PUBLIC_CONTEXT + 1);
+        assert!(refused(&format!(r#""{too_long}""#)).contains("§4.8"));
     }
 
     #[test]

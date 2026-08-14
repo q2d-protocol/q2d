@@ -471,6 +471,45 @@ def declared_timestamps(value, schema, path):
                 yield from declared_timestamps(item, items, f"{path}[{index}]")
 
 
+def unbounded_request_string(schema, path):
+    """Every string an entry's input or public-context schema leaves unbounded.
+
+    scope.md §4.1: every `string` those schemas admit states a `maxLength`, or
+    carries `format: date-time`, or an `enum`.
+
+    Separate from `unbounded_release`, which asks the same question of the
+    output schema for a different reason. That one is about **disclosure** --
+    what a released value may reveal. This is about **representation**:
+    core-model.md §2.8's 2 KiB string limit stops at `public_context`, so a
+    predicate's own text is bounded by its entry or by nothing but the 32 KiB
+    whole-object limit.
+
+    `private_input_schema` is not walked. A requester cannot send it, so it is
+    not attacker-controlled, and what it costs to hold is the custodian's own
+    question.
+    """
+    if not isinstance(schema, dict):
+        return
+    if "enum" in schema:
+        # A finite set of literals bounds every string in it, exactly as the
+        # release rule treats one.
+        return
+
+    declared = schema.get("type")
+    types = declared if isinstance(declared, list) else [declared]
+    if "string" in types:
+        if "maxLength" not in schema and schema.get("format") != "date-time":
+            yield (f"{path}: string with no `maxLength`, which §4.1 requires of "
+                   f"an input or public-context schema")
+
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for name, sub in properties.items():
+            yield from unbounded_request_string(sub, f"{path}.properties.{name}")
+    if "items" in schema:
+        yield from unbounded_request_string(schema["items"], f"{path}.items")
+
+
 def entry_timestamps(manifest):
     """`declared_timestamps` over every vector of every entry."""
     for index, entry in enumerate(manifest.get("predicates", [])):
@@ -809,6 +848,14 @@ def main(argv: list[str]) -> int:
             # can be *represented* rather than whether it can be released, and
             # an integer a producer cannot hold arrives through the input and
             # public-context schemas. E-37.
+            # §4.1's second boundedness rule, on what a requester may send.
+            # Not `private_input_schema`: a requester cannot send it.
+            if field in ("input_schema", "public_context_schema"):
+                unbounded_in = sorted(unbounded_request_string(schema, where))
+                check(not unbounded_in,
+                      f"{where} bounds every string a requester may send",
+                      "; ".join(unbounded_in))
+
             unrepresentable = sorted(unrepresentable_integer(schema, where))
             check(not unrepresentable,
                   f"{where} keeps every integer inside the 64-bit range",
