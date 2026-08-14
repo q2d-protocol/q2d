@@ -252,11 +252,12 @@ const (
 	//
 	// Refused however faithful the copy, which is the rule the corpus vector
 	// exists to pin: its purpose is byte-identical to the signed one, so
-	// agreement is not what fails. The harm is the projection rather than the
-	// mismatch — a projected field is legible without decoding signed, so it is
-	// the one infrastructure indexes and retains, and a relay that copies
-	// purpose up from the payload has made it cheap to harvest while changing
-	// nothing.
+	// agreement is not what fails. §2.1 says routing carries at most those six,
+	// and a field outside the list is rejected whether or not it agrees.
+	//
+	// Why §2.1 says so is E-41, open: its stated reason is that projecting those
+	// fields would expose them, and the 0.1 suite signs the payload without
+	// encrypting it. The rule is not in question.
 	RoutingIntroducedField
 )
 

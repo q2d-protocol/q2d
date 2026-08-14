@@ -182,15 +182,12 @@ Projected fields, and no others:
 | `expires_at` | Shed stale traffic |
 
 `purpose`, `delivery`, `answer_contract`, `target.subjects`, and
-`public_context` are **never** projected.
+`public_context` are **never** projected. They travel in the clear if projected,
+and they are what the protocol exists to bound.
 
-Not because projecting them would expose them — [`core-model.md`](../../spec/core-model.md)
-§2.1 now says plainly that it would not, since the 0.1 suite signs the payload
-without encrypting it and any intermediary can decode `signed` and read them.
-Because a projected field is legible *without decoding*, and is therefore the
-one that gets indexed and retained by infrastructure with no interest in the
-exchange — and because the rule is what makes the projection correct the day a
-payload-encryption suite exists.
+**§2.1's justification for that is under escalation** —
+[E-41](../open-escalations.md). The rule is not in question; what it rests on
+is, because the 0.1 suite signs the payload without encrypting it.
 
 ### 4.6 Consistency check
 
@@ -386,6 +383,7 @@ what `AGENTS.md`'s architectural-pivot rule exists for.
 | ~~Are the §4.8 limits right?~~ | **Resolved for MVP: adopted as stated, and they are normative rather than advisory** — a limit an implementation may choose is not a limit, and the two implementations must reject the same payload. They are engineering estimates, not measurements, and §4.8 says so; Stage 8 measures real payloads and may lower them. Raising one is an escalation, because a limit that grows to fit a payload is not bounding anything |
 | ~~Second-precision timestamps sufficient, or is sub-second needed for replay windows?~~ | **Answered: sufficient.** Uniqueness comes from the nonce, not the clock. [P-004](P-004-replay-idempotency.md) §4.3 |
 | ~~Does `semantic` comparison from P-001 apply to `routing`, given it is unsigned?~~ | **Answered: yes**, and only because it is outside the signature. Anything inside `signed` compares as `bytes`. [P-001](P-001-conformance-corpus.md) §4.4 |
+| **Does §2.1's justification for the projection allowlist hold under 0.1?** | **[E-41](../open-escalations.md), open.** §2.1 says projecting `purpose` or `public_context` *"would leak precisely what the protocol exists to bound"*, and the 0.1 suite signs the payload without encrypting it — I decoded the corpus's own `routing/subset` vector with no key and read its `purpose`. **The rule is not in question** and `check_routing` enforces it; what §2.1 gives as its reason is. Q2D-C-05 is unaffected: it claims integrity, not confidentiality. My recommendation is to say plainly that this is not confidentiality and keep the rule on the two grounds that survive — a projected field is legible *without decoding* and so is the one infrastructure indexes, and the allowlist is what makes the projection correct once a payload-encryption suite exists |
 | ~~May an envelope omit `routing`?~~ | **Resolved: yes**, and [`core-model.md`](../../spec/core-model.md) §2.1 says so — *"`routing` may be absent, and a responder must accept a message carrying only `signed`"*. [E-38](../open-escalations.md), closed as B. §2.1's opening sentence changed with it: *"a message has two parts"* implied something about presence it never meant, and now reads *"an authoritative part and an optional advisory one"*. Absence removes no guarantee — a projection that is *present* is the thing that can disagree — and requiring it would publish `predicate.id` and `target.custodian` in the clear in the one case, a direct exchange, where least disclosure could be best. **I implemented the opposite first**, arguing the corpus was evidence of intent; CLAUDE.md's hierarchy answers that directly, and the register keeps the reasoning because the mistake is the reusable part. `suite/` is routing-less again and `message/` carries the projection, so the corpus exercises both shapes |
 | ~~Should §4.8's limits live in `spec/` rather than here?~~ | **Resolved: yes** — [`core-model.md`](../../spec/core-model.md) §2.8 now carries them and §4.8 cites it. [E-39](../open-escalations.md), closed as A. The argument was E-16's, unchanged: `spec/` said only *reject oversized*, so a third implementation enforced nothing. §2.8 also records what §4.8 had learned — that only the envelope limit can run before allocation, and why `signed` is exempt from the string limit. |
 | ~~Does the 2 KiB string limit reach inside `public_context`?~~ | **Resolved: no** — [E-40](../open-escalations.md), closed as B, consistent with E-36. §2.8's string limit covers the fields the specification defines; a predicate's own field is bounded by its registry entry, where [`scope.md`](../../spec/scope.md) §4.1 now requires a `maxLength` on every schema describing what a requester may send, and by the 32 KiB the whole object may not exceed. §4.1's *"this document does not decide it"* is gone: §2.8 decided the message-level part, which would have left the per-field part with no owner at all. `private_input_schema` is excluded — a requester cannot send it. |

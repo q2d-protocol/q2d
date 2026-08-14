@@ -18,7 +18,14 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** **E-36** through **E-40** all closed, every one raised
+> **E-41 is open**, raised while building `check_routing`: `core-model.md` §2.1
+> justifies the `routing` allowlist by saying that projecting `purpose` and
+> `public_context` *"would leak precisely what the protocol exists to bound"* —
+> and the 0.1 suite signs the payload without encrypting it, so an intermediary
+> reads them from `signed` regardless. The **rule is not in question**; what it
+> rests on is. §E-41 has the options.
+>
+> **E-36** through **E-40** all closed, every one raised
 > while building P-002's message layer, every one cascaded.
 >
 > **E-39:** `core-model.md` gains **§2.8**, which carries the size limits P-002
@@ -169,6 +176,7 @@ question is still fresh than after the answer arrives.
 | **E-38** | May an envelope omit `routing`? | P-002 issue 5 | `core-model.md` §2.1 · P-002 §4.4, §4.5, §10 · `tools/author_suite.py`, `tools/author_ordering.py` · both implementations | **Closed** |
 | **E-39** | Should §4.8's size limits live in `spec/` rather than in a PRD? | P-002 issue 5 | `core-model.md` §2.8 (new), §4 step 1 · P-002 §4.8 | **Closed** |
 | **E-40** | Does the 2 KiB string limit reach inside `public_context`? | P-002 issue 5 | `core-model.md` §2.8 · `scope.md` §4.1 · `registry/validate.py` · both parsers | **Closed** |
+| **E-41** | §2.1 justifies the `routing` allowlist by a confidentiality 0.1 does not provide | P-002 issue 7 | `core-model.md` §2.1 · P-002 §4.5 · `claims.md` Q2D-C-05 (checked, unaffected) | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -3601,6 +3609,116 @@ so an entry that omits it fails validation rather than shipping.
 only for memory, a uniform 2 KiB becomes easier to reason about than a
 per-predicate bound. That is a Q2D-C-08 question and should reopen this if it
 lands that way.
+
+---
+
+## E-41 — §2.1 justifies the routing allowlist by a confidentiality 0.1 does not provide
+
+**Raised by:** P-002 issue 7, building `check_routing`. **The rule is not in
+question.** What §2.1 gives as its reason is.
+
+### The gap
+
+[`core-model.md`](../spec/core-model.md) §2.1:
+
+> `routing` is kept minimal, because it travels in the clear. … **Purpose,
+> sinks, subjects, the answer contract, and public context are never
+> projected** — a relay has no need for them, and exposing them would leak
+> precisely what the protocol exists to bound.
+
+*Travels in the clear* and *exposing them would leak* both say that withholding
+a field from `routing` keeps it from an intermediary. Under 0.1's only
+registered suite it does not. `eddsa-jws-2026` is JWS compact
+([`crypto-suites.md`](../spec/crypto-suites.md) §3): the payload is signed and
+**not encrypted**, so any party holding the envelope base64url-decodes `signed`
+and reads every field in it.
+
+### Concretely
+
+The corpus's own `message/routing/subset.json` — a vector whose whole point is
+that `routing` withholds `purpose` — yields it in one line with no key:
+
+```python
+payload = vector["input"]["envelope"]["signed"].split(".")[1]
+json.loads(base64.urlsafe_b64decode(payload + "=="))["purpose"]
+# {'code': 'social.meal-planning', 'description': 'Choose a dinner venue for 2026-07-31'}
+```
+
+So a reader who takes §2.1 at its word concludes the projection is a
+confidentiality boundary. It is not one, and a deployment that needed the query
+confidential and believed this sentence would have got nothing.
+
+### What is *not* wrong
+
+**Q2D-C-05 is unaffected**, and it is worth saying so first because it is the
+claim §2.1 is about. It claims an intermediary cannot **alter** those fields
+without invalidating the signature — integrity, not confidentiality — and that
+holds exactly as stated. Nothing in `claims.md` claims the query is confidential.
+
+**The rule is right on grounds that survive.** Two of them:
+
+- A projected field is legible **without decoding**, so it is the field that
+  gets indexed, logged and retained at scale by infrastructure with no interest
+  in the exchange. An unprojected one costs a deliberate act to read. That is a
+  real difference in exposure and a weaker one than §2.1 claims.
+- The allowlist is what makes the projection **correct the day a
+  payload-encryption suite exists**. `crypto-suites.md` §7 names one as the
+  pressing post-quantum case. A projection designed around what a relay may see
+  does not need redesigning when the payload stops being readable.
+
+### Options
+
+**A. Say plainly that this is not confidentiality**, keep the rule, and give the
+two grounds above. Add that a deployment needing the query confidential needs
+transport confidentiality (P-013's TLS) or a suite 0.1 does not register.
+
+**B. Leave §2.1 and add a non-claim to `claims.md`** — *Q2D-NC-nn: the query is
+not confidential from an intermediary* — so the correction lives where
+non-claims live and §2.1 keeps its shorthand.
+
+**C. Leave it.** Read charitably, *travels in the clear* distinguishes a field
+that is legible from one that must be decoded, which is a real if unstated
+distinction.
+
+### Recommendation — A, and B as well if you want the non-claim
+
+**A, because the sentence is read by implementers rather than by lawyers.** The
+non-claims list in `claims.md` is long on purpose and this is the same instinct
+one level down: the cheapest overstatement to make is a rationale, and
+`CLAUDE.md` names overstatement as the failure mode that costs most here.
+
+**B is complementary rather than alternative.** A non-claim would be the right
+home for *the query is not confidential from an intermediary* whichever way §2.1
+is worded, and adding one is a `claims.md` change of its own.
+
+**C is defensible and I do not recommend it.** It requires the reader to supply
+a distinction the text does not make, and the text makes a stronger one — *would
+leak precisely what the protocol exists to bound* is not a sentence about
+convenience.
+
+### Where the recommendation stops being right
+
+**If a payload-encryption suite is registered before 0.1 ships**, §2.1 becomes
+true as written and A is a correction to something that has stopped being wrong.
+`crypto-suites.md` §7 makes that a real possibility rather than a remote one.
+
+**If the projection is ever the only thing a relay sees** — a transport that
+strips `signed` for a first hop, which nothing today does — the confidentiality
+reading is the correct one and A would have to be undone.
+
+### What was built
+
+**Nothing, and that is the correction this entry also records.** I wrote A into
+§2.1 and P-002 §4.5 and had to take it back out: `CLAUDE.md` says a change to
+`spec/` semantics is an escalation and that *editorial fixes are yours; meaning
+is not*. I had judged it editorial because there was only one honest wording,
+which confuses *the answer is obvious* with *the question is mine*. Review
+caught it, which is the second time in this PR that a rule I had been applying
+all day was one I then broke.
+
+`check_routing` does not depend on the outcome. It enforces §2.1's rule —
+`routing` carries at most the six — and its comments now cite that rule and name
+this escalation rather than asserting either rationale.
 
 ---
 
