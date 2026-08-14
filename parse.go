@@ -193,11 +193,16 @@ func (p *parser) object() (Value, error) {
 		if err != nil {
 			return nil, err
 		}
-		// §4.2: rejected on parse, not resolved. The name is repeated because
-		// it is the sender's own label; nothing about the value is.
+		// §4.2: rejected on parse, not resolved.
+		//
+		// The key is not in the message. It reads as the sender's own label,
+		// and on a query it is — but Parse runs over responses too, where a key
+		// inside a released result can be derived from private data: a map
+		// keyed by a contact's name discloses the name. The position is enough
+		// to find it, and a position is a fact about the input's shape.
 		if _, seen := pairs[key]; seen {
-			return nil, p.fail(fmt.Sprintf("duplicate key %q, which P-002 §4.2 "+
-				"rejects rather than resolving — two readings of one signed payload", key))
+			return nil, p.fail("duplicate key, which P-002 §4.2 rejects rather " +
+				"than resolving — two readings of one signed payload")
 		}
 		pairs[key] = item
 

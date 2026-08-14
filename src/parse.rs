@@ -177,14 +177,19 @@ impl<'a> Parser<'a> {
                 p.expect(b':')?;
                 p.skip_whitespace();
                 let item = p.value()?;
-                // §4.2: rejected on parse, not resolved. The name is the
-                // sender's own and is safe to repeat; nothing about the value
-                // is.
-                if pairs.insert(key.clone(), item).is_some() {
-                    return Err(p.fail(&format!(
-                        "duplicate key {key:?}, which P-002 §4.2 rejects rather \
-                         than resolving — two readings of one signed payload"
-                    )));
+                // §4.2: rejected on parse, not resolved.
+                //
+                // The key is **not** in the message. It reads as the sender's
+                // own label, and on a query it is — but `parse` runs over
+                // responses too, where a key inside a released `result` can be
+                // derived from private data: a map keyed by a contact's name
+                // discloses the name. The position is enough to find it, and a
+                // position is a fact about the input's shape.
+                if pairs.insert(key, item).is_some() {
+                    return Err(p.fail(
+                        "duplicate key, which P-002 §4.2 rejects rather than \
+                         resolving — two readings of one signed payload",
+                    ));
                 }
                 p.skip_whitespace();
                 match p.peek() {
@@ -418,12 +423,13 @@ mod tests {
 
     #[test]
     fn a_duplicate_key_is_refused() {
-        let message = refused(r#"{"a":1,"a":2}"#);
+        let message = refused(r#"{"secret_contact":1,"secret_contact":2}"#);
         assert!(message.contains("duplicate key"), "{message}");
-        // The name is repeated and the values are not: a key is the sender's
-        // own label, and `2` could be an answer.
-        assert!(message.contains(r#""a""#));
-        assert!(!message.contains("2,"), "{message}");
+        // Neither the key nor the value. A key reads as the sender's own
+        // label, and on a response it can be derived from private data — a map
+        // keyed by a contact's name discloses the name.
+        assert!(!message.contains("secret_contact"), "{message}");
+        assert!(message.contains("byte"), "{message}");
     }
 
     #[test]

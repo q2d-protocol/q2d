@@ -65,14 +65,18 @@ func TestANonConformantPayloadStillParses(t *testing.T) {
 }
 
 func TestADuplicateKeyIsRefused(t *testing.T) {
-	message := rejected(t, `{"a":1,"a":2}`)
+	message := rejected(t, `{"secret_contact":1,"secret_contact":2}`)
 	if !strings.Contains(message, "duplicate key") {
 		t.Errorf("message does not name the defect: %s", message)
 	}
-	// The name is repeated and the values are not: a key is the sender's own
-	// label, and 2 could be an answer.
-	if !strings.Contains(message, `"a"`) {
-		t.Errorf("message does not name the key: %s", message)
+	// Neither the key nor the value. A key reads as the sender's own label, and
+	// on a response it can be derived from private data — a map keyed by a
+	// contact's name discloses the name.
+	if strings.Contains(message, "secret_contact") {
+		t.Errorf("message carries the key: %s", message)
+	}
+	if !strings.Contains(message, "byte") {
+		t.Errorf("message names no position: %s", message)
 	}
 }
 
