@@ -30,14 +30,26 @@ func TestAMalformedTimestampFieldIsRefused(t *testing.T) {
 	refused(t, Object{"issued_at": Null{}})
 }
 
-func TestAMalformedTimestampAnywhereIsRefused(t *testing.T) {
-	// By shape: a string carrying some RFC 3339 spelling that is not §2.2's is
-	// a malformed timestamp wherever it appears — including inside
-	// public_context, which is exactly where an unexpected one arrives.
-	refused(t, Object{"predicate": Object{"public_context": Object{
-		"booked_for": String("2026-07-31T19:30:00+01:00"),
-	}}})
-	refused(t, Array{String("2026-07-31T09:00:00.000Z")})
+func TestATimestampOutsideATimestampFieldIsLeftAlone(t *testing.T) {
+	// §2.2 states its spelling for the fields it names. A string somewhere else
+	// is not a Q2D timestamp however much it looks like one, and §2.6 says a
+	// predicate's public_context may mean anything at all — an offset carries
+	// the local time the requester is thinking in, which Z would lose.
+	//
+	// Whether §2.2 should reach further is E-36, open. All three implementations
+	// do what §2.2 states and no more until it is decided; the register has the
+	// options. If E-36 closes as A, these two become refusals and nothing else
+	// moves.
+	for _, value := range []Value{
+		Object{"predicate": Object{"public_context": Object{
+			"booked_for": String("2026-07-31T19:30:00+01:00"),
+		}}},
+		Array{String("2026-07-31T09:00:00.000Z")},
+	} {
+		if _, err := Serialize(value); err != nil {
+			t.Errorf("a string outside a timestamp field was held to §2.2: %v", err)
+		}
+	}
 }
 
 func TestTheFieldNameRuleAppliesOnlyAtProtocolLevel(t *testing.T) {
@@ -81,6 +93,13 @@ func TestARefusalNamesTheFieldAndNothingElse(t *testing.T) {
 	}
 	if contains(message, "Ux7kFQ2mS0aVvJ1cPzN4bw") {
 		t.Errorf("the message carries an unrelated field's value: %s", message)
+	}
+	// And not the refused value either. Serialize runs over responses and
+	// receipts, whose strings derive from data the requester never sees, so an
+	// error message is a disclosure path — CLAUDE.md's rule is that no private
+	// value reaches one.
+	if contains(message, "2026-07-31t09:00:00Z") {
+		t.Errorf("the message carries the refused value: %s", message)
 	}
 }
 

@@ -293,18 +293,11 @@ def _serialize(value, protocol_level: bool = False) -> str:
         return str(value)
     if kind == "string":
         encodable(value, "string")
-        # §2.2 permits one spelling of a timestamp, and P-002 §4.2's profile
-        # cites it. Enforced here for the same reason §4.3's float ban is: this
-        # is the last point at which a value can be rejected before it becomes
-        # bytes somebody signs, and inside a signed payload it is past the
-        # reach of anything that reads the vector as text.
-        if RFC3339_ANY.match(value) and not valid_q2d_timestamp(value):
-            raise ProfileError(
-                f"timestamp {value!r} is not core-model.md §2.2's — uppercase "
-                f"`T`, uppercase `Z`, second precision, and a real instant. "
-                f"Checking the spelling alone would pass "
-                f"'2026-99-99T99:99:99Z', which has the right shape and is no "
-                f"date")
+        # A string is written as it is. §2.2 states its spelling for the fields
+        # it names, and the object branch below enforces it there; a string
+        # elsewhere is not a Q2D timestamp, whatever it looks like. Whether it
+        # should be -- E-36 -- is open, and until it is decided this tool
+        # produces what §2.2 says rather than more.
         return escape_string(value)
     if kind == "array":
         return "[" + ",".join(_serialize(item) for item in value) + "]"
@@ -330,12 +323,16 @@ def _serialize(value, protocol_level: bool = False) -> str:
             if protocol_level and key in TIMESTAMP_FIELDS:
                 if not isinstance(value[key], str):
                     raise ProfileError(
-                        f"{key} is a timestamp field and "
-                        f"{type(value[key]).__name__} is not a string. "
+                        f"{key} is a timestamp field and holds a "
+                        f"{type(value[key]).__name__} rather than a string. "
                         f"core-model.md §2.2's timestamp is one")
                 if not valid_q2d_timestamp(value[key]):
+                    # The value is not in the message. This serializer runs over
+                    # responses and receipts too, whose strings derive from data
+                    # the requester never sees, and an error is a place one of
+                    # them could reach a log.
                     raise ProfileError(
-                        f"{key} is a timestamp field and {value[key]!r} is not "
+                        f"{key} is a timestamp field and its value is not "
                         f"core-model.md §2.2's timestamp — uppercase `T`, "
                         f"uppercase `Z`, second precision, and a real instant")
         # `receipt` re-enters protocol level only from protocol level. A

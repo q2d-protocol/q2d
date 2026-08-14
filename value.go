@@ -125,16 +125,11 @@ func (v Int) write(b *strings.Builder, _ bool) error {
 	return nil
 }
 
+// A string is written as it is. core-model.md §2.2 states its spelling for the
+// fields it names, and Object.write enforces it there; a string elsewhere is not
+// a Q2D timestamp, whatever it looks like. Whether it should be — E-36 — is
+// open, and until it is decided this implements what §2.2 says rather than more.
 func (v String) write(b *strings.Builder, _ bool) error {
-	// By shape, at any depth: a string that has some RFC 3339 spelling but not
-	// §2.2's is a malformed timestamp wherever it appears, and public_context is
-	// exactly where an unexpected one would arrive.
-	if looksLikeRFC3339(string(v)) && !isQ2DTimestamp(string(v)) {
-		return fmt.Errorf("timestamp %q is not core-model.md §2.2's — uppercase `T`, "+
-			"uppercase `Z`, second precision, and a real instant. Checking the spelling "+
-			"alone would pass '2026-99-99T99:99:99Z', which has the right shape and is "+
-			"no date", string(v))
-	}
 	if err := validUTF8("string", string(v)); err != nil {
 		return err
 	}
@@ -191,15 +186,19 @@ func (v Object) write(b *strings.Builder, protocolLevel bool) error {
 		// 2026-1-01T00:00:00Z has no RFC 3339 shape at all and is still a
 		// timestamp field, and so is 42.
 		if protocolLevel && timestampFields[key] {
-			spelling, isString := v[key].(String)
+			held, isString := v[key].(String)
 			if !isString {
-				return fmt.Errorf("%s is a timestamp field and %s is not a string. "+
-					"core-model.md §2.2's timestamp is one", key, typeName(v[key]))
+				return fmt.Errorf("%s is a timestamp field and holds %s rather than a "+
+					"string. core-model.md §2.2's timestamp is one", key, typeName(v[key]))
 			}
-			if !isQ2DTimestamp(string(spelling)) {
-				return fmt.Errorf("%s is a timestamp field and %q is not core-model.md "+
-					"§2.2's timestamp — uppercase `T`, uppercase `Z`, second precision, "+
-					"and a real instant", key, string(spelling))
+			if !isQ2DTimestamp(string(held)) {
+				// The value is not in the message. Serialize runs over responses
+				// and receipts too, whose strings derive from data the requester
+				// never sees, and an error is a place one of them could reach a
+				// log.
+				return fmt.Errorf("%s is a timestamp field and its value is not "+
+					"core-model.md §2.2's timestamp — uppercase `T`, uppercase `Z`, "+
+					"second precision, and a real instant", key)
 			}
 		}
 		writeString(key, b)

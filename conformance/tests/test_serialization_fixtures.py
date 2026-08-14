@@ -133,11 +133,16 @@ class RefusalTest(unittest.TestCase):
         self.refused({"issued_at": 42})
         self.refused({"issued_at": None})
 
-    def test_a_malformed_timestamp_anywhere_is_refused(self):
-        # By shape: a string carrying some RFC 3339 spelling that is not §2.2's
-        # is a malformed timestamp wherever it appears.
-        self.refused(self.public_context({"booked_for": "2026-07-31T19:30:00+01:00"}))
-        self.refused(["2026-07-31T09:00:00.000Z"])
+    def test_a_timestamp_outside_a_timestamp_field_is_left_alone(self):
+        # §2.2 states its spelling for the fields it names. A string somewhere
+        # else is not a Q2D timestamp however much it looks like one, and §2.6
+        # says a predicate's `public_context` may mean anything at all.
+        #
+        # Whether §2.2 should reach further is **E-36, open**. All three
+        # implementations do what §2.2 states and no more until it is decided.
+        # If E-36 closes as A, these two become refusals and nothing else moves.
+        self.accepted(self.public_context({"booked_for": "2026-07-31T19:30:00+01:00"}))
+        self.accepted(["2026-07-31T09:00:00.000Z"])
 
     def test_the_field_name_rule_applies_only_at_protocol_level(self):
         # §2.6: a predicate's `public_context` may mean anything at all.
@@ -167,6 +172,10 @@ class RefusalTest(unittest.TestCase):
         })
         self.assertIn("issued_at", message)
         self.assertNotIn("Ux7kFQ2mS0aVvJ1cPzN4bw", message)
+        # And not the refused value either. This serializer runs over responses
+        # and receipts, whose strings derive from data the requester never sees,
+        # so an error message is a disclosure path.
+        self.assertNotIn("2026-07-31t09:00:00Z", message)
 
 
 if __name__ == "__main__":

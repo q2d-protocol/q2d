@@ -21,8 +21,8 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > **E-36 is open**, raised while building P-002's serializer: does a string
 > that carries an RFC 3339 spelling but not `core-model.md` §2.2's get refused
 > *wherever* it appears, or only in the fields §2.2 names? All three
-> implementations currently refuse it everywhere, which is a resolution living in
-> a tool rather than in `spec/`. §E-36 has the options.
+> implementations now do what §2.2 states and no more, pending the decision.
+> §E-36 has the options.
 >
 > **E-35** closed as A: §4's query order gains a lettered
 > step **5a** for the header/payload comparison, symmetric with the response
@@ -2952,13 +2952,35 @@ widening later is always available.
 
 ### What is built today, pending the decision
 
-All three implementations refuse by shape at any depth — option A's behaviour —
-because that is what the corpus generator has always done and a serializer that
-disagrees with it would produce payloads the corpus cannot express. The three
-agree, so nothing is divergent; the rule is simply narrower in `spec/` than in
-the code. `tests/refusal.rs`, `refusal_test.go`, and the Python `RefusalTest`
-each assert the current behaviour, and each will need one case changed under B
-or C.
+**Option B's behaviour: §2.2 binds the fields §2.2 names, and no more.**
+
+That is not a decision — it is the absence of one. The shape rule was in
+`tools/author_vectors.py` and in a test asserting it, and P-002 issue 2 copied
+it into Rust and Go on the reasoning that a serializer disagreeing with the
+corpus generator is worse than one disagreeing with its counterpart. Both
+implementations then enforced a rule that is nowhere in `spec/`, which meant an
+implementer building only from `spec/` would accept messages ours refuse. Three
+implementations agreeing on a rule the specification does not contain is not
+cross-implementation agreement; it is three copies of the same unrecorded
+choice.
+
+So all three now implement what §2.2 states, and E-36 decides whether to add
+more. Restoring the shape rule under option A is one line in each of the three
+serializers and one case in each of the three refusal suites.
+
+**No authored vector changed**, which is the check that this narrowing costs
+nothing today: `author_message.py --check`, `author_suite.py --check` and
+`author_ordering.py --check` all still match, and both `testdata/` fixtures
+still serialize byte-identically in all three languages. Nothing in the corpus
+carries an RFC 3339 string outside a §2.2 field, so the rule that was removed
+had no vector exercising it — which is itself part of why it went unnoticed.
+
+**The rule lived in four places**, and only three were found by looking: the
+tool, Rust, and Go. The fourth was `test_authoring.py`'s
+`test_the_shape_rule_still_reaches_everywhere`, found by running the suite. That
+is the failure mode [CLAUDE.md](../CLAUDE.md)'s *Closing an escalation* section
+describes — a rule living in more places than the person changing it
+remembered — arriving on an escalation being *opened* rather than closed.
 
 ---
 

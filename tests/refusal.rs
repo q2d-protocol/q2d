@@ -46,15 +46,21 @@ fn a_malformed_timestamp_field_is_refused() {
 }
 
 #[test]
-fn a_malformed_timestamp_anywhere_is_refused() {
-    // By shape: a string carrying some RFC 3339 spelling that is not §2.2's is
-    // a malformed timestamp wherever it appears — including inside
-    // `public_context`, which is exactly where an unexpected one arrives.
-    refused(public_context([(
+fn a_timestamp_outside_a_timestamp_field_is_left_alone() {
+    // §2.2 states its spelling for the fields it names. A string somewhere else
+    // is not a Q2D timestamp however much it looks like one, and §2.6 says a
+    // predicate's `public_context` may mean anything at all — an offset carries
+    // the local time the requester is thinking in, which `Z` would lose.
+    //
+    // Whether §2.2 should reach further is **E-36, open**. All three
+    // implementations do what §2.2 states and no more until it is decided; the
+    // register has the options. If E-36 closes as A, these two become
+    // `refused` and nothing else moves.
+    accepted(public_context([(
         "booked_for",
         V::string("2026-07-31T19:30:00+01:00"),
     )]));
-    refused(V::Array(vec![V::string("2026-07-31T09:00:00.000Z")]));
+    accepted(V::Array(vec![V::string("2026-07-31T09:00:00.000Z")]));
 }
 
 #[test]
@@ -105,6 +111,14 @@ fn a_refusal_names_the_field_and_nothing_else() {
     assert!(
         !message.contains("Ux7kFQ2mS0aVvJ1cPzN4bw"),
         "the message carries an unrelated field's value: {message}"
+    );
+    // And not the refused value either. `serialize` runs over responses and
+    // receipts, whose strings derive from data the requester never sees, so an
+    // error message is a disclosure path — CLAUDE.md's rule is that no private
+    // value reaches one.
+    assert!(
+        !message.contains("2026-07-31t09:00:00Z"),
+        "the message carries the refused value: {message}"
     );
 }
 

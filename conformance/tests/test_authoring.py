@@ -310,11 +310,22 @@ class JwsTest(unittest.TestCase):
             author.serialize({"routing": {"expires_at": "soon"}})
         author.serialize({"routing": {"expires_at": "2026-01-01T00:00:00Z"}})
 
-    def test_the_shape_rule_still_reaches_everywhere(self):
-        # A wrong spelling is a wrong spelling wherever it sits, and needs no
-        # knowledge of what the field means.
+    def test_the_spelling_rule_reaches_the_fields_2_2_names_and_no_further(self):
+        # This asserted the opposite until E-36 was raised: any string with an
+        # RFC 3339 spelling that was not §2.2's was refused wherever it sat, on
+        # the reasoning that "a wrong spelling is a wrong spelling". The
+        # reasoning presumes the string is a timestamp, and §2.6 says a
+        # predicate's `public_context` may mean anything at all -- so an offset
+        # spelling there is the predicate's data, not a malformed §2.2 value.
+        #
+        # The rule was never in `spec/`. E-23 settled the *spelling* and its
+        # reach over `routing`, which §4 step 8 compares byte for byte; it did
+        # not settle whether §2.2 binds every string. Until E-36 does, this tool
+        # produces what §2.2 states and no more.
+        author.serialize({"public_context": {"a": "2026-01-01t00:00:00z"}})
+        # The field-name rule is unaffected: it is what §2.2 actually says.
         with self.assertRaises(author.ProfileError):
-            author.serialize({"public_context": {"a": "2026-01-01t00:00:00z"}})
+            author.serialize({"issued_at": "2026-01-01t00:00:00z"})
 
     def test_a_leap_second_serializes(self):
         # RFC 3339 §5.7 permits it and §2.2 does not exclude it.

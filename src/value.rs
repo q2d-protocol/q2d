@@ -127,20 +127,12 @@ fn write(value: &Value, protocol_level: bool, out: &mut String) -> Result<(), Pr
         // leading `+`, no leading zeros. Nothing to configure and nothing two
         // languages can render differently.
         Value::Integer(n) => out.push_str(&n.to_string()),
-        Value::String(s) => {
-            // By shape, at any depth: a string that has some RFC 3339 spelling
-            // but not §2.2's is a malformed timestamp wherever it appears, and
-            // `public_context` is exactly where an unexpected one would arrive.
-            if timestamp::looks_like_rfc3339(s) && !timestamp::is_q2d_timestamp(s) {
-                return Err(ProfileError(format!(
-                    "timestamp {s:?} is not core-model.md §2.2's — uppercase `T`, \
-                     uppercase `Z`, second precision, and a real instant. Checking \
-                     the spelling alone would pass '2026-99-99T99:99:99Z', which has \
-                     the right shape and is no date"
-                )));
-            }
-            write_string(s, out);
-        }
+        // A string is written as it is. `core-model.md` §2.2 states its
+        // spelling for the fields it names, and the object arm below enforces
+        // it there; a string elsewhere is not a Q2D timestamp, whatever it
+        // looks like. Whether it should be — E-36 — is open, and until it is
+        // decided this implements what §2.2 says rather than more.
+        Value::String(s) => write_string(s, out),
         Value::Array(items) => {
             out.push('[');
             for (i, item) in items.iter().enumerate() {
@@ -178,19 +170,23 @@ fn write(value: &Value, protocol_level: bool, out: &mut String) -> Result<(), Pr
                 // `2026-1-01T00:00:00Z` has no RFC 3339 shape at all and is
                 // still a timestamp field, and so is `42`.
                 if protocol_level && timestamp::TIMESTAMP_FIELDS.contains(&key.as_str()) {
-                    let spelling = match item {
+                    let held = match item {
                         Value::String(s) => s,
                         other => {
                             return Err(ProfileError(format!(
-                                "{key} is a timestamp field and {} is not a string. \
-                                 core-model.md §2.2's timestamp is one",
+                                "{key} is a timestamp field and holds {} rather than a \
+                                 string. core-model.md §2.2's timestamp is one",
                                 type_name(other)
                             )))
                         }
                     };
-                    if !timestamp::is_q2d_timestamp(spelling) {
+                    if !timestamp::is_q2d_timestamp(held) {
+                        // The value is not in the message. `serialize` runs over
+                        // responses and receipts too, whose strings derive from
+                        // data the requester never sees, and an error is a place
+                        // one of them could reach a log.
                         return Err(ProfileError(format!(
-                            "{key} is a timestamp field and {spelling:?} is not \
+                            "{key} is a timestamp field and its value is not \
                              core-model.md §2.2's timestamp — uppercase `T`, uppercase \
                              `Z`, second precision, and a real instant"
                         )));
