@@ -140,3 +140,34 @@ reports fail for every vector* — is demonstrable rather than asserted.
 It is not a partial implementation and must never become one. The moment the
 stub answers a vector correctly, the harness is being tested against something
 that shares an author with the corpus.
+
+## The two implementation runners
+
+[`src/bin/q2d-conform.rs`](../src/bin/q2d-conform.rs) and
+[`cmd/q2d-conform/main.go`](../cmd/q2d-conform/main.go) are the Rust and Go
+runners. They implement this contract and, today, no Q2D behaviour: every
+operation reports `error`, exactly as the stub does.
+
+**Unlike the stub, they may learn to answer.** They are the reference
+implementations' runners and the corpus exists to be run against them; the stub
+may not, because it shares an author with the harness.
+
+They exist now, before either implementation does, for two reasons. The contract
+is demonstrably implementable in both languages rather than assumed to be — and
+`harness cross` reports a disagreement as *two implementations reading the
+specification differently*, an inference that only holds if everything around
+the protocol already matches. A runner that accepted a duplicate object key
+while the other refused it would make `cross` report a divergence about JSON.
+
+[`tests/test_runner_parity.py`](tests/test_runner_parity.py) holds them to that:
+twelve documents chosen because a permissive parser would differ on them —
+duplicate keys at two depths, `NaN`, `Infinity`, a trailing document, an
+unescaped control character — and both must give the same exit code for each.
+Establishing it now is cheapest, because with neither answering a vector there
+is nothing else a difference could be blamed on.
+
+Neither takes a dependency. `encoding/json` already refuses `NaN`; it keeps the
+last of a duplicate key silently, which RFC 8259 calls unpredictable and which
+two runners must not resolve differently — so both refuse, and the Rust one
+hand-writes a scanner rather than inheriting some crate's defaults for the
+behaviour this contract is most specific about.

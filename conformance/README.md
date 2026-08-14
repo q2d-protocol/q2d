@@ -56,6 +56,21 @@ $ python3 conformance/harness run --impl conformance/runners/stub/q2d-conform --
 
 Standard library only, like [`registry/validate.py`](../registry/validate.py).
 
+**Three runners exist and none answers a vector.** The Python stub, and now the
+Rust and Go ones — [`src/bin/q2d-conform.rs`](../src/bin/q2d-conform.rs) and
+[`cmd/q2d-conform/main.go`](../cmd/q2d-conform/main.go). All three implement
+[`RUNNER-CONTRACT.md`](RUNNER-CONTRACT.md)'s non-protocol half and report
+`error` for every operation; the stub may never do more, and the other two are
+where the implementations will attach.
+
+Having both now is what makes `cross` interpretable later. It reports a
+disagreement as two implementations reading the specification differently, and
+that only follows if everything *around* the protocol already matches — so
+[`tests/test_runner_parity.py`](tests/test_runner_parity.py) holds them to the
+same answer on twelve documents a permissive parser would differ about, and the
+`rust and go` job runs it. With neither answering a vector, a difference has
+nothing else to be blamed on, which is why it is cheapest to pin down now.
+
 ## State
 
 **Every mode exists. The corpus holds the folded `registry/` section and the
