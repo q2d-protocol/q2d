@@ -150,11 +150,15 @@ bytes to two different rules depending on which path reached them.
 ### 4.4 Envelope
 
 ```
-{ "signed": "<JWS compact>", "routing": { … } }
+{ "signed": "<JWS compact>", "routing": { … } }   // routing optional — §2.1
 ```
 
 `signed` is opaque to the envelope layer. Its internal structure belongs to
 P-003; this PRD treats it as a string and never inspects it.
+
+`routing` may be absent ([E-38](../open-escalations.md)), so both the type and
+the parse result carry that: an envelope with one member is a message, and a
+responder must accept it.
 
 ### 4.5 The routing projection is derived, never authored
 
@@ -268,7 +272,7 @@ serialize_operation_data(value)           -> bytes        // §2.6 data; same by
 parse_core(payload: bytes)                -> CoreObject   // post-verification only
 project_routing(core: CoreObject)         -> Routing      // derive; never authored
 check_routing(core: CoreObject, r: Routing) -> Result     // compare only
-build_envelope(signed: str, routing: Routing) -> Envelope
+build_envelope(signed: str, routing: Routing?) -> Envelope  // routing optional — §2.1
 parse_envelope(bytes)                     -> Envelope     // bounded; §4.8
 digest(bytes)                             -> DigestString
 ```
