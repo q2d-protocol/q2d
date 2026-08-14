@@ -140,3 +140,59 @@ reports fail for every vector* — is demonstrable rather than asserted.
 It is not a partial implementation and must never become one. The moment the
 stub answers a vector correctly, the harness is being tested against something
 that shares an author with the corpus.
+
+## The two implementation runners
+
+[`src/bin/q2d-conform.rs`](../src/bin/q2d-conform.rs) and
+[`cmd/q2d-conform/main.go`](../cmd/q2d-conform/main.go) are the Rust and Go
+runners. They implement this contract and, today, no Q2D behaviour: every
+operation reports `error`, exactly as the stub does.
+
+**Unlike the stub, they may learn to answer.** They are the reference
+implementations' runners and the corpus exists to be run against them; the stub
+may not, because it shares an author with the harness.
+
+They exist now, before either implementation does, for two reasons. The contract
+is demonstrably implementable in both languages rather than assumed to be — and
+`harness cross` reports a disagreement as *two implementations reading the
+specification differently*, an inference that only holds if everything around
+the protocol already matches. A runner that accepted a duplicate object key
+while the other refused it would make `cross` report a divergence about JSON.
+
+[`tests/test_runner_parity.py`](tests/test_runner_parity.py) holds them to that:
+twenty-six documents, twenty-two of which must be **refused** and four
+**accepted**, with the same exit code from both for each.
+
+Most are chosen because a permissive parser would differ on them: duplicate keys
+at two depths, `NaN`, `Infinity`, a trailing document, an unescaped control
+character, a file that is not valid UTF-8, a lone surrogate of each half, and
+eight numeric forms RFC 8259 §6 forbids. **Three** of the accepted ones are the
+other half of that — a valid surrogate pair and two numbers outside `float64`'s
+range, which a runner must not refuse. The fourth is an ordinary projection,
+which is there so the suite is not satisfied by a runner that refuses
+everything.
+
+The rest are **contract** cases rather than parser ones — an unprojected vector
+carrying `expect`, an unknown operation, a missing `input`, a non-string `id`, a
+top-level array. They belong here for the same reason: two runners that disagreed
+about any of them would disagree about a vector without disagreeing about Q2D. A list of refusals alone is satisfied by a
+runner that refuses everything, and one that rejects valid vectors is worse than
+a permissive one — it fails a conforming producer.
+
+Five of those cases were divergences when first written, all about encoding
+rather than about Q2D: Go substituted U+FFFD for malformed UTF-8 and for an
+unpaired surrogate where Rust refused both, and Rust refused the first half of a
+valid pair where Go decoded it, and Rust validated numbers with `f64::from_str`,
+which accepts `01` and `1.` where `encoding/json` refuses them. Go, in turn,
+converted every number to `float64` and so refused `1e400`, a valid RFC 8259
+number the Rust scanner accepts — fixed with `UseNumber`, since neither runner
+has any use for a numeric value. Each would have surfaced through `cross` as two
+implementations disagreeing about the protocol. Establishing the parity now is
+cheapest, because with neither answering a vector there is nothing else a
+difference could be blamed on.
+
+Neither takes a dependency. `encoding/json` already refuses `NaN`; it keeps the
+last of a duplicate key silently, which RFC 8259 calls unpredictable and which
+two runners must not resolve differently — so both refuse, and the Rust one
+hand-writes a scanner rather than inheriting some crate's defaults for the
+behaviour this contract is most specific about.

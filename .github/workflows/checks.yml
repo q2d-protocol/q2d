@@ -95,3 +95,44 @@ jobs:
 
       - name: Go vets
         run: go vet ./...
+
+      # The two conformance runners, and the assertion that they implement the
+      # contract identically. `harness cross` reports a disagreement as two
+      # implementations reading the specification differently, and that
+      # inference only holds if everything around the protocol already matches
+      # — a runner that accepted a duplicate object key while the other refused
+      # it would make `cross` report a divergence about JSON.
+      #
+      # Neither answers a vector yet, so this is the moment the parity is
+      # cheapest to establish: there is nothing else it could be blamed on.
+      - name: Both runners build
+        run: |
+          cargo build --bin q2d-conform
+          go build -o target/q2d-go ./cmd/q2d-conform
+
+      - name: The two runners implement the contract identically
+        run: python3 -m unittest discover -s conformance/tests -p 'test_runner_parity.py'
+
+      # P-001 §7's gate, asserted rather than run as a job that fails by design:
+      # the harness runs, and reports fail for every vector, because no
+      # implementation exists. It turns red the day a runner answers one, which
+      # is when to replace it with the real gate.
+      - name: The corpus fails against both runners, as it must today
+        run: |
+          for runner in target/debug/q2d-conform target/q2d-go; do
+            # The status is captured rather than piped. The default shell has no
+            # `pipefail`, so `harness run | tee` would report tee's success and
+            # this assertion would fire on every run — passing the gate it
+            # exists to guard would look identical to failing it.
+            set +e
+            python3 conformance/harness run --impl "$runner" > /tmp/run.txt
+            status=$?
+            set -e
+            cat /tmp/run.txt
+            if [ "$status" -eq 0 ]; then
+              echo "::error::$runner passed a vector — P-001 §7's gate has moved"
+              exit 1
+            fi
+            grep -q '^0/[0-9]* vectors passed' /tmp/run.txt || {
+              echo "::error::$runner passed some vectors"; exit 1; }
+          done
