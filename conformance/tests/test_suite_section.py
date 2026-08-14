@@ -85,10 +85,8 @@ class OrderingTest(unittest.TestCase):
     """
 
     def test_what_the_header_declares_is_rejected_before_verification(self):
-        for name in ("suite/downgrade/unregistered-suite",
-                     "suite/downgrade/header-carries-alg"):
-            with self.subTest(vector=name):
-                self.assertEqual(by_id()[name]["expect"]["rejection"]["step"], 3)
+        name = "suite/downgrade/unregistered-suite"
+        self.assertEqual(by_id()[name]["expect"]["rejection"]["step"], 3)
 
     def test_what_only_the_signature_can_settle_is_rejected_after_verification(self):
         # Everything that needs the signature checked first lands at step 4, and
@@ -136,14 +134,18 @@ class ExpectedStateTest(unittest.TestCase):
                          "suite/rfc8032/ landed — issue 17 has presumably added "
                          "a raw-signing operation, so delete this assertion")
 
-    def test_the_header_payload_mismatch_cases_are_absent(self):
-        # Both reject -- P-003 §4.2 step 4 -- and neither has a class in
-        # core-model.md §5.2.1: `unsupported_suite` is defined as unregistered
-        # or below-floor, and `unauthenticated` is closed over an unresolvable
-        # key, an invalid signature and a bad delegation. E-34 decides it, and
-        # picking one here would settle in the corpus what belongs in `spec/`.
+    def test_the_structurally_invalid_cases_are_absent(self):
+        # All three reject and none has a class in core-model.md §5.2.1. In each
+        # the declared suite is registered and acceptable, so
+        # `unsupported_suite` does not fit; the key resolved and the signature
+        # verified, so `unauthenticated` does not; and they parse cleanly, so
+        # `malformed` fits only by stretching. What they share is being
+        # structurally invalid while authentic, which the vocabulary has no
+        # value for. E-34 decides it, and picking one here would settle in the
+        # corpus what belongs in `spec/`.
         present = set(by_id())
-        for name in ("suite/downgrade/header-payload-suite-mismatch",
+        for name in ("suite/downgrade/header-carries-alg",
+                     "suite/downgrade/header-payload-suite-mismatch",
                      "suite/downgrade/header-payload-key-mismatch"):
             with self.subTest(vector=name):
                 self.assertNotIn(name, present,

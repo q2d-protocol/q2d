@@ -6,7 +6,7 @@
 
 [P-001](../docs/prds/P-001-conformance-corpus.md) §5 gives `suite/` as *"suite
 resolution, downgrade rejection, unknown suite"*, and issue 13 authors it.
-[P-003](../docs/prds/P-003-crypto-suites.md) §5 names six groups. Four are here;
+[P-003](../docs/prds/P-003-crypto-suites.md) §6 names six groups. Four are here;
 two are not, and neither absence is about this tool — one needs an operation the
 vocabulary does not have, the other a second registered suite. Two cases inside a
 group that *is* here are absent for a third reason, below.
@@ -38,14 +38,19 @@ as a single change. The known answers are not unchecked meanwhile —
 [`author_vectors.py`](author_vectors.py) refuses to sign anything until it
 reproduces all three, so every byte this file emits already depends on them.
 
-**`suite/downgrade/`'s two header/payload mismatch cases** — a header declaring
-one suite or key over a payload declaring another. Both reject, P-003 §4.2 step 4
-says so, and neither has a **class**: §5.2.1's `unsupported_suite` is defined as
-*unregistered, or below the verifier's floor*, and its `unauthenticated` is
-closed over an unresolvable key, an invalid signature, and a bad delegation. A
-post-verification disagreement between two declarations is none of those, and
-choosing one here would settle in the corpus what E-33 decided belongs in
-`spec/`. [`open-escalations.md`](../docs/open-escalations.md) **E-34**.
+**Three `suite/downgrade/` cases** — a header carrying `alg`, and a header
+declaring a suite or a key the payload does not. All three reject, and none has a
+**class**. §5.2.1's `unsupported_suite` covers a suite that is *unregistered or
+below the verifier's floor*, and in all three the declared suite is registered and
+acceptable — which is why the message got as far as it did. `unauthenticated` is
+closed over an unresolvable key, an invalid signature and a bad delegation, and
+here the key resolved and the signature verified. `malformed` fits only by
+stretching, since these parse cleanly.
+
+What they have in common is that the message is **structurally invalid while
+being authentic**, which is a category the vocabulary does not have. Choosing a
+value here would settle in the corpus what E-33 decided belongs in `spec/`.
+[`open-escalations.md`](../docs/open-escalations.md) **E-34**.
 
 **`suite/status/`**, and `suite/downgrade/`'s below-floor case — both need a
 second registered suite. [`crypto-suites.md`](../spec/crypto-suites.md) §3
@@ -218,27 +223,6 @@ def vectors() -> list[dict]:
                 dict(QUERY, signature=dict(QUERY["signature"],
                                            profile=UNREGISTERED_SUITE)))),
             "expect": rejects("suite_unregistered", "unsupported_suite", 3),
-        },
-        {
-            "id": "suite/downgrade/header-carries-alg",
-            "section": "suite",
-            "requirement": ["crypto-suites.md#3", "core-model.md#4",
-                            "core-model.md#5.2.1"],
-            "description": (
-                "A header carrying `alg` alongside `suite` and `key_id`. §3 "
-                "closes the header at two members and says `alg` is not one: a "
-                "header carrying it is one a general-purpose JOSE library could "
-                "process, and such a library selects its algorithm from the "
-                "header — the decision §4's suite-policy check exists to take "
-                "away from the sender. Rejected at step 3, where the header is "
-                "read."
-            ),
-            "operation": "verify_query",
-            "input": envelope(av.jws_with_header(
-                seed,
-                {"alg": "EdDSA", "key_id": REQUESTER, "suite": av.SUITE},
-                QUERY)),
-            "expect": rejects("header_member_not_permitted", "unsupported_suite", 3),
         },
         {
             "id": "suite/keys/unresolvable",

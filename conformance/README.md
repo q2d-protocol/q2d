@@ -78,20 +78,19 @@ requester receives.
 [`tests/test_message_section.py`](tests/test_message_section.py) holds them to
 that vocabulary, and to keeping the internal reason and the wire response apart.
 
-**`suite/` is eight vectors and mostly refusals** — a tampered payload, header
-and signature, an unregistered suite, a header carrying `alg`, an unresolvable
-key. What it pins down beyond the refusals is **where** each happens: a header is
+**`suite/` is seven vectors and mostly refusals** — a tampered payload, header
+and signature, an unregistered suite, an unresolvable key. What it pins down beyond the refusals is **where** each happens: a header is
 read at §4 step 3, before there is a signature to rely on, and everything else
-waits for step 4, so the two header vectors reject earlier than the rest.
+waits for step 4, so the unregistered-suite vector rejects earlier than the rest.
 [`tests/test_suite_section.py`](tests/test_suite_section.py) asserts that rather
 than leaving it to the descriptions, and asserts the authentication failures are
 indistinguishable *across* causes, since a per-vector check cannot catch a
 divergence between two of them.
 
-Four cases are absent and each absence is asserted, so it turns red when its
-blocker goes: the two header/payload mismatch vectors on
-[`open-escalations.md`](../docs/open-escalations.md) **E-34**, which asks what
-class an internally inconsistent message produces; `suite/rfc8032/` on P-001
+Five cases are absent and each absence is asserted, so it turns red when its
+blocker goes: an `alg`-carrying header and the two header/payload mismatch
+vectors on [`open-escalations.md`](../docs/open-escalations.md) **E-34**, which
+asks what class a structurally invalid but authentic message produces; `suite/rfc8032/` on P-001
 issue 17, since signing a raw message needs an operation §4.5 does not have; and
 `suite/status/` plus the below-floor downgrade on a second registered suite,
 where [`crypto-suites.md`](../spec/crypto-suites.md) §3 registers one and it is

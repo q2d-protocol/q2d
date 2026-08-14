@@ -18,12 +18,14 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-34 is open**, raised on authoring `suite/downgrade/`: a verifier must
-> confirm the protected header's `suite` and `key_id` equal the payload's copies,
-> and **what a requester receives when they disagree has no class**. The
-> signature verified and the key resolved, so neither `unauthenticated` nor
-> `unsupported_suite` fits, and the message parsed cleanly, so `malformed` fits
-> only by stretching. It blocks two vectors and nothing else.
+> **E-34 is open**, raised on authoring `suite/downgrade/`. Three rejections
+> `crypto-suites.md` §3 requires — a header carrying `alg`, and a header
+> declaring a suite or key the payload does not — have **no class in §5.2.1**. In
+> each the declared suite is registered and the signature verified, so neither
+> `unsupported_suite` nor `unauthenticated` fits, and they parse cleanly, so
+> `malformed` fits only by stretching. The message is structurally invalid while
+> being authentic, which the vocabulary has no value for. It blocks three vectors
+> and nothing else.
 >
 > **E-33** closed as A, giving `core-model.md` a new
 > **§5.2.1**: the `external_reason` vocabulary, five distinct Tier A values,
@@ -128,7 +130,7 @@ question is still fresh than after the answer arrives.
 | **E-31** | Is `signature.value` a field of the signed core object? | P-001 issue 12 | `core-model.md` §2.7, §5.1–§5.3 · `crypto-suites.md` §3 | **Closed** |
 | **E-32** | What does a signed *response* payload contain? | E-31's cascade | `core-model.md` §5.1–§5.3, §6, §4 response step 4a (new) · `crypto-suites.md` §3 | **Closed** |
 | **E-33** | What are the external denial classes a requester actually receives? | P-001 issue 12 | `core-model.md` §5.2.1 (new) · P-009 §4.1, §5 | **Closed** |
-| **E-34** | Which class does a header/payload declaration mismatch produce? | P-001 issue 13 | `core-model.md` §5.2.1 · P-003 §4.2 | **Open** |
+| **E-34** | Which class does a structurally invalid but authentic message produce? | P-001 issue 13 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2 | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -2460,44 +2462,51 @@ did not adjust the count. The fields are still four; the sentence now says which
 
 ---
 
-## E-34 — Which class does a header/payload declaration mismatch produce?
+## E-34 — Which class does a structurally invalid but authentic message produce?
 
 **Raised by** [P-001](prds/P-001-conformance-corpus.md) issue 13, on authoring
 `suite/downgrade/` ·
 **Decides** [`core-model.md`](../spec/core-model.md) §5.2.1 ·
-**Blocks** two vectors — `suite/downgrade/header-payload-suite-mismatch` and
+**Blocks** three vectors, the whole of `suite/downgrade/` bar one:
+`header-carries-alg`, `header-payload-suite-mismatch`,
 `header-payload-key-mismatch`. Nothing else; the other seven landed.
 
 ### Context
 
-E-33 closed §5.2.1's vocabulary. E-32 and
-[`crypto-suites.md`](../spec/crypto-suites.md) §3 require a verifier to confirm,
-**after** verifying, that the protected header's `suite` and `key_id` equal the
-payload's `signature.profile` and `signature.key_id`.
-[P-003](prds/P-003-crypto-suites.md) §4.2 step 4 says either mismatch rejects,
-and §6 lists both as cases the corpus must contain.
+E-33 closed §5.2.1's vocabulary. Three rejections `crypto-suites.md` §3 and
+[P-003](prds/P-003-crypto-suites.md) §4.2 require have no value in it:
 
-What a requester receives when one does is not stated, and §5.2.1's closed
-vocabulary has no cell that fits:
+- a protected header carrying **`alg`**, which §3 closes the header against;
+- a header declaring a **suite** the payload's `signature.profile` does not;
+- a header naming a **key** the payload's `signature.key_id` does not.
+
+P-003 §6 lists all three as cases the corpus must contain. What a requester
+receives is not stated, and §5.2.1 has no cell that fits:
 
 | Value | What §5.2.1 defines it as | Fits a mismatch? |
 |---|---|---|
-| `unsupported_suite` | Suite unregistered, **or** below the verifier's floor | No — the header's suite is registered and acceptable; that is why verification ran |
+| `unsupported_suite` | Suite unregistered, **or** below the verifier's floor | No — in all three the declared suite is registered and acceptable, which is why the message got as far as it did |
 | `unauthenticated` | Unresolvable key, invalid signature, invalid or expired delegation | No — the key resolved and the signature verified |
 | `malformed` | Envelope malformed or oversized; verified object malformed or missing a required field | Arguably — see below |
 
-The message is internally inconsistent rather than unauthentic, which is a
-category the vocabulary does not have.
+What the three share is that the message is **structurally invalid while being
+authentic**, which is a category the vocabulary does not have. The `alg` case
+shows it most plainly: the suite is the registered one, the signature is good,
+and the message is still not a Q2D message.
 
 ### Why it is not obvious
 
 `unsupported_suite` and `unauthenticated` are the intuitive picks — one per
-mismatched field — and both describe the *cause a reader expects* rather than
-what happened. In both vectors the signature verified: the suite was acceptable
+field that went wrong — and both describe the *cause a reader expects* rather
+than what happened. In all three the signature verified: the suite was acceptable
 and the key resolved. Reporting either would tell a requester its credentials
-failed when they did not, and would put two causes in a normalized class whose
-whole content is that its members are indistinguishable *because they are the
-same kind of failure*.
+failed when they did not, and would put these into a normalized class whose whole
+content is that its members are indistinguishable *because they are the same kind
+of failure*.
+
+I made exactly that mistake while authoring, assigning `unsupported_suite` to the
+`alg` header and to the suite mismatch and `unauthenticated` to the key mismatch,
+which is how this was found.
 
 There is also an ordering asymmetry worth noticing. Every other Tier A value is
 decided before or during parsing; this one is decided after a signature verifies.
@@ -2519,22 +2528,21 @@ these parse perfectly. Stretching it to mean "parsed, and internally
 contradictory" makes one value cover two quite different producer bugs, and a
 requester cannot tell which from the wire.
 
-**B. A new distinct value**, `inconsistent_declaration` or similar, covering both
-mismatches.
+**B. A new distinct value**, `malformed_message` or similar, covering all three.
 
 *For:* says what happened, and keeps `malformed` meaning what it means. One value
-for both fields is right for the same reason `unsupported_suite` is one value for
-two causes: which *field* disagreed is a property of the message, and a requester
+for all three is right for the same reason `unsupported_suite` is one value for
+two causes: which part was wrong is a property of the message, and a requester
 debugging its own producer has the message.
-*Against:* a sixth Tier A value for a case that should never occur between
-correct implementations — every one of these is a producer bug, and the
-vocabulary grows to describe something no conforming party emits.
+*Against:* a sixth Tier A value for cases that should never occur between correct
+implementations — every one is a producer bug, and the vocabulary grows to
+describe something no conforming party emits.
 
-**C. Two new values**, one per field.
+**C. A value per case** — three of them.
 
 *For:* most precise, and each is actionable.
 *Against:* the precision buys nothing a requester cannot get from its own
-message, and two values for one class of producer bug invites the reading that
+message, and three values for one class of producer bug invites the reading that
 the distinction matters to the protocol. It does not.
 
 ### Recommendation — B
@@ -2545,7 +2553,7 @@ wrong place, and a requester told `malformed` when its message parsed cleanly
 will look almost as far off.
 
 B over C for the reason §5.2.1 already gives about `unsupported_suite`: one value
-per *kind* of failure, not per field, because which field disagreed is visible in
+per *kind* of failure, not per case, because which part was wrong is visible in
 the message the requester itself produced.
 
 B over A because `malformed` earns its meaning from being the parse failure, and
