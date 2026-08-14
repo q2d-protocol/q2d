@@ -121,9 +121,14 @@ fn fixture() -> Vec<u8> {
 fn the_canonical_query_serializes_to_the_fixture_bytes() {
     let produced = q2d::serialize(&canonical_query()).expect("a conforming query");
     let expected = fixture();
-    // Compared as text on failure, because a byte-count mismatch tells a reader
-    // nothing and the profile emits UTF-8 by construction.
+    // Compared as **bytes**, and decoded only to say what went wrong. This test
+    // claims byte-identical output, and `from_utf8_lossy` maps every invalid
+    // sequence to U+FFFD — so comparing the decoded text would call a fixture
+    // containing a bad byte equal to a serializer emitting a literal U+FFFD.
     assert_eq!(
+        produced,
+        expected,
+        "\n produced: {}\n expected: {}",
         String::from_utf8_lossy(&produced),
         String::from_utf8_lossy(&expected)
     );

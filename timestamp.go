@@ -76,9 +76,14 @@ func isQ2DTimestamp(value string) bool {
 
 // looksLikeRFC3339 reports whether a string has some RFC 3339 §5.6 spelling.
 //
-// The predicate that decides whether a string is a timestamp at all, so a
-// lowercase t, a fractional second, or a numeric offset is rejected as a
-// malformed timestamp rather than passed through as an ordinary string.
+// Nothing in the serializer calls this. §2.2 binds the fields it names and
+// isQ2DTimestamp is what enforces that; a string elsewhere is written as it is,
+// whatever it looks like.
+//
+// It is kept because E-36 asks whether §2.2 should reach further, and this is
+// the predicate that answer needs — under option A String.write refuses
+// anything this accepts and isQ2DTimestamp does not. Exercised by the tests, so
+// it is not untested code waiting for a decision.
 func looksLikeRFC3339(value string) bool {
 	if len(value) < 20 {
 		return false

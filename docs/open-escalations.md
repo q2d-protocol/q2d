@@ -2982,12 +2982,22 @@ still serialize byte-identically in all three languages. Nothing in the corpus
 carries an RFC 3339 string outside a §2.2 field, so the rule that was removed
 had no vector exercising it — which is itself part of why it went unnoticed.
 
-**The rule lived in four places**, and only three were found by looking: the
-tool, Rust, and Go. The fourth was `test_authoring.py`'s
-`test_the_shape_rule_still_reaches_everywhere`, found by running the suite. That
-is the failure mode [CLAUDE.md](../CLAUDE.md)'s *Closing an escalation* section
-describes — a rule living in more places than the person changing it
-remembered — arriving on an escalation being *opened* rather than closed.
+**The rule lived in five places**, and looking found three: the tool, Rust, and
+Go. The fourth was `test_authoring.py`'s
+`test_the_shape_rule_still_reaches_everywhere`, found by running the suite. The
+fifth was `conformance/harness/lint.py`, found by grepping for the predicate
+after the other four were done. That is the failure mode
+[CLAUDE.md](../CLAUDE.md)'s *Closing an escalation* section describes — a rule
+living in more places than the person changing it remembered — arriving on an
+escalation being *opened* rather than closed.
+
+**The fifth is deliberately unchanged**, and the reason is a distinction worth
+recording: `lint.py` checks **authored vectors**, which are ours. A serializer
+produces bytes somebody signs, so refusing by shape stops a requester sending
+§2.6 data the specification permits; a linter refusing by shape costs no
+requester anything and catches an authoring slip. Same rule, different subject.
+If this closes as B or C *and* a vector then needs an offset timestamp under
+`expect.output`, that is where to relax it — with the vector as the reason.
 
 ---
 

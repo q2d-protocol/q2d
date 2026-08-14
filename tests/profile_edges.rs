@@ -80,7 +80,13 @@ fn the_profile_edges_serialize_to_the_fixture_bytes() {
         .join("profile-edges.serialized");
     let expected = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
     let produced = q2d::serialize(&profile_edges()).expect("the edges are all legal");
+    // Bytes, not decoded text — see the note in `canonical_query.rs`. It matters
+    // more here: this fixture exists to prove agreement at the encoding's edges,
+    // and a lossy comparison is blind to exactly that.
     assert_eq!(
+        produced,
+        expected,
+        "\n produced: {}\n expected: {}",
         String::from_utf8_lossy(&produced),
         String::from_utf8_lossy(&expected)
     );

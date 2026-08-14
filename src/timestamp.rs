@@ -85,9 +85,17 @@ pub fn is_q2d_timestamp(value: &str) -> bool {
 
 /// Whether a string has *some* RFC 3339 §5.6 spelling.
 ///
-/// The predicate that decides whether a string is a timestamp at all, so a
-/// lowercase `t`, a fractional second, or a numeric offset is rejected as a
-/// malformed timestamp rather than passed through as an ordinary string.
+/// **Nothing in the serializer calls this.** §2.2 binds the fields it names, and
+/// [`is_q2d_timestamp`] is what enforces that; a string elsewhere is written as
+/// it is, whatever it looks like.
+///
+/// It is kept because [E-36] asks whether §2.2 should reach further, and this is
+/// the predicate that answer needs — under option A the string arm of
+/// [`crate::serialize`] refuses anything this accepts and `is_q2d_timestamp`
+/// does not. Exercised by the tests below, so it is not untested code waiting
+/// for a decision.
+///
+/// [E-36]: https://github.com/q2d-protocol/q2d/blob/main/docs/open-escalations.md
 pub fn looks_like_rfc3339(value: &str) -> bool {
     let b = value.as_bytes();
     if b.len() < 20 {

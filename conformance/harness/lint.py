@@ -523,6 +523,17 @@ def expected_timestamp_errors(vector: dict) -> list[str]:
             # **By shape**: a timestamp somewhere those names do not reach is
             # caught if it looks like one, which covers a field a later section
             # adds without this list being updated.
+            #
+            # The shape rule stays here after E-36 removed it from the three
+            # serializers, and the difference is the subject rather than the
+            # rule. A serializer produces bytes somebody signs, so refusing by
+            # shape stops a requester sending operation-defined data §2.6
+            # permits. This lints **authored vectors**, which are ours: a
+            # stricter rule on our own corpus costs no requester anything and
+            # catches an authoring slip, which is what a linter is for. If E-36
+            # closes as B or C and a vector needs an offset timestamp under
+            # `expect.output`, this is where to relax it -- deliberately, with
+            # that vector as the reason.
             if named or RFC3339_ANY.match(value):
                 if not valid_timestamp(value):
                     errors.append(timestamp_error(path, value))
