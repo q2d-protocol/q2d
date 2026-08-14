@@ -201,3 +201,24 @@ func TestTheZeroRoutingIsTheProjectionOfNothing(t *testing.T) {
 		t.Errorf("a core object with nothing to project: %s", got)
 	}
 }
+
+func TestAValueOutsideTheSixIsNotProjected(t *testing.T) {
+	// concrete() in value.go closes the set at the dispatcher, which stops a
+	// pointer reaching the wire. It does not stop one being stored, and a
+	// top-level check does not see one nested inside a projected object.
+	//
+	// A projection holding a value Serialize refuses is a Routing that cannot
+	// be used, which is worse to hand a caller than one that left the field
+	// out — and leaving it out is what totality already means.
+	inner := Object{"x": Int(1)}
+	text := String("query")
+	core := Object{
+		"type":        &text,                             // a pointer at a leaf
+		"predicate":   Object{"id": Object{"n": &inner}}, // and one nested inside
+		"q2d_version": String("0.1"),                     // and a field that is fine
+	}
+	got := routingText(t, ProjectRouting(core))
+	if got != `{"q2d_version":"0.1"}` {
+		t.Errorf("got %s, want only the concrete field", got)
+	}
+}

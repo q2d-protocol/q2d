@@ -84,29 +84,52 @@ func (r Routing) Value() Value {
 		// The zero value, which a caller can write and which projects nothing.
 		return Object{}
 	}
-	return deepCopy(r.value)
+	// The `ok` is discarded because it cannot be false: ProjectRouting stores
+	// only what it could copy, so everything here is already concrete.
+	copied, _ := deepCopy(r.value)
+	return copied
 }
 
-// deepCopy returns a value sharing no memory with its argument.
+// deepCopy returns a value sharing no memory with its argument, and whether
+// everything in it was one of the six concrete types.
 //
-// Only Array and Object need it: the other four are immutable by construction,
-// since String, Int, Bool and Null are value types with no interior state.
-func deepCopy(value Value) Value {
+// The second return is what keeps a Routing serializable. `concrete` in
+// value.go closes the set at the *dispatcher*, which stops a pointer reaching
+// the wire; it does not stop one being *stored*, and a top-level check does not
+// see `Object{"type": Object{"x": &obj}}`. A projection holding a value
+// Serialize refuses is a Routing that cannot be used, which is a worse thing to
+// hand a caller than a projection that left the field out.
+//
+// Only Array and Object need copying: the other four are value types with no
+// interior state, so String, Int, Bool and Null are already immutable.
+func deepCopy(value Value) (Value, bool) {
 	switch typed := value.(type) {
 	case Object:
 		copied := make(Object, len(typed))
 		for key, item := range typed {
-			copied[key] = deepCopy(item)
+			item, ok := deepCopy(item)
+			if !ok {
+				return nil, false
+			}
+			copied[key] = item
 		}
-		return copied
+		return copied, true
 	case Array:
 		copied := make(Array, len(typed))
 		for i, item := range typed {
-			copied[i] = deepCopy(item)
+			item, ok := deepCopy(item)
+			if !ok {
+				return nil, false
+			}
+			copied[i] = item
 		}
-		return copied
+		return copied, true
+	case Null, Bool, Int, String:
+		return value, true
 	default:
-		return value
+		// A pointer to one of the six, a typed nil, or anything else the
+		// interface admits and the profile cannot render.
+		return nil, false
 	}
 }
 
@@ -124,15 +147,26 @@ func deepCopy(value Value) Value {
 func ProjectRouting(core Value) Routing {
 	projection := Object{}
 	for _, path := range projected {
-		if found, ok := at(core, path); ok {
-			// Copied on the way in as well as on the way out. Rust clones the
-			// value here; without this, a projected leaf that is itself an
-			// Object or Array — reachable with malformed-but-representable
-			// input, since this function is total and does not require
-			// `type` to be a string — would alias the caller's core object,
-			// and mutating that afterwards would mutate a derived projection.
-			insert(projection, path, deepCopy(found))
+		found, present := at(core, path)
+		if !present {
+			continue
 		}
+		// Copied on the way in as well as on the way out. Rust clones the value
+		// here; without this, a projected leaf that is itself an Object or
+		// Array — reachable with malformed-but-representable input, since this
+		// function is total and does not require `type` to be a string — would
+		// alias the caller's core object, and mutating that afterwards would
+		// mutate a derived projection.
+		//
+		// A field the copy refuses is **left out** rather than raising: this
+		// function is total, and a projection missing a field is a strict
+		// subset, which §2.1 permits and §4.6 handles. Storing it instead would
+		// give the caller a Routing that Serialize will not accept.
+		copied, ok := deepCopy(found)
+		if !ok {
+			continue
+		}
+		insert(projection, path, copied)
 	}
 	return Routing{value: projection}
 }
