@@ -1,0 +1,28 @@
+{
+  "id": "ordering/step-1/envelope-not-json",
+  "section": "ordering",
+  "requirement": [
+    "core-model.md#4",
+    "core-model.md#5.2.1",
+    "CC-2"
+  ],
+  "description": "An envelope that is not JSON at all. Step 1 parses the envelope before any allocation on attacker-controlled data, so this is refused before a suite is read or a key resolved — nothing below step 1 runs.",
+  "operation": "process_query",
+  "input": {
+    "envelope": {
+      "signed": "not-a-compact-serialization"
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "envelope_malformed",
+      "wire": {
+        "status": "deny",
+        "external_reason": "malformed"
+      },
+      "step": 1
+    },
+    "comparison": "bytes"
+  }
+}
