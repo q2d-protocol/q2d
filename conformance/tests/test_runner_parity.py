@@ -160,11 +160,19 @@ class ParityTest(unittest.TestCase):
         # evidence for what the parity covers, and a count that drifted would
         # overstate it. Asserted here rather than trusted, since the two
         # documents cannot check themselves.
-        self.assertEqual(len(CASES), 22, "refused documents")
-        self.assertEqual(len(ACCEPTED), 3, "accepted documents")
+        # Counted by *outcome*, not by which dict a case lives in: `CASES`
+        # carries the valid projection alongside the refusals, so its length is
+        # neither number the documents quote.
+        refused = [c for c in CASES.values() if c[1] == 1]
+        accepted = [c for c in CASES.values() if c[1] == 0]
+        self.assertEqual(len(refused) + 1, 22,
+                         "documents both must refuse, the malformed-UTF-8 "
+                         "bytes included")
+        self.assertEqual(len(accepted) + len(ACCEPTED), 4,
+                         "documents both must accept")
         self.assertEqual(len(CASES) + len(ACCEPTED) + 1, 26,
-                         "twenty-six in total, the malformed-UTF-8 bytes "
-                         "included — update both READMEs with this number")
+                         "twenty-six in total — update RUNNER-CONTRACT.md and "
+                         "conformance/README.md with these three numbers")
 
     def test_neither_answers_a_vector_yet(self):
         # The state this file exists to record, and the assertion that turns red

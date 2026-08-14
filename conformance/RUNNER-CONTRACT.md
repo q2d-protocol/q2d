@@ -165,8 +165,9 @@ Twenty-two must be **refused** —
 duplicate keys at two depths, `NaN`, `Infinity`, a trailing document, an
 unescaped control character, malformed UTF-8, a lone surrogate of each half, and
 eight numeric forms RFC 8259 §6 forbids, and a file that is not valid UTF-8 —
-with the same exit code from both for each. Three must be **accepted**: a valid
-surrogate pair, and two numbers outside `float64`'s range. A list of refusals alone is satisfied by a
+with the same exit code from both for each. Four must be **accepted**: a
+well-formed projection, a valid surrogate pair, and two numbers outside
+`float64`'s range. A list of refusals alone is satisfied by a
 runner that refuses everything, and one that rejects valid vectors is worse than
 a permissive one — it fails a conforming producer.
 
