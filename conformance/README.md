@@ -59,14 +59,14 @@ Standard library only, like [`registry/validate.py`](../registry/validate.py).
 ## State
 
 **Every mode exists. The corpus holds the folded `registry/` section and the
-authored `message/` and `suite/` ones, and there is no implementation to run it
-against.**
+authored `message/`, `suite/` and `ordering/` ones, and there is no
+implementation to run it against.**
 Built: the vector schema and `lint` (issue 1), the projection
 (issue 2), the runner contract and reference stub (issue 3), `run` (issue 4),
 the determinism check (issue 5), `coverage` (issue 6), the two cross-vector
 assertions (issues 7 and 8), comparison (issue 16), `cross` (issue 9), the
 dependency assertion (issue 15), the test key material (issue 10), the
-`registry/` section (issue 11), `message/` (issue 12), and `suite/` (issue 13).
+`registry/` section (issue 11), `message/` (issue 12), `suite/` (issue 13), and `ordering/`'s steps 1, 3, 4, 5, 5a and 6 (issue 14).
 
 **`message/` has both halves.** Three vectors that sign, verify and project, and
 three rejections — a signature from the wrong key, a routing projection that
@@ -97,9 +97,38 @@ issue 17, since signing a raw message needs an operation §4.5 does not have; an
 where [`crypto-suites.md`](../spec/crypto-suites.md) §3 registers one and it is
 active.
 
-**`conformance/corpus/message/` and `corpus/suite/` are generated, not written**,
-by [`tools/author_message.py`](../tools/author_message.py) and
-[`tools/author_suite.py`](../tools/author_suite.py) — the bytes come from
+**`ordering/` asserts where a request is refused**, one vector per rejection step
+of [`core-model.md`](../spec/core-model.md) §4, every one using `process_query`.
+That single operation is the design: a `verify_query` vector can show a bad
+signature refused and cannot show the signature was checked *before* the registry
+was consulted, so a section mixing operations would have step numbers that are
+partly artefacts of which operation each vector used. Each request is wrong in
+exactly one way, since a request wrong in two rejects at the earlier of them
+whatever the implementation does with the later.
+
+**Six of §4's rejection steps are covered — 1, 3, 4, 5, 5a and 6 — and the
+section stops at 7 for a reason stronger than a missing fixture.** A vector asserting rejection at step N
+must *pass* steps 1 to N-1, so a request that cannot get past an earlier step is
+wrong in two ways and a fail-closed implementation correctly rejects it there —
+such a vector fails *conforming* implementations. Step 7 is delegation
+verification and no fixture format exists for a profile or its evidence, so
+nothing at or after it is authorable, including steps whose own defects are
+perfectly expressible.
+
+Each vector supplies the responder's clock as `environment.now`, since §4 step 6
+is the first thing in the pipeline that needs a time and a runner may not read
+one. Step 2 gets none by design: §4 makes it optional and never a security
+decision.
+[`tests/test_ordering_section.py`](tests/test_ordering_section.py) reads §4's own
+table to check that every asserted step exists, and holds the covered set to
+exactly what is not deferred, so a step that quietly lost its vector turns it
+red.
+
+**`conformance/corpus/message/`, `corpus/suite/` and `corpus/ordering/` are
+generated, not written**,
+by [`tools/author_message.py`](../tools/author_message.py),
+[`tools/author_suite.py`](../tools/author_suite.py) and
+[`tools/author_ordering.py`](../tools/author_ordering.py) — the bytes come from
 [`tools/author_vectors.py`](../tools/author_vectors.py)'s
 specification-derived serializer and signer, and `--check` runs in the suite so
 the committed vectors and the tool cannot drift. They are still authored data:

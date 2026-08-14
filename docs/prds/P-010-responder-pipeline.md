@@ -259,7 +259,7 @@ the design does not have.
 
 | Section | Owner | Content |
 |---|---|---|
-| `ordering/` | this PRD | One vector per rejection step, 1–15, plus 5a, 9a and 11a |
+| `ordering/` | this PRD, **partly landed** | One vector per rejection step, 1–15, plus 5a, 9a and 11a. [P-001](P-001-conformance-corpus.md) issue 14 authored steps 1, 3, 4, 5, 5a and 6, so the ordering they establish exists before this PRD is built rather than after. The section stops at 7 because a vector asserting rejection at step N must **pass** steps 1 to N-1, and delegation verification needs a fixture [P-014](P-014-identity-pairing.md) has not defined — so step 8 and steps 10 to 13 are unauthorable despite their own defects being expressible. Issue 11 here adds everything from 7 onward. Step 2 gets none: §4 makes it optional and never a security decision |
 | `evaluate/` | this PRD | The three predicates against `registry/manifest.json`'s vectors, run through the full pipeline |
 | `validate/` | this PRD | Out-of-domain output; oversized output; cardinality and precision violations |
 | `pipeline/` | this PRD | End-to-end answer; end-to-end denial; end-to-end escalation in both modes; partial-failure cases from §4.7 |
@@ -346,7 +346,7 @@ should be a small, readable function rather than a convenient one.
 | 8 | `validate_output` against the effective domain and the entry's `output_schema` | `validate/` passes; no debit on failure; a value inside the domain but over its schema bound fails closed, and one inside the schema but outside the domain fails closed — [`core-model.md`](../../spec/core-model.md) §4 step 17. The first is `conformance/over-schema-bound-result`, named in [`claims.md`](../../spec/claims.md) Q2D-C-03 |
 | 9 | Answer construction | No field private-derived except the result |
 | 10 | Partial-failure handling for §4.7 | Each row leaves the system no more permissive |
-| 11 | Author `ordering/`, `evaluate/`, `validate/`, `pipeline/` | Four sections; `harness lint` clean |
+| 11 | Author `ordering/` **from step 7 onward** — 7, 8, 9, 9a, 10, 11, 11a, 12, 13, 14, 15 — plus `evaluate/`, `validate/`, `pipeline/` | `harness lint` clean; `ordering/` covers every rejection step §4 has except 2, which gets none by design, and `test_ordering_section.py`'s `FIRST_UNPASSABLE_STEP` has been raised past 15 |
 
 Issue 1 blocks 2 and 6. Issue 7 is the least interesting and the most reassuring:
 if the fourteen vectors pass through the pipeline exactly as they pass against the
