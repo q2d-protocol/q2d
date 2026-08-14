@@ -33,18 +33,21 @@
 use crate::parse::{parse_within, ParseError, MAX_ENVELOPE, MAX_STRING};
 use crate::value::Value;
 
-/// A parsed envelope.
+/// A parsed envelope: both of §2.1's parts.
 ///
-/// `routing` is optional here, and whether it may be is **E-38, open**: §2.1
-/// opens *"a message has two parts"* and calls `routing` advisory, which
-/// answers what it may be used for rather than whether it may be absent. The
-/// corpus already contains an envelope without one, so this is the reading the
-/// repository's own artifacts take. If E-38 closes the other way it is one line
-/// here and one reauthored vector.
+/// Whether `routing` may be absent is **E-38, open**. §2.1 opens *"a message
+/// has two parts"* and calls `routing` advisory, which answers what it may be
+/// *used for* rather than whether it may be *absent* — and
+/// `tools/author_suite.py` had been omitting it deliberately, so the repository
+/// carried a practice on a reading `spec/` does not state.
+///
+/// This requires it, which is what §2.1 says and what missing-denies implies.
+/// The register recommends the other answer; the code follows the specification
+/// until that is decided, because `spec/` outranks both a tool and a PRD.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Envelope {
     pub signed: String,
-    pub routing: Option<Value>,
+    pub routing: Value,
 }
 
 /// Parse an envelope under §4.8's limits.
@@ -113,18 +116,21 @@ pub fn parse_envelope(bytes: &[u8]) -> Result<Envelope, ParseError> {
     }
 
     let signed = signed.ok_or_else(|| ParseError("no `signed` member — §4.4".into()))?;
+    // §2.1: "A message has two parts." E-38 asks whether both are required and
+    // is open; until it closes this enforces what §2.1 says, because `spec/`
+    // outranks a practice built on reading it differently, and because missing
+    // denies. See the module note.
+    let routing = routing.ok_or_else(|| ParseError("no `routing` member — §2.1".into()))?;
 
     // §4.8's 2 KiB, over the part of the envelope it can reach. Post-parse
     // rather than during, because the parser applied the envelope bound to
     // every string so that `signed` would fit; this narrows the rest back.
     // Bounded work: the envelope was capped before any of it was read.
-    if let Some(routing) = &routing {
-        if let Some(len) = longest_string(routing) {
-            if len > MAX_STRING {
-                return Err(ParseError(format!(
-                    "a `routing` string of {len} bytes, above P-002 §4.8's {MAX_STRING}"
-                )));
-            }
+    if let Some(len) = longest_string(&routing) {
+        if len > MAX_STRING {
+            return Err(ParseError(format!(
+                "a `routing` string of {len} bytes, above P-002 §4.8's {MAX_STRING}"
+            )));
         }
     }
 
@@ -163,22 +169,34 @@ mod tests {
     }
 
     #[test]
-    fn an_envelope_is_signed_and_optionally_routing() {
-        let one = envelope(r#"{"signed":"aGVhZGVy.cGF5bG9hZA.c2ln"}"#);
+    fn an_envelope_is_both_of_2_1_s_parts() {
+        let one = envelope(r#"{"signed":"aGVhZGVy.cGF5bG9hZA.c2ln","routing":{}}"#);
         assert_eq!(one.signed, "aGVhZGVy.cGF5bG9hZA.c2ln");
-        assert_eq!(one.routing, None);
+        assert_eq!(one.routing, Value::object(Vec::<(&str, Value)>::new()));
 
         let two = envelope(r#"{"signed":"a.b.c","routing":{"type":"query"}}"#);
         assert_eq!(
             two.routing,
-            Some(Value::object([("type", Value::string("query"))]))
+            Value::object([("type", Value::string("query"))])
         );
+    }
+
+    #[test]
+    fn an_envelope_without_routing_is_refused() {
+        // §2.1: "A message has two parts." **E-38, open** — the register
+        // recommends the other answer, and this follows §2.1 until it closes,
+        // because `spec/` outranks the practice that had grown against it.
+        //
+        // An empty `routing` is present and is a different thing: §4.6 compares
+        // each field present in it, and none is a vacuous comparison rather
+        // than an absent part.
+        assert!(refused(r#"{"signed":"a.b.c"}"#).contains("no `routing`"));
     }
 
     #[test]
     fn a_missing_or_mistyped_member_is_refused() {
         assert!(refused(r#"{"routing":{}}"#).contains("no `signed`"));
-        assert!(refused(r#"{"signed":42}"#).contains("`signed`"));
+        assert!(refused(r#"{"signed":42,"routing":{}}"#).contains("`signed`"));
         assert!(refused(r#"{"signed":"a.b.c","routing":[]}"#).contains("`routing`"));
         assert!(refused("[]").contains("JSON object"));
     }
@@ -187,7 +205,7 @@ mod tests {
     fn an_unknown_member_denies_rather_than_being_ignored() {
         // Unknown, missing and indeterminate all deny. Ignoring it would let
         // one party read a field another does not.
-        let message = refused(r#"{"signed":"a.b.c","hint":"trust me"}"#);
+        let message = refused(r#"{"signed":"a.b.c","routing":{},"hint":"trust me"}"#);
         assert!(message.contains("unknown envelope member"), "{message}");
         assert!(message.contains("hint"), "{message}");
     }
@@ -213,7 +231,7 @@ mod tests {
         // public context, so a 2 KiB cap on `signed` would make the protocol
         // unable to carry its own worked example.
         let long = "s".repeat(MAX_STRING * 4);
-        envelope(&format!(r#"{{"signed":"{long}"}}"#));
+        envelope(&format!(r#"{{"signed":"{long}","routing":{{}}}}"#));
 
         let message = refused(&format!(
             r#"{{"signed":"a.b.c","routing":{{"custodian":"{long}"}}}}"#
@@ -253,7 +271,7 @@ mod tests {
         // not a JWS, and the envelope layer has no opinion — P-003 does, at
         // step 3, and the ordering is the point.
         assert_eq!(
-            envelope(r#"{"signed":"not a jws at all"}"#).signed,
+            envelope(r#"{"signed":"not a jws at all","routing":{}}"#).signed,
             "not a jws at all"
         );
     }

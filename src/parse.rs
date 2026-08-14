@@ -267,20 +267,12 @@ impl<'a> Parser<'a> {
             match byte {
                 b'"' => {
                     self.at += 1;
-                    // Measured on the decoded string, not the source span: an
-                    // escape is six source bytes and one character, and it is
-                    // the decoded length that has to be held.
-                    if out.len() > self.max_string {
-                        return Err(self.fail(&format!(
-                            "a string longer than P-002 §4.8's {} bytes",
-                            self.max_string
-                        )));
-                    }
                     return Ok(out);
                 }
                 b'\\' => {
                     self.at += 1;
                     self.escape(&mut out)?;
+                    self.within_string_limit(&out)?;
                 }
                 // RFC 8259 §7: a character below U+0020 must be escaped. A
                 // parser that passed one through would accept bytes the
@@ -294,9 +286,31 @@ impl<'a> Parser<'a> {
                     let c = text.chars().next().expect("non-empty");
                     out.push(c);
                     self.at += c.len_utf8();
+                    self.within_string_limit(&out)?;
                 }
             }
         }
+    }
+
+    /// §4.8's string bound, checked **as the string is built** rather than at
+    /// its closing quote.
+    ///
+    /// Measured on the decoded string, not the source span: an escape is six
+    /// source bytes and one character, and the decoded length is what has to be
+    /// held. Checked per character because the point of a bound is to stop the
+    /// allocation, and testing it at the end means a hostile payload has
+    /// already made the parser hold the whole value — a limit enforced after
+    /// the fact bounds what is *returned* and not what is *held*.
+    ///
+    /// The overshoot is at most one character, four bytes.
+    fn within_string_limit(&self, out: &str) -> Result<(), ParseError> {
+        if out.len() > self.max_string {
+            return Err(self.fail(&format!(
+                "a string longer than P-002 §4.8's {} bytes",
+                self.max_string
+            )));
+        }
+        Ok(())
     }
 
     fn escape(&mut self, out: &mut String) -> Result<(), ParseError> {

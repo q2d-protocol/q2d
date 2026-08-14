@@ -35,14 +35,17 @@ import (
 	"sort"
 )
 
-// An Envelope is a parsed §4.4 envelope.
+// An Envelope is a parsed §4.4 envelope: both of §2.1's parts.
 //
-// Routing is optional here, and whether it may be is E-38, open: §2.1 opens "a
-// message has two parts" and calls routing advisory, which answers what it may
-// be used for rather than whether it may be absent. The corpus already contains
-// an envelope without one, so this is the reading the repository's own artifacts
-// take. If E-38 closes the other way it is one line here and one reauthored
-// vector.
+// Whether Routing may be absent is E-38, open. §2.1 opens "a message has two
+// parts" and calls routing advisory, which answers what it may be used for
+// rather than whether it may be absent — and tools/author_suite.py had been
+// omitting it deliberately, so the repository carried a practice on a reading
+// spec/ does not state.
+//
+// This requires it, which is what §2.1 says and what missing-denies implies. The
+// register recommends the other answer; the code follows the specification until
+// that is decided, because spec/ outranks both a tool and a PRD.
 type Envelope struct {
 	Signed  string
 	Routing Value
@@ -116,16 +119,21 @@ func ParseEnvelope(payload []byte) (Envelope, error) {
 	if !seenSigned {
 		return Envelope{}, fmt.Errorf("no `signed` member — §4.4")
 	}
+	// §2.1: "A message has two parts." E-38 asks whether both are required and
+	// is open; until it closes this enforces what §2.1 says, because spec/
+	// outranks a practice built on reading it differently, and because missing
+	// denies. See the file note.
+	if envelope.Routing == nil {
+		return Envelope{}, fmt.Errorf("no `routing` member — §2.1")
+	}
 
 	// §4.8's 2 KiB, over the part of the envelope it can reach. Post-parse
 	// rather than during, because the parser applied the envelope bound to every
 	// string so that signed would fit; this narrows the rest back. Bounded work:
 	// the envelope was capped before any of it was read.
-	if envelope.Routing != nil {
-		if longest := longestString(envelope.Routing); longest > MaxString {
-			return Envelope{}, fmt.Errorf("a `routing` string of %d bytes, above "+
-				"P-002 §4.8's %d", longest, MaxString)
-		}
+	if longest := longestString(envelope.Routing); longest > MaxString {
+		return Envelope{}, fmt.Errorf("a `routing` string of %d bytes, above "+
+			"P-002 §4.8's %d", longest, MaxString)
 	}
 	return envelope, nil
 }

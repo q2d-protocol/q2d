@@ -20,9 +20,10 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 >
 > **E-38 is open**, raised while building P-002's envelope parser: may an
 > envelope omit `routing`? `core-model.md` §2.1 says *"a message has two parts"*;
-> the corpus contains an authored vector whose envelope has one. Both
-> implementations accept the omission today, which is the corpus's reading.
-> §E-38 has the options.
+> ten authored `suite/` vectors omitted it deliberately, on a reading `spec/`
+> does not state.
+> §E-38 has the options. Both implementations require it meanwhile, which is
+> what §2.1 says; the recommendation is the other way.
 >
 > **E-36** closed as C and **E-37** as B, both raised while
 > building P-002's serializer and both cascaded.
@@ -3338,16 +3339,32 @@ send the projection always, which is A wearing B's clothes.
 
 ### What is built today, pending the decision
 
-**B's behaviour**, in both implementations: `routing` parses as optional, and
-`Envelope.routing` is `Option` in Rust and nil-able in Go.
+**A's behaviour: both implementations require `routing`.** That is what §2.1
+says, and it is what *missing denies* implies.
 
-This is the *permissive* direction, which is the opposite of the default the
-E-36 note argues for — so the reason is worth stating. The corpus already
-contains an envelope without `routing`, authored, reviewed and merged under
-P-001. Implementing A would retroactively make landed work malformed on the
-strength of a reading nobody has confirmed, and the repository's own artifact is
-better evidence of intent than a parser written this week. If A is chosen, the
-change is one line in each implementation and one reauthored vector.
+This was implemented the other way first, and the reasoning is worth recording
+because it was wrong in an instructive way. The argument was that the corpus
+already contained an envelope without `routing` — authored, reviewed and merged
+— so implementing A would retroactively invalidate landed work, and the
+repository's own artifact was better evidence of intent than a parser written
+this week.
+
+The flaw is that [CLAUDE.md](../CLAUDE.md)'s hierarchy answers it directly:
+`spec/` outranks the corpus, and a PRD, and a tool. `tools/author_suite.py`'s
+`envelope()` had a docstring explaining why it omitted the projection, so the
+repository was carrying a **practice** built on a reading `spec/` does not
+state — which is E-36's shape exactly, one level down. Evidence of intent is not
+authority, and letting an authored vector override §2.1 puts the rule one tier
+too low.
+
+So the ten `suite/` vectors now carry a projection. Their author's third reason
+for omitting it — *"a projection would give each one a second way to fail"* — was
+the real one and is answered rather than contradicted: the projection is
+**correct** for `QUERY`, so §4 step 8 passes and each vector still fails on its
+own suite defect.
+
+If this closes as B — which is the recommendation — it is one line in each
+implementation and one line in `author_suite.py`, and the vectors regenerate.
 
 ---
 

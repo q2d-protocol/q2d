@@ -25,13 +25,10 @@ func refusedEnvelope(t *testing.T, text string) string {
 	return ""
 }
 
-func TestAnEnvelopeIsSignedAndOptionallyRouting(t *testing.T) {
-	one := envelope(t, `{"signed":"aGVhZGVy.cGF5bG9hZA.c2ln"}`)
+func TestAnEnvelopeIsBothOf21sParts(t *testing.T) {
+	one := envelope(t, `{"signed":"aGVhZGVy.cGF5bG9hZA.c2ln","routing":{}}`)
 	if one.Signed != "aGVhZGVy.cGF5bG9hZA.c2ln" {
 		t.Errorf("signed: %s", one.Signed)
-	}
-	if one.Routing != nil {
-		t.Errorf("routing should be absent: %v", one.Routing)
 	}
 
 	two := envelope(t, `{"signed":"a.b.c","routing":{"type":"query"}}`)
@@ -47,7 +44,7 @@ func TestAnEnvelopeIsSignedAndOptionallyRouting(t *testing.T) {
 func TestAMissingOrMistypedMemberIsRefused(t *testing.T) {
 	for text, want := range map[string]string{
 		`{"routing":{}}`:                  "no `signed`",
-		`{"signed":42}`:                   "`signed`",
+		`{"signed":42,"routing":{}}`:      "`signed`",
 		`{"signed":"a.b.c","routing":[]}`: "`routing`",
 		`[]`:                              "JSON object",
 	} {
@@ -60,7 +57,7 @@ func TestAMissingOrMistypedMemberIsRefused(t *testing.T) {
 func TestAnUnknownMemberDeniesRatherThanBeingIgnored(t *testing.T) {
 	// Unknown, missing and indeterminate all deny. Ignoring it would let one
 	// party read a field another does not.
-	message := refusedEnvelope(t, `{"signed":"a.b.c","hint":"trust me"}`)
+	message := refusedEnvelope(t, `{"signed":"a.b.c","routing":{},"hint":"trust me"}`)
 	if !strings.Contains(message, "unknown envelope member") {
 		t.Errorf("message does not name the defect: %s", message)
 	}
@@ -92,7 +89,7 @@ func TestSignedMayBeLargerThanAStringFieldAndRoutingMayNot(t *testing.T) {
 	// so a 2 KiB cap on signed would make the protocol unable to carry its own
 	// worked example.
 	long := strings.Repeat("s", MaxString*4)
-	envelope(t, `{"signed":"`+long+`"}`)
+	envelope(t, `{"signed":"`+long+`","routing":{}}`)
 
 	message := refusedEnvelope(t, `{"signed":"a.b.c","routing":{"custodian":"`+long+`"}}`)
 	if !strings.Contains(message, "§4.8") || !strings.Contains(message, "routing") {
@@ -130,7 +127,7 @@ func TestThePayloadIsNotInspected(t *testing.T) {
 	// §4.4: signed is opaque here. This one is not valid base64url and not a
 	// JWS, and the envelope layer has no opinion — P-003 does, at step 3, and
 	// the ordering is the point.
-	if got := envelope(t, `{"signed":"not a jws at all"}`).Signed; got != "not a jws at all" {
+	if got := envelope(t, `{"signed":"not a jws at all","routing":{}}`).Signed; got != "not a jws at all" {
 		t.Errorf("signed: %s", got)
 	}
 }
@@ -152,5 +149,18 @@ func TestTwoDefectsGiveTheSameReasonEveryRun(t *testing.T) {
 	// And it is the first by §4.2's key order, which is what Rust reports.
 	if !strings.Contains(first, "aaa") {
 		t.Errorf("reported a later member than the first: %s", first)
+	}
+}
+
+func TestAnEnvelopeWithoutRoutingIsRefused(t *testing.T) {
+	// §2.1: "A message has two parts." E-38, open — the register recommends the
+	// other answer, and this follows §2.1 until it closes, because spec/
+	// outranks the practice that had grown against it.
+	//
+	// An empty routing is present and is a different thing: §4.6 compares each
+	// field present in it, and none is a vacuous comparison rather than an
+	// absent part.
+	if message := refusedEnvelope(t, `{"signed":"a.b.c"}`); !strings.Contains(message, "no `routing`") {
+		t.Errorf("message does not name the defect: %s", message)
 	}
 }

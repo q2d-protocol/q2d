@@ -295,17 +295,13 @@ func (p *parser) string() (string, error) {
 		switch {
 		case c == '"':
 			p.at++
-			// Measured on the decoded string, not the source span: an escape is
-			// six source bytes and one character, and it is the decoded length
-			// that has to be held.
-			if out.Len() > p.maxString {
-				return "", p.fail(fmt.Sprintf(
-					"a string longer than P-002 §4.8's %d bytes", p.maxString))
-			}
 			return out.String(), nil
 		case c == '\\':
 			p.at++
 			if err := p.escape(&out); err != nil {
+				return "", err
+			}
+			if err := p.withinStringLimit(&out); err != nil {
 				return "", err
 			}
 		case c < 0x20:
@@ -319,8 +315,30 @@ func (p *parser) string() (string, error) {
 			r, width := utf8.DecodeRuneInString(p.text[p.at:])
 			out.WriteRune(r)
 			p.at += width
+			if err := p.withinStringLimit(&out); err != nil {
+				return "", err
+			}
 		}
 	}
+}
+
+// withinStringLimit applies §4.8's string bound as the string is built rather
+// than at its closing quote.
+//
+// Measured on the decoded string, not the source span: an escape is six source
+// bytes and one character, and the decoded length is what has to be held.
+// Checked per character because the point of a bound is to stop the allocation,
+// and testing it at the end means a hostile payload has already made the parser
+// hold the whole value — a limit enforced after the fact bounds what is returned
+// and not what is held.
+//
+// The overshoot is at most one character, four bytes.
+func (p *parser) withinStringLimit(out *strings.Builder) error {
+	if out.Len() > p.maxString {
+		return p.fail(fmt.Sprintf(
+			"a string longer than P-002 §4.8's %d bytes", p.maxString))
+	}
+	return nil
 }
 
 func (p *parser) escape(out *strings.Builder) error {
