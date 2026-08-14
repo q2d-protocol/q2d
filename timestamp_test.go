@@ -46,10 +46,17 @@ func TestTheRightShapeIsNotEnough(t *testing.T) {
 		"2026-13-01T00:00:00Z",
 		"2026-01-32T00:00:00Z",
 		"2026-01-01T24:00:00Z",
+		// RFC 3339's grammar admits year zero and no calendar has one.
+		"0000-01-01T00:00:00Z",
 	} {
 		if isQ2DTimestamp(impossible) {
 			t.Errorf("%s: accepted an instant that never existed", impossible)
 		}
+	}
+	// The first year that does exist, so the bound is a bound and not an
+	// off-by-one.
+	if !isQ2DTimestamp("0001-01-01T00:00:00Z") {
+		t.Error("0001-01-01T00:00:00Z: refused the first year there is")
 	}
 }
 

@@ -64,7 +64,12 @@ func isQ2DTimestamp(value string) bool {
 		second = 59
 	}
 
-	return month >= 1 && month <= 12 &&
+	// year >= 1 because RFC 3339's grammar admits 0000 and no calendar does.
+	// Python's strptime refuses it (datetime.MINYEAR is 1), and a year the
+	// authoring tool cannot express is a year no vector can assert — so
+	// accepting it here would be an acceptance divergence with the tool that
+	// produces the corpus's bytes, which is the one that matters most.
+	return year >= 1 && month >= 1 && month <= 12 &&
 		day >= 1 && day <= daysInMonth(year, month) &&
 		hour <= 23 && minute <= 59 && second <= 59
 }

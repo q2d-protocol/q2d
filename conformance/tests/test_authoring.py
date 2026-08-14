@@ -272,10 +272,19 @@ class JwsTest(unittest.TestCase):
         # §2.2's spelling exactly, and no date. Checking the spelling alone
         # would have signed it into a payload nothing downstream reads as text.
         for wrong in ("2026-99-99T99:99:99Z", "2026-02-30T00:00:00Z",
-                      "2026-01-01T00:00:60Z"):
+                      "2026-01-01T00:00:60Z",
+                      # RFC 3339's grammar admits year zero and no calendar has
+                      # one. Refused here by `strptime`, since `datetime`
+                      # starts at year 1 -- and both implementations now say so
+                      # explicitly, because their arithmetic had no such floor
+                      # and would otherwise accept a year this tool cannot
+                      # express in a vector.
+                      "0000-01-01T00:00:00Z"):
             with self.subTest(value=wrong):
                 with self.assertRaises(author.ProfileError):
                     self.signed({"issued_at": wrong})
+        # The first year that does exist, so the bound is a bound.
+        self.assertTrue(author.valid_q2d_timestamp("0001-01-01T00:00:00Z"))
 
     def test_empty_objects_and_arrays_serialize(self):
         # A `query` is legitimately empty in the minimal message vector, and a

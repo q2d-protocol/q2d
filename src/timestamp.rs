@@ -68,7 +68,13 @@ pub fn is_q2d_timestamp(value: &str) -> bool {
         second = 59;
     }
 
-    month >= 1
+    // `year >= 1` because RFC 3339's grammar admits `0000` and no calendar
+    // does. Python's `strptime` refuses it (`datetime.MINYEAR` is 1), and a
+    // year the authoring tool cannot express is a year no vector can assert —
+    // so accepting it here would be an acceptance divergence with the tool that
+    // produces the corpus's bytes, which is the one that matters most.
+    year >= 1
+        && month >= 1
         && month <= 12
         && day >= 1
         && day <= days_in_month(year, month)
@@ -181,9 +187,14 @@ mod tests {
             "2026-13-01T00:00:00Z",
             "2026-01-32T00:00:00Z",
             "2026-01-01T24:00:00Z",
+            // RFC 3339's grammar admits year zero and no calendar has one.
+            "0000-01-01T00:00:00Z",
         ] {
             assert!(!is_q2d_timestamp(impossible), "{impossible}");
         }
+        // The first year that does exist, so the bound is a bound and not an
+        // off-by-one.
+        assert!(is_q2d_timestamp("0001-01-01T00:00:00Z"));
     }
 
     #[test]
