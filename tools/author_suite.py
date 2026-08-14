@@ -84,6 +84,14 @@ UNKNOWN_KEY = "test-requester-absent"
 # not because it fails to parse.
 UNREGISTERED_SUITE = "eddsa-jcs-2022"
 
+# `message/sign/query-minimal`'s query under the other requester key. The
+# payload's `signature.key_id` moves with the header's, because a payload naming
+# one key under a header naming another is precisely the mismatch P-003 §4.2
+# step 4 rejects -- a "valid" vector must not be one of E-34's cases by
+# accident.
+SECOND_KEY_QUERY = dict(
+    QUERY, signature=dict(QUERY["signature"], key_id=IMPOSTOR))
+
 
 def rejects(internal: str, external: str, step) -> dict:
     """A rejection asserting both halves, with `wire` as a projection.
@@ -122,22 +130,24 @@ def vectors() -> list[dict]:
 
     return [
         {
-            "id": "suite/sign/minimal-payload",
+            "id": "suite/sign/second-key",
             "section": "suite",
-            "requirement": ["crypto-suites.md#3", "core-model.md#2.1"],
+            "requirement": ["crypto-suites.md#3", "core-model.md#2.7"],
             "description": (
-                "Compact construction over a minimal payload, asserting the "
-                "string byte for byte. `message/sign/query-minimal` asserts the "
-                "same construction over a complete query; both exist so a "
-                "serializer defect in nested structures shows in one and not "
-                "the other, rather than the two failing together and meaning "
-                "one thing."
+                "The same query `message/sign/query-minimal` signs, under a "
+                "different key — `signature.key_id` in the payload moved with "
+                "it, since a payload naming one key under a header naming "
+                "another is the mismatch P-003 §4.2 step 4 rejects. Byte-exact, "
+                "and distinct from that vector in exactly one input, so a "
+                "defect in how a key reaches the signature shows here and not "
+                "there."
             ),
             "operation": "sign_query",
-            "input": {"key_id": REQUESTER, "query": {"type": "query"}},
+            "input": {"key_id": IMPOSTOR, "query": SECOND_KEY_QUERY},
             "expect": {
                 "outcome": "ok",
-                "output": av.jws_compact(seed, REQUESTER, {"type": "query"}),
+                "output": av.jws_compact(seed_of(IMPOSTOR), IMPOSTOR,
+                                         SECOND_KEY_QUERY),
                 "comparison": "bytes",
             },
         },

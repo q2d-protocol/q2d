@@ -79,7 +79,8 @@ requester receives.
 that vocabulary, and to keeping the internal reason and the wire response apart.
 
 **`suite/` is seven vectors and mostly refusals** — a tampered payload, header
-and signature, an unregistered suite, an unresolvable key. What it pins down beyond the refusals is **where** each happens: a header is
+and signature, an unregistered suite, an unresolvable key — plus a valid
+verification and a construction under a second key. What it pins down beyond the refusals is **where** each happens: a header is
 read at §4 step 3, before there is a signature to rely on, and everything else
 waits for step 4, so the unregistered-suite vector rejects earlier than the rest.
 [`tests/test_suite_section.py`](tests/test_suite_section.py) asserts that rather
