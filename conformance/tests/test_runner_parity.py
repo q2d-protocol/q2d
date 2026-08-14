@@ -40,10 +40,18 @@ RUNNERS = {
 
 VALID = {"id": "message/sign/query-minimal", "operation": "sign_query", "input": {}}
 
-# Each case is a document and the exit code the contract requires. They are
-# chosen so that a runner leaning on a permissive JSON library would differ:
-# `encoding/json` keeps the last duplicate key silently, and most parsers accept
-# at least one of NaN or a trailing document.
+# Each case is a document and the exit code the contract requires, and they come
+# in two kinds.
+#
+# Most are **parser** cases, chosen so that a runner leaning on a permissive JSON
+# library would differ: `encoding/json` keeps the last duplicate key silently,
+# and most parsers accept at least one of NaN or a trailing document.
+#
+# The rest are **contract** cases — an unprojected vector, an unknown operation,
+# a missing `input`, a non-string `id`, a top-level array. They are here for the
+# same reason rather than a different one: two runners disagreeing about any of
+# them would disagree about a vector without disagreeing about Q2D, which is
+# exactly what `harness cross` must never be reporting.
 CASES = {
     "a projection": (json.dumps(VALID), 0),
     "an unprojected vector": (json.dumps(dict(VALID, expect={"outcome": "ok"})), 1),

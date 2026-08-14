@@ -67,7 +67,9 @@ Having both now is what makes `cross` interpretable later. It reports a
 disagreement as two implementations reading the specification differently, and
 that only follows if everything *around* the protocol already matches — so
 [`tests/test_runner_parity.py`](tests/test_runner_parity.py) holds them to the
-same answer on twenty-six documents a permissive parser would differ about, and
+same answer on twenty-six documents — most chosen because a permissive parser
+would differ about them, the rest because the contract itself must be read the
+same way — and
 the `rust and go` job runs it. Five were divergences when written — all about
 encoding, none about Q2D, and every one would have surfaced through `cross` as a
 disagreement about the protocol. With neither answering a vector, a difference has
