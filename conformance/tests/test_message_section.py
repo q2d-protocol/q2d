@@ -53,7 +53,7 @@ class AuthoredSectionTest(unittest.TestCase):
 # would pass whatever that document said, including a typo.
 EXTERNAL_REASONS = frozenset({
     "malformed", "unsupported_version", "unsupported_suite", "routing_mismatch",
-    "expired",          # Tier A, distinct
+    "expired", "structurally_invalid",          # Tier A, distinct
     "unauthenticated",  # Tier B, one class
     "unavailable",      # Tier C, as the reference registry declares it
 })

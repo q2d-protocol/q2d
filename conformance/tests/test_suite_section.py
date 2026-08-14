@@ -30,7 +30,7 @@ SECTION = REPO / "conformance" / "corpus" / "suite"
 # document being checked against.
 EXTERNAL_REASONS = frozenset({
     "malformed", "unsupported_version", "unsupported_suite", "routing_mismatch",
-    "expired", "unauthenticated", "unavailable",
+    "expired", "structurally_invalid", "unauthenticated", "unavailable",
 })
 
 
@@ -127,6 +127,68 @@ class OrderingTest(unittest.TestCase):
             {"unauthenticated"})
 
 
+class StructurallyInvalidTest(unittest.TestCase):
+    """The three cases E-34 gave a value to.
+
+    Each parses, and what is wrong with it is neither a parse failure nor an
+    authentication one: in all three the declared suite is registered and
+    acceptable. That is why `unsupported_suite` does not describe them, and why
+    `malformed` -- which means "did not parse" -- would send a requester to its
+    serializer instead of to how its header is built.
+
+    The `alg` case is caught at §4 step 3, before any signature is checked, so
+    it is not an authenticated message. The two disagreements need the parsed
+    payload, so they cannot be caught before step 5 -- and §4's query order names
+    no step for the comparison at all, which is E-35. They assert none.
+
+    The class is not "authentic but wrong": it is "well formed, and not this
+    protocol's".
+    """
+
+    CASES = ("suite/downgrade/header-carries-alg",
+             "suite/downgrade/header-payload-suite-mismatch",
+             "suite/downgrade/header-payload-key-mismatch")
+
+    def test_all_three_share_one_class(self):
+        # §5.2.1 gives one value for all three: which part disagreed is visible
+        # in the message the requester itself produced, so putting it on the
+        # wire would tell the receiver what it already holds -- at the cost of a
+        # mapping both implementations must get identically right.
+        self.assertEqual(
+            {by_id()[name]["expect"]["rejection"]["wire"]["external_reason"]
+             for name in self.CASES},
+            {"structurally_invalid"})
+
+    def test_each_records_a_different_internal_reason(self):
+        # The wire collapses them; the responder's own record must not, or the
+        # separation core-model.md §5.2 requires between the two halves has been
+        # lost in the direction that matters for an audit.
+        internal = [by_id()[name]["expect"]["rejection"]["internal_reason"]
+                    for name in self.CASES]
+        self.assertEqual(len(set(internal)), len(self.CASES))
+
+    def test_the_header_only_case_is_caught_before_verification(self):
+        # `alg` is visible in the header alone, so it needs no signature and §4
+        # step 3 has already read the header.
+        rejection = by_id()["suite/downgrade/header-carries-alg"]["expect"]["rejection"]
+        self.assertEqual(rejection["step"], 3)
+
+    def test_the_disagreements_assert_no_step(self):
+        # They need the parsed payload, so they cannot precede §4 step 5 -- and
+        # §4's query order has no step for the comparison at all. The response
+        # order gained 4a for the same check (E-32); the query side never
+        # enumerated one, which is E-35.
+        #
+        # A step-less vector asserts no ordering (P-001 §4.8), which is weaker
+        # and true. `fold_registry.py` set the precedent before §4 gained 11a.
+        for name in ("suite/downgrade/header-payload-suite-mismatch",
+                     "suite/downgrade/header-payload-key-mismatch"):
+            with self.subTest(vector=name):
+                self.assertNotIn(
+                    "step", by_id()[name]["expect"]["rejection"],
+                    "E-35 has presumably closed — assert the step it determined")
+
+
 class ExpectedStateTest(unittest.TestCase):
     """What P-003 §6 names that this section does not have.
 
@@ -143,24 +205,6 @@ class ExpectedStateTest(unittest.TestCase):
         self.assertFalse((SECTION / "rfc8032").exists(),
                          "suite/rfc8032/ landed — issue 17 has presumably added "
                          "a raw-signing operation, so delete this assertion")
-
-    def test_the_structurally_invalid_cases_are_absent(self):
-        # All three reject and none has a class in core-model.md §5.2.1. In each
-        # the declared suite is registered and acceptable, so
-        # `unsupported_suite` does not fit; the key resolved and the signature
-        # verified, so `unauthenticated` does not; and they parse cleanly, so
-        # `malformed` fits only by stretching. What they share is being
-        # structurally invalid while authentic, which the vocabulary has no
-        # value for. E-34 decides it, and picking one here would settle in the
-        # corpus what belongs in `spec/`.
-        present = set(by_id())
-        for name in ("suite/downgrade/header-carries-alg",
-                     "suite/downgrade/header-payload-suite-mismatch",
-                     "suite/downgrade/header-payload-key-mismatch"):
-            with self.subTest(vector=name):
-                self.assertNotIn(name, present,
-                                 "E-34 has presumably closed — delete this and "
-                                 "assert the class it decided")
 
     def test_no_below_floor_downgrade_vector_yet(self):
         # A vector asserting that a suite below the verifier's floor is rejected
