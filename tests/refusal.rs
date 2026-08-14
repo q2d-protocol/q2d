@@ -107,3 +107,24 @@ fn a_refusal_names_the_field_and_nothing_else() {
         "the message carries an unrelated field's value: {message}"
     );
 }
+
+#[test]
+fn rust_cannot_construct_the_value_the_other_two_have_to_refuse() {
+    // The counterpart of `refusal_test.go`'s
+    // `TestInvalidUTF8IsRefusedRatherThanSubstituted` and the Python file's
+    // `test_a_string_the_profile_cannot_encode_is_refused`. Each language has a
+    // string type that admits something UTF-8 cannot represent, and they are
+    // not the same thing: Go's `string` is arbitrary bytes, Python's `str`
+    // admits an unpaired surrogate, and Rust's `String` admits neither.
+    //
+    // So there is no Rust value to refuse, and this test asserts the reason
+    // rather than the refusal: the bytes that make the other two fail are not a
+    // `String` here, and the compiler is what says so.
+    assert!(String::from_utf8(vec![0x61, 0x80, 0x62]).is_err());
+    assert!(String::from_utf16(&[0xD800]).is_err());
+
+    // What matters is the consequence: all three accept the same set of values,
+    // so a document one of them can sign is a document all of them can sign.
+    let same = "a\u{FFFD}b";
+    accepted(V::object([("a", V::string(same))]));
+}

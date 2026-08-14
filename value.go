@@ -37,6 +37,7 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf16"
+	"unicode/utf8"
 )
 
 // A Value is anything that can appear in a signed Q2D structure: the JSON model
@@ -134,6 +135,9 @@ func (v String) write(b *strings.Builder, _ bool) error {
 			"alone would pass '2026-99-99T99:99:99Z', which has the right shape and is "+
 			"no date", string(v))
 	}
+	if err := validUTF8("string", string(v)); err != nil {
+		return err
+	}
 	writeString(string(v), b)
 	return nil
 }
@@ -157,6 +161,12 @@ func (v Array) write(b *strings.Builder, _ bool) error {
 func (v Object) write(b *strings.Builder, protocolLevel bool) error {
 	keys := make([]string, 0, len(v))
 	for key := range v {
+		// Before sorting, not during: lessUTF16 converts to runes and would
+		// substitute for a malformed key, so an invalid one would be ordered by
+		// bytes it does not contain.
+		if err := validUTF8("object key", key); err != nil {
+			return err
+		}
 		keys = append(keys, key)
 	}
 	// §4.2 orders by UTF-16 code unit. Go's string comparison orders by byte,
@@ -220,6 +230,34 @@ func typeName(v Value) string {
 		return "an object"
 	}
 	return "an unknown value"
+}
+
+// validUTF8 refuses a string Go can hold and the profile cannot emit.
+//
+// §4.2 produces UTF-8. A Go string is an arbitrary byte sequence, so it can
+// carry bytes that are not — and ranging over one silently substitutes U+FFFD
+// for each invalid sequence, which would sign a value the caller never supplied.
+//
+// Rust's String cannot hold invalid UTF-8 at all, so without this the two
+// implementations differ on which values exist rather than on what they produce.
+// Refusing here makes the accepted set the same on both sides.
+//
+// The message carries no private data: it names the position of the first bad
+// byte, not the byte and not the string.
+func validUTF8(what, s string) error {
+	if utf8.ValidString(s) {
+		return nil
+	}
+	for at := 0; at < len(s); {
+		r, width := utf8.DecodeRuneInString(s[at:])
+		if r == utf8.RuneError && width <= 1 {
+			return fmt.Errorf("%s is not valid UTF-8 at byte %d. P-002 §4.2 produces "+
+				"UTF-8, and substituting U+FFFD would sign a value the caller did not "+
+				"supply", what, at)
+		}
+		at += width
+	}
+	return fmt.Errorf("%s is not valid UTF-8", what)
 }
 
 // lessUTF16 compares two strings by UTF-16 code unit, as P-002 §4.2 requires.

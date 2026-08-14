@@ -83,3 +83,22 @@ func TestARefusalNamesTheFieldAndNothingElse(t *testing.T) {
 		t.Errorf("the message carries an unrelated field's value: %s", message)
 	}
 }
+
+func TestInvalidUTF8IsRefusedRatherThanSubstituted(t *testing.T) {
+	// A Go string is an arbitrary byte sequence and a Rust String is not, so
+	// this value exists on one side of the pair and not the other. Ranging over
+	// it substitutes U+FFFD, which would sign bytes the caller never supplied —
+	// and Rust could not have produced them, so the divergence would show up as
+	// a byte disagreement with no visible cause.
+	//
+	// 0x80 is a continuation byte with nothing to continue.
+	bad := string([]byte{0x61, 0x80, 0x62})
+	refused(t, Object{"a": String(bad)})
+	refused(t, Object{bad: String("a")})
+
+	// The substitution this prevents, stated as the thing that must not happen.
+	if _, err := Serialize(Object{"a": String(bad)}); err == nil ||
+		contains(err.Error(), "�") {
+		t.Errorf("the refusal carries the substituted value: %v", err)
+	}
+}

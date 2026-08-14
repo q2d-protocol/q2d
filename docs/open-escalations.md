@@ -18,7 +18,13 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** **E-35** closed as A: §4's query order gains a lettered
+> **E-36 is open**, raised while building P-002's serializer: does a string
+> that carries an RFC 3339 spelling but not `core-model.md` §2.2's get refused
+> *wherever* it appears, or only in the fields §2.2 names? All three
+> implementations currently refuse it everywhere, which is a resolution living in
+> a tool rather than in `spec/`. §E-36 has the options.
+>
+> **E-35** closed as A: §4's query order gains a lettered
 > step **5a** for the header/payload comparison, symmetric with the response
 > order's 4a. Adding it touched seven documents plus both schemas and both served
 > copies, which is the reason it was worth escalating rather than adding in
@@ -134,6 +140,7 @@ question is still fresh than after the answer arrives.
 | **E-33** | What are the external denial classes a requester actually receives? | P-001 issue 12 | `core-model.md` §5.2.1 (new) · P-009 §4.1, §5 | **Closed** |
 | **E-34** | Which class does a well-formed message that is not a Q2D message produce? | P-001 issue 13 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-009 §4.1, §5 | **Closed** |
 | **E-35** | At which §4 step does a query's header/payload comparison happen? | E-34's cascade | `core-model.md` §4 query order, §5.2.1 · `crypto-suites.md` §3 · both schemas | **Closed** |
+| **E-36** | Does §2.2's timestamp spelling bind every string that looks like a timestamp, or only the fields §2.2 names? | P-002 issue 2 | `core-model.md` §2.2, §2.6 · P-002 §4.2 · `tools/author_vectors.py` · both implementations | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -2815,6 +2822,145 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-33** | **`spec/` enumerates Tiers A and B; the registry keeps Tier C.** New `core-model.md` **§5.2.1**: `malformed`, `unsupported_version`, `unsupported_suite`, `routing_mismatch` and `expired` are distinct because each describes the *request*; `unauthenticated` collapses the whole of authentication, since distinguishing an unknown key from a bad signature would let a requester probe which identities a custodian holds; Tier C stays the responder's pinned registry's declared value — manifest-level, so it is in hand for the rejections that never resolve an entry: a replay at step 9, a rate limit at 9a, an unknown predicate at 10. An unrecognised value is an **opaque rejection**, so adding one later does not break an older requester. | `core-model.md` §5.2, §5.2.1 · P-009 §4.1, §5, §3 · P-012 §5, §6 · P-001 issue 12 |
 | **E-34** | **One new value, `structurally_invalid`** — a sixth Tier A value for a message that parses and is wrong in a way that is neither a parse failure nor an authentication one: a header carrying `alg`, or one whose `suite` or `key_id` disagrees with the payload's. Not `unsupported_suite` or `unauthenticated`, because the suite was acceptable and nothing failed to authenticate — the `alg` case is refused at step 3 before a signature is checked at all; not `malformed`, because those parse. One value for three causes because which part disagreed is visible in the message the requester itself produced — unlike `unsupported_suite`, which collapses to withhold the custodian's floor. §5.2.1 now states the test a future value must pass: it must send a requester somewhere a neighbouring value would not. | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-009 §4.1, §5 · P-001 issue 13 |
 | **E-35** | **A lettered query step 5a**, immediately after parsing: confirm the protected header's `suite` and `key_id` equal the payload's copies. It cannot precede step 5, since it needs the parsed object, and it precedes every step that acts on a payload field. Symmetric with the response order's 4a, which E-32 added for the same check — the requirement had existed in `crypto-suites.md` §3 and P-003 §4.2 with no slot in the query order that cites it. Lettered so steps 6–19 do not renumber. | `core-model.md` §4 query order, §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · `conformance-classes.md` CC-2 · `mvp-scope.md` · P-010 · P-001 §5, issue 14 · both schemas and both served copies |
+
+## E-36 — Does §2.2's timestamp spelling bind every string, or only the fields §2.2 names?
+
+**Raised by:** P-002 issue 2, building the production serializer. **Found by:**
+Codex, reviewing the Rust and Go implementations of a rule
+[`tools/author_vectors.py`](../tools/author_vectors.py) has had since E-23.
+
+### Context
+
+E-23 settled the spelling: uppercase `T`, uppercase `Z`, second precision, one
+spelling for every timestamp in the protocol, stated in
+[`core-model.md`](../spec/core-model.md) §2.2. What it did not state is the
+*reach* — which strings the rule applies to.
+
+The authoring tool resolved that by implementing it, and P-002 issue 2 copied
+the tool into Rust and Go, because a serializer that disagrees with the tool
+generating the corpus's expected bytes is worse than one that disagrees with the
+other implementation. So all three now apply two rules:
+
+- **By name, at protocol level.** A field called `issued_at`, `expires_at` or
+  `decided_at` in the core object, `routing`, or a receipt must hold §2.2's
+  timestamp. This one is not in question: §2.2 names the fields and §2.2 names
+  those three places.
+- **By shape, at any depth.** *Any* string carrying some RFC 3339 spelling that
+  is not §2.2's is refused wherever it appears — including inside
+  `public_context`, which §2.6 says is operation-defined and may mean anything
+  at all.
+
+The second rule is not in `spec/`. It is in a tool, and now in two
+implementations, and it is the kind of thing an implementer building only from
+`spec/` would not produce.
+
+### Concretely
+
+A restaurant predicate's `public_context` carries a booking time, and the
+requester writes it the way every other system it talks to writes it:
+
+```json
+"public_context": {"booked_for": "2026-07-31T19:30:00+01:00"}
+```
+
+That is valid RFC 3339, it is not §2.2's spelling, and it is not a field §2.2
+names. Today all three implementations refuse to serialize the query at all. The
+requester cannot ask the question, and the failure names a spelling rule for a
+field the specification does not claim.
+
+The offset is the interesting part: `+01:00` carries information a `Z` spelling
+does not — the local time the diner is thinking in. Normalising it to UTC loses
+that, so *"just rewrite it as §2.2's spelling"* is not a lossless workaround.
+
+### Why the shape rule exists at all
+
+It is not arbitrary. Without it, the by-name rule catches only three field names,
+and the failure it exists to prevent is a **malformed timestamp inside a signed
+payload**, where it is past the reach of anything that reads the payload as
+text. A predicate that puts a timestamp in `public_context` under a name §2.2
+does not list — `valid_until`, `as_of`, `booked_for` — is then unprotected, and
+that is most predicates.
+
+So both rules are defensible and they are in tension. That is the definition of
+a spec ambiguity with more than one resolution, which is why this is here rather
+than in a commit.
+
+### Options
+
+**A. Keep the shape rule, and state it in §2.2.** The rule is what the corpus
+generator has always done; this makes `spec/` say so. Cost: Q2D cannot carry an
+offset timestamp as operation-defined data anywhere, and §2.6's *"may mean
+anything at all"* acquires an exception it does not currently mention.
+
+**B. Restrict both rules to protocol level, and state that in §2.2.** A field
+inside `public_context` is the predicate's, exactly as §2.6 says. Cost: a
+predicate's own timestamp fields are unchecked, so a malformed one can be signed
+— and a predicate that names its field `expires_at` inside `public_context`
+would be checked while one that names it `booked_for` would not, which is a
+distinction with no principle behind it.
+
+**C. Restrict to protocol level, and make it the registry's job.** §2.6 data is
+validated by the entry's `input_schema` (`scope.md` §4.1), which already has
+`format: date-time` available to it. A predicate that wants §2.2's spelling for
+its own field says so in its schema; one that wants an offset says that instead.
+Cost: `format` is an annotation in JSON Schema, not an assertion, so §4.1 would
+need to require it be enforced — a change to the frozen profile, and E-30's
+reasoning about libraries disagreeing applies to `format` at least as much as to
+`multipleOf`.
+
+### Recommendation — C, falling back to B
+
+**C is the only option that puts the decision where the data's meaning is
+already defined.** §2.6 says `public_context` is operation-defined, and
+`scope.md` §4.1 already makes the entry's schema the thing that constrains it.
+A timestamp in a predicate's public context is predicate data; the predicate's
+author knows whether an offset is meaningful and the protocol does not. Under C
+a booking predicate declares `format: date-time` and accepts the offset; an
+audit predicate declares the §2.2 spelling by pattern and refuses it. Neither
+needs `core-model.md` to have an opinion.
+
+C also removes an asymmetry nothing can justify: today, whether a predicate's
+timestamp is checked depends on whether its author happened to choose one of
+three field names.
+
+**B is the fallback** because it is correct about the boundary even though it
+leaves predicate timestamps unchecked. If `format` cannot be made assertive
+without reopening §4.1's profile — and E-30 is a real precedent that it might
+not be — then B states the honest rule (§2.2 binds the fields §2.2 names) and
+leaves predicate data to a later mechanism, rather than pretending the
+serializer is that mechanism.
+
+**A is defensible and I do not recommend it.** It is the status quo, it is the
+safest against malformed signed timestamps, and it is the least work. But it
+makes the protocol refuse valid data on the strength of a rule that is nowhere
+in `spec/`, and the reason it is nowhere is that nobody decided it — a tool did.
+
+### Where the recommendation stops being right
+
+**If a predicate's `public_context` is ever compared byte-for-byte across
+implementations for a purpose other than the signature** — a digest that some
+other party recomputes, say — then C is wrong and A is right, because under C
+two predicates can admit two spellings of the same instant and the bytes differ.
+Nothing does that today: §4 step 8's byte comparison is over `routing`, whose
+fields are all protocol-level, which is exactly what E-23 was for.
+
+**If it turns out that most predicates carry timestamps and few authors write
+tight schemas**, C is a rule nobody follows and B's honest gap becomes a real
+one. That is an argument for revisiting when the registry has more than three
+entries, not for choosing A now — A forecloses the offset case permanently, and
+widening later is always available.
+
+### What is built today, pending the decision
+
+All three implementations refuse by shape at any depth — option A's behaviour —
+because that is what the corpus generator has always done and a serializer that
+disagrees with it would produce payloads the corpus cannot express. The three
+agree, so nothing is divergent; the rule is simply narrower in `spec/` than in
+the code. `tests/refusal.rs`, `refusal_test.go`, and the Python `RefusalTest`
+each assert the current behaviour, and each will need one case changed under B
+or C.
+
+---
 
 ### What did not change, deliberately
 

@@ -184,6 +184,31 @@ def valid_q2d_timestamp(value: str) -> bool:
     return True
 
 
+def encodable(value: str, what: str) -> None:
+    """Refuse a `str` Python can hold and the profile cannot emit.
+
+    §4.2 produces UTF-8. A Python `str` is a sequence of code points and may
+    contain an unpaired surrogate, which has no UTF-8 encoding at all.
+
+    Go and Rust refuse the same value -- Go because a string carrying invalid
+    UTF-8 would otherwise be silently substituted with U+FFFD, Rust because its
+    `String` cannot hold one in the first place. Without this the three
+    implementations would differ on which values *exist* rather than on what
+    they produce, and the error would arrive as an encoding failure from
+    somewhere inside the profile rather than as the profile refusing it.
+
+    The message names the position, not the character: a private value must not
+    reach an error string.
+    """
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as bad:
+        raise ProfileError(
+            f"{what} is not encodable as UTF-8 at position {bad.start}. "
+            f"P-002 §4.2 produces UTF-8, and an unpaired surrogate has no "
+            f"encoding in it") from None
+
+
 def sort_key(key: str) -> bytes:
     """§4.2: object keys sorted ascending by **UTF-16 code unit**.
 
@@ -267,6 +292,7 @@ def _serialize(value, protocol_level: bool = False) -> str:
         # a JCS-based suite.
         return str(value)
     if kind == "string":
+        encodable(value, "string")
         # §2.2 permits one spelling of a timestamp, and P-002 §4.2's profile
         # cites it. Enforced here for the same reason §4.3's float ban is: this
         # is the last point at which a value can be rejected before it becomes
@@ -286,6 +312,11 @@ def _serialize(value, protocol_level: bool = False) -> str:
         for key in value:
             if not isinstance(key, str):
                 raise ProfileError(f"object key {key!r} is not a string")
+            # Before sorting, not during: `sort_key` encodes to UTF-16BE and
+            # would raise a `UnicodeEncodeError` from inside the comparison --
+            # a refusal, but not one that names what was wrong or comes from
+            # the profile. The other two implementations refuse the same value.
+            encodable(key, "object key")
         # Duplicate keys cannot occur in a Python dict, so §4.2's production
         # rule is structurally satisfied. Parsing is where it has to be
         # enforced, and conformance/harness/corpus.py does that.

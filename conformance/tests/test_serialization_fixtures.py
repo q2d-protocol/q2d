@@ -148,6 +148,18 @@ class RefusalTest(unittest.TestCase):
         self.refused({"receipt": {"decided_at": "2026-02-30T00:00:00Z"}})
         self.accepted(self.public_context({"receipt": {"decided_at": "on the night"}}))
 
+    def test_a_string_the_profile_cannot_encode_is_refused(self):
+        # The counterpart of `refusal_test.go`'s
+        # `TestInvalidUTF8IsRefusedRatherThanSubstituted`. Each language has a
+        # string type that can hold something UTF-8 cannot represent, and they
+        # are not the same thing: Python's `str` admits an unpaired surrogate,
+        # Go's `string` admits arbitrary bytes, and Rust's `String` admits
+        # neither. All three refuse, so the set of values that can be signed is
+        # the same on all three sides.
+        lone_surrogate = "\ud800"
+        self.refused({"a": lone_surrogate})
+        self.refused({lone_surrogate: "a"})
+
     def test_a_refusal_names_the_field_and_nothing_else(self):
         message = self.refused({
             "issued_at": "2026-07-31t09:00:00Z",
