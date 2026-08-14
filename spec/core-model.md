@@ -794,11 +794,32 @@ bytes, so precision here costs nothing and makes the protocol debuggable.
 | `unsupported_suite` | Suite unregistered, **or** below the verifier's minimum acceptable policy | step 3 |
 | `routing_mismatch` | `routing` disagrees with the verified object | step 8 |
 | `expired` | Request expired or future-dated | step 6 |
+| `structurally_invalid` | The message parses and authenticates and is still not a Q2D message: a protected header carrying a member [`crypto-suites.md`](crypto-suites.md) §3 does not permit, or a header whose `suite` or `key_id` disagrees with the payload's `signature.profile` or `signature.key_id` | step 3 for the header alone; step 4 for a disagreement, which cannot be seen until the payload is verified |
 
 `unsupported_suite` is one value for two causes on purpose. Separating them would
 tell a requester whether the custodian *knows* a suite it declined, which is the
 custodian's minimum acceptable policy — a fact about the custodian, not about the
 request, and so on the wrong side of the line this group is drawn along.
+
+**`structurally_invalid` is one value for three causes for a different reason.**
+Nothing is withheld: which part disagreed is visible in the message the requester
+itself produced, so putting it on the wire would tell the receiver what it
+already holds. What it costs is a mapping both implementations must get
+identically right, and a mismatch there is a divergence in the one place this
+vocabulary exists to prevent one.
+
+It is separate from `malformed` rather than folded into it because the two send a
+requester to different code. A `malformed` message did not parse — the serializer
+is where to look. A `structurally_invalid` one parsed and verified, and is wrong
+in how its header was assembled from its payload. Collapsing them would name the
+larger class and lose the only thing the value is for.
+
+**What this vocabulary is for**, since `structurally_invalid` is the first value
+added after the list was closed and the next one will need the same test: it
+tells a requester **where to look**. A value earns a place by sending a requester
+somewhere a neighbouring value would not — not by naming a cause precisely.
+That is why three structural failures share one value, and why this one is not
+`malformed`.
 
 **One class — authentication.**
 

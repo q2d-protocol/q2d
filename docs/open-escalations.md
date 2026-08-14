@@ -18,14 +18,10 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-34 is open**, raised on authoring `suite/downgrade/`. Three rejections
-> `crypto-suites.md` §3 requires — a header carrying `alg`, and a header
-> declaring a suite or key the payload does not — have **no class in §5.2.1**. In
-> each the declared suite is registered and the signature verified, so neither
-> `unsupported_suite` nor `unauthenticated` fits, and they parse cleanly, so
-> `malformed` fits only by stretching. The message is structurally invalid while
-> being authentic, which the vocabulary has no value for. It blocks three vectors
-> and nothing else.
+> **Nothing is open.** **E-34** closed as B: `structurally_invalid`, a sixth
+> Tier A value for a message that parses and authenticates and is still not a Q2D
+> message. §5.2.1 also now states the test a future value must pass — it must
+> send a requester somewhere a neighbouring value would not.
 >
 > **E-33** closed as A, giving `core-model.md` a new
 > **§5.2.1**: the `external_reason` vocabulary, five distinct Tier A values,
@@ -130,7 +126,7 @@ question is still fresh than after the answer arrives.
 | **E-31** | Is `signature.value` a field of the signed core object? | P-001 issue 12 | `core-model.md` §2.7, §5.1–§5.3 · `crypto-suites.md` §3 | **Closed** |
 | **E-32** | What does a signed *response* payload contain? | E-31's cascade | `core-model.md` §5.1–§5.3, §6, §4 response step 4a (new) · `crypto-suites.md` §3 | **Closed** |
 | **E-33** | What are the external denial classes a requester actually receives? | P-001 issue 12 | `core-model.md` §5.2.1 (new) · P-009 §4.1, §5 | **Closed** |
-| **E-34** | Which class does a structurally invalid but authentic message produce? | P-001 issue 13 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2 | **Open** |
+| **E-34** | Which class does a structurally invalid but authentic message produce? | P-001 issue 13 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-009 §4.1, §5 | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -2467,9 +2463,8 @@ did not adjust the count. The fields are still four; the sentence now says which
 **Raised by** [P-001](prds/P-001-conformance-corpus.md) issue 13, on authoring
 `suite/downgrade/` ·
 **Decides** [`core-model.md`](../spec/core-model.md) §5.2.1 ·
-**Blocks** three vectors, the whole of `suite/downgrade/` bar one:
-`header-carries-alg`, `header-payload-suite-mismatch`,
-`header-payload-key-mismatch`. Nothing else; the other seven landed.
+**Decided: B — one new value, `structurally_invalid`.** §5.2.1 carries it as a
+sixth Tier A value, and all three vectors landed.
 
 ### Context
 
@@ -2545,7 +2540,7 @@ describe something no conforming party emits.
 message, and three values for one class of producer bug invites the reading that
 the distinction matters to the protocol. It does not.
 
-### Recommendation — B
+### Recommendation — B. **Adopted.**
 
 The vocabulary should say what happened, and neither existing value does. A
 requester told `unauthenticated` when its signature verified will look in the
@@ -2567,6 +2562,31 @@ sixth value for a case that cannot arise between correct implementations is
 weight without benefit, and A is the frugal answer. That is a judgement about
 what the vocabulary is *for* — a debugging aid or a decision input — and §5.2.1
 does not currently say.
+
+
+### What the decision also settled
+
+**The vocabulary now says what it is for.** `structurally_invalid` is the first
+value added since E-33 closed the list, and the argument for adding it was not
+"the cause deserves a name" — it was that a requester told `malformed` looks at
+its serializer, and one told `structurally_invalid` looks at how its header is
+assembled from its payload. §5.2.1 states that as the test a future value has to
+pass: **a value earns a place by sending a requester somewhere a neighbouring
+value would not.** Without it, the next proposal is argued from scratch, and the
+list grows by precision rather than by usefulness.
+
+**The `unsupported_suite` precedent does not transfer, and §5.2.1 says so.**
+Both are one value for several causes, but `unsupported_suite` collapses to
+*withhold* something — separating its two causes would leak the custodian's
+minimum acceptable policy. Nothing is withheld here: which part disagreed is in
+the message the requester produced. The collapse is because the distinction is
+useless on the wire, not because it is dangerous, and recording that stops the
+next reader treating privacy as the reason.
+
+**The name avoids `malformed` deliberately.** `invalid_message` or
+`malformed_message` would sit beside `malformed` and mean something different,
+which two implementers will blur. `structurally_invalid` cannot be misread as the
+parse failure.
 
 
 ---
@@ -2662,6 +2682,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-31** | **The model has a signature; the suite says where it travels.** §2.7 keeps `signature.value` and states that, and `crypto-suites.md` §3 says `eddsa-jws-2026` carries it in the compact form's third segment and therefore not in the payload — a payload carrying it would sign itself. §5.1–§5.3's response `signature` rows point at the same rule. The alternative of striking the field would have put a JWS assumption in the document that disclaims serialization, and the next suite would reopen it. | `core-model.md` §2.7, §5.1, §5.2, §5.3 · `crypto-suites.md` §3 · P-001 issues 12, 13, 14 |
 | **E-32** | **Symmetric.** A response payload carries `signature.profile` and `signature.key_id` exactly as a query's does, and §4's response order gains step **4a** to compare them against the protected header. The check catches a producer signing a payload declaring one suite or key under a header declaring another, and that producer is no less able to lie to a requester than to a responder — the check had existed in one direction only. §6 reconciles the receipt's `signature_suite` with the new `signature.profile`: not redundant, and a response whose two disagree is rejected. | `core-model.md` §5.1, §5.2, §5.3, §6, §4 response step 4a · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-012 §4, §5 · P-001 issue 12 |
 | **E-33** | **`spec/` enumerates Tiers A and B; the registry keeps Tier C.** New `core-model.md` **§5.2.1**: `malformed`, `unsupported_version`, `unsupported_suite`, `routing_mismatch` and `expired` are distinct because each describes the *request*; `unauthenticated` collapses the whole of authentication, since distinguishing an unknown key from a bad signature would let a requester probe which identities a custodian holds; Tier C stays the responder's pinned registry's declared value — manifest-level, so it is in hand for the rejections that never resolve an entry: a replay at step 9, a rate limit at 9a, an unknown predicate at 10. An unrecognised value is an **opaque rejection**, so adding one later does not break an older requester. | `core-model.md` §5.2, §5.2.1 · P-009 §4.1, §5, §3 · P-012 §5, §6 · P-001 issue 12 |
+| **E-34** | **One new value, `structurally_invalid`** — a sixth Tier A value for a message that parses and authenticates and is still not a Q2D message: a header carrying `alg`, or one whose `suite` or `key_id` disagrees with the payload's. Not `unsupported_suite` or `unauthenticated`, because the suite was acceptable and the signature verified; not `malformed`, because those parse. One value for three causes because which part disagreed is visible in the message the requester itself produced — unlike `unsupported_suite`, which collapses to withhold the custodian's floor. §5.2.1 now states the test a future value must pass: it must send a requester somewhere a neighbouring value would not. | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-009 §4.1, §5 · P-001 issue 13 |
 
 ### What did not change, deliberately
 

@@ -121,7 +121,10 @@ alternative:
 
 Both members are duplicated in a signed payload — `signature.profile` and
 `signature.key_id` — and a verifier confirms both pairs agree after verifying.
-This holds in **both directions**: a query at
+Either disagreement rejects with `structurally_invalid`
+([`core-model.md`](core-model.md) §5.2.1): the suite was acceptable and the
+signature verified, so neither `unsupported_suite` nor `unauthenticated` would be
+true of it. This holds in **both directions**: a query at
 [`core-model.md`](core-model.md) §4 step 5's sibling in
 [P-003](../docs/prds/P-003-crypto-suites.md) §4.2, and a response at §4's
 response step **4a**. The attack it catches does not care which way the message
@@ -152,7 +155,10 @@ the first payload was serialized ([`open-escalations.md`](../docs/open-escalatio
 E-31).
 
 **`alg` is not a member of a Q2D protected header, and `alg: none` is not a
-state one can express.** This is stronger than rejecting it. A header carrying
+state one can express.** A header carrying one is rejected at
+[`core-model.md`](core-model.md) §4 step 3, where the header is read, and the
+requester receives `structurally_invalid` (§5.2.1) — the message authenticates
+and is still not a Q2D message. This is stronger than rejecting it. A header carrying
 `alg` would be one a general-purpose JOSE library could process — and such a
 library selects its verification algorithm from the header, which is precisely
 the decision §4's minimum-acceptable-policy check exists to take away from the

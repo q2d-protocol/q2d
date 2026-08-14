@@ -89,7 +89,8 @@ avoid reading the header — it is to never let the header *decide*.
    never parameters taken from the header.
 4. After verification, confirm the payload's signature.profile equals the
    header's `suite`, and signature.key_id equals the header's `key_id`.
-   Either mismatch rejects.
+   Either mismatch rejects, with `structurally_invalid`
+   ([`core-model.md`](../../spec/core-model.md) §5.2.1).
 ```
 
 **This procedure is the same for a response.** E-32 settled that §5.1–§5.3's
@@ -253,7 +254,7 @@ in a message. There is no code path that derives it from received data.
 | A header carrying `alg` at all, or any unregistered suite | The first is not a member the format has, so it is rejected as an unexpected member before step 2; the second is rejected *at* step 2. No special case in the code for either, and none may be added |
 | A header whose `key_id` differs from the payload's `signature.key_id` | Rejected at step 4. The signature verifies — the verifier used the header's key — so nothing else would catch it |
 | A suite below the verifier's floor | Rejected, with **no alternative named** in the response |
-| Header suite ≠ payload `signature.profile` | Rejected after verification, on a query and on a response alike |
+| Header suite ≠ payload `signature.profile` | Rejected after verification, on a query and on a response alike, with `structurally_invalid` |
 | Verifying with parameters taken from the header rather than the registry entry | Header-parameter vector verifies when it must not |
 | A withdrawn suite | Verification refuses |
 | Signing under a deprecated suite | Production refuses |

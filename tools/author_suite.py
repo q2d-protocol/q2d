@@ -6,10 +6,9 @@
 
 [P-001](../docs/prds/P-001-conformance-corpus.md) §5 gives `suite/` as *"suite
 resolution, downgrade rejection, unknown suite"*, and issue 13 authors it.
-[P-003](../docs/prds/P-003-crypto-suites.md) §6 names six groups. Four are here;
-two are not, and neither absence is about this tool — one needs an operation the
-vocabulary does not have, the other a second registered suite. Two cases inside a
-group that *is* here are absent for a third reason, below.
+[P-003](../docs/prds/P-003-crypto-suites.md) §6 names six groups. Four are here
+in full; two are not, and neither absence is about this tool — one needs an
+operation the vocabulary does not have, the other a second registered suite.
 
 Generated with a `--check`, for the reason
 [`author_message.py`](author_message.py) is. The bytes come from
@@ -37,20 +36,6 @@ protocol-level, and adding one is issue 17's, which settles vocabulary additions
 as a single change. The known answers are not unchecked meanwhile —
 [`author_vectors.py`](author_vectors.py) refuses to sign anything until it
 reproduces all three, so every byte this file emits already depends on them.
-
-**Three `suite/downgrade/` cases** — a header carrying `alg`, and a header
-declaring a suite or a key the payload does not. All three reject, and none has a
-**class**. §5.2.1's `unsupported_suite` covers a suite that is *unregistered or
-below the verifier's floor*, and in all three the declared suite is registered and
-acceptable — which is why the message got as far as it did. `unauthenticated` is
-closed over an unresolvable key, an invalid signature and a bad delegation, and
-here the key resolved and the signature verified. `malformed` fits only by
-stretching, since these parse cleanly.
-
-What they have in common is that the message is **structurally invalid while
-being authentic**, which is a category the vocabulary does not have. Choosing a
-value here would settle in the corpus what E-33 decided belongs in `spec/`.
-[`open-escalations.md`](../docs/open-escalations.md) **E-34**.
 
 **`suite/status/`**, and `suite/downgrade/`'s below-floor case — both need a
 second registered suite. [`crypto-suites.md`](../spec/crypto-suites.md) §3
@@ -236,6 +221,73 @@ def vectors() -> list[dict]:
                 dict(QUERY, signature=dict(QUERY["signature"],
                                            profile=UNREGISTERED_SUITE)))),
             "expect": rejects("suite_unregistered", "unsupported_suite", 3),
+        },
+        {
+            "id": "suite/downgrade/header-carries-alg",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#4",
+                            "core-model.md#5.2.1"],
+            "description": (
+                "A header carrying `alg` alongside `suite` and `key_id`. §3 "
+                "closes the header at two members: one carrying `alg` is one a "
+                "general-purpose JOSE library could process, and such a library "
+                "selects its algorithm from the header — the decision §4's "
+                "suite-policy check exists to take away from the sender. "
+                "`structurally_invalid` rather than `unsupported_suite`: the "
+                "declared suite is the registered one, which is why the message "
+                "got this far (E-34)."
+            ),
+            "operation": "verify_query",
+            "input": envelope(av.jws_with_header(
+                seed,
+                {"alg": "EdDSA", "key_id": REQUESTER, "suite": av.SUITE},
+                QUERY)),
+            "expect": rejects("header_member_not_permitted",
+                              "structurally_invalid", 3),
+        },
+        {
+            "id": "suite/downgrade/header-payload-suite-mismatch",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#2.7",
+                            "core-model.md#5.2.1"],
+            "description": (
+                "A header declaring the registered suite over a payload whose "
+                "`signature.profile` declares another. The signature verifies — "
+                "the verifier used the header's suite — so this is caught after "
+                "verification by P-003 §4.2 step 4, which is the point: the "
+                "payload's copy is authoritative, the header's is not, and "
+                "comparing them catches a producer no verifier would otherwise "
+                "notice."
+            ),
+            "operation": "verify_query",
+            "input": envelope(av.jws_compact(
+                seed, REQUESTER,
+                dict(QUERY, signature=dict(QUERY["signature"],
+                                           profile=UNREGISTERED_SUITE)))),
+            "expect": rejects("header_payload_suite_mismatch",
+                              "structurally_invalid", 4),
+        },
+        {
+            "id": "suite/downgrade/header-payload-key-mismatch",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#2.7",
+                            "core-model.md#5.2.1"],
+            "description": (
+                "A header naming one key over a payload whose "
+                "`signature.key_id` names another, signed by the key the header "
+                "names — so the signature verifies and only the comparison "
+                "fails. The same `external_reason` as the suite mismatch above: "
+                "§5.2.1 gives one value for all three structural failures, "
+                "because which part disagreed is visible in the message the "
+                "requester itself produced."
+            ),
+            "operation": "verify_query",
+            "input": envelope(av.jws_compact(
+                seed, REQUESTER,
+                dict(QUERY, signature=dict(QUERY["signature"],
+                                           key_id=IMPOSTOR)))),
+            "expect": rejects("header_payload_key_mismatch",
+                              "structurally_invalid", 4),
         },
         {
             "id": "suite/keys/unresolvable",
