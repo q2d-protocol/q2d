@@ -107,7 +107,9 @@ class StepsAreRealTest(unittest.TestCase):
 
     def test_every_asserted_step_is_in_section_4(self):
         available = self.query_steps()
-        self.assertIn("5a", available, "the §4 table did not parse as expected")
+        for lettered in ("5a", "9a", "11a"):
+            self.assertIn(lettered, available,
+                          "the §4 table did not parse as expected")
         for step in steps():
             with self.subTest(step=step):
                 self.assertIn(step, available)
@@ -116,9 +118,15 @@ class StepsAreRealTest(unittest.TestCase):
         # Which steps are absent, and why, is the thing worth asserting: the
         # section is incomplete on purpose and a reader has to be able to tell
         # that from a check rather than from prose.
+        # Steps 16-19 are what a *successful* request reaches, so they have no
+        # rejection vector here; a lettered step is kept whatever its number,
+        # since 5a and 11a are exactly the checks an implementation is most
+        # likely to fold into their neighbours.
+        def in_scope(step):
+            return isinstance(step, str) or step <= 15
+
         rejecting = {s for s in self.query_steps()
-                     if s not in NO_REJECTION and s not in DEFERRED
-                     and (s in ("5a",) or (isinstance(s, int) and s <= 15))}
+                     if in_scope(s) and s not in NO_REJECTION and s not in DEFERRED}
         self.assertEqual(set(steps()), rejecting,
                          "a step gained or lost a vector — if a fixture format "
                          "landed, move it out of DEFERRED")

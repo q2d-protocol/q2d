@@ -66,6 +66,28 @@ REPO = Path(__file__).resolve().parent.parent
 SECTION = REPO / "conformance" / "corpus" / "ordering"
 
 UNREGISTERED_SUITE = "eddsa-jcs-2022"
+
+# The responder's clock, supplied rather than read. P-001 §4.3: a runner that
+# reads a clock produces an unreproducible result and is non-conforming, and
+# §4 step 6's expiry check is the first thing in this pipeline that needs a
+# time. The name follows P-007 §4.3's `environment.now`, which is the same
+# value reaching the same pipeline one step later.
+#
+# It sits inside the query's validity window, so every vector below step 6
+# passes step 6 rather than rejecting there by accident -- which would make
+# each of them assert an ordering it does not test.
+ENVIRONMENT = {"now": "2026-07-31T09:01:00Z"}
+
+# The second reference predicate, for step 11a. `menu-compatible` has no
+# constraint its input schema cannot express, so the step that exists to be
+# different from step 11 needs an entry that does.
+AVAILABILITY = {
+    "id": "https://q2d.dev/predicates/scheduling/availability-window",
+    "version": "0.1",
+    "registry_digest": (
+        "sha256:6ca481a555da633ffbd1ecbd37c7897091e8d01af036fd2610c6460a271d3ffd"
+    ),
+}
 # `registry/manifest.json` declares one external class for everything its
 # entries govern. Steps 10 onward are Tier C, so they all carry it -- which is
 # the point of the class rather than a limitation of these vectors.
@@ -87,7 +109,7 @@ def vector(step, name: str, why: str, envelope: dict,
         "requirement": ["core-model.md#4", "core-model.md#5.2.1", "CC-2"],
         "description": why,
         "operation": "process_query",
-        "input": {"envelope": envelope},
+        "input": {"envelope": envelope, "environment": ENVIRONMENT},
         "expect": {
             "outcome": "rejected",
             "rejection": {
@@ -195,6 +217,24 @@ def vectors() -> list[dict]:
                {"signed": signed(query_with(predicate=dict(
                    QUERY["predicate"], public_context={"menu": []})))},
                "public_context_schema_violation", TIER_C),
+
+        vector("11a", "slot-below-the-granularity-floor",
+               "A candidate slot of five minutes, where the "
+               "`availability-window` entry sets a `minimum_slot_duration` of "
+               "thirty. The entry's input schema cannot express that — a "
+               "duration floor is a relation between two fields — so step 11 "
+               "passes and 11a catches it. That is the whole reason 11a is a "
+               "separate step: an implementation folding it into 11 would "
+               "satisfy §4 by running a schema validator and stopping.",
+               {"signed": signed(query_with(
+                   predicate=dict(AVAILABILITY, public_context={"candidates": [
+                       {"start": "2026-08-10T18:00:00Z",
+                        "end": "2026-08-10T18:05:00Z"}]}),
+                   answer_contract={"release_shape": "interval",
+                                    "domain": "registered",
+                                    "allowed_detail_fields": [],
+                                    "precision": "PT30M"}))},
+               "constraint_violation_minimum_slot_duration", TIER_C),
 
         vector(12, "contract-broader-than-the-entry",
                "An answer contract requesting a `scalar` where the entry's "

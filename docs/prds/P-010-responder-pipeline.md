@@ -259,7 +259,7 @@ the design does not have.
 
 | Section | Owner | Content |
 |---|---|---|
-| `ordering/` | this PRD, **partly landed** | One vector per rejection step, 1–15, plus 5a, 9a and 11a. [P-001](P-001-conformance-corpus.md) issue 14 authored the eleven whose input needs no fixture beyond the pinned registry — steps 1, 3, 4, 5, 5a, 6, 8, 10, 11, 12, 13 — so the ordering they establish exists before this PRD is built rather than after. Issue 11 here adds 7, 9, 9a, 14 and 15, each of which needs state whose fixture format another PRD defines. Step 2 gets none: §4 makes it optional and never a security decision |
+| `ordering/` | this PRD, **partly landed** | One vector per rejection step, 1–15, plus 5a, 9a and 11a. [P-001](P-001-conformance-corpus.md) issue 14 authored the twelve whose input needs no fixture beyond the pinned registry — steps 1, 3, 4, 5, 5a, 6, 8, 10, 11, 11a, 12, 13 — so the ordering they establish exists before this PRD is built rather than after. Issue 11 here adds 7, 9, 9a, 14 and 15, each of which needs state whose fixture format another PRD defines. Step 2 gets none: §4 makes it optional and never a security decision |
 | `evaluate/` | this PRD | The three predicates against `registry/manifest.json`'s vectors, run through the full pipeline |
 | `validate/` | this PRD | Out-of-domain output; oversized output; cardinality and precision violations |
 | `pipeline/` | this PRD | End-to-end answer; end-to-end denial; end-to-end escalation in both modes; partial-failure cases from §4.7 |

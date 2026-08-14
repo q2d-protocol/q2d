@@ -11,6 +11,9 @@
   "input": {
     "envelope": {
       "signed": "not-a-compact-serialization"
+    },
+    "environment": {
+      "now": "2026-07-31T09:01:00Z"
     }
   },
   "expect": {
