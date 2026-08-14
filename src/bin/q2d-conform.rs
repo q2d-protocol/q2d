@@ -291,14 +291,7 @@ impl<'a> Parser<'a> {
                             let code = u32::from_str_radix(hex, 16)
                                 .map_err(|_| ParseError("invalid \\u escape".into()))?;
                             self.at += 4;
-                            // A lone surrogate is not a character. The runner
-                            // never needs one, and accepting it would put a
-                            // value in `vector_id` that cannot be serialized
-                            // back out.
-                            out.push(
-                                char::from_u32(code)
-                                    .ok_or_else(|| ParseError("invalid \\u escape".into()))?,
-                            );
+                            out.push(self.scalar_from(code)?);
                         }
                         _ => return self.err("unknown escape"),
                     }
@@ -321,6 +314,44 @@ impl<'a> Parser<'a> {
                 }
             }
         }
+    }
+
+    /// One Unicode scalar from a `\u` escape, joining a surrogate pair.
+    ///
+    /// RFC 8259 §7 encodes a character outside the BMP as two escapes, and a
+    /// runner that rejected the first half would refuse a document the other
+    /// runner accepts -- a divergence about JSON, which is exactly what
+    /// `harness cross` must never be reporting. A *lone* surrogate is still
+    /// refused: it is not a character, and it cannot be written back out.
+    fn scalar_from(&mut self, code: u32) -> Result<char, ParseError> {
+        const HIGH: std::ops::Range<u32> = 0xd800..0xdc00;
+        const LOW: std::ops::Range<u32> = 0xdc00..0xe000;
+
+        if LOW.contains(&code) {
+            return self.err("a low surrogate with no high surrogate before it");
+        }
+        if !HIGH.contains(&code) {
+            return char::from_u32(code)
+                .ok_or_else(|| ParseError("invalid \\u escape".into()));
+        }
+        if self.peek() != Some(b'\\') || self.bytes.get(self.at + 1) != Some(&b'u') {
+            return self.err("a high surrogate with no low surrogate after it");
+        }
+        self.at += 2;
+        let hex = self
+            .bytes
+            .get(self.at..self.at + 4)
+            .ok_or_else(|| ParseError("truncated \\u escape".into()))?;
+        let hex = std::str::from_utf8(hex)
+            .map_err(|_| ParseError("invalid \\u escape".into()))?;
+        let low = u32::from_str_radix(hex, 16)
+            .map_err(|_| ParseError("invalid \\u escape".into()))?;
+        if !LOW.contains(&low) {
+            return self.err("a high surrogate followed by something that is not a low one");
+        }
+        self.at += 4;
+        let combined = 0x10000 + ((code - 0xd800) << 10) + (low - 0xdc00);
+        char::from_u32(combined).ok_or_else(|| ParseError("invalid surrogate pair".into()))
     }
 
     fn number(&mut self) -> Result<Json, ParseError> {

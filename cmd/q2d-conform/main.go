@@ -20,21 +20,30 @@
 // reference implementation's runner, and the corpus exists to be run against
 // it. The stub may not, because it shares an author with the harness.
 //
-// No dependencies. encoding/json already refuses NaN and Infinity; it does not
-// refuse duplicate object keys, and keeps the last silently. RFC 8259 calls
-// that behaviour unpredictable, and a runner that resolved a duplicate one way
-// while its judge resolved it another would disagree about a vector neither
-// could point at — so the token walk below refuses them, which is the only
-// reading two implementations can share.
+// No dependencies, and two places where the standard library is not strict
+// enough on its own.
+//
+// encoding/json refuses NaN and Infinity already. It does not refuse duplicate
+// object keys — it keeps the last, silently. RFC 8259 calls that behaviour
+// unpredictable, and a runner resolving a duplicate one way while its judge
+// resolved it another would disagree about a vector neither could point at, so
+// the token walk below refuses them: the only reading two implementations can
+// share.
+//
+// Converting bytes to a string does not refuse malformed UTF-8 either — it
+// substitutes U+FFFD, which would let this runner answer a file the Rust one
+// rejects outright. parseStrictly checks the bytes before decoding them.
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -119,14 +128,106 @@ func refuseDuplicateKeys(dec *json.Decoder) error {
 	return err
 }
 
+// refuseLoneSurrogates walks the raw text and fails on a \uXXXX escape that is
+// half of a surrogate pair.
+//
+// encoding/json substitutes U+FFFD for an unpaired surrogate and says nothing,
+// which is indistinguishable from a document that legitimately contained
+// U+FFFD — and the Rust runner refuses the escape outright. RFC 8259 §8.2 calls
+// text containing unpaired surrogates not interoperable, so refusing is the
+// reading both can share; substituting is the one that cannot be agreed on,
+// because the substitute is a valid character.
+//
+// A raw scan rather than a Decoder walk, because a Decoder has already resolved
+// the escape by the time a token is handed over.
+func refuseLoneSurrogates(data []byte) error {
+	inString := false
+	for i := 0; i < len(data); i++ {
+		switch {
+		case !inString:
+			if data[i] == '"' {
+				inString = true
+			}
+		case data[i] == '"':
+			inString = false
+		case data[i] == '\\':
+			if i+1 >= len(data) {
+				return fmt.Errorf("unterminated escape")
+			}
+			if data[i+1] != 'u' {
+				i++ // A two-character escape; skip what it escapes.
+				continue
+			}
+			code, err := hexEscape(data, i)
+			if err != nil {
+				return err
+			}
+			i += 5
+			if code >= 0xdc00 && code < 0xe000 {
+				return fmt.Errorf("a low surrogate with no high surrogate before it")
+			}
+			if code < 0xd800 || code >= 0xdc00 {
+				continue
+			}
+			if i+6 >= len(data) || data[i+1] != '\\' || data[i+2] != 'u' {
+				return fmt.Errorf("a high surrogate with no low surrogate after it")
+			}
+			low, err := hexEscape(data, i+1)
+			if err != nil {
+				return err
+			}
+			if low < 0xdc00 || low >= 0xe000 {
+				return fmt.Errorf("a high surrogate followed by something that is not a low one")
+			}
+			i += 6
+		}
+	}
+	return nil
+}
+
+// hexEscape reads the four hex digits of the \u escape beginning at at.
+func hexEscape(data []byte, at int) (uint32, error) {
+	if at+6 > len(data) {
+		return 0, fmt.Errorf("truncated \\u escape")
+	}
+	var code uint32
+	for _, b := range data[at+2 : at+6] {
+		var digit uint32
+		switch {
+		case b >= '0' && b <= '9':
+			digit = uint32(b - '0')
+		case b >= 'a' && b <= 'f':
+			digit = uint32(b-'a') + 10
+		case b >= 'A' && b <= 'F':
+			digit = uint32(b-'A') + 10
+		default:
+			return 0, fmt.Errorf("invalid \\u escape")
+		}
+		code = code<<4 | digit
+	}
+	return code, nil
+}
+
 // parseStrictly reads the document as RFC 8259 JSON rather than as what
 // encoding/json tolerates.
 func parseStrictly(data []byte) (map[string]any, error) {
-	if err := refuseDuplicateKeys(json.NewDecoder(strings.NewReader(string(data)))); err != nil {
+	// RFC 8259 §8.1: a JSON text is Unicode. Converting bytes to a string
+	// silently replaces malformed UTF-8 with U+FFFD, so a runner that skipped
+	// this would answer a file the Rust runner refuses — a divergence about
+	// encoding, which is precisely what `harness cross` must never report.
+	if !utf8.Valid(data) {
+		return nil, fmt.Errorf("the vector file is not valid UTF-8")
+	}
+
+	if err := refuseLoneSurrogates(data); err != nil {
 		return nil, err
 	}
 
-	dec := json.NewDecoder(strings.NewReader(string(data)))
+	if err := refuseDuplicateKeys(json.NewDecoder(bytes.NewReader(data))); err != nil {
+		return nil, err
+	}
+
+	dec := json.NewDecoder(bytes.NewReader(data))
 	var value any
 	if err := dec.Decode(&value); err != nil {
 		return nil, err

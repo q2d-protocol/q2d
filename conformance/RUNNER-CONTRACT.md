@@ -160,11 +160,20 @@ the protocol already matches. A runner that accepted a duplicate object key
 while the other refused it would make `cross` report a divergence about JSON.
 
 [`tests/test_runner_parity.py`](tests/test_runner_parity.py) holds them to that:
-twelve documents chosen because a permissive parser would differ on them —
+sixteen documents chosen because a permissive parser would differ on them —
 duplicate keys at two depths, `NaN`, `Infinity`, a trailing document, an
-unescaped control character — and both must give the same exit code for each.
-Establishing it now is cheapest, because with neither answering a vector there
-is nothing else a difference could be blamed on.
+unescaped control character, malformed UTF-8, a lone surrogate of each half —
+and both must give the same exit code for each, plus a valid surrogate pair both
+must *accept*, since a list of refusals alone is satisfied by a runner that
+refuses everything.
+
+Three of those cases were divergences when first written, all about encoding
+rather than about Q2D: Go substituted U+FFFD for malformed UTF-8 and for an
+unpaired surrogate where Rust refused both, and Rust refused the first half of a
+valid pair where Go decoded it. Each would have surfaced through `cross` as two
+implementations disagreeing about the protocol. Establishing the parity now is
+cheapest, because with neither answering a vector there is nothing else a
+difference could be blamed on.
 
 Neither takes a dependency. `encoding/json` already refuses `NaN`; it keeps the
 last of a duplicate key silently, which RFC 8259 calls unpredictable and which

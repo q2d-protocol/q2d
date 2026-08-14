@@ -59,13 +59,35 @@ CASES = {
     "an unescaped control character": (
         '{"id":"a\nb","operation":"digest","input":{}}', 1),
     "a top-level array": ("[]", 1),
+    # Both found by review rather than by this list, which is the reason the
+    # list is worth extending rather than trimming. Go's `string(data)` replaces
+    # malformed UTF-8 with U+FFFD where Rust's `read_to_string` refuses it, and
+    # Rust rejected the first half of a surrogate pair where Go decoded the
+    # pair — two divergences about *encoding* that `harness cross` would have
+    # reported as a disagreement about Q2D.
+    "a lone high surrogate": (
+        '{"id":"a\\ud83d","operation":"digest","input":{}}', 1),
+    "a lone low surrogate": (
+        '{"id":"a\\ude00","operation":"digest","input":{}}', 1),
 }
+
+# A valid surrogate pair is a character, and both must accept it: RFC 8259 §7
+# encodes every non-BMP character this way, so a runner refusing one would
+# refuse a legitimate vector.
+ACCEPTED = {
+    "a surrogate pair": '{"id":"\\ud83d\\ude00","operation":"digest","input":{}}',
+}
+
+# Bytes rather than text, because the point is that they are not valid UTF-8 and
+# so cannot be written as a str.
+MALFORMED_UTF8 = b'{"id":"a\xff\xfe","operation":"digest","input":{}}'
 
 available = {name: path for name, path in RUNNERS.items() if path.exists()}
 
 
-def answer(runner: Path, document: str) -> tuple[int, str]:
-    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as f:
+def answer(runner: Path, document) -> tuple[int, str]:
+    mode = "wb" if isinstance(document, bytes) else "w"
+    with tempfile.NamedTemporaryFile(mode, suffix=".json", delete=False) as f:
         f.write(document)
         path = f.name
     try:
@@ -85,6 +107,21 @@ class ParityTest(unittest.TestCase):
                          for name, path in available.items()}
                 self.assertEqual(set(codes.values()), {expected},
                                  f"{label}: {codes}")
+
+    def test_both_accept_what_the_specification_permits(self):
+        # A list of refusals alone would be satisfied by a runner that refused
+        # everything, and a runner refusing valid vectors is worse than a
+        # permissive one: it fails a conforming producer.
+        for label, document in ACCEPTED.items():
+            with self.subTest(case=label):
+                codes = {name: answer(path, document)[0]
+                         for name, path in available.items()}
+                self.assertEqual(set(codes.values()), {0}, f"{label}: {codes}")
+
+    def test_both_refuse_malformed_utf8(self):
+        codes = {name: answer(path, MALFORMED_UTF8)[0]
+                 for name, path in available.items()}
+        self.assertEqual(set(codes.values()), {1}, codes)
 
     def test_both_report_the_same_result_for_a_projection(self):
         # Same `vector_id`, same `outcome`. `detail` and `implementation` differ
