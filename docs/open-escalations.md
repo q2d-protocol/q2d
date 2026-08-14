@@ -24,7 +24,8 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > **E-41:** §2.1 justified the `routing` allowlist by a confidentiality 0.1 does
 > not provide — the suite signs the payload without encrypting it. The rule
 > stands on two narrower grounds; §2.1 says so, and `claims.md` gains
-> **Q2D-NC-13**, *that a query is confidential from an intermediary*.
+> **Q2D-NC-13**, which records that Q2D **does not claim** query
+> confidentiality from an intermediary.
 >
 > **E-42:** an empty projection is valid at any depth, and §2.1 says that too.
 >
@@ -3721,8 +3722,11 @@ saying what a deployment that needs the query confidential actually needs —
 transport confidentiality, or a suite 0.1 does not register.
 
 **And B, because it belongs there whichever way §2.1 is worded.**
-[`claims.md`](../spec/claims.md) gains **Q2D-NC-13**: *that a query is
-confidential from an intermediary*. The non-claims list is long on purpose and
+[`claims.md`](../spec/claims.md) gains **Q2D-NC-13**, recording that Q2D **does
+not claim** query confidentiality from an intermediary. (The table's own column
+reads *"Q2D does not claim"*, so the row itself is phrased as the thing not
+claimed; quoted anywhere else it has to carry the negation, which review caught
+it doing in three places here.) The non-claims list is long on purpose and
 this is the same instinct one level down — the cheapest overstatement to make is
 a rationale, because nobody tests one.
 
