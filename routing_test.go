@@ -161,3 +161,26 @@ func TestAReadProjectionCannotBeMutatedBackIntoTheRouting(t *testing.T) {
 		t.Fatal("the fixture no longer exercises the nested case")
 	}
 }
+
+func TestMutatingTheCoreAfterwardsDoesNotChangeTheProjection(t *testing.T) {
+	// The other half of the aliasing question. A projected leaf is normally a
+	// String, which is immutable — but this function is total and does not
+	// require `type` to be one, so a malformed-but-representable core object
+	// can put an Object at a projected path.
+	//
+	// Rust clones the value; Go copies it, and this is the test that says so.
+	core := Object{
+		"type":   Object{"smuggled": String("original")},
+		"target": Object{"custodian": String("https://friend.example")},
+	}
+	routing := ProjectRouting(core)
+	before := routingText(t, routing)
+
+	core["type"].(Object)["smuggled"] = String("mutated")
+	core["target"].(Object)["custodian"] = String("https://attacker.example")
+
+	if after := routingText(t, routing); after != before {
+		t.Errorf("mutating the core changed a derived projection\n before: %s\n after:  %s",
+			before, after)
+	}
+}

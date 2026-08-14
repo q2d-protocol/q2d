@@ -111,7 +111,13 @@ func ProjectRouting(core Value) Routing {
 	projection := Object{}
 	for _, path := range projected {
 		if found, ok := at(core, path); ok {
-			insert(projection, path, found)
+			// Copied on the way in as well as on the way out. Rust clones the
+			// value here; without this, a projected leaf that is itself an
+			// Object or Array — reachable with malformed-but-representable
+			// input, since this function is total and does not require
+			// `type` to be a string — would alias the caller's core object,
+			// and mutating that afterwards would mutate a derived projection.
+			insert(projection, path, deepCopy(found))
 		}
 	}
 	return Routing{value: projection}
