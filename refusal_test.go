@@ -121,3 +121,23 @@ func TestInvalidUTF8IsRefusedRatherThanSubstituted(t *testing.T) {
 		t.Errorf("the refusal carries the substituted value: %v", err)
 	}
 }
+
+func TestANilValueIsRefusedRatherThanPanicking(t *testing.T) {
+	// The Value interface admits a nil, and none of the concrete types is one.
+	// Calling write on it panics, and a panic is not a refusal — this
+	// serializer runs over responses and receipts, where the caller is a
+	// pipeline rather than a literal, so malformed internal state has to come
+	// back as an error.
+	//
+	// Nothing to mirror in the other two: Rust's Value is an enum with no
+	// null-pointer state, and Python's None is the Null case.
+	refused(t, nil)
+	refused(t, Array{nil})
+	refused(t, Object{"a": nil})
+	refused(t, Object{"issued_at": nil})
+
+	// Null{} is the JSON null and is a value. The absence of one is not.
+	if got := text(t, Object{"a": Null{}}); got != `{"a":null}` {
+		t.Errorf("Null{} was caught by the nil check: %s", got)
+	}
+}

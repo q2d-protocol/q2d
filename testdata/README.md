@@ -41,20 +41,53 @@ caught it in review. This fixture is the thing that would have.
 The general lesson, which is why the fixture is kept rather than the case being
 folded into a unit test: **a corpus made of realistic documents tests the
 protocol, not the profile.** The profile's edges have to be authored on purpose,
-because nothing a conforming requester sends will reach them.
+because no *protocol field* reaches them — every field name in `core-model.md`
+§2 is ASCII, and every value the protocol itself defines is a bounded string, a
+count, or an enum.
+
+They are reachable, though, and that is the reason this matters rather than a
+reason it does not. A predicate's `public_context` is operation-defined (§2.6):
+a conforming query can carry a non-ASCII key, a string needing every escape, or
+an integer at the boundary, and all of it goes through §4.2 into the signed
+payload. So these are edges a real message can reach and no *realistic-looking*
+message will — which is the combination that makes them worth authoring and
+easy to miss.
 
 ## What is *not* here
 
-Refusals. All three implementations also agree on what the profile rejects —
-`core-model.md` §2.2's timestamp spelling, and the rule that a field name
-carries a §2.2 meaning only outside a predicate's `public_context` — and those
-cases live in three parallel test files rather than a fixture:
+Refusals. All three implementations agree on what the profile rejects, and
+those cases live in three parallel test files rather than a fixture:
 [`tests/refusal.rs`](../tests/refusal.rs), [`refusal_test.go`](../refusal_test.go),
 and `RefusalTest` in the Python file above.
 
+What they agree on is `core-model.md` §2.2's timestamp, in the fields §2.2 names
+and in the three places it names them — the core object, `routing`, and a
+receipt. Whether the spelling binds strings §2.2 does *not* name is
+[E-36](../docs/open-escalations.md), open; all three do what §2.2 states and no
+more until it closes.
+
+Three of the refusals exist in one language and not the others, because each
+language's types admit something the profile cannot emit and they are not the
+same something:
+
+| Refused | Where it can arise |
+|---|---|
+| Invalid UTF-8 | Go — a `string` is arbitrary bytes; ranging over one would substitute U+FFFD and sign a value the caller never supplied |
+| An unpaired surrogate | Python — a `str` is code points, and that one has no UTF-8 encoding |
+| A nil value | Go — the `Value` interface admits one and no concrete type is one; a panic is not a refusal |
+| An integer outside the signed 64-bit range | Python — `int` is arbitrary-precision, and both value models are not ([E-37](../docs/open-escalations.md)) |
+
+Rust appears in none of those rows, which is the point of the table rather than
+a gap in it: `String` cannot hold invalid UTF-8 or a lone surrogate, `Value` is
+an enum with no null state, and `i64` is the bound. Each row is a place where
+one language had to be taught what another gets from its types, so that the set
+of values that can be signed is the same on all three sides.
+
 Three lists that must stay identical is the arrangement this directory exists
 to avoid. It is temporary: a refused document cannot be a fixture until Rust and
-Go can parse one, which is P-002 issue 4. When it lands, these move here.
+Go can parse one, which is P-002 issue 4. When it lands, the shared cases move
+here and the table above stays where it is, because those cases have no document
+to be a fixture of.
 
 Agreement on refusals matters as much as agreement on bytes — a serializer that
 matches on everything the others accept and *also* emits bytes for what they

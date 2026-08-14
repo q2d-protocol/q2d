@@ -97,10 +97,29 @@ type Object map[string]Value
 // both of which the caller supplied and neither of which is an answer.
 func Serialize(v Value) ([]byte, error) {
 	var b strings.Builder
-	if err := v.write(&b, true); err != nil {
+	if err := write(v, &b, true); err != nil {
 		return nil, err
 	}
 	return []byte(b.String()), nil
+}
+
+// write dispatches, refusing the one Value the interface admits and none of the
+// concrete types is: a nil interface.
+//
+// Calling write on it panics, and a panic is not a refusal — a serializer whose
+// malformed-input path is a stack trace is not fail-closed, and this one runs
+// over responses and receipts where the caller is a pipeline rather than a
+// literal. The other two implementations have nothing to check: Rust's Value is
+// an enum with no null-pointer state, and Python's None is the Null case.
+//
+// Null{} is the JSON null and is unaffected. This is the absence of a value,
+// which is a different thing and not one §4.2 can render.
+func write(v Value, b *strings.Builder, protocolLevel bool) error {
+	if v == nil {
+		return fmt.Errorf("a nil Value has no serialization. P-002 §4.2 renders " +
+			"JSON values, and the absence of one is not null — use Null{} for that")
+	}
+	return v.write(b, protocolLevel)
 }
 
 func (Null) write(b *strings.Builder, _ bool) error {
@@ -145,7 +164,7 @@ func (v Array) write(b *strings.Builder, _ bool) error {
 		}
 		// An array is not a protocol level of its own: §2.2 names objects, and
 		// a timestamp field's value is not an array.
-		if err := item.write(b, false); err != nil {
+		if err := write(item, b, false); err != nil {
 			return err
 		}
 	}
@@ -188,6 +207,9 @@ func (v Object) write(b *strings.Builder, protocolLevel bool) error {
 		if protocolLevel && timestampFields[key] {
 			held, isString := v[key].(String)
 			if !isString {
+				// typeName reports "an unknown value" for nil, which the
+				// dispatch below would refuse anyway; naming the field first is
+				// the more useful message.
 				return fmt.Errorf("%s is a timestamp field and holds %s rather than a "+
 					"string. core-model.md §2.2's timestamp is one", key, typeName(v[key]))
 			}
@@ -203,7 +225,7 @@ func (v Object) write(b *strings.Builder, protocolLevel bool) error {
 		}
 		writeString(key, b)
 		b.WriteByte(':')
-		if err := v[key].write(b, protocolLevel && protocolSubobjects[key]); err != nil {
+		if err := write(v[key], b, protocolLevel && protocolSubobjects[key]); err != nil {
 			return err
 		}
 	}
@@ -214,6 +236,9 @@ func (v Object) write(b *strings.Builder, protocolLevel bool) error {
 // typeName gives a value's JSON type, for an error message. Never its contents
 // — §4.3's sibling rule is that no private value reaches an error string.
 func typeName(v Value) string {
+	if v == nil {
+		return "nothing"
+	}
 	switch v.(type) {
 	case Null:
 		return "null"

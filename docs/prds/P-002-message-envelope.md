@@ -268,9 +268,15 @@ The second exists because the first could not catch a real divergence: the Rust
 serializer was emitting Unicode scalar key order where §4.2 asks for UTF-16
 code-unit order, and the canonical query is entirely ASCII, so it agreed anyway.
 The generalisation is worth stating, because `message/serialize/` will inherit
-it — **a corpus of realistic documents tests the protocol, not the profile.** The
-profile's edges have to be authored on purpose, since nothing a conforming
-requester sends reaches them.
+it — **a corpus of realistic documents tests the protocol, not the profile.** No
+*protocol field* reaches those edges: every field name in `core-model.md` §2 is
+ASCII, and every value §2 defines is a bounded string, a count, or an enum.
+
+A conforming query can still reach them, through `predicate.public_context`,
+which §2.6 makes operation-defined — a non-ASCII key, a string needing every
+escape, or an integer at the boundary all travel into the signed payload. So
+`message/serialize/` has to author them on purpose: they are reachable by a real
+message and by no realistic-looking one.
 
 ## 7. Acceptance
 
