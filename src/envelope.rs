@@ -92,7 +92,7 @@ pub fn parse_envelope(bytes: &[u8]) -> Result<Envelope, ParseError> {
     // a divergence even when both reject — the same rule §4.2 states for keys,
     // applied to the order they are *examined* in.
     let mut ordered: Vec<(String, Value)> = pairs.into_iter().collect();
-    ordered.sort_by_key(|(key, _)| key.encode_utf16().collect::<Vec<u16>>());
+    ordered.sort_by_key(|(key, _)| crate::value::utf16_units(key));
     for (key, item) in ordered {
         match (key.as_str(), item) {
             ("signed", Value::String(text)) => signed = Some(text),

@@ -40,6 +40,7 @@ package q2d
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // projected is the fields §4.5 projects, as paths into the core object.
@@ -233,22 +234,36 @@ type RoutingMismatch struct {
 	Because Because
 }
 
-// A Because is one of the two ways a projection can disagree.
+// A Because is one of the two internal reasons a projection is rejected.
+//
+// The names are the corpus's, not this file's:
+// conformance/corpus/message/routing/ already distinguishes them, and a third
+// vocabulary for the same two facts is how a runner comes to report something no
+// vector asserts. Both normalize to §5.2.1's external routing_mismatch, which is
+// P-009's to emit.
 type Because int
 
 const (
-	// NotInTheSignedObject: the field is not in the verified object at all —
-	// §2.1's "may never introduce a field".
-	NotInTheSignedObject Because = iota
-	// ADifferentValue: the field is there and holds something else — §4 step
-	// 8's tampering.
-	ADifferentValue
+	// RoutingSignedMismatch — the field holds something else in the verified
+	// object, or is not there at all. §4 step 8's tampering.
+	RoutingSignedMismatch Because = iota
+	// RoutingIntroducedField — the field is not one §4.5 projects, and §2.1
+	// says routing "carries at most" those six.
+	//
+	// Refused however faithful the copy, which is the rule the corpus vector
+	// exists to pin: its purpose is byte-identical to the signed one, so
+	// agreement is not what fails. The harm is the projection rather than the
+	// mismatch — a projected field is legible without decoding signed, so it is
+	// the one infrastructure indexes and retains, and a relay that copies
+	// purpose up from the payload has made it cheap to harvest while changing
+	// nothing.
+	RoutingIntroducedField
 )
 
 func (m RoutingMismatch) Error() string {
-	because := "is not in the signed object"
-	if m.Because == ADifferentValue {
-		because = "holds a different value there"
+	because := "disagrees with the signed object"
+	if m.Because == RoutingIntroducedField {
+		because = "is not a field §4.5 projects"
 	}
 	return fmt.Sprintf("`routing.%s` %s — core-model.md §4 step 8", m.Path, because)
 }
@@ -286,6 +301,21 @@ func CheckRouting(core Value, routing Value) error {
 	return compareRouting(core, routing, "")
 }
 
+// isProjectable reports whether a dotted path is one §4.5 projects, or a prefix
+// of one.
+//
+// A prefix counts because the walk meets target before target.custodian, and
+// refusing the parent would refuse every projection there is.
+func isProjectable(path string) bool {
+	for _, p := range projected {
+		full := strings.Join(p, ".")
+		if full == path || strings.HasPrefix(full, path+".") {
+			return true
+		}
+	}
+	return false
+}
+
 func compareRouting(core, routing Value, path string) error {
 	// Both objects: routing may carry a subset of the fields, so descend.
 	signed, coreIsObject := core.(Object)
@@ -305,9 +335,15 @@ func compareRouting(core, routing Value, path string) error {
 			if path != "" {
 				here = path + "." + key
 			}
+			// §2.1: routing "carries at most" the six §4.5 projects. Checked
+			// before the value is compared, because a field that should not be
+			// there is refused whether or not it agrees.
+			if !isProjectable(here) {
+				return RoutingMismatch{Path: here, Because: RoutingIntroducedField}
+			}
 			found, present := signed[key]
 			if !present {
-				return RoutingMismatch{Path: here, Because: NotInTheSignedObject}
+				return RoutingMismatch{Path: here, Because: RoutingSignedMismatch}
 			}
 			if err := compareRouting(found, projected[key], here); err != nil {
 				return err
@@ -328,5 +364,5 @@ func compareRouting(core, routing Value, path string) error {
 	if path == "" {
 		path = "<root>"
 	}
-	return RoutingMismatch{Path: path, Because: ADifferentValue}
+	return RoutingMismatch{Path: path, Because: RoutingSignedMismatch}
 }

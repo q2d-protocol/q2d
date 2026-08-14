@@ -141,21 +141,36 @@ pub struct RoutingMismatch {
     pub because: Because,
 }
 
-/// The two ways a projection can disagree.
+/// The two internal reasons a projection is rejected.
+///
+/// **The names are the corpus's**, not this module's:
+/// `conformance/corpus/message/routing/` already distinguishes them, and a
+/// third vocabulary for the same two facts is how a runner comes to report
+/// something no vector asserts. Both normalize to §5.2.1's external
+/// `routing_mismatch`, which is P-009's to emit.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Because {
-    /// The field is not in the verified object at all — §2.1's *may never
-    /// introduce a field*.
-    NotInTheSignedObject,
-    /// The field is there and holds something else — §4 step 8's tampering.
-    ADifferentValue,
+    /// `routing_signed_mismatch` — the field holds something else in the
+    /// verified object, or is not there at all. §4 step 8's tampering.
+    RoutingSignedMismatch,
+    /// `routing_introduced_field` — the field is not one §4.5 projects, and
+    /// §2.1 says `routing` *carries at most* those six.
+    ///
+    /// Refused **however faithful the copy**, which is the rule the corpus
+    /// vector exists to pin: its `purpose` is byte-identical to the signed
+    /// one, so agreement is not what fails. The harm is the projection rather
+    /// than the mismatch — a projected field is legible without decoding
+    /// `signed`, so it is the one infrastructure indexes and retains, and a
+    /// relay that copies `purpose` up from the payload has made it cheap to
+    /// harvest while changing nothing.
+    RoutingIntroducedField,
 }
 
 impl std::fmt::Display for RoutingMismatch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let because = match self.because {
-            Because::NotInTheSignedObject => "is not in the signed object",
-            Because::ADifferentValue => "holds a different value there",
+            Because::RoutingSignedMismatch => "disagrees with the signed object",
+            Because::RoutingIntroducedField => "is not a field §4.5 projects",
         };
         write!(
             f,
@@ -202,21 +217,49 @@ pub fn check_routing(core: &Value, routing: Option<&Value>) -> Result<(), Routin
     }
 }
 
+/// Whether a dotted path is one §4.5 projects, or a prefix of one.
+///
+/// A prefix counts because the walk meets `target` before `target.custodian`,
+/// and refusing the parent would refuse every projection there is.
+fn is_projectable(path: &str) -> bool {
+    PROJECTED.iter().any(|projected| {
+        let full = projected.join(".");
+        full == path || full.starts_with(&format!("{path}."))
+    })
+}
+
 fn compare(core: &Value, routing: &Value, path: &str) -> Result<(), RoutingMismatch> {
     // Both objects: `routing` may carry a subset of the fields, so descend.
     if let (Value::Object(signed), Value::Object(projected)) = (core, routing) {
-        for (key, value) in projected {
+        // By UTF-16 code unit, not `BTreeMap` order, so a projection with two
+        // bad fields names the same one here as in Go. Third place in this
+        // codebase to need that, which is why the comparator now lives in
+        // `value.rs` rather than being written out a third time.
+        let mut keys: Vec<&String> = projected.keys().collect();
+        keys.sort_by_key(|key| crate::value::utf16_units(key));
+
+        for key in keys {
+            let value = &projected[key];
             let here = if path.is_empty() {
                 key.clone()
             } else {
                 format!("{path}.{key}")
             };
+            // §2.1: `routing` *carries at most* the six §4.5 projects. Checked
+            // before the value is compared, because a field that should not be
+            // there is refused whether or not it agrees.
+            if !is_projectable(&here) {
+                return Err(RoutingMismatch {
+                    path: here,
+                    because: Because::RoutingIntroducedField,
+                });
+            }
             match signed.get(key) {
                 Some(found) => compare(found, value, &here)?,
                 None => {
                     return Err(RoutingMismatch {
                         path: here,
-                        because: Because::NotInTheSignedObject,
+                        because: Because::RoutingSignedMismatch,
                     })
                 }
             }
@@ -236,7 +279,7 @@ fn compare(core: &Value, routing: &Value, path: &str) -> Result<(), RoutingMisma
             } else {
                 path.into()
             },
-            because: Because::ADifferentValue,
+            because: Because::RoutingSignedMismatch,
         })
     }
 }
@@ -436,30 +479,55 @@ mod tests {
         )]);
         let mismatch = check_routing(&query(), Some(&tampered)).expect_err("tampering");
         assert_eq!(mismatch.path, "target.custodian");
-        assert_eq!(mismatch.because, Because::ADifferentValue);
+        assert_eq!(mismatch.because, Because::RoutingSignedMismatch);
     }
 
     #[test]
-    fn a_field_not_in_the_signed_object_is_refused() {
-        // `message/routing/introduces-field`. §2.1: `routing` may never
-        // introduce a field, and a relay that adds one is asking a responder
-        // to act on something nobody signed.
-        let invented = Value::object([("shortcut", Value::string("skip-the-checks"))]);
-        let mismatch = check_routing(&query(), Some(&invented)).expect_err("invented");
-        assert_eq!(mismatch.path, "shortcut");
-        assert_eq!(mismatch.because, Because::NotInTheSignedObject);
+    fn a_field_outside_the_allowlist_is_refused_however_faithful_the_copy() {
+        // `message/routing/introduces-field`, whose `purpose` is
+        // **byte-identical to the signed one** — so agreement is not what
+        // fails. §2.1 says `routing` carries at most six fields, and this
+        // check accepted that vector until review caught it.
+        let core = query();
+        let signed_purpose = match &core {
+            Value::Object(pairs) => pairs["purpose"].clone(),
+            _ => unreachable!(),
+        };
+        let faithful = Value::object([("purpose", signed_purpose)]);
+        let mismatch = check_routing(&core, Some(&faithful)).expect_err("not projectable");
+        assert_eq!(mismatch.path, "purpose");
+        assert_eq!(mismatch.because, Because::RoutingIntroducedField);
 
-        // And nested, where the parent exists and the child does not.
-        let nested = Value::object([(
-            "predicate",
-            Value::object([("elevated", Value::Bool(true))]),
-        )]);
-        assert_eq!(
-            check_routing(&query(), Some(&nested))
-                .expect_err("invented")
-                .path,
-            "predicate.elevated"
-        );
+        // A field nobody signed either, and a nested one whose parent is
+        // projected and whose child is not.
+        for (routing, path) in [
+            (
+                Value::object([("shortcut", Value::string("skip-the-checks"))]),
+                "shortcut",
+            ),
+            (
+                Value::object([(
+                    "predicate",
+                    Value::object([("elevated", Value::Bool(true))]),
+                )]),
+                "predicate.elevated",
+            ),
+        ] {
+            let mismatch = check_routing(&core, Some(&routing)).expect_err("not projectable");
+            assert_eq!(mismatch.path, path);
+            assert_eq!(mismatch.because, Because::RoutingIntroducedField);
+        }
+    }
+
+    #[test]
+    fn a_projectable_field_absent_from_the_signed_object_is_a_mismatch() {
+        // The other half. `expires_at` *is* projectable, so it passes the
+        // allowlist and fails against a core object that does not carry it.
+        let core = Value::object([("type", Value::string("query"))]);
+        let routing = Value::object([("expires_at", Value::string("2026-07-31T09:05:00Z"))]);
+        let mismatch = check_routing(&core, Some(&routing)).expect_err("absent");
+        assert_eq!(mismatch.path, "expires_at");
+        assert_eq!(mismatch.because, Because::RoutingSignedMismatch);
     }
 
     #[test]
@@ -474,7 +542,7 @@ mod tests {
             check_routing(&core, Some(&numeric))
                 .expect_err("no coercion")
                 .because,
-            Because::ADifferentValue
+            Because::RoutingSignedMismatch
         );
     }
 

@@ -254,25 +254,48 @@ func TestAChangedValueIsTampering(t *testing.T) {
 	if !isMismatch {
 		t.Fatalf("expected a RoutingMismatch, got %v", err)
 	}
-	if mismatch.Path != "target.custodian" || mismatch.Because != ADifferentValue {
+	if mismatch.Path != "target.custodian" || mismatch.Because != RoutingSignedMismatch {
 		t.Errorf("got %+v", mismatch)
 	}
 }
 
-func TestAFieldNotInTheSignedObjectIsRefused(t *testing.T) {
-	// message/routing/introduces-field. §2.1: routing may never introduce a
-	// field, and a relay that adds one is asking a responder to act on
-	// something nobody signed.
-	err := CheckRouting(routingQuery(), Object{"shortcut": String("skip-the-checks")})
+func TestAFieldOutsideTheAllowlistIsRefusedHoweverFaithfulTheCopy(t *testing.T) {
+	// message/routing/introduces-field, whose purpose is byte-identical to the
+	// signed one — so agreement is not what fails. §2.1 says routing carries at
+	// most six fields, and this check accepted that vector until review caught
+	// it.
+	core := routingQuery()
+	faithful := Object{"purpose": core.(Object)["purpose"]}
+	err := CheckRouting(core, faithful)
 	mismatch, isMismatch := err.(RoutingMismatch)
-	if !isMismatch || mismatch.Path != "shortcut" || mismatch.Because != NotInTheSignedObject {
-		t.Fatalf("got %v", err)
+	if !isMismatch || mismatch.Path != "purpose" || mismatch.Because != RoutingIntroducedField {
+		t.Fatalf("faithful copy: %v", err)
 	}
 
-	// And nested, where the parent exists and the child does not.
-	nested := Object{"predicate": Object{"elevated": Bool(true)}}
-	if err := CheckRouting(routingQuery(), nested); err.(RoutingMismatch).Path != "predicate.elevated" {
-		t.Errorf("nested: %v", err)
+	// A field nobody signed either, and a nested one whose parent is projected
+	// and whose child is not.
+	for _, c := range []struct {
+		routing Value
+		path    string
+	}{
+		{Object{"shortcut": String("skip-the-checks")}, "shortcut"},
+		{Object{"predicate": Object{"elevated": Bool(true)}}, "predicate.elevated"},
+	} {
+		mismatch, ok := CheckRouting(core, c.routing).(RoutingMismatch)
+		if !ok || mismatch.Path != c.path || mismatch.Because != RoutingIntroducedField {
+			t.Errorf("%s: %+v", c.path, mismatch)
+		}
+	}
+}
+
+func TestAProjectableFieldAbsentFromTheSignedObjectIsAMismatch(t *testing.T) {
+	// The other half. expires_at is projectable, so it passes the allowlist and
+	// fails against a core object that does not carry it.
+	core := Object{"type": String("query")}
+	routing := Object{"expires_at": String("2026-07-31T09:05:00Z")}
+	mismatch, ok := CheckRouting(core, routing).(RoutingMismatch)
+	if !ok || mismatch.Path != "expires_at" || mismatch.Because != RoutingSignedMismatch {
+		t.Errorf("got %+v", mismatch)
 	}
 }
 
@@ -283,7 +306,7 @@ func TestNothingIsCoerced(t *testing.T) {
 	core := Object{"expires_at": String("1")}
 	numeric := Object{"expires_at": Int(1)}
 	err := CheckRouting(core, numeric)
-	if mismatch, ok := err.(RoutingMismatch); !ok || mismatch.Because != ADifferentValue {
+	if mismatch, ok := err.(RoutingMismatch); !ok || mismatch.Because != RoutingSignedMismatch {
 		t.Errorf("got %v", err)
 	}
 }
