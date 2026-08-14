@@ -481,10 +481,26 @@ def jws_compact(seed: bytes, key_id: str, payload, suite: str = SUITE) -> str:
     `message/sign/` vector a byte-exact assertion rather than an approximate
     one.
     """
+    return jws_with_header(seed, {"key_id": key_id, "suite": suite}, payload)
+
+
+def jws_with_header(seed: bytes, header, payload) -> str:
+    """The same construction, over a header supplied whole.
+
+    `jws_compact` is the conforming producer. This is what a `suite/` vector
+    needs to express a **non**-conforming one: a header carrying `alg`, or
+    declaring a suite the payload does not, is a message no correct
+    implementation emits and every correct implementation must reject
+    ([P-003](../docs/prds/P-003-crypto-suites.md) §6). Producing it is the only
+    way to assert the rejection.
+
+    The signature is over whatever header is given, so these are validly signed
+    messages that are wrong in exactly one stated way -- not corrupt bytes,
+    which would fail for a reason the vector is not about.
+    """
     check_known_answers()
 
-    header = serialize({"key_id": key_id, "suite": suite})
-    signing_input = f"{base64url(header)}.{base64url(serialize(payload))}"
+    signing_input = f"{base64url(serialize(header))}.{base64url(serialize(payload))}"
     signature = sign(seed, signing_input.encode("ascii"))
     return f"{signing_input}.{base64url(signature)}"
 
