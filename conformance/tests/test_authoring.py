@@ -277,6 +277,20 @@ class JwsTest(unittest.TestCase):
                 with self.assertRaises(author.ProfileError):
                     self.signed({"issued_at": wrong})
 
+    def test_a_non_ascii_digit_is_not_a_digit(self):
+        # Python's `\d` matches every Unicode decimal digit -- Arabic-Indic,
+        # Devanagari, about thirty scripts -- and `int()` accepts them all. RFC
+        # 3339's grammar is `DIGIT`, which is ASCII, and both implementations
+        # compare bytes against b'0'..=b'9'.
+        #
+        # `strptime` refused them and hid this. Replacing it with arithmetic
+        # exposed it, which is the hazard in swapping a library for your own
+        # code: the library was enforcing something nobody had written down.
+        arabic_indic = "\u0662\u0660\u0662\u0666-\u0660\u0667-\u0663\u0661T\u0660\u0669:\u0660\u0660:\u0660\u0660Z"
+        self.assertFalse(author.valid_q2d_timestamp(arabic_indic))
+        with self.assertRaises(author.ProfileError):
+            self.signed({"issued_at": arabic_indic})
+
     def test_year_zero_is_accepted_because_rfc_3339_admits_it(self):
         # This tool used `datetime.strptime`, which starts at year 1, and so
         # refused a spelling both implementations accept. §2.2 adds a spelling

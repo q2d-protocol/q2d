@@ -219,6 +219,20 @@ mod tests {
     }
 
     #[test]
+    fn a_non_ascii_digit_is_not_a_digit() {
+        // `is_ascii_digit` gives this for free, and Python's `\d` did not: it
+        // matches every Unicode decimal digit and `int()` accepts them all. RFC
+        // 3339's grammar is `DIGIT`, which is ASCII.
+        //
+        // Asserted rather than assumed, because the property is only useful if
+        // all three have it — and the one that lacked it was the tool that
+        // authors the corpus.
+        let arabic_indic = "\u{662}\u{660}\u{662}\u{666}-\u{660}\u{667}-\u{663}\u{661}                            T\u{660}\u{669}:\u{660}\u{660}:\u{660}\u{660}Z";
+        assert!(!is_q2d_timestamp(arabic_indic));
+        assert!(!looks_like_rfc3339(arabic_indic));
+    }
+
+    #[test]
     fn a_string_that_is_not_a_timestamp_is_left_alone() {
         for ordinary in [
             "",

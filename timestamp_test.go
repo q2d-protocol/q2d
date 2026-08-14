@@ -95,3 +95,20 @@ func TestAStringThatIsNotATimestampIsLeftAlone(t *testing.T) {
 		}
 	}
 }
+
+func TestANonASCIIDigitIsNotADigit(t *testing.T) {
+	// Go's byte comparison gives this for free, and Python's \d did not: it
+	// matches every Unicode decimal digit and int() accepts them all. RFC
+	// 3339's grammar is DIGIT, which is ASCII.
+	//
+	// Asserted here rather than assumed, because the property is only useful if
+	// all three have it — and the one that lacked it was the tool that authors
+	// the corpus.
+	arabicIndic := "٢٠٢٦-٠٧-٣١T٠٩:٠٠:٠٠Z"
+	if isQ2DTimestamp(arabicIndic) {
+		t.Error("accepted a timestamp written in non-ASCII digits")
+	}
+	if looksLikeRFC3339(arabicIndic) {
+		t.Error("treated non-ASCII digits as an RFC 3339 spelling")
+	}
+}

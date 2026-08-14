@@ -149,11 +149,17 @@ TIMESTAMP_FIELDS = frozenset({"issued_at", "expires_at", "decided_at"})
 INT64_MIN = -2**63
 INT64_MAX = 2**63 - 1
 
+# `[0-9]` rather than `\d`, which in Python matches every Unicode
+# decimal digit -- Arabic-Indic, Devanagari, and about thirty others --
+# and `int()` accepts them all. RFC 3339's grammar is `DIGIT`, which is
+# ASCII, and both implementations compare bytes against `b'0'..=b'9'`.
+# `strptime` used to refuse them and hid this; replacing it with
+# arithmetic exposed it.
 Q2D_TIMESTAMP = re.compile(
-    r"\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z\Z")
+    r"\A([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})Z\Z")
 RFC3339_ANY = re.compile(
-    r"\A\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(\.\d+)?"
-    r"([Zz]|[+-]\d{2}:\d{2})\Z")
+    r"\A[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?"
+    r"([Zz]|[+-][0-9]{2}:[0-9]{2})\Z")
 
 
 def days_in_month(year: int, month: int) -> int:

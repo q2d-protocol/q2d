@@ -411,8 +411,14 @@ DENY_STATUS = ("deny", "escalate")
 # core-model.md §2.2: uppercase `T`, uppercase `Z`, second precision, and no
 # other spelling of the instant. This was an inference from §6's length argument
 # until §2.2 stated it; it is now a citation.
+# `[0-9]` rather than `\d`, which in Python matches every Unicode
+# decimal digit -- Arabic-Indic, Devanagari, and about thirty others --
+# and `int()` accepts them all. RFC 3339's grammar is `DIGIT`, which is
+# ASCII, and both implementations compare bytes against `b'0'..=b'9'`.
+# `strptime` used to refuse them and hid this; replacing it with
+# arithmetic exposed it.
 RFC3339_SECOND = re.compile(
-    r"\A(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})Z\Z")
+    r"\A([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})Z\Z")
 
 # RFC 3339 §5.6's grammar, as written rather than as the cases I thought of:
 #
@@ -425,8 +431,8 @@ RFC3339_SECOND = re.compile(
 # patching individual spellings -- lowercase `t` with uppercase `Z`, fractional
 # seconds -- is what a grammar is for.
 RFC3339_ANY = re.compile(
-    r"\A(\d{4})-(\d{2})-(\d{2})[Tt](\d{2}):(\d{2}):(\d{2})(\.\d+)?"
-    r"([Zz]|[+-](\d{2}):(\d{2}))\Z")
+    r"\A([0-9]{4})-([0-9]{2})-([0-9]{2})[Tt]([0-9]{2}):([0-9]{2}):([0-9]{2})"
+    r"(\.[0-9]+)?([Zz]|[+-]([0-9]{2}):([0-9]{2}))\Z")
 
 
 def valid_rfc3339(value: str) -> bool:
