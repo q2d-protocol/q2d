@@ -49,10 +49,13 @@ pub enum Value {
     Integer(i64),
     String(String),
     Array(Vec<Value>),
-    /// A `BTreeMap` rather than an insertion-ordered map, so §4.2's key
-    /// ordering is a property of the type rather than a step the serializer
-    /// must remember. Two producers cannot disagree about the order of a
-    /// structure neither of them ordered.
+    /// A `BTreeMap` rather than an insertion-ordered map, so a caller cannot
+    /// make two objects that differ only in the order they were built, and a
+    /// duplicate key is impossible by construction.
+    ///
+    /// Its iteration order is *not* §4.2's order — `Ord for String` compares
+    /// UTF-8 bytes, which is Unicode scalar order, and §4.2 asks for UTF-16
+    /// code-unit order. The two differ above the BMP. [`serialize`] sorts.
     Object(BTreeMap<String, Value>),
 }
 
@@ -106,12 +109,21 @@ fn write(value: &Value, out: &mut String) {
         }
         Value::Object(pairs) => {
             out.push('{');
-            // `BTreeMap` iterates in `Ord` order, which for `String` is by
-            // Unicode scalar value. §4.2 says by UTF-16 code unit, and the two
-            // orders differ only for keys outside the BMP -- see
-            // `sort_key_matters_only_above_the_bmp` below, and note that no
-            // field name in `core-model.md` §2 is anywhere near that.
-            for (i, (key, item)) in pairs.iter().enumerate() {
+            // Sorted rather than taken in `BTreeMap` order: that is Unicode
+            // scalar order, and §4.2 asks for UTF-16 code-unit order. The two
+            // differ above the BMP, where UTF-16 uses a surrogate pair
+            // beginning at 0xD800 -- below U+E000..U+FFFF, so a supplementary
+            // key sorts *before* one that scalar order puts first.
+            //
+            // No field name in `core-model.md` §2 is outside ASCII, so the
+            // protocol does not reach the difference today. Sorting anyway,
+            // because the alternative is a serializer that agrees with the
+            // other two until the first non-ASCII key and then disagrees about
+            // signed bytes -- which would read as a specification dispute.
+            let mut keys: Vec<&String> = pairs.keys().collect();
+            keys.sort_by(|a, b| utf16_units(a).cmp(&utf16_units(b)));
+            for (i, key) in keys.iter().enumerate() {
+                let item = &pairs[*key];
                 if i > 0 {
                     out.push(',');
                 }
@@ -122,6 +134,16 @@ fn write(value: &Value, out: &mut String) {
             out.push('}');
         }
     }
+}
+
+/// A key's UTF-16 code units, which is what §4.2 orders by.
+///
+/// Allocating per comparison is the slow way to do this and the clear one; §4.2
+/// is a correctness rule and objects here have a handful of keys. Performance
+/// is a Stage 8 concern (`CLAUDE.md`), and a hand-rolled comparator that walked
+/// both strings' code units in step would be the thing a reviewer has to check.
+fn utf16_units(s: &str) -> Vec<u16> {
+    s.encode_utf16().collect()
 }
 
 /// A JSON string under §4.2's *minimal escaping* rule.
@@ -224,23 +246,31 @@ mod tests {
     }
 
     #[test]
-    fn sort_key_matters_only_above_the_bmp() {
-        // §4.2 orders by UTF-16 code unit; `BTreeMap<String>` orders by Unicode
-        // scalar value. The two agree for every character in the BMP and
-        // disagree above it, because UTF-16 encodes those as surrogate pairs
-        // beginning at U+D800 -- so a supplementary character sorts *below* a
-        // U+E000..U+FFFF one under UTF-16 and above it under scalar order.
+    fn keys_sort_by_utf16_code_unit_not_by_scalar_value() {
+        // The one case where §4.2's ordering differs from the container's:
+        // UTF-16 encodes a supplementary character as a surrogate pair
+        // beginning at 0xD800, which is below U+FFFD, so it sorts first --
+        // where scalar order, which is what `BTreeMap<String>` iterates in,
+        // puts it last.
         //
-        // No field name in `core-model.md` §2 is outside ASCII, so nothing in
-        // the protocol reaches this. The test exists so that the day something
-        // does, this is a decision rather than a surprise.
-        let mut keys = ["\u{FFFD}".to_string(), "\u{10000}".to_string()];
-        keys.sort();
-        assert_eq!(keys[0], "\u{FFFD}", "scalar order puts the BMP key first");
-        // Under UTF-16 the supplementary key begins 0xD800, which is below
-        // 0xFFFD, so the order would be the other way round.
-        let utf16_first: Vec<u16> = "\u{10000}".encode_utf16().collect();
-        assert!(utf16_first[0] < 0xFFFD);
+        // Nothing in `core-model.md` §2 has a non-ASCII field name, so the
+        // protocol does not reach this today. It is implemented so that the day
+        // something does, the two implementations already agree -- this is
+        // `value_test.go`'s `TestKeysSortByUTF16CodeUnit`, asserting the same
+        // bytes.
+        let value = Value::object([
+            ("\u{FFFD}", Value::Integer(1)),
+            ("\u{10000}", Value::Integer(2)),
+        ]);
+        assert_eq!(text(&value), "{\"\u{10000}\":2,\"\u{FFFD}\":1}");
+
+        // And the container really does disagree, so the assertion above is
+        // testing the serializer rather than restating the map.
+        let raw: Vec<&str> = match &value {
+            Value::Object(pairs) => pairs.keys().map(String::as_str).collect(),
+            _ => unreachable!(),
+        };
+        assert_eq!(raw, ["\u{FFFD}", "\u{10000}"]);
     }
 
     #[test]

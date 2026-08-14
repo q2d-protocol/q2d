@@ -248,13 +248,23 @@ here was built. Two consequences, both deliberate:
 | `message/digest/` | Each of the four digests against known bytes | new |
 | `message/reject/` | Oversized, over-deep, duplicate keys, float present, unknown version | new |
 
-Ahead of `message/serialize/`, one fixture already holds all three serializers to
-the same bytes: [`testdata/`](../../testdata/README.md) carries the canonical
-query and what §4.2's profile makes of it, asserted from Python, Rust and Go by
-three tests that share no code. That is narrower than the section — one document
-rather than the five properties above — but it is the acceptance criterion §7
-opens with, and it is enforced from the day the serializer exists rather than
-from the day the corpus does.
+Ahead of `message/serialize/`, [`testdata/`](../../testdata/README.md) already
+holds all three serializers to the same bytes, from Python, Rust and Go, by tests
+that share no code. Two fixtures, and the second one is the point:
+
+- `canonical-query` is §7's first acceptance criterion — a real query, the
+  smallest a conforming requester produces.
+- `profile-edges` is **not a Q2D message**. It carries key ordering above the
+  BMP, every escape RFC 8259 names, `i64`'s boundaries, and the characters
+  `encoding/json` escapes by default and this profile must not.
+
+The second exists because the first could not catch a real divergence: the Rust
+serializer was emitting Unicode scalar key order where §4.2 asks for UTF-16
+code-unit order, and the canonical query is entirely ASCII, so it agreed anyway.
+The generalisation is worth stating, because `message/serialize/` will inherit
+it — **a corpus of realistic documents tests the protocol, not the profile.** The
+profile's edges have to be authored on purpose, since nothing a conforming
+requester sends reaches them.
 
 ## 7. Acceptance
 
