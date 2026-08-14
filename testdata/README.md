@@ -62,9 +62,11 @@ and `RefusalTest` in the Python file above.
 
 What they agree on is `core-model.md` §2.2's timestamp, in the fields §2.2 names
 and in the three places it names them — the core object, `routing`, and a
-receipt. Whether the spelling binds strings §2.2 does *not* name is
-[E-36](../docs/open-escalations.md), open; all three do what §2.2 states and no
-more until it closes.
+receipt. §2.2 states that reach explicitly, and stops there: a string in
+operation-defined data is the predicate's, and an entry constrains its own
+through `format: date-time` in its registry schema
+([`scope.md`](../spec/scope.md) §4.1). [E-36](../docs/open-escalations.md),
+closed as C.
 
 Three of the refusals exist in one language and not the others, because each
 language's types admit something the profile cannot emit and they are not the
@@ -75,7 +77,7 @@ same something:
 | Invalid UTF-8 | Go — a `string` is arbitrary bytes; ranging over one would substitute U+FFFD and sign a value the caller never supplied |
 | An unpaired surrogate | Python — a `str` is code points, and that one has no UTF-8 encoding |
 | A nil value, typed or untyped | Go — the `Value` interface admits both, and no concrete type is either. A `*String` is in the method set because the write methods have value receivers, so a nil one is an interface holding a type and no value: not equal to `nil`, and a panic on dispatch. A panic is not a refusal |
-| An integer outside the signed 64-bit range | Python — `int` is arbitrary-precision, and both value models are not ([E-37](../docs/open-escalations.md)) |
+| An integer outside −2^63 … 2^63 − 1 | Python — `int` is arbitrary-precision, and both value models are not. The range is `scope.md` §4.1's ([E-37](../docs/open-escalations.md)), which chose it *because* it is the width every conforming producer carries exactly |
 
 Rust appears in none of those rows, which is the point of the table rather than
 a gap in it: `String` cannot hold invalid UTF-8 or a lone surrogate, `Value` is

@@ -107,6 +107,26 @@ document depend on one spelling:
   (`crypto-suites.md` §3). A choice of spelling is a choice they can make
   differently while both believing they conform.
 
+**The rule reaches the fields this specification names, and no further.**
+`issued_at` and `expires_at` here, `expires_at` in §5.3, `decided_at` in §6 —
+each at the top of a core object, a response, or a receipt, and inside `routing`,
+which §2.1 derives from the core object by projection. A string anywhere else is
+not a Q2D timestamp, whatever it resembles.
+
+Anywhere else means operation-defined data: a predicate's `public_context` and
+its answer, which §2.6 says may mean anything at all. A booking time written
+`2026-07-31T19:30:00+01:00` is that predicate's data and is carried unaltered.
+The offset is not a defect to normalize away — it is the local time the
+requester meant, which `Z` does not record.
+
+A predicate that *wants* one spelling for a field of its own says so in its
+registry entry, where [`scope.md`](scope.md) §4.1 makes `format: date-time`
+assert exactly this spelling. That is the right place for it: the entry's author
+knows whether an offset carries meaning for that predicate and this document
+does not. It also removes an accident — without it, whether a predicate's
+timestamp were checked would depend on whether its author happened to reuse one
+of the three field names above.
+
 ### 2.3 Principals and authority
 
 | Field | Required | Meaning |

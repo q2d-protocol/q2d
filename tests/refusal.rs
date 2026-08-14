@@ -52,10 +52,10 @@ fn a_timestamp_outside_a_timestamp_field_is_left_alone() {
     // predicate's `public_context` may mean anything at all — an offset carries
     // the local time the requester is thinking in, which `Z` would lose.
     //
-    // Whether §2.2 should reach further is **E-36, open**. All three
-    // implementations do what §2.2 states and no more until it is decided; the
-    // register has the options. If E-36 closes as A, these two become
-    // `refused` and nothing else moves.
+    // **E-36, closed as C.** §2.2 now states that the rule reaches the fields
+    // it names and no further, and a predicate wanting one spelling for a field
+    // of its own declares `format: date-time` in its registry entry, where
+    // `scope.md` §4.1 makes that an assertion.
     accepted(public_context([(
         "booked_for",
         V::string("2026-07-31T19:30:00+01:00"),

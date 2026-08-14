@@ -144,8 +144,9 @@ def json_type(value) -> str:
 # §5.3's `expires_at`, §6's `decided_at`.
 TIMESTAMP_FIELDS = frozenset({"issued_at", "expires_at", "decided_at"})
 
-# The range of a signed 64-bit integer, which is what `src/value.rs` and
-# `value.go` hold. See the integer branch of `_serialize`.
+# `scope.md` §4.1's range, which is also what `src/value.rs` and `value.go`
+# hold -- §4.1 chose it because it is the widest every conforming producer
+# carries exactly. See the integer branch of `_serialize`.
 INT64_MIN = -2**63
 INT64_MAX = 2**63 - 1
 
@@ -334,31 +335,33 @@ def _serialize(value, protocol_level: bool = False) -> str:
         # here, which is one of the hazards crypto-suites.md §3 cites against
         # a JCS-based suite.
         #
-        # Bounded to what the two implementations can hold, which Python cannot
-        # otherwise be stopped from exceeding: `int` is arbitrary-precision and
-        # both value models use a 64-bit signed integer. Without this the tool
-        # could author a vector neither implementation can reproduce, and the
-        # first sign of it would be a byte disagreement blamed on the
-        # implementations.
+        # Bounded to the range `scope.md` §4.1 requires an entry's integers to
+        # lie within, which is also what both value models hold. Python cannot
+        # otherwise be stopped from exceeding it: `int` is arbitrary-precision.
+        # Without this the tool could author a vector neither implementation can
+        # reproduce, and the first sign would be a byte disagreement blamed on
+        # the implementations. E-37, closed as B.
         #
-        # §4.2 says "integers" and states no bound; whether `core-model.md`
-        # should is E-37. Refusing here is the safe direction either way --
-        # every value the protocol carries today is a count, a cardinality, or a
-        # capacity in integer millibits, none of which approaches 2**63.
+        # `core-model.md` still states no range, deliberately: every integer the
+        # protocol itself defines is a count, a cardinality, or a capacity in
+        # integer millibits, none of which approaches 2**63. The bound is about
+        # registry data, and a vector carrying `public_context` is registry data
+        # in a corpus file.
         if not INT64_MIN <= value <= INT64_MAX:
             raise ProfileError(
-                f"integer is outside the signed 64-bit range both "
-                f"implementations use. P-002 §4.2 states no bound and E-37 "
-                f"asks whether the specification should; until then the tool "
-                f"does not author what the pair cannot serialize")
+                f"integer is outside −2^63 … 2^63 − 1, which scope.md §4.1 "
+                f"requires an entry's integers to lie within and both value "
+                f"models hold. The tool does not author what the pair cannot "
+                f"serialize")
         return str(value)
     if kind == "string":
         encodable(value, "string")
         # A string is written as it is. §2.2 states its spelling for the fields
-        # it names, and the object branch below enforces it there; a string
-        # elsewhere is not a Q2D timestamp, whatever it looks like. Whether it
-        # should be -- E-36 -- is open, and until it is decided this tool
-        # produces what §2.2 says rather than more.
+        # it names -- and since E-36 closed as C, says so explicitly: "the rule
+        # reaches the fields this specification names, and no further". A string
+        # elsewhere is operation-defined data under §2.6, and whether it has one
+        # spelling is the predicate's entry to say, through `scope.md` §4.1's
+        # `format: date-time`.
         return escape_string(value)
     if kind == "array":
         return "[" + ",".join(_serialize(item) for item in value) + "]"

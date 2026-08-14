@@ -66,11 +66,16 @@ type Bool bool
 // Int is a JSON integer. Every numeric field in the protocol is a count, a
 // cardinality, or a capacity in integer millibits (core-model.md §3.1).
 //
-// Nothing in spec/ states an integer's range — that is E-37, open. int64 is not
-// an answer to it: a compiled implementation has to choose a type, and the
-// alternative to a fixed width is arbitrary-precision arithmetic, which is a
-// larger decision than the one being asked. The bound is here because the type
-// system needs one, and E-37 decides whether the specification should say so.
+// core-model.md states no integer range and deliberately does not: every integer
+// the protocol defines is a count, a cardinality, or a capacity in integer
+// millibits, none of which approaches a boundary. Where an integer can arrive
+// from outside is registry data, and scope.md §4.1 bounds it there — an integer
+// in any of an entry's schemas states minimum and maximum, both inside this
+// type's range. E-37, closed as B.
+//
+// So int64 is not a choice this file made and the specification then followed.
+// It is the width §4.1 names, chosen because it is the widest every conforming
+// producer carries exactly.
 type Int int64
 
 // String is a JSON string.
@@ -207,10 +212,11 @@ func (v Int) write(b *strings.Builder, _ bool) error {
 	return nil
 }
 
-// A string is written as it is. core-model.md §2.2 states its spelling for the
-// fields it names, and Object.write enforces it there; a string elsewhere is not
-// a Q2D timestamp, whatever it looks like. Whether it should be — E-36 — is
-// open, and until it is decided this implements what §2.2 says rather than more.
+// A string is written as it is. §2.2 states its spelling for the fields it names
+// — and, since E-36 closed as C, says so explicitly: "the rule reaches the
+// fields this specification names, and no further". A string elsewhere is
+// operation-defined data under §2.6, and whether it has one spelling is the
+// predicate's entry to say, through scope.md §4.1's format: date-time.
 func (v String) write(b *strings.Builder, _ bool) error {
 	if err := validUTF8("string", string(v)); err != nil {
 		return err

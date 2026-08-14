@@ -138,9 +138,11 @@ class RefusalTest(unittest.TestCase):
         # else is not a Q2D timestamp however much it looks like one, and §2.6
         # says a predicate's `public_context` may mean anything at all.
         #
-        # Whether §2.2 should reach further is **E-36, open**. All three
-        # implementations do what §2.2 states and no more until it is decided.
-        # If E-36 closes as A, these two become refusals and nothing else moves.
+        # **E-36, closed as C.** §2.2 now states that the rule reaches the
+        # fields it names and no further, and a predicate wanting one spelling
+        # for a field of its own declares `format: date-time` in its registry
+        # entry — `scope.md` §4.1 makes that an assertion rather than the
+        # annotation JSON Schema leaves it as.
         self.accepted(self.public_context({"booked_for": "2026-07-31T19:30:00+01:00"}))
         self.accepted(["2026-07-31T09:00:00.000Z"])
 
@@ -181,9 +183,10 @@ class RefusalTest(unittest.TestCase):
         self.assertEqual(av.serialize(real), av.serialize_operation_data(real))
 
     def test_an_integer_outside_the_pair_s_range_is_refused(self):
-        # E-37. Python's `int` is arbitrary-precision and both value models hold
-        # a signed 64-bit one, so without this the tool could author a vector
-        # neither implementation can reproduce — and the first sign would be a
+        # `scope.md` §4.1's range — E-37, closed as B. Python's `int` is
+        # arbitrary-precision and both value models hold a signed 64-bit one,
+        # so without this the tool could author a vector neither implementation
+        # can reproduce — and the first sign would be a
         # byte disagreement blamed on the implementations rather than the
         # vector. The boundaries themselves serialize, since `profile-edges`
         # carries both and all three agree on them.

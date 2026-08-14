@@ -377,23 +377,114 @@ def unbounded_release(schema, path):
         yield from unbounded_release(schema["items"], f"{path}.items")
 
 
-def timestamps(value, path="manifest"):
-    """Every string in the manifest that is shaped like a date-time."""
-    if isinstance(value, str):
-        # Any date-prefixed string, whatever separator follows. Matching only
-        # `T`/`t` would skip `2026-01-01 00:00:00Z`, which Python's
-        # `fromisoformat` accepts and §2.2 does not.
-        # A date *and* a time. Matching a date prefix alone would reject prose
-        # or a label that happens to begin with one -- "2026-01-01 draft" is
-        # not a timestamp, and §4.1 constrains values, not sentences.
-        if re.match(r"\A\d{4}-\d{2}-\d{2}[^0-9]\d{2}:\d{2}", value):
+# scope.md §4.1: the widest range every conforming producer carries exactly.
+# Not a protocol constant -- core-model.md states no integer range, and every
+# integer Q2D itself defines is a count, a cardinality, or a capacity in integer
+# millibits. This bounds *registry* data. E-37, closed.
+INT64_MIN = -2**63
+INT64_MAX = 2**63 - 1
+
+
+def unrepresentable_integer(schema, path):
+    """Every integer subschema an implementation could fail to represent.
+
+    scope.md §4.1: an `integer` in **any** of an entry's schemas states
+    `minimum` and `maximum`, and both lie within the signed 64-bit range.
+
+    Wider than `unbounded_release`, which asks only about the output schema
+    because what it bounds is disclosure. This is a divergence question: JSON's
+    grammar admits an integer of any length and gives implementations no common
+    range, so an entry admitting one a producer cannot represent would surface
+    as two implementations emitting different bytes for the same message.
+
+    **`enum` does not prune here**, where it does there. A finite set of
+    literals bounds a value's *length*, which is what §4.1's release rule asks;
+    it says nothing about whether each literal is representable, and
+    `enum: [12345678901234567890123]` is finite and still unrepresentable.
+    """
+    if not isinstance(schema, dict):
+        return
+
+    for index, literal in enumerate(schema.get("enum", []) or []):
+        # `bool` before `int`: in Python `True` is an `int`, and a boolean
+        # literal is not an integer this rule has anything to say about.
+        if isinstance(literal, bool) or not isinstance(literal, int):
+            continue
+        if not INT64_MIN <= literal <= INT64_MAX:
+            yield (f"{path}.enum[{index}]: outside −2^63 … 2^63 − 1, which "
+                   f"§4.1 requires an integer to lie within")
+
+    declared = schema.get("type")
+    types = declared if isinstance(declared, list) else [declared]
+    if "integer" in types:
+        for keyword in ("minimum", "maximum"):
+            bound = schema.get(keyword)
+            if bound is None:
+                # An `enum` of integers is exempt from stating a range: it has
+                # named every value it admits, and each was checked above.
+                if "enum" not in schema:
+                    yield f"{path}: integer with no `{keyword}`"
+            elif isinstance(bound, int) and not INT64_MIN <= bound <= INT64_MAX:
+                yield (f"{path}: `{keyword}` is outside −2^63 … 2^63 − 1, which "
+                       f"§4.1 requires an integer to lie within")
+
+    properties = schema.get("properties")
+    if isinstance(properties, dict):
+        for name, sub in properties.items():
+            yield from unrepresentable_integer(sub, f"{path}.properties.{name}")
+    if "items" in schema:
+        yield from unrepresentable_integer(schema["items"], f"{path}.items")
+
+
+def declared_timestamps(value, schema, path):
+    """Every value an entry's schema declares to be a `core-model.md` §2.2 one.
+
+    Driven by the schema rather than by the value's shape, which is E-36's
+    resolution: §2.2 binds the fields §2.2 names, and a predicate constrains a
+    field of its own by declaring `format: date-time` — which `scope.md` §4.1
+    makes an assertion. A predicate that instead declares a bounded `string`
+    may carry `2026-07-31T19:30:00+01:00`, and the offset is its data.
+
+    This scanned every date-shaped string in the manifest until E-36 closed.
+    That was the same rule the three serializers carried and lost, in a sixth
+    place, and it was the one that mattered most: this file validates *any*
+    manifest -- `python3 registry/validate.py path/to/manifest.json` -- so
+    being stricter than §4.1 here rejects a conforming entry rather than
+    tidying our own corpus, which is why `conformance/harness/lint.py` keeps
+    its copy and this one does not.
+    """
+    if isinstance(schema, dict) and schema.get("format") == "date-time":
+        if isinstance(value, str):
             yield path, value
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            yield from timestamps(item, f"{path}.{key}")
-    elif isinstance(value, list):
-        for index, item in enumerate(value):
-            yield from timestamps(item, f"{path}[{index}]")
+        return
+    if isinstance(value, dict) and isinstance(schema, dict):
+        properties = schema.get("properties")
+        if isinstance(properties, dict):
+            for key, item in value.items():
+                if key in properties:
+                    yield from declared_timestamps(item, properties[key],
+                                                   f"{path}.{key}")
+    elif isinstance(value, list) and isinstance(schema, dict):
+        items = schema.get("items")
+        if items is not None:
+            for index, item in enumerate(value):
+                yield from declared_timestamps(item, items, f"{path}[{index}]")
+
+
+def entry_timestamps(manifest):
+    """`declared_timestamps` over every vector of every entry."""
+    for index, entry in enumerate(manifest.get("predicates", [])):
+        for vector_index, vector in enumerate(entry.get("test_vectors", [])):
+            for field, schema_field in (("public_context", "public_context_schema"),
+                                        ("private_input", "private_input_schema"),
+                                        ("input", "input_schema"),
+                                        ("output", "output_schema")):
+                if field not in vector or schema_field not in entry:
+                    continue
+                where = (f"manifest.predicates[{index}]"
+                         f".test_vectors[{vector_index}].{field}")
+                yield from declared_timestamps(vector[field], entry[schema_field],
+                                               where)
 
 
 def main(argv: list[str]) -> int:
@@ -424,10 +515,11 @@ def main(argv: list[str]) -> int:
     # which raises on a malformed value -- so running this check after the
     # vector evaluation meant it never ran on exactly the input it exists to
     # reject, and the run died mid-sweep instead of reporting.
-    wrong = [f"{path}={value}" for path, value in timestamps(manifest)
+    wrong = [f"{path}={value}" for path, value in entry_timestamps(manifest)
              if not q2d_timestamp(value)]
     check(not wrong,
-          "every date-time is core-model.md §2.2's spelling (scope.md §4.1)",
+          "every declared date-time is core-model.md §2.2's spelling "
+          "(scope.md §4.1)",
           "; ".join(wrong))
     # A leap second is valid RFC 3339 and valid under §2.2, and this validator
     # cannot check a manifest containing one: `ts()` uses `fromisoformat`,
@@ -435,11 +527,17 @@ def main(argv: list[str]) -> int:
     # non-conformance -- the distinction matters, because narrowing §2.2 to
     # what this file can parse would be a specification change made by a
     # convenience.
+    #
+    # Over the **declared** timestamps, for the same reason `wrong` is: those
+    # are the values `ts()` is handed, because a predicate reads the fields its
+    # schema declares. A prose field containing `2016-12-31T23:59:60Z` reaches
+    # no parser here, and halting on one would refuse to judge a manifest over
+    # a string that is not a timestamp at all.
     # Only a `:60` that is otherwise conforming. One at the wrong hour or on a
     # wrong date is non-conforming outright, `wrong` above already holds it,
     # and calling that indeterminate would classify a registry error as
     # something this tool cannot judge.
-    leap = [f"{path}={value}" for path, value in timestamps(manifest)
+    leap = [f"{path}={value}" for path, value in entry_timestamps(manifest)
             if value[17:19] == "60" and q2d_timestamp(value)]
     if leap:
         # Exit 2, not 1: 1 means the manifest is wrong, and this manifest may
@@ -706,6 +804,15 @@ def main(argv: list[str]) -> int:
                 check(not unbounded,
                       f"{where} bounds every variable-length value it releases",
                       "; ".join(unbounded))
+
+            # Every schema, not only the output one: this asks whether a value
+            # can be *represented* rather than whether it can be released, and
+            # an integer a producer cannot hold arrives through the input and
+            # public-context schemas. E-37.
+            unrepresentable = sorted(unrepresentable_integer(schema, where))
+            check(not unrepresentable,
+                  f"{where} keeps every integer inside the 64-bit range",
+                  "; ".join(unrepresentable))
             # And nowhere else: JSON Schema lets a nested `$schema` switch
             # dialects for that subschema, which is the divergence §4.1 pins
             # the dialect to prevent, reintroduced one level down.
