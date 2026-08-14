@@ -256,11 +256,15 @@ fn type_name(value: &Value) -> &'static str {
 
 /// A key's UTF-16 code units, which is what §4.2 orders by.
 ///
+/// `pub(crate)` because three places need it now — the serializer, the envelope
+/// parser, and `check_routing` — and each having its own was how the second and
+/// third came to disagree with Go about which of two bad fields to name.
+///
 /// Allocating per comparison is the slow way to do this and the clear one; §4.2
 /// is a correctness rule and objects here have a handful of keys. Performance
 /// is a Stage 8 concern (`CLAUDE.md`), and a hand-rolled comparator that walked
 /// both strings' code units in step would be the thing a reviewer has to check.
-fn utf16_units(s: &str) -> Vec<u16> {
+pub(crate) fn utf16_units(s: &str) -> Vec<u16> {
     s.encode_utf16().collect()
 }
 

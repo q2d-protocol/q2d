@@ -222,3 +222,191 @@ func TestAValueOutsideTheSixIsNotProjected(t *testing.T) {
 		t.Errorf("got %s, want only the concrete field", got)
 	}
 }
+
+func TestADerivedProjectionAgreesWithItsOwnCoreObject(t *testing.T) {
+	// The property that makes the check meaningful: if projection and
+	// comparison disagreed about the same message, every conforming exchange
+	// would fail step 8.
+	core := routingQuery()
+	if err := CheckRouting(core, ProjectRouting(core).Value()); err != nil {
+		t.Errorf("a derived projection disagreed with its own core object: %v", err)
+	}
+}
+
+func TestAnAbsentProjectionIsNotADisagreement(t *testing.T) {
+	// §2.1 permits a message with no projection (E-38), and nothing that is not
+	// there can disagree with anything.
+	if err := CheckRouting(routingQuery(), nil); err != nil {
+		t.Errorf("absent: %v", err)
+	}
+	// Nor is an empty one, which is a projection of nothing.
+	if err := CheckRouting(routingQuery(), Object{}); err != nil {
+		t.Errorf("empty: %v", err)
+	}
+}
+
+func TestAChangedValueIsTampering(t *testing.T) {
+	// message/routing/disagrees in miniature: a relay rewrites the custodian so
+	// the request reaches it instead.
+	tampered := Object{"target": Object{"custodian": String("https://attacker.example")}}
+	err := CheckRouting(routingQuery(), tampered)
+	mismatch, isMismatch := err.(RoutingMismatch)
+	if !isMismatch {
+		t.Fatalf("expected a RoutingMismatch, got %v", err)
+	}
+	if mismatch.Path != "target.custodian" || mismatch.Because != RoutingSignedMismatch {
+		t.Errorf("got %+v", mismatch)
+	}
+}
+
+func TestAFieldOutsideTheAllowlistIsRefusedHoweverFaithfulTheCopy(t *testing.T) {
+	// message/routing/introduces-field, whose purpose is byte-identical to the
+	// signed one — so agreement is not what fails. §2.1 says routing carries at
+	// most six fields, and this check accepted that vector until review caught
+	// it.
+	core := routingQuery()
+	faithful := Object{"purpose": core.(Object)["purpose"]}
+	err := CheckRouting(core, faithful)
+	mismatch, isMismatch := err.(RoutingMismatch)
+	if !isMismatch || mismatch.Path != "purpose" || mismatch.Because != RoutingIntroducedField {
+		t.Fatalf("faithful copy: %v", err)
+	}
+
+	// A field nobody signed either, and a nested one whose parent is projected
+	// and whose child is not.
+	for _, c := range []struct {
+		routing Value
+		path    string
+	}{
+		{Object{"shortcut": String("skip-the-checks")}, "shortcut"},
+		{Object{"predicate": Object{"elevated": Bool(true)}}, "predicate.elevated"},
+	} {
+		mismatch, ok := CheckRouting(core, c.routing).(RoutingMismatch)
+		if !ok || mismatch.Path != c.path || mismatch.Because != RoutingIntroducedField {
+			t.Errorf("%s: %+v", c.path, mismatch)
+		}
+	}
+}
+
+func TestAProjectableNameTheCoreObjectLacksIsIntroduced(t *testing.T) {
+	// expires_at is a name §4.5 projects, but a core object without one
+	// projects nothing there — so routing carrying it is §2.1's "may never
+	// introduce a field", the corpus's routing_introduced_field rather than a
+	// value disagreement.
+	//
+	// Under the older model, which compared against the core object and
+	// consulted an allowlist, this was a mismatch. Comparing against the
+	// projection makes the two reasons mean what their names say.
+	core := Object{"type": String("query")}
+	routing := Object{"expires_at": String("2026-07-31T09:05:00Z")}
+	mismatch, ok := CheckRouting(core, routing).(RoutingMismatch)
+	if !ok || mismatch.Path != "expires_at" || mismatch.Because != RoutingIntroducedField {
+		t.Errorf("got %+v", mismatch)
+	}
+}
+
+func TestAnEmptyPrefixObjectIsAccepted(t *testing.T) {
+	// {"target":{}} is not something ProjectRouting emits, and it is refused by
+	// nothing: §2.1 asks that routing carry at most the six and introduce no
+	// field, and an empty object carries none and introduces none. Rejecting it
+	// would be a rule §2.1 does not state.
+	//
+	// E-42, open: nothing derives it and nothing forbids it, so both
+	// implementations accept it — the minimum §2.1 states — and the register
+	// carries the question. This is the one case where "not derivable" and
+	// "not permitted" come apart.
+	if err := CheckRouting(routingQuery(), Object{"target": Object{}}); err != nil {
+		t.Errorf("an empty prefix: %v", err)
+	}
+}
+
+func TestNothingIsCoerced(t *testing.T) {
+	// §4 step 8: same type, same value. A projection whose value is the number
+	// 1 does not agree with one that spells it — and a comparison that coerced
+	// would let a relay choose the spelling a responder compares.
+	core := Object{"expires_at": String("1")}
+	numeric := Object{"expires_at": Int(1)}
+	err := CheckRouting(core, numeric)
+	if mismatch, ok := err.(RoutingMismatch); !ok || mismatch.Because != RoutingSignedMismatch {
+		t.Errorf("got %v", err)
+	}
+}
+
+func TestAnArrayIsComparedWhole(t *testing.T) {
+	// No subset rule for arrays: §4.4 makes their order significant, and
+	// treating a shorter one as a projection would let a relay drop an element
+	// and call it a subset.
+	core := Object{"list": Array{Int(1), Int(2)}}
+	shortened := Object{"list": Array{Int(1)}}
+	if err := CheckRouting(core, shortened); err.(RoutingMismatch).Path != "list" {
+		t.Errorf("got %v", err)
+	}
+}
+
+func TestTheMismatchNamesAPathAndNeverAValue(t *testing.T) {
+	// The internal reason is what a responder logs, and the projection is
+	// attacker-supplied while the core object is the requester's. An operator
+	// needs to know which field; neither value belongs in the record, and
+	// neither belongs on the wire.
+	core := Object{"nonce": String("the-requesters-nonce")}
+	tampered := Object{"nonce": String("the-attackers-nonce")}
+	message := CheckRouting(core, tampered).Error()
+	if !strings.Contains(message, "nonce") {
+		t.Errorf("names no field: %s", message)
+	}
+	for _, value := range []string{"the-requesters-nonce", "the-attackers-nonce"} {
+		if strings.Contains(message, value) {
+			t.Errorf("carries %s: %s", value, message)
+		}
+	}
+}
+
+func TestALiteralDottedKeyIsAnIntroducedField(t *testing.T) {
+	// §4.5's allowlist is walked segment by segment. Nothing forbids
+	// {"predicate.id": …} as a single member name, and comparing a joined
+	// "predicate.id" against the allowlist would read that one key as the
+	// nested path and admit a field no projection can produce.
+	//
+	// Both objects carry the literal key, so a dotted comparison would find it
+	// in the signed object, call it projectable, and pass.
+	core := Object{
+		"predicate.id": String("https://q2d.dev/predicates/p"),
+		"type":         String("query"),
+	}
+	routing := Object{"predicate.id": String("https://q2d.dev/predicates/p")}
+	mismatch, ok := CheckRouting(core, routing).(RoutingMismatch)
+	if !ok || mismatch.Path != "predicate.id" || mismatch.Because != RoutingIntroducedField {
+		t.Fatalf("got %+v", mismatch)
+	}
+
+	// And the shape §4.5 actually projects is unaffected, which is what makes
+	// the segment walk a fix rather than a tightening.
+	nested := Object{"predicate": Object{"id": String("https://q2d.dev/predicates/p")}}
+	if err := CheckRouting(nested, nested); err != nil {
+		t.Errorf("the nested path of the same name: %v", err)
+	}
+}
+
+func TestAMalformedValueIsComparedRatherThanValidated(t *testing.T) {
+	// Step 8 asks whether two values agree, not whether either is well formed.
+	// A malformed §2.2 timestamp is refused at the step that owns it — this one
+	// only compares.
+	//
+	// Comparing serialized bytes would import the serializer's validation into
+	// the comparison, so an identical malformed expires_at would be a mismatch
+	// in Go and equal in Rust, whose == is structural.
+	core := Object{
+		"expires_at": String("not a date"),
+		"type":       String("query"),
+	}
+	routing := Object{"expires_at": String("not a date")}
+	if err := CheckRouting(core, routing); err != nil {
+		t.Errorf("identical malformed values disagreed: %v", err)
+	}
+
+	// And the serializer does still refuse it, which is what makes this a
+	// question about *where* the rule lives rather than whether it exists.
+	if _, err := Serialize(core); err == nil {
+		t.Error("the fixture no longer exercises a value the profile refuses")
+	}
+}

@@ -17,5 +17,5 @@ pub mod value;
 
 pub use envelope::{parse_envelope, Envelope};
 pub use parse::{parse, ParseError};
-pub use routing::{project_routing, Routing};
+pub use routing::{check_routing, project_routing, Routing, RoutingMismatch};
 pub use value::{serialize, serialize_operation_data, ProfileError, Value};
