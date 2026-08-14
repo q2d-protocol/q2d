@@ -162,6 +162,17 @@ class ExpectedStateTest(unittest.TestCase):
                                  "E-34 has presumably closed — delete this and "
                                  "assert the class it decided")
 
+    def test_no_below_floor_downgrade_vector_yet(self):
+        # A vector asserting that a suite below the verifier's floor is rejected
+        # needs a second registered suite to be below it. With one registered
+        # and active, such a vector could only assert a floor nobody can
+        # configure -- and it would look like coverage while testing nothing.
+        premature = [name for name in by_id()
+                     if name.startswith("suite/downgrade/below-floor")]
+        self.assertEqual(premature, [],
+                         "a below-floor vector landed — a second suite has "
+                         "presumably been registered, so delete this assertion")
+
     def test_status_has_no_group_yet(self):
         # It needs a deprecated or withdrawn suite to assert against, and
         # crypto-suites.md §3 registers exactly one, active.
