@@ -157,8 +157,10 @@ E-31).
 **`alg` is not a member of a Q2D protected header, and `alg: none` is not a
 state one can express.** A header carrying one is rejected at
 [`core-model.md`](core-model.md) §4 step 3, where the header is read, and the
-requester receives `structurally_invalid` (§5.2.1) — the message authenticates
-and is still not a Q2D message. This is stronger than rejecting it. A header carrying
+requester receives `structurally_invalid` (§5.2.1). **Nothing is verified first**
+— `alg` is visible in the header alone, and step 3 has already read the header,
+so this costs a verifier no work it was not doing and none it is not yet allowed
+to do. This is stronger than rejecting it. A header carrying
 `alg` would be one a general-purpose JOSE library could process — and such a
 library selects its verification algorithm from the header, which is precisely
 the decision §4's minimum-acceptable-policy check exists to take away from the
