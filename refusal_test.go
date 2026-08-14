@@ -54,8 +54,9 @@ func TestATimestampOutsideATimestampFieldIsLeftAlone(t *testing.T) {
 
 func TestTheFieldNameRuleAppliesOnlyAtProtocolLevel(t *testing.T) {
 	// §2.6: a predicate's public_context may mean anything at all, so a field
-	// there called issued_at is the predicate's, not §2.2's. The shape rule
-	// still reaches it — this asserts the *name* rule does not.
+	// there called issued_at is the predicate's, not §2.2's — so neither rule
+	// reaches it, and this asserts the name rule in particular, since it is the
+	// one §2.2 states and the one a reader would expect to apply everywhere.
 	value := Object{"predicate": Object{"public_context": Object{
 		"issued_at": String("whenever the kitchen opens"),
 	}}}

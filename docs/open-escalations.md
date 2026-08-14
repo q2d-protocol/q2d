@@ -2871,9 +2871,14 @@ requester writes it the way every other system it talks to writes it:
 ```
 
 That is valid RFC 3339, it is not §2.2's spelling, and it is not a field §2.2
-names. Today all three implementations refuse to serialize the query at all. The
-requester cannot ask the question, and the failure names a spelling rule for a
-field the specification does not claim.
+names.
+
+**All three implementations refused to serialize the query at all** when this
+was raised — the requester could not ask the question, and the failure named a
+spelling rule for a field the specification does not claim. That is the state
+this escalation was opened about, and it is no longer the state: all three now
+accept it, because enforcing a rule `spec/` does not contain was the greater
+infidelity while the question is open. See *What is built today* below.
 
 The offset is the interesting part: `+01:00` carries information a `Z` spelling
 does not — the local time the diner is thinking in. Normalising it to UTC loses
