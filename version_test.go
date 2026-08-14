@@ -53,16 +53,20 @@ func TestAnAbsentOrMistypedVersionIsMalformedRatherThanUnsupported(t *testing.T)
 }
 
 func TestAnUnknownVersionRejectsWithoutReadingAnythingElse(t *testing.T) {
-	// The rule this issue exists for. Every other field here is wrong in a way
-	// some later step would catch — a malformed timestamp, a predicate that is a
-	// string — and none of it is consulted, because version n+1 may have moved
+	// The rule this issue exists for. Every other field here is wrong in a way a
+	// later step would catch — a predicate that is a string, a type that is a
+	// number — and none of it is consulted, because version n+1 may have moved
 	// or retyped any of them and a diagnostic built by reading them is a guess
 	// presented as fact.
+	//
+	// Deliberately not a malformed issued_at: that would be rejected by Parse
+	// before this function ever saw it, under §5.2.1's malformed, so it would
+	// demonstrate the parser rather than this.
 	nonsense := Object{
 		"q2d_version": String("0.2"),
-		"issued_at":   String("not a date"),
 		"predicate":   String("not an object"),
-		"expires_at":  Int(-1),
+		"type":        Int(7),
+		"nonce":       Object{"not": String("a nonce")},
 	}
 	if err := CheckVersion(nonsense); err == nil {
 		t.Error("an unknown version was accepted")
@@ -72,9 +76,9 @@ func TestAnUnknownVersionRejectsWithoutReadingAnythingElse(t *testing.T) {
 	// what makes the assertion above about the version rather than the nonsense.
 	sameShape := Object{
 		"q2d_version": String(Supported),
-		"issued_at":   String("not a date"),
 		"predicate":   String("not an object"),
-		"expires_at":  Int(-1),
+		"type":        Int(7),
+		"nonce":       Object{"not": String("a nonce")},
 	}
 	if err := CheckVersion(sameShape); err != nil {
 		t.Errorf("the same shape with a supported version: %v", err)

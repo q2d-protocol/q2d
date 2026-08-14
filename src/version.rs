@@ -1,4 +1,4 @@
-//! `q2d_version`, checked at §4 step 5 and before anything else is read.
+//! `q2d_version`, checked at §4 step 5 — and interpreting no other field.
 //!
 //! ## One version, inside the signed object
 //!
@@ -25,6 +25,14 @@
 //!
 //! This function reads exactly one key. That is the property, and it is
 //! structural rather than a discipline a caller keeps.
+//!
+//! **It is not the stronger claim that nothing is read first.** Step 5 is
+//! *parse the verified core object*, so parsing precedes this and may itself
+//! reject — a duplicate key, a float, a string above §2.8's bound. Those are
+//! §5.2.1's **`malformed`**, which is the other cause that row gives for step
+//! 5, so a message that never reaches this function is refused under the right
+//! external value anyway. What this function adds is that once a message *has*
+//! parsed, an unknown version is decided without consulting anything else.
 
 use crate::value::Value;
 
@@ -160,17 +168,21 @@ mod tests {
 
     #[test]
     fn an_unknown_version_rejects_without_reading_anything_else() {
-        // The rule this issue exists for. Every other field here is wrong in a
-        // way some later step would catch — a malformed timestamp, a missing
-        // `type`, a `predicate` that is a string — and none of that is
-        // consulted, because version *n+1* may have moved or retyped any of
+        // The rule this issue exists for. Every other field here is wrong in
+        // a way a *later* step would catch — a `predicate` that is a string, a
+        // `type` that is a number, a `nonce` that is an object — and none of it
+        // is consulted, because version *n+1* may have moved or retyped any of
         // them and a diagnostic built by reading them is a guess presented as
         // fact.
+        //
+        // Deliberately **not** a malformed `issued_at`: that would be rejected
+        // by `parse` before this function ever saw it, under §5.2.1's
+        // `malformed`, so it would demonstrate the parser rather than this.
         let nonsense = Value::object([
             ("q2d_version", Value::string("0.2")),
-            ("issued_at", Value::string("not a date")),
             ("predicate", Value::string("not an object")),
-            ("expires_at", Value::Integer(-1)),
+            ("type", Value::Integer(7)),
+            ("nonce", Value::object([("not", Value::string("a nonce"))])),
         ]);
         assert_eq!(check_version(&nonsense), Err(VersionProblem::Unsupported));
 
@@ -179,9 +191,9 @@ mod tests {
         // than about the nonsense.
         let same_shape = Value::object([
             ("q2d_version", Value::string(SUPPORTED)),
-            ("issued_at", Value::string("not a date")),
             ("predicate", Value::string("not an object")),
-            ("expires_at", Value::Integer(-1)),
+            ("type", Value::Integer(7)),
+            ("nonce", Value::object([("not", Value::string("a nonce"))])),
         ]);
         assert_eq!(check_version(&same_shape), Ok(()));
     }

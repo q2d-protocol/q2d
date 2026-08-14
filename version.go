@@ -1,6 +1,6 @@
 package q2d
 
-// q2d_version, checked at §4 step 5 and before anything else is read.
+// q2d_version, checked at §4 step 5 — and interpreting no other field.
 //
 // # One version, inside the signed object
 //
@@ -27,6 +27,14 @@ package q2d
 //
 // This function reads exactly one key. That is the property, and it is
 // structural rather than a discipline a caller keeps.
+//
+// It is not the stronger claim that nothing is read first. Step 5 is "parse the
+// verified core object", so parsing precedes this and may itself reject — a
+// duplicate key, a float, a string above §2.8's bound. Those are §5.2.1's
+// malformed, which is the other cause that row gives for step 5, so a message
+// that never reaches this function is refused under the right external value
+// anyway. What this function adds is that once a message has parsed, an unknown
+// version is decided without consulting anything else.
 
 import "fmt"
 
