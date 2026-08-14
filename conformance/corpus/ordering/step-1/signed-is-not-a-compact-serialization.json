@@ -10,7 +10,19 @@
   "operation": "process_query",
   "input": {
     "envelope": {
-      "signed": "not-a-compact-serialization"
+      "signed": "not-a-compact-serialization",
+      "routing": {
+        "q2d_version": "0.1",
+        "type": "query",
+        "target": {
+          "custodian": "https://friend.example/.well-known/q2d"
+        },
+        "predicate": {
+          "id": "https://q2d.dev/predicates/dietary/menu-compatible",
+          "version": "0.1"
+        },
+        "expires_at": "2026-07-31T09:05:00Z"
+      }
     },
     "environment": {
       "now": "2026-07-31T09:01:00Z"

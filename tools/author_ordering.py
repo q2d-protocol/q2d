@@ -94,6 +94,16 @@ def signed(query=None, key=REQUESTER, header=None) -> str:
     return av.jws_with_header(seed_of(key), header, query)
 
 
+# `routing` is present on every envelope. §2.1 shows a message as two parts, and
+# a responder validating envelope shape at step 1 could reject one carrying only
+# `signed` -- which would fail these vectors at step 1 rather than at the step
+# each asserts. The projection agrees with the signed object throughout, so §4
+# step 8 passes and no vector is wrong in a second way.
+#
+# The expired vector's projection **omits `expires_at`**. §4 step 2 may shed
+# obviously stale traffic using that field, and a responder that did would never
+# reach the step 6 the vector asserts -- so the one field step 2 reads is the one
+# field that projection leaves out. §2.1 permits a strict subset.
 def vector(step, name: str, why: str, envelope: dict,
            internal: str, external: str) -> dict:
     return {
@@ -134,7 +144,7 @@ def vectors() -> list[dict]:
                "parsed object, so that case cannot travel through this corpus. "
                "It belongs to the binding that owns framing "
                "([P-013](../docs/prds/P-013-https-binding.md)).",
-               {"signed": "not-a-compact-serialization"},
+               {"signed": "not-a-compact-serialization", "routing": ROUTING},
                "envelope_malformed", "malformed"),
 
         vector(3, "unregistered-suite",
@@ -145,7 +155,8 @@ def vectors() -> list[dict]:
                {"signed": signed(
                    query_with(signature=dict(QUERY["signature"],
                                              profile=UNREGISTERED_SUITE)),
-                   header={"key_id": REQUESTER, "suite": UNREGISTERED_SUITE})},
+                   header={"key_id": REQUESTER, "suite": UNREGISTERED_SUITE}),
+                "routing": ROUTING},
                "suite_unregistered", "unsupported_suite"),
 
         vector(4, "signature-from-another-key",
@@ -155,7 +166,8 @@ def vectors() -> list[dict]:
                "unauthenticated request** — so a vector that rejected here for "
                "any later reason would be reporting a check that ran when it "
                "must not have.",
-               {"signed": av.jws_compact(seed_of(IMPOSTOR), REQUESTER, QUERY)},
+               {"signed": av.jws_compact(seed_of(IMPOSTOR), REQUESTER, QUERY),
+                "routing": ROUTING},
                "signature_invalid", "unauthenticated"),
 
         vector(5, "verified-object-missing-a-required-field",
@@ -164,7 +176,8 @@ def vectors() -> list[dict]:
                "bytes, so the defect is only visible once the object is parsed "
                "— which §2.1 permits only after verification.",
                {"signed": signed({k: v for k, v in QUERY.items()
-                                  if k != "nonce"})},
+                                  if k != "nonce"}),
+                "routing": ROUTING},
                "core_object_missing_required_field", "malformed"),
 
         vector("5a", "header-payload-key-mismatch",
@@ -174,17 +187,23 @@ def vectors() -> list[dict]:
                "fails. It needs the parsed object, so it cannot precede step 5, "
                "and it precedes every step that acts on a payload field.",
                {"signed": signed(query_with(
-                   signature=dict(QUERY["signature"], key_id=IMPOSTOR)))},
+                   signature=dict(QUERY["signature"], key_id=IMPOSTOR))),
+                "routing": ROUTING},
                "header_payload_key_mismatch", "structurally_invalid"),
 
         vector(6, "expired",
                "A signed request whose `expires_at` has passed. Step 6 is the "
-               "**authoritative** expiry check — step 2 may shed on "
-               "`routing.expires_at` first, but that is advisory, and a "
-               "responder that skips it must still reject here.",
+               "**authoritative** expiry check. Its routing projection omits "
+               "`expires_at` deliberately: step 2 may shed on that field, "
+               "and a responder that did would never reach step 6 — so the "
+               "one field step 2 reads is the one this projection leaves "
+               "out, which §2.1 permits since `routing` is a strict "
+               "subset.",
                {"signed": signed(query_with(
                    issued_at="2026-07-31T08:00:00Z",
-                   expires_at="2026-07-31T08:05:00Z"))},
+                   expires_at="2026-07-31T08:05:00Z")),
+                "routing": {k: v for k, v in ROUTING.items()
+                            if k != "expires_at"}},
                "request_expired", "expired"),
 
     ]

@@ -94,6 +94,32 @@ class ShapeTest(unittest.TestCase):
                                  f"step-{vector['expect']['rejection']['step']}")
 
 
+class EnvelopeTest(unittest.TestCase):
+    def test_every_envelope_carries_routing(self):
+        # §2.1 shows a message as two parts, and a responder validating envelope
+        # shape at step 1 could reject one carrying only `signed` -- failing
+        # these vectors at step 1 rather than at the step each asserts.
+        for vector in vectors():
+            with self.subTest(vector=vector["id"]):
+                self.assertIn("routing", vector["input"]["envelope"])
+
+    def test_the_expiry_vector_does_not_project_expires_at(self):
+        # §4 step 2 may shed obviously stale traffic using `routing.expires_at`.
+        # A responder that did would never reach step 6, so the one field step 2
+        # reads is the one field this projection must leave out -- and §2.1
+        # permits a strict subset.
+        expiry = [v for v in vectors() if v["expect"]["rejection"]["step"] == 6]
+        self.assertEqual(len(expiry), 1)
+        self.assertNotIn("expires_at", expiry[0]["input"]["envelope"]["routing"])
+
+    def test_every_vector_supplies_the_clock(self):
+        # §4 step 6 needs a time and P-001 §4.3 forbids a runner from reading
+        # one, so a vector without it is unreproducible by construction.
+        for vector in vectors():
+            with self.subTest(vector=vector["id"]):
+                self.assertIn("now", vector["input"]["environment"])
+
+
 class StepsAreRealTest(unittest.TestCase):
     """Every asserted step exists in `core-model.md` §4's query order.
 
