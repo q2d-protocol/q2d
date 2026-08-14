@@ -124,6 +124,12 @@ contain a float, and `parse_core` is where one is refused — the boundary where
 value comes into existence, rather than downstream of a value that already
 exists. Adding a float field is an escalation, not a schema change.
 
+`serialize_core` is still fallible, for a different rule: `core-model.md` §2.2
+permits one spelling of a timestamp, and §4.2 cites it. That check has to live
+here, because serialization is the last point at which a value can be refused
+before it becomes bytes somebody signs — and inside a signed payload a malformed
+timestamp is past the reach of anything that reads it as text.
+
 ### 4.4 Envelope
 
 ```
@@ -209,7 +215,7 @@ Values are proposed, not derived. Open question 3.
 ## 5. Interfaces
 
 ```
-serialize_core(core: CoreObject)          -> bytes        // §4.2 profile; total, per §4.3
+serialize_core(core: CoreObject)          -> bytes        // §4.2 profile; errors on a §2.2 timestamp
 parse_core(payload: bytes)                -> CoreObject   // post-verification only
 project_routing(core: CoreObject)         -> Routing      // derive; never authored
 check_routing(core: CoreObject, r: Routing) -> Result     // compare only
@@ -332,7 +338,7 @@ what `AGENTS.md`'s architectural-pivot rule exists for.
 | # | Issue | Done when |
 |---|---|---|
 | 1 | Core object type definitions, both languages | **Done.** [`src/value.rs`](../../src/value.rs) and [`value.go`](../../value.go). An absent optional and a null one are different documents, not merely distinguishable values — a field is in the map or it is not |
-| 2 | `serialize_core` with the §4.2 profile | **Done, against a narrower gate than this row asked for.** `message/serialize/` does not exist yet (issue 10), so the byte match is asserted against [`testdata/canonical-query.serialized`](../../testdata/README.md) instead — one document, but read by all three serializers including the authoring tool the corpus's own expected bytes come from. Building it found five Rust/Go divergences and raised E-31 through E-35. The row is not closed until issue 10 lands the section |
+| 2 | `serialize_core` with the §4.2 profile | **Done, against a narrower gate than this row asked for.** `message/serialize/` does not exist yet (issue 10), so the byte match is asserted against [`testdata/`](../../testdata/README.md)'s two fixtures instead — read by all three serializers, including the authoring tool the corpus's own expected bytes come from. Refusals agree too, case for case: §2.2's timestamp spelling, and the protocol-level rule that a field name means what `core-model.md` says only outside `public_context`. Building it found five Rust/Go divergences, raised E-31 through E-35, and took two Codex rounds — UTF-16 key ordering, then this. The row is not closed until issue 10 lands the section |
 | 3 | Float guard in the serializer | **Not applicable as written, and stronger for it.** Neither value model has a float variant, so §4.3's *"programming error"* is a compile error and there is no runtime path to test. The guard moves to `parse_core` (issue 4), where external bytes arrive; a `message/reject/` vector covers it there |
 | 4 | `parse_core`, rejecting duplicate keys | Round-trip property test passes |
 | 5 | Bounded `parse_envelope` | Size, depth, and member limits enforced before allocation |

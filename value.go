@@ -32,6 +32,7 @@
 package q2d
 
 import (
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -45,7 +46,12 @@ import (
 // keeps the set closed, so a float cannot be introduced by declaring one
 // elsewhere — the Go equivalent of the Rust side's enum.
 type Value interface {
-	write(*strings.Builder)
+	// protocolLevel is §2.2's "the core object, routing, and a receipt": the
+	// nesting at which a field name carries a core-model.md meaning. It starts
+	// true and stays true only through protocolSubobjects, because a
+	// public_context field called receipt is the predicate's own structure and
+	// §2.6 says that may mean anything at all.
+	write(b *strings.Builder, protocolLevel bool) error
 }
 
 // Null is JSON null. Distinct from an absent field: P-002 §4.2 omits an absent
@@ -76,42 +82,79 @@ type Object map[string]Value
 // P-002 §5 names this serialize_core and gives it a CoreObject. CoreObject does
 // not exist yet, and the profile is a property of the value model rather than of
 // any one message type, so this is the general form and serialize_core becomes
-// the typed wrapper. Total, per §4.3: there is no float to fail on.
-func Serialize(v Value) []byte {
+// the typed wrapper.
+//
+// # Errors
+//
+// §4.3's float ban needs no check here — Value has no float member, so a float
+// is a compile error. What remains is core-model.md §2.2's timestamp, which
+// §4.2 cites: this is the last point at which a value can be refused before it
+// becomes bytes somebody signs, and inside a signed payload a malformed
+// timestamp is past the reach of anything that reads it as text.
+//
+// An error carries no private data: every message names a field or a spelling,
+// both of which the caller supplied and neither of which is an answer.
+func Serialize(v Value) ([]byte, error) {
 	var b strings.Builder
-	v.write(&b)
-	return []byte(b.String())
+	if err := v.write(&b, true); err != nil {
+		return nil, err
+	}
+	return []byte(b.String()), nil
 }
 
-func (Null) write(b *strings.Builder) { b.WriteString("null") }
+func (Null) write(b *strings.Builder, _ bool) error {
+	b.WriteString("null")
+	return nil
+}
 
-func (v Bool) write(b *strings.Builder) {
+func (v Bool) write(b *strings.Builder, _ bool) error {
 	if v {
 		b.WriteString("true")
-		return
+		return nil
 	}
 	b.WriteString("false")
+	return nil
 }
 
 // strconv.FormatInt is exactly §4.2's integer rule: no exponent, no leading
 // plus, no leading zeros. Nothing to configure and nothing two languages can
 // render differently.
-func (v Int) write(b *strings.Builder) { b.WriteString(strconv.FormatInt(int64(v), 10)) }
+func (v Int) write(b *strings.Builder, _ bool) error {
+	b.WriteString(strconv.FormatInt(int64(v), 10))
+	return nil
+}
 
-func (v String) write(b *strings.Builder) { writeString(string(v), b) }
+func (v String) write(b *strings.Builder, _ bool) error {
+	// By shape, at any depth: a string that has some RFC 3339 spelling but not
+	// §2.2's is a malformed timestamp wherever it appears, and public_context is
+	// exactly where an unexpected one would arrive.
+	if looksLikeRFC3339(string(v)) && !isQ2DTimestamp(string(v)) {
+		return fmt.Errorf("timestamp %q is not core-model.md §2.2's — uppercase `T`, "+
+			"uppercase `Z`, second precision, and a real instant. Checking the spelling "+
+			"alone would pass '2026-99-99T99:99:99Z', which has the right shape and is "+
+			"no date", string(v))
+	}
+	writeString(string(v), b)
+	return nil
+}
 
-func (v Array) write(b *strings.Builder) {
+func (v Array) write(b *strings.Builder, _ bool) error {
 	b.WriteByte('[')
 	for i, item := range v {
 		if i > 0 {
 			b.WriteByte(',')
 		}
-		item.write(b)
+		// An array is not a protocol level of its own: §2.2 names objects, and
+		// a timestamp field's value is not an array.
+		if err := item.write(b, false); err != nil {
+			return err
+		}
 	}
 	b.WriteByte(']')
+	return nil
 }
 
-func (v Object) write(b *strings.Builder) {
+func (v Object) write(b *strings.Builder, protocolLevel bool) error {
 	keys := make([]string, 0, len(v))
 	for key := range v {
 		keys = append(keys, key)
@@ -133,11 +176,50 @@ func (v Object) write(b *strings.Builder) {
 		if i > 0 {
 			b.WriteByte(',')
 		}
+		// By name as well as by shape, so a malformed timestamp in a field
+		// core-model.md gives one is caught however malformed.
+		// 2026-1-01T00:00:00Z has no RFC 3339 shape at all and is still a
+		// timestamp field, and so is 42.
+		if protocolLevel && timestampFields[key] {
+			spelling, isString := v[key].(String)
+			if !isString {
+				return fmt.Errorf("%s is a timestamp field and %s is not a string. "+
+					"core-model.md §2.2's timestamp is one", key, typeName(v[key]))
+			}
+			if !isQ2DTimestamp(string(spelling)) {
+				return fmt.Errorf("%s is a timestamp field and %q is not core-model.md "+
+					"§2.2's timestamp — uppercase `T`, uppercase `Z`, second precision, "+
+					"and a real instant", key, string(spelling))
+			}
+		}
 		writeString(key, b)
 		b.WriteByte(':')
-		v[key].write(b)
+		if err := v[key].write(b, protocolLevel && protocolSubobjects[key]); err != nil {
+			return err
+		}
 	}
 	b.WriteByte('}')
+	return nil
+}
+
+// typeName gives a value's JSON type, for an error message. Never its contents
+// — §4.3's sibling rule is that no private value reaches an error string.
+func typeName(v Value) string {
+	switch v.(type) {
+	case Null:
+		return "null"
+	case Bool:
+		return "a boolean"
+	case Int:
+		return "an integer"
+	case String:
+		return "a string"
+	case Array:
+		return "an array"
+	case Object:
+		return "an object"
+	}
+	return "an unknown value"
 }
 
 // lessUTF16 compares two strings by UTF-16 code unit, as P-002 §4.2 requires.

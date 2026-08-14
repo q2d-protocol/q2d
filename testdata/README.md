@@ -43,6 +43,23 @@ folded into a unit test: **a corpus made of realistic documents tests the
 protocol, not the profile.** The profile's edges have to be authored on purpose,
 because nothing a conforming requester sends will reach them.
 
+## What is *not* here
+
+Refusals. All three implementations also agree on what the profile rejects —
+`core-model.md` §2.2's timestamp spelling, and the rule that a field name
+carries a §2.2 meaning only outside a predicate's `public_context` — and those
+cases live in three parallel test files rather than a fixture:
+[`tests/refusal.rs`](../tests/refusal.rs), [`refusal_test.go`](../refusal_test.go),
+and `RefusalTest` in the Python file above.
+
+Three lists that must stay identical is the arrangement this directory exists
+to avoid. It is temporary: a refused document cannot be a fixture until Rust and
+Go can parse one, which is P-002 issue 4. When it lands, these move here.
+
+Agreement on refusals matters as much as agreement on bytes — a serializer that
+matches on everything the others accept and *also* emits bytes for what they
+refuse is not the same serializer.
+
 ## Regenerating
 
 `canonical-query.json` is a readable copy of `author_message.py`'s `QUERY`; the

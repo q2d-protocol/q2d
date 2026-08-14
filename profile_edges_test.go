@@ -54,7 +54,7 @@ func TestProfileEdgesSerializeToTheFixtureBytes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cannot read the fixture: %v", err)
 	}
-	if got, want := string(Serialize(profileEdges())), string(expected); got != want {
+	if got, want := text(t, profileEdges()), string(expected); got != want {
 		t.Errorf("serialized edges differ from the fixture\n got: %s\nwant: %s", got, want)
 	}
 }

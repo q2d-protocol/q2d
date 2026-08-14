@@ -34,6 +34,7 @@
 //! same logical query must agree byte for byte, not because anything reads the
 //! bytes back.
 
+use crate::timestamp;
 use std::collections::BTreeMap;
 
 /// A value that can appear in a signed Q2D structure.
@@ -80,14 +81,44 @@ impl Value {
 /// §5 names this `serialize_core` and gives it a `CoreObject`. `CoreObject` does
 /// not exist yet, and the profile is a property of the value model rather than
 /// of any one message type, so this is the general form and `serialize_core`
-/// becomes the typed wrapper. Total, per §4.3: there is no float to fail on.
-pub fn serialize(value: &Value) -> Vec<u8> {
+/// becomes the typed wrapper.
+///
+/// # Errors
+///
+/// §4.3's float ban needs no check here — [`Value`] has no float variant, so a
+/// float is a compile error. What remains is `core-model.md` §2.2's timestamp,
+/// which §4.2 cites: this is the last point at which a value can be refused
+/// before it becomes bytes somebody signs, and inside a signed payload a
+/// malformed timestamp is past the reach of anything that reads it as text.
+pub fn serialize(value: &Value) -> Result<Vec<u8>, ProfileError> {
     let mut out = String::new();
-    write(value, &mut out);
-    out.into_bytes()
+    write(value, true, &mut out)?;
+    Ok(out.into_bytes())
 }
 
-fn write(value: &Value, out: &mut String) {
+/// A value the production profile refuses to turn into bytes.
+///
+/// Carries no private data: every message names a field or a spelling, both of
+/// which the caller supplied and neither of which is an answer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProfileError(pub String);
+
+impl std::fmt::Display for ProfileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for ProfileError {}
+
+/// `protocol_level` is §2.2's *"the core object, `routing`, and a receipt"*: the
+/// nesting at which a field name carries a `core-model.md` meaning. It starts
+/// true and stays true only through [`PROTOCOL_SUBOBJECTS`], because a
+/// `public_context` field called `receipt` is the predicate's own structure and
+/// §2.6 says that may mean anything at all.
+///
+/// [`PROTOCOL_SUBOBJECTS`]: crate::timestamp::PROTOCOL_SUBOBJECTS
+fn write(value: &Value, protocol_level: bool, out: &mut String) -> Result<(), ProfileError> {
     match value {
         Value::Null => out.push_str("null"),
         Value::Bool(true) => out.push_str("true"),
@@ -96,14 +127,29 @@ fn write(value: &Value, out: &mut String) {
         // leading `+`, no leading zeros. Nothing to configure and nothing two
         // languages can render differently.
         Value::Integer(n) => out.push_str(&n.to_string()),
-        Value::String(s) => write_string(s, out),
+        Value::String(s) => {
+            // By shape, at any depth: a string that has some RFC 3339 spelling
+            // but not §2.2's is a malformed timestamp wherever it appears, and
+            // `public_context` is exactly where an unexpected one would arrive.
+            if timestamp::looks_like_rfc3339(s) && !timestamp::is_q2d_timestamp(s) {
+                return Err(ProfileError(format!(
+                    "timestamp {s:?} is not core-model.md §2.2's — uppercase `T`, \
+                     uppercase `Z`, second precision, and a real instant. Checking \
+                     the spelling alone would pass '2026-99-99T99:99:99Z', which has \
+                     the right shape and is no date"
+                )));
+            }
+            write_string(s, out);
+        }
         Value::Array(items) => {
             out.push('[');
             for (i, item) in items.iter().enumerate() {
                 if i > 0 {
                     out.push(',');
                 }
-                write(item, out);
+                // An array is not a protocol level of its own: §2.2 names
+                // objects, and a timestamp field's value is not an array.
+                write(item, false, out)?;
             }
             out.push(']');
         }
@@ -127,12 +173,51 @@ fn write(value: &Value, out: &mut String) {
                 if i > 0 {
                     out.push(',');
                 }
+                // By name as well as by shape, so a malformed timestamp in a
+                // field `core-model.md` gives one is caught however malformed.
+                // `2026-1-01T00:00:00Z` has no RFC 3339 shape at all and is
+                // still a timestamp field, and so is `42`.
+                if protocol_level && timestamp::TIMESTAMP_FIELDS.contains(&key.as_str()) {
+                    let spelling = match item {
+                        Value::String(s) => s,
+                        other => {
+                            return Err(ProfileError(format!(
+                                "{key} is a timestamp field and {} is not a string. \
+                                 core-model.md §2.2's timestamp is one",
+                                type_name(other)
+                            )))
+                        }
+                    };
+                    if !timestamp::is_q2d_timestamp(spelling) {
+                        return Err(ProfileError(format!(
+                            "{key} is a timestamp field and {spelling:?} is not \
+                             core-model.md §2.2's timestamp — uppercase `T`, uppercase \
+                             `Z`, second precision, and a real instant"
+                        )));
+                    }
+                }
                 write_string(key, out);
                 out.push(':');
-                write(item, out);
+                let nested =
+                    protocol_level && timestamp::PROTOCOL_SUBOBJECTS.contains(&key.as_str());
+                write(item, nested, out)?;
             }
             out.push('}');
         }
+    }
+    Ok(())
+}
+
+/// A value's JSON type, for an error message. Never its contents — §4.3's
+/// sibling rule is that no private value reaches an error string.
+fn type_name(value: &Value) -> &'static str {
+    match value {
+        Value::Null => "null",
+        Value::Bool(_) => "a boolean",
+        Value::Integer(_) => "an integer",
+        Value::String(_) => "a string",
+        Value::Array(_) => "an array",
+        Value::Object(_) => "an object",
     }
 }
 
@@ -179,7 +264,8 @@ mod tests {
     use super::*;
 
     fn text(value: &Value) -> String {
-        String::from_utf8(serialize(value)).expect("the profile emits UTF-8")
+        let bytes = serialize(value).expect("nothing here is refused by the profile");
+        String::from_utf8(bytes).expect("the profile emits UTF-8")
     }
 
     #[test]

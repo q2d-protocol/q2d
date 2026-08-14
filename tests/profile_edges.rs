@@ -79,7 +79,7 @@ fn the_profile_edges_serialize_to_the_fixture_bytes() {
         .join("testdata")
         .join("profile-edges.serialized");
     let expected = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-    let produced = q2d::serialize(&profile_edges());
+    let produced = q2d::serialize(&profile_edges()).expect("the edges are all legal");
     assert_eq!(
         String::from_utf8_lossy(&produced),
         String::from_utf8_lossy(&expected)

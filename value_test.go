@@ -4,7 +4,11 @@ import "testing"
 
 func text(t *testing.T, v Value) string {
 	t.Helper()
-	return string(Serialize(v))
+	b, err := Serialize(v)
+	if err != nil {
+		t.Fatalf("the profile refused a value it should not: %v", err)
+	}
+	return string(b)
 }
 
 func TestKeysAreAscendingWhateverOrderTheyWereGiven(t *testing.T) {

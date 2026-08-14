@@ -62,7 +62,7 @@ func TestCanonicalQuerySerializesToTheFixtureBytes(t *testing.T) {
 	}
 	// Compared as text on failure: a byte-count mismatch tells a reader
 	// nothing, and the profile emits UTF-8 by construction.
-	if got, want := string(Serialize(canonicalQuery())), string(expected); got != want {
+	if got, want := text(t, canonicalQuery()), string(expected); got != want {
 		t.Errorf("serialized query differs from the fixture\n got: %s\nwant: %s", got, want)
 	}
 }
@@ -70,11 +70,11 @@ func TestCanonicalQuerySerializesToTheFixtureBytes(t *testing.T) {
 func TestCanonicalQuerySignatureBlockCarriesNoValue(t *testing.T) {
 	// E-31: under eddsa-jws-2026 the signature is the compact form's third
 	// segment, so a payload carrying signature.value would be signing itself.
-	text := string(Serialize(canonicalQuery()))
-	if !contains(text, `"signature":{"key_id"`) {
+	serialized := text(t, canonicalQuery())
+	if !contains(serialized, `"signature":{"key_id"`) {
 		t.Error("the signature block is not where the profile puts it")
 	}
-	if contains(text, `"value"`) {
+	if contains(serialized, `"value"`) {
 		t.Error("the payload carries a signature value")
 	}
 }

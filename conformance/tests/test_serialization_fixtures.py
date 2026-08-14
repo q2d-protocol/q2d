@@ -98,5 +98,64 @@ class ProfileEdgesTest(unittest.TestCase):
         self.assertIn("<a>&b'c/d", serialized("profile-edges").decode("utf-8"))
 
 
+class RefusalTest(unittest.TestCase):
+    """What the profile refuses, and where it stops caring.
+
+    The same cases as [`tests/refusal.rs`](../../tests/refusal.rs) and
+    [`refusal_test.go`](../../refusal_test.go). They are not driven from a
+    shared fixture because Rust and Go cannot yet parse one — that is P-002
+    issue 4, and this docstring is the reason to revisit the three lists when it
+    lands.
+
+    Agreement on refusals matters as much as agreement on bytes. A serializer
+    that produces the same bytes for every document the others accept, and also
+    produces bytes for documents they refuse, is not the same serializer.
+    """
+
+    def refused(self, value):
+        with self.assertRaises(av.ProfileError) as raised:
+            av.serialize(value)
+        return str(raised.exception)
+
+    def accepted(self, value):
+        av.serialize(value)  # raising is the failure
+
+    @staticmethod
+    def public_context(pairs):
+        return {"predicate": {"public_context": pairs}}
+
+    def test_a_malformed_timestamp_field_is_refused(self):
+        # By name: §2.2 gives `issued_at` a timestamp, so anything else in it is
+        # wrong however wrong it is.
+        self.refused({"issued_at": "2026-07-31t09:00:00Z"})
+        self.refused({"expires_at": "2026-99-99T99:99:99Z"})
+        self.refused({"decided_at": "not a date at all"})
+        self.refused({"issued_at": 42})
+        self.refused({"issued_at": None})
+
+    def test_a_malformed_timestamp_anywhere_is_refused(self):
+        # By shape: a string carrying some RFC 3339 spelling that is not §2.2's
+        # is a malformed timestamp wherever it appears.
+        self.refused(self.public_context({"booked_for": "2026-07-31T19:30:00+01:00"}))
+        self.refused(["2026-07-31T09:00:00.000Z"])
+
+    def test_the_field_name_rule_applies_only_at_protocol_level(self):
+        # §2.6: a predicate's `public_context` may mean anything at all.
+        self.accepted(self.public_context({"issued_at": "whenever the kitchen opens"}))
+
+    def test_routing_and_receipt_re_enter_protocol_level(self):
+        self.refused({"routing": {"expires_at": "2026-07-31T09:00:00z"}})
+        self.refused({"receipt": {"decided_at": "2026-02-30T00:00:00Z"}})
+        self.accepted(self.public_context({"receipt": {"decided_at": "on the night"}}))
+
+    def test_a_refusal_names_the_field_and_nothing_else(self):
+        message = self.refused({
+            "issued_at": "2026-07-31t09:00:00Z",
+            "nonce": "Ux7kFQ2mS0aVvJ1cPzN4bw",
+        })
+        self.assertIn("issued_at", message)
+        self.assertNotIn("Ux7kFQ2mS0aVvJ1cPzN4bw", message)
+
+
 if __name__ == "__main__":
     unittest.main()

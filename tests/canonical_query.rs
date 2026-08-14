@@ -119,7 +119,7 @@ fn fixture() -> Vec<u8> {
 
 #[test]
 fn the_canonical_query_serializes_to_the_fixture_bytes() {
-    let produced = q2d::serialize(&canonical_query());
+    let produced = q2d::serialize(&canonical_query()).expect("a conforming query");
     let expected = fixture();
     // Compared as text on failure, because a byte-count mismatch tells a reader
     // nothing and the profile emits UTF-8 by construction.
