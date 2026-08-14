@@ -298,35 +298,17 @@ func CheckRouting(core Value, routing Value) error {
 	if routing == nil {
 		return nil
 	}
-	return compareRouting(core, routing, nil)
-}
-
-// isProjectable reports whether a path is one §4.5 projects, or a prefix of one.
-//
-// A prefix counts because the walk meets target before target.custodian, and
-// refusing the parent would refuse every projection there is.
-//
-// Compared segment by segment, never as a joined string. A key may contain a dot
-// — nothing forbids {"predicate.id": …} as a literal member name — and a dotted
-// comparison would read that single key as the nested path and admit a field no
-// projection can produce.
-func isProjectable(path []string) bool {
-	for _, candidate := range projected {
-		if len(candidate) < len(path) {
-			continue
-		}
-		same := true
-		for i, step := range path {
-			if candidate[i] != step {
-				same = false
-				break
-			}
-		}
-		if same {
-			return true
-		}
-	}
-	return false
+	// Against the projection of the core object, not against the core object
+	// itself.
+	//
+	// Both were tried. Comparing against the core object means enumerating what
+	// routing may not contain — a field outside the allowlist, a key that looks
+	// like a nested path, a value that differs — and review found three of those
+	// one at a time, which is the shape of a wrong model rather than three bugs.
+	// §4.5 already says exactly what a projection may hold, and it says it by
+	// construction: ProjectRouting is total, so every core object has one, and
+	// "is this a subset of that" answers all three questions at once.
+	return compareRouting(ProjectRouting(core).Value(), routing, nil)
 }
 
 // shown renders a path as target.custodian, for a message. Only ever for a
@@ -338,11 +320,11 @@ func shown(path []string) string {
 	return strings.Join(path, ".")
 }
 
-func compareRouting(core, routing Value, path []string) error {
+func compareRouting(derived, routing Value, path []string) error {
 	// Both objects: routing may carry a subset of the fields, so descend.
-	signed, coreIsObject := core.(Object)
+	signed, derivedIsObject := derived.(Object)
 	projected, routingIsObject := routing.(Object)
-	if coreIsObject && routingIsObject {
+	if derivedIsObject && routingIsObject {
 		// Sorted, so an envelope with two disagreeing fields names the same one
 		// in both implementations — a rejection reason they differ on is a
 		// divergence even when both reject.
@@ -354,15 +336,14 @@ func compareRouting(core, routing Value, path []string) error {
 
 		for _, key := range keys {
 			here := append(path, key)
-			// §2.1: routing "carries at most" the six §4.5 projects. Checked
-			// before the value is compared, because a field that should not be
-			// there is refused whether or not it agrees.
-			if !isProjectable(here) {
-				return RoutingMismatch{Path: shown(here), Because: RoutingIntroducedField}
-			}
 			found, present := signed[key]
 			if !present {
-				return RoutingMismatch{Path: shown(here), Because: RoutingSignedMismatch}
+				// Not in the projection, and that is the whole test: §4.5 says
+				// what a projection holds, so a field the derivation did not
+				// produce was introduced — whether the core object has it
+				// elsewhere (a faithful purpose, the corpus's own case) or
+				// nowhere at all.
+				return RoutingMismatch{Path: shown(here), Because: RoutingIntroducedField}
 			}
 			if err := compareRouting(found, projected[key], here); err != nil {
 				return err
@@ -375,7 +356,7 @@ func compareRouting(core, routing Value, path []string) error {
 	// which does not coerce — an Int never equals a String that spells it,
 	// which is what "same type, same value" asks for — and which refuses a
 	// value the profile cannot render rather than calling it equal.
-	a, errA := Serialize(core)
+	a, errA := Serialize(derived)
 	b, errB := Serialize(routing)
 	if errA == nil && errB == nil && string(a) == string(b) {
 		return nil

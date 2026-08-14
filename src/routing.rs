@@ -213,7 +213,22 @@ impl std::error::Error for RoutingMismatch {}
 pub fn check_routing(core: &Value, routing: Option<&Value>) -> Result<(), RoutingMismatch> {
     match routing {
         None => Ok(()),
-        Some(routing) => compare(core, routing, &mut Vec::new()),
+        Some(routing) => {
+            // Against the **projection** of the core object, not against the
+            // core object itself.
+            //
+            // Both were tried. Comparing against the core object means
+            // enumerating what `routing` may not contain — a field outside the
+            // allowlist, a key that looks like a nested path, a value that
+            // differs — and review found three of those one at a time, which is
+            // the shape of a wrong model rather than three bugs. §4.5 already
+            // says exactly what a projection may hold, and it says it by
+            // construction: `project_routing` is total, so every core object has
+            // one, and *is this a subset of that* answers all three questions at
+            // once.
+            let derived = project_routing(core);
+            compare(derived.as_value(), routing, &mut Vec::new())
+        }
     }
 }
 
@@ -227,28 +242,14 @@ fn shown(path: &[String]) -> String {
     }
 }
 
-/// Whether a path is one §4.5 projects, or a prefix of one.
-///
-/// A prefix counts because the walk meets `target` before `target.custodian`,
-/// and refusing the parent would refuse every projection there is.
-///
-/// Compared **segment by segment**, never as a joined string. A key may contain
-/// a dot — nothing forbids `{"predicate.id": …}` as a literal member name — and
-/// a dotted comparison would read that single key as the nested path and admit
-/// a field no projection can produce.
-fn is_projectable(path: &[String]) -> bool {
-    PROJECTED.iter().any(|projected| {
-        projected.len() >= path.len()
-            && projected
-                .iter()
-                .zip(path)
-                .all(|(segment, step)| *segment == step.as_str())
-    })
-}
-
-fn compare(core: &Value, routing: &Value, path: &mut Vec<String>) -> Result<(), RoutingMismatch> {
+/// `routing` against `derived`.
+fn compare(
+    derived: &Value,
+    routing: &Value,
+    path: &mut Vec<String>,
+) -> Result<(), RoutingMismatch> {
     // Both objects: `routing` may carry a subset of the fields, so descend.
-    if let (Value::Object(signed), Value::Object(projected)) = (core, routing) {
+    if let (Value::Object(signed), Value::Object(projected)) = (derived, routing) {
         // By UTF-16 code unit, not `BTreeMap` order, so a projection with two
         // bad fields names the same one here as in Go. Third place in this
         // codebase to need that, which is why the comparator now lives in
@@ -259,22 +260,18 @@ fn compare(core: &Value, routing: &Value, path: &mut Vec<String>) -> Result<(), 
         for key in keys {
             let value = &projected[key];
             path.push(key.clone());
-            // §2.1: `routing` *carries at most* the six §4.5 projects. Checked
-            // before the value is compared, because a field that should not be
-            // there is refused whether or not it agrees.
-            if !is_projectable(path) {
-                return Err(RoutingMismatch {
-                    path: shown(path),
-                    because: Because::RoutingIntroducedField,
-                });
-            }
             match signed.get(key) {
                 Some(found) => compare(found, value, path)?,
                 None => {
+                    // Not in the projection, and that is the whole test: §4.5
+                    // says what a projection holds, so a field the derivation
+                    // did not produce was introduced — whether the core object
+                    // has it elsewhere (a faithful `purpose`, the corpus's own
+                    // case) or nowhere at all.
                     return Err(RoutingMismatch {
                         path: shown(path),
-                        because: Because::RoutingSignedMismatch,
-                    })
+                        because: Because::RoutingIntroducedField,
+                    });
                 }
             }
             path.pop();
@@ -285,7 +282,7 @@ fn compare(core: &Value, routing: &Value, path: &mut Vec<String>) -> Result<(), 
     // Anything else: equal or it is tampering. `Value`'s equality is
     // structural and does not coerce — an `Integer` never equals a `String`
     // that spells it, which is what "same type, same value" asks for.
-    if core == routing {
+    if derived == routing {
         Ok(())
     } else {
         Err(RoutingMismatch {
@@ -531,14 +528,37 @@ mod tests {
     }
 
     #[test]
-    fn a_projectable_field_absent_from_the_signed_object_is_a_mismatch() {
-        // The other half. `expires_at` *is* projectable, so it passes the
-        // allowlist and fails against a core object that does not carry it.
+    fn a_projectable_name_the_core_object_lacks_is_introduced() {
+        // `expires_at` is a name §4.5 projects, but a core object without one
+        // projects nothing there — so `routing` carrying it is §2.1's *may
+        // never introduce a field*, which is the corpus's
+        // `routing_introduced_field` rather than a value disagreement.
+        //
+        // Under the older model, which compared against the core object and
+        // consulted an allowlist, this was a mismatch. Comparing against the
+        // projection makes the two reasons mean what their names say:
+        // introduced is *not in the derivation*, mismatch is *in it and
+        // different*.
         let core = Value::object([("type", Value::string("query"))]);
         let routing = Value::object([("expires_at", Value::string("2026-07-31T09:05:00Z"))]);
         let mismatch = check_routing(&core, Some(&routing)).expect_err("absent");
         assert_eq!(mismatch.path, "expires_at");
-        assert_eq!(mismatch.because, Because::RoutingSignedMismatch);
+        assert_eq!(mismatch.because, Because::RoutingIntroducedField);
+    }
+
+    #[test]
+    fn an_empty_prefix_object_is_accepted() {
+        // `{"target":{}}` is not something `project_routing` emits, and it is
+        // refused by nothing: §2.1 asks that `routing` carry at most the six
+        // and introduce no field, and an empty object carries none and
+        // introduces none. Rejecting it would be a rule §2.1 does not state.
+        //
+        // Recorded as a test rather than left implicit, because it is the one
+        // case where *not derivable* and *not permitted* come apart, and a
+        // reader is entitled to know which one this check enforces.
+        let core = query();
+        let empty_prefix = Value::object([("target", Value::object(Vec::<(&str, Value)>::new()))]);
+        assert_eq!(check_routing(&core, Some(&empty_prefix)), Ok(()));
     }
 
     #[test]

@@ -288,14 +288,33 @@ func TestAFieldOutsideTheAllowlistIsRefusedHoweverFaithfulTheCopy(t *testing.T) 
 	}
 }
 
-func TestAProjectableFieldAbsentFromTheSignedObjectIsAMismatch(t *testing.T) {
-	// The other half. expires_at is projectable, so it passes the allowlist and
-	// fails against a core object that does not carry it.
+func TestAProjectableNameTheCoreObjectLacksIsIntroduced(t *testing.T) {
+	// expires_at is a name §4.5 projects, but a core object without one
+	// projects nothing there — so routing carrying it is §2.1's "may never
+	// introduce a field", the corpus's routing_introduced_field rather than a
+	// value disagreement.
+	//
+	// Under the older model, which compared against the core object and
+	// consulted an allowlist, this was a mismatch. Comparing against the
+	// projection makes the two reasons mean what their names say.
 	core := Object{"type": String("query")}
 	routing := Object{"expires_at": String("2026-07-31T09:05:00Z")}
 	mismatch, ok := CheckRouting(core, routing).(RoutingMismatch)
-	if !ok || mismatch.Path != "expires_at" || mismatch.Because != RoutingSignedMismatch {
+	if !ok || mismatch.Path != "expires_at" || mismatch.Because != RoutingIntroducedField {
 		t.Errorf("got %+v", mismatch)
+	}
+}
+
+func TestAnEmptyPrefixObjectIsAccepted(t *testing.T) {
+	// {"target":{}} is not something ProjectRouting emits, and it is refused by
+	// nothing: §2.1 asks that routing carry at most the six and introduce no
+	// field, and an empty object carries none and introduces none. Rejecting it
+	// would be a rule §2.1 does not state.
+	//
+	// Recorded as a test rather than left implicit, because it is the one case
+	// where "not derivable" and "not permitted" come apart.
+	if err := CheckRouting(routingQuery(), Object{"target": Object{}}); err != nil {
+		t.Errorf("an empty prefix: %v", err)
 	}
 }
 
