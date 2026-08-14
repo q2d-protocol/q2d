@@ -217,17 +217,37 @@ purpose.
 
 ### 4.8 Size limits
 
-Enforced at §4 step 1, before allocation on attacker-controlled input.
+| Limit | Value | Enforced |
+|---|---|---|
+| Envelope | 64 KiB | §4 step 1, on the byte slice |
+| Nesting depth | 16 | during the parse |
+| Object members per object | 64 | during the parse |
+| Any single string field | 2 KiB | during the parse — **except `signed`** |
+| `public_context` | 32 KiB | `parse_core`, at step 5 |
 
-| Limit | Value |
-|---|---|
-| Envelope | 64 KiB |
-| `public_context` | 32 KiB |
-| Any single string field | 2 KiB |
-| Nesting depth | 16 |
-| Object members per object | 64 |
+Values are proposed, not derived. Open question 3, resolved: they are normative
+rather than advisory — a limit an implementation may choose is not a limit, and
+the two implementations must reject the same payload.
 
-Values are proposed, not derived. Open question 3.
+**Only the first row runs before allocation**, and it is the one §4 step 1's
+*before any allocation on attacker-controlled data* is about. Everything below
+it is bounded by it: once the envelope is capped at 64 KiB, the remaining checks
+constrain *shape* rather than prevent exhaustion. This table used to say all
+five were enforced at step 1, which the envelope's own structure does not allow.
+
+**`public_context` is inside the signed payload**, which is base64url text at
+step 1. Enforcing its limit there would mean decoding and parsing an unverified
+payload — the thing §4's order exists to prevent, since parsing is step 5 and
+verification is step 4. So it belongs to `parse_core`, and the row says so.
+
+**The 2 KiB cannot reach `signed`.** A JWS compact of the canonical query is
+about 1.6 KiB before the predicate carries any public context at all: 1083 bytes
+of payload, 1444 base64url, plus a header and a signature. A 2 KiB cap on that
+member would leave a few hundred bytes for `public_context` and the protocol
+could not carry its own worked example. `signed` is bounded by the envelope
+limit; the 2 KiB applies to every other string, which at the envelope layer
+means `routing`'s — values *and* keys, since a relay that read a 3 KiB member
+name has held it either way.
 
 ## 5. Interfaces
 
@@ -355,6 +375,7 @@ what `AGENTS.md`'s architectural-pivot rule exists for.
 | ~~Are the §4.8 limits right?~~ | **Resolved for MVP: adopted as stated, and they are normative rather than advisory** — a limit an implementation may choose is not a limit, and the two implementations must reject the same payload. They are engineering estimates, not measurements, and §4.8 says so; Stage 8 measures real payloads and may lower them. Raising one is an escalation, because a limit that grows to fit a payload is not bounding anything |
 | ~~Second-precision timestamps sufficient, or is sub-second needed for replay windows?~~ | **Answered: sufficient.** Uniqueness comes from the nonce, not the clock. [P-004](P-004-replay-idempotency.md) §4.3 |
 | ~~Does `semantic` comparison from P-001 apply to `routing`, given it is unsigned?~~ | **Answered: yes**, and only because it is outside the signature. Anything inside `signed` compares as `bytes`. [P-001](P-001-conformance-corpus.md) §4.4 |
+| **Does the 2 KiB string limit reach inside `public_context`?** | Open, and narrow. §4.8's row says *any single string field*, which read plainly includes a predicate's own. The counter-argument is [E-36](../open-escalations.md)'s, decided a fortnight ago on the same shape of question: §2.6 makes `public_context` operation-defined, the protocol bounds it as a whole at 32 KiB, and what its individual fields look like is the entry's schema's business — `scope.md` §4.1 already has `maxLength` for exactly that. My view is that E-36's precedent governs and the 2 KiB should not reach inside; a predicate needing a 5 KiB description should be able to declare one. **Nothing implements either reading yet**: the choice belongs to `parse_core`, which does not exist, and today's parser applies 2 KiB to every string, which is the stricter direction and the safe one to move from. Worth settling before issue 10 authors `message/reject/`, since the vector differs |
 | ~~Does an integer in a signed structure have a range?~~ | **Resolved: [`scope.md`](../../spec/scope.md) §4.1** — an `integer` in any of an entry's schemas states `minimum` and `maximum`, both within −2^63 … 2^63 − 1. [E-37](../open-escalations.md), closed as B. `core-model.md` still states none, deliberately: every integer the protocol itself defines is a count, a cardinality, or a capacity in integer millibits, and the bound is a fact about registry data rather than about the protocol. So `i64` in both value models is the width §4.1 names rather than a choice the implementations made and the specification then followed. `registry/validate.py` enforces it across all three of an entry's schemas — wider than the release rule, which asks only about `output_schema`, because this is a representability question rather than a disclosure one |
 | ~~Does §2.2's timestamp spelling bind every string, or only the fields §2.2 names?~~ | **Resolved: only the fields §2.2 names**, and §2.2 now says so — *"the rule reaches the fields this specification names, and no further"*. [E-36](../open-escalations.md), closed as C. A predicate wanting one spelling for a field of its own declares `format: date-time` in its registry entry, where [`scope.md`](../../spec/scope.md) §4.1 makes that an assertion rather than the annotation JSON Schema leaves it as. The three serializers already had this behaviour; what changed is that it is now what the specification says, rather than the narrowest thing they could do while the question was open. `conformance/harness/lint.py` keeps the wider rule deliberately — it lints authored vectors, which are ours |
 | **Who owns `message/sign/` and `message/verify/`?** | Open, and surfaced by building §6's serializer. [P-001](P-001-conformance-corpus.md) issue 12 authored both, under P-001's §6 row naming signing and verification as part of `message/`; this PRD's §6 table names neither. Meanwhile [P-003](P-003-crypto-suites.md) §6 gives `suite/sign/` as *"JWS compact construction, byte-exact, over P-002 payloads"* — which is what `message/sign/query-minimal` already is. My view: leave the two vectors where they are and let P-003 own the mechanism, because `message/sign/` proves a P-002 payload is signable end to end and `suite/sign/` proves the suite, and those are different failures even when the bytes coincide. But that is a corpus-organisation call across three PRDs, so it belongs to whoever builds P-003, not to this one |
@@ -367,7 +388,7 @@ what `AGENTS.md`'s architectural-pivot rule exists for.
 | 2 | `serialize_core` with the §4.2 profile | **Done, against a narrower gate than this row asked for.** `message/serialize/` does not exist yet (issue 10), so the byte match is asserted against [`testdata/`](../../testdata/README.md)'s two fixtures instead — read by all three serializers, including the authoring tool the corpus's own expected bytes come from. Refusals agree too, case for case: §2.2's timestamp spelling, and the protocol-level rule that a field name means what `core-model.md` says only outside `public_context`. Building it found five Rust/Go divergences, raised E-31 through E-35, and took two Codex rounds — UTF-16 key ordering, then this. The row is not closed until issue 10 lands the section |
 | 3 | Float guard in the serializer | **Done, in the place the guard belongs.** Neither value model has a float variant, so §4.3's *"programming error"* is a compile error and there is no runtime path to test — and issue 4's parser refuses one on the way in, which is where external bytes arrive. Refused **syntactically**: a fraction or an exponent, rather than a value that happens to be integral. `1e2` is a hundred and no conforming producer emits it, and deciding that it *is* a hundred means exponent arithmetic — with `1e400`, arithmetic in what — which is the float-precision divergence §4.3 removes rather than manages. A `message/reject/` vector covers it under issue 10 |
 | 4 | `parse_core`, rejecting duplicate keys | **Done, against a narrower gate than this row asked for** — the same position issue 2 is in. [`src/parse.rs`](../../src/parse.rs) and [`parse.go`](../../parse.go), hand-written from RFC 8259 in both. Not `encoding/json` on the Go side, and the reason is sharper than the serializer's: it resolves duplicate keys by last-wins, which is the rule §4.2 requires *rejecting*; it decodes every number into `float64`, losing an `int64` above 2^53 silently; and it substitutes U+FFFD for invalid UTF-8. Three of the four refusals are behaviours the standard library deliberately does not have. Round-tripped against both [`testdata/`](../../testdata/README.md) fixtures rather than a value invented for the test — parsing is a **two-way** agreement, and §7 asks for both implementations rather than the serializer's three. Carries §4.8's depth bound alone, because recursive descent without one is a stack overflow and *verified* is not *trusted*; issue 5 applies the full set at the envelope. **What is owed is `message/reject/`** — duplicate keys, a float, invalid UTF-8, and over-depth input are asserted today by two test suites written to mirror each other, which is weaker than a shared vector: mirrored tests catch a divergence only where someone thought to write the same case twice, where a vector is one document both runners are handed. Issue 10 authors it, and no runner answers a vector until [P-001](P-001-conformance-corpus.md) issue 19, so the section cannot be *run* against these parsers before Stage 1 either way |
-| 5 | Bounded `parse_envelope` | Size, depth, and member limits enforced before allocation |
+| 5 | Bounded `parse_envelope` | **Done.** [`src/envelope.rs`](../../src/envelope.rs) and [`envelope.go`](../../envelope.go). The envelope bound is checked on the byte slice before a parser exists, which is the only one of §4.8's five that *can* run before allocation; depth, members and string length are enforced during the parse, and are bounded by it. Building it corrected §4.8 twice: `public_context`'s limit cannot be enforced at step 1, because it is inside the payload that step 5 parses, and the 2 KiB string limit cannot reach `signed`, because a JWS compact of the canonical query is ~1.6 KiB before any public context and the protocol could not otherwise carry its own worked example. An unknown envelope member **denies** rather than being ignored |
 | 6 | `project_routing` | Derivation is total; no code path constructs a `Routing` otherwise |
 | 7 | `check_routing` | Every disagreement case in `message/routing/` rejects |
 | 8 | Digest construction | `message/digest/` vectors match; prefix present |

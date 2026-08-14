@@ -1,0 +1,136 @@
+package q2d
+
+import (
+	"strings"
+	"testing"
+)
+
+// These mirror src/envelope.rs's tests case for case.
+
+func envelope(t *testing.T, text string) Envelope {
+	t.Helper()
+	value, err := ParseEnvelope([]byte(text))
+	if err != nil {
+		t.Fatalf("%s: %v", text, err)
+	}
+	return value
+}
+
+func refusedEnvelope(t *testing.T, text string) string {
+	t.Helper()
+	if _, err := ParseEnvelope([]byte(text)); err != nil {
+		return err.Error()
+	}
+	t.Fatalf("parsed, and must not: %s", text)
+	return ""
+}
+
+func TestAnEnvelopeIsSignedAndOptionallyRouting(t *testing.T) {
+	one := envelope(t, `{"signed":"aGVhZGVy.cGF5bG9hZA.c2ln"}`)
+	if one.Signed != "aGVhZGVy.cGF5bG9hZA.c2ln" {
+		t.Errorf("signed: %s", one.Signed)
+	}
+	if one.Routing != nil {
+		t.Errorf("routing should be absent: %v", one.Routing)
+	}
+
+	two := envelope(t, `{"signed":"a.b.c","routing":{"type":"query"}}`)
+	got, err := Serialize(two.Routing)
+	if err != nil {
+		t.Fatalf("serializing routing: %v", err)
+	}
+	if want := `{"type":"query"}`; string(got) != want {
+		t.Errorf("routing: got %s, want %s", got, want)
+	}
+}
+
+func TestAMissingOrMistypedMemberIsRefused(t *testing.T) {
+	for text, want := range map[string]string{
+		`{"routing":{}}`:                  "no `signed`",
+		`{"signed":42}`:                   "`signed`",
+		`{"signed":"a.b.c","routing":[]}`: "`routing`",
+		`[]`:                              "JSON object",
+	} {
+		if message := refusedEnvelope(t, text); !strings.Contains(message, want) {
+			t.Errorf("%s: got %q, want it to mention %q", text, message, want)
+		}
+	}
+}
+
+func TestAnUnknownMemberDeniesRatherThanBeingIgnored(t *testing.T) {
+	// Unknown, missing and indeterminate all deny. Ignoring it would let one
+	// party read a field another does not.
+	message := refusedEnvelope(t, `{"signed":"a.b.c","hint":"trust me"}`)
+	if !strings.Contains(message, "unknown envelope member") {
+		t.Errorf("message does not name the defect: %s", message)
+	}
+	if !strings.Contains(message, "hint") {
+		t.Errorf("message does not name the member: %s", message)
+	}
+}
+
+func TestAnOversizedEnvelopeIsRefusedOnItsLength(t *testing.T) {
+	// The §4 step 1 check: on the slice, before a parser exists. The input is
+	// deliberately not valid JSON, so a parser reaching it at all would report
+	// something else.
+	huge := make([]byte, MaxEnvelope+1)
+	for i := range huge {
+		huge[i] = 'x'
+	}
+	_, err := ParseEnvelope(huge)
+	if err == nil {
+		t.Fatal("parsed an oversized envelope")
+	}
+	if !strings.Contains(err.Error(), "§4.8") || !strings.Contains(err.Error(), "envelope of") {
+		t.Errorf("message does not name the limit: %v", err)
+	}
+}
+
+func TestSignedMayBeLargerThanAStringFieldAndRoutingMayNot(t *testing.T) {
+	// The reading §4.8 leaves open, and the arithmetic that settles it: a JWS
+	// compact of the canonical query is about 1.6 KiB before any public context,
+	// so a 2 KiB cap on signed would make the protocol unable to carry its own
+	// worked example.
+	long := strings.Repeat("s", MaxString*4)
+	envelope(t, `{"signed":"`+long+`"}`)
+
+	message := refusedEnvelope(t, `{"signed":"a.b.c","routing":{"custodian":"`+long+`"}}`)
+	if !strings.Contains(message, "§4.8") || !strings.Contains(message, "routing") {
+		t.Errorf("message does not name the limit: %s", message)
+	}
+}
+
+func TestARoutingKeyCountsAsAStringToo(t *testing.T) {
+	long := strings.Repeat("k", MaxString+1)
+	message := refusedEnvelope(t, `{"signed":"a.b.c","routing":{"`+long+`":1}}`)
+	if !strings.Contains(message, "§4.8") {
+		t.Errorf("message does not name the limit: %s", message)
+	}
+}
+
+func TestTheParsersOwnLimitsStillApply(t *testing.T) {
+	// Depth and members are enforced during the parse, so an envelope gets them
+	// without ParseEnvelope repeating the checks.
+	deep := `{"signed":"a.b.c","routing":` + strings.Repeat("[", 20) + strings.Repeat("]", 20) + `}`
+	if message := refusedEnvelope(t, deep); !strings.Contains(message, "§4.8") {
+		t.Errorf("depth: %s", message)
+	}
+
+	members := make([]string, 0, 65)
+	for i := 0; i < 65; i++ {
+		members = append(members, `"k`+string(rune('a'+i%26))+string(rune('a'+i/26))+`":1`)
+	}
+	wide := `{"signed":"a.b.c","routing":{` + strings.Join(members, ",") + `}}`
+	if message := refusedEnvelope(t, wide); !strings.Contains(message, "members") {
+		t.Errorf("members: %s", message)
+	}
+}
+
+func TestThePayloadIsNotInspected(t *testing.T) {
+	// §4.4: signed is opaque here. This one is not valid base64url and not a
+	// JWS, and the envelope layer has no opinion — P-003 does, at step 3, and
+	// the ordering is the point.
+	if got := envelope(t, `{"signed":"not a jws at all"}`).Signed; got != "not a jws at all" {
+		t.Errorf("signed: %s", got)
+	}
+}
