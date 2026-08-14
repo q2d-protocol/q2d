@@ -129,6 +129,36 @@ class RoutingProjectionTest(unittest.TestCase):
         self.assertNotIn("public_context", am.ROUTING.get("predicate", {}))
 
 
+class DigestFixtureTest(unittest.TestCase):
+    """`testdata/digests.txt` is what `hashlib` says, so the other two can differ from it.
+
+    P-002 §4.7's construction is `"sha256:" + lowercase_hex(SHA-256(bytes))`.
+    Rust implements SHA-256 by hand — its standard library has none and the
+    crate takes no dependencies — and Go uses `crypto/sha256`. This file is the
+    third reading, and the only one whose answer nobody had to write.
+    """
+
+    def test_the_fixture_is_what_hashlib_says(self):
+        import hashlib
+
+        lines = (FIXTURES / "digests.txt").read_text("utf-8").strip().split("\n")
+        self.assertEqual(len(lines), 4, "the fixture lost a line")
+        for line in lines:
+            name, expected = line.split("  ")
+            data = b"" if name == "<empty>" else serialized(name)
+            with self.subTest(name=name):
+                self.assertEqual(f"sha256:{hashlib.sha256(data).hexdigest()}", expected)
+
+    def test_the_prefix_is_mandatory_and_the_hex_is_lowercase(self):
+        # §4.7: the prefix makes the digest self-describing, so a future
+        # algorithm is additive rather than ambiguous.
+        for line in (FIXTURES / "digests.txt").read_text("utf-8").strip().split("\n"):
+            digest = line.split("  ")[1]
+            self.assertTrue(digest.startswith("sha256:"))
+            self.assertEqual(len(digest), 71)
+            self.assertEqual(digest, digest.lower())
+
+
 class RefusalTest(unittest.TestCase):
     """What the profile refuses, and where it stops caring.
 
