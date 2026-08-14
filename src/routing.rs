@@ -557,9 +557,10 @@ mod tests {
         // and introduce no field, and an empty object carries none and
         // introduces none. Rejecting it would be a rule §2.1 does not state.
         //
-        // Recorded as a test rather than left implicit, because it is the one
-        // case where *not derivable* and *not permitted* come apart, and a
-        // reader is entitled to know which one this check enforces.
+        // **E-42, open**: nothing derives it and nothing forbids it, so both
+        // implementations accept it — the minimum §2.1 states — and the
+        // register carries the question. This is the one case where *not
+        // derivable* and *not permitted* come apart.
         let core = query();
         let empty_prefix = Value::object([("target", Value::object(Vec::<(&str, Value)>::new()))]);
         assert_eq!(check_routing(&core, Some(&empty_prefix)), Ok(()));

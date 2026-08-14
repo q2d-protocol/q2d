@@ -25,6 +25,10 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > reads them from `signed` regardless. The **rule is not in question**; what it
 > rests on is. §E-41 has the options.
 >
+> **E-42 is open**, from the same function: is `{"target":{}}` — an empty prefix
+> object — a valid `routing`? Nothing derives it and nothing forbids it. Both
+> implementations accept it, which is the minimum §2.1 states.
+>
 > **E-36** through **E-40** all closed, every one raised
 > while building P-002's message layer, every one cascaded.
 >
@@ -177,6 +181,7 @@ question is still fresh than after the answer arrives.
 | **E-39** | Should §4.8's size limits live in `spec/` rather than in a PRD? | P-002 issue 5 | `core-model.md` §2.8 (new), §4 step 1 · P-002 §4.8 | **Closed** |
 | **E-40** | Does the 2 KiB string limit reach inside `public_context`? | P-002 issue 5 | `core-model.md` §2.8 · `scope.md` §4.1 · `registry/validate.py` · both parsers | **Closed** |
 | **E-41** | §2.1 justifies the `routing` allowlist by a confidentiality 0.1 does not provide | P-002 issue 7 | `core-model.md` §2.1 · P-002 §4.5 · `claims.md` Q2D-C-05 (checked, unaffected) | **Open** |
+| **E-42** | Is an empty prefix object a valid `routing`? | P-002 issue 7 | `core-model.md` §2.1, §4 step 8 · `message/routing/` · both implementations | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -3719,6 +3724,60 @@ all day was one I then broke.
 `check_routing` does not depend on the outcome. It enforces §2.1's rule —
 `routing` carries at most the six — and its comments now cite that rule and name
 this escalation rather than asserting either rationale.
+
+---
+
+## E-42 — Is an empty prefix object a valid `routing`?
+
+**Raised by:** P-002 issue 7. Small, and worth a number because both
+implementations had to do *something* and the corpus says nothing.
+
+### The gap
+
+`{"target": {}}`. Nothing in §4.5 derives it — `project_routing` creates a
+parent only when it has a child to put there — and nothing in §2.1 or §4 step 8
+forbids it. §2.1 asks that `routing` carry at most the six projected fields and
+introduce no field; an empty object carries none and introduces none. Step 8
+compares each field present, and there is none.
+
+So *not derivable* and *not permitted* come apart here, and they are the same
+thing everywhere else.
+
+### Options
+
+**A. Valid.** A projection is a subset, and a subset may be empty at any depth.
+Cost: a responder accepts something no conforming producer emits, which is one
+more shape to have thought about.
+
+**B. Invalid — a `routing` must equal a projection restricted to the paths it
+carries.** Cost: a rule §2.1 does not currently state, and it forbids something
+that discloses nothing and disagrees with nothing.
+
+### Recommendation — A
+
+**It is the minimum §2.1 states**, and this repository has spent the day undoing
+rules that were in an implementation and not in `spec/`. An empty prefix
+discloses nothing, disagrees with nothing, and cannot carry a value nobody
+signed.
+
+If A is chosen it is worth one clause in §2.1 saying so, because the question
+will be asked again by whoever writes the third implementation — which is the
+whole argument for answering it here rather than in two test files.
+
+### Where the recommendation stops being right
+
+**If `routing` ever gains a field whose *presence* is meaningful** — a flag
+rather than a value — then an empty object at its parent would be a way to
+assert the parent without asserting the field, and B becomes the safer rule.
+Nothing in §4.5's six behaves that way; all six are values.
+
+### What is built
+
+**A, in both**, and each suite has a test saying so and naming this entry. That
+is the permissive direction, which is not the default this register argues for —
+the reason is that B would be a rule the specification does not contain, and the
+E-38 note is explicit that a practice built on an unstated reading is the thing
+to avoid. Changing to B is one condition in each implementation.
 
 ---
 
