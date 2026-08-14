@@ -45,10 +45,23 @@ import (
 	"unicode/utf8"
 )
 
-// maxDepth is P-002 §4.8's nesting bound, stated here so this parser is safe on
-// its own. Issue 5 applies the full set — size, depth, and member count — at the
-// envelope, before allocation.
-const maxDepth = 16
+// P-002 §4.8's limits. Normative rather than advisory: a limit an
+// implementation may choose is not a limit, and the two implementations must
+// reject the same payload. Raising one is an escalation, because a limit that
+// grows to fit a payload is not bounding anything.
+const (
+	// MaxDepth is the nesting bound.
+	MaxDepth = 16
+	// MaxMembers is the member count per object.
+	MaxMembers = 64
+	// MaxString bounds any single string field, in bytes. Bytes rather than
+	// characters: it bounds what has to be held, and a character is one to four.
+	MaxString = 2 * 1024
+	// MaxEnvelope bounds the whole envelope, in bytes. Checked before parsing
+	// rather than during — §4 step 1's "before any allocation on
+	// attacker-controlled data".
+	MaxEnvelope = 64 * 1024
+)
 
 // Parse reads a payload whose signature has already been verified.
 //
@@ -61,11 +74,18 @@ const maxDepth = 16
 // and its encoding is this function's to check rather than its caller's to
 // promise.
 func Parse(payload []byte) (Value, error) {
+	return parseWithin(payload, MaxString)
+}
+
+// parseWithin is Parse with a string bound the caller sets. One caller:
+// ParseEnvelope, because the envelope's signed member is a whole JWS compact
+// string and §4.8's 2 KiB cannot reach it. See that function for the arithmetic.
+func parseWithin(payload []byte, maxString int) (Value, error) {
 	if !utf8.Valid(payload) {
 		return nil, fmt.Errorf("payload is not valid UTF-8. P-002 §4.2's profile " +
 			"is UTF-8 and RFC 8259 §8.1 requires it for exchanged JSON")
 	}
-	p := &parser{text: string(payload)}
+	p := &parser{text: string(payload), maxString: maxString}
 	p.skipWhitespace()
 	value, err := p.value()
 	if err != nil {
@@ -79,9 +99,10 @@ func Parse(payload []byte) (Value, error) {
 }
 
 type parser struct {
-	text  string
-	at    int
-	depth int
+	text      string
+	at        int
+	depth     int
+	maxString int
 }
 
 // fail names a position and never a value: an offset is a fact about the
@@ -157,8 +178,8 @@ func (p *parser) value() (Value, error) {
 
 func (p *parser) enter() error {
 	p.depth++
-	if p.depth > maxDepth {
-		return p.fail(fmt.Sprintf("nested deeper than P-002 §4.8's limit of %d", maxDepth))
+	if p.depth > MaxDepth {
+		return p.fail(fmt.Sprintf("nested deeper than P-002 §4.8's limit of %d", MaxDepth))
 	}
 	return nil
 }
@@ -200,6 +221,10 @@ func (p *parser) object() (Value, error) {
 		// inside a released result can be derived from private data: a map
 		// keyed by a contact's name discloses the name. The position is enough
 		// to find it, and a position is a fact about the input's shape.
+		if len(pairs) == MaxMembers {
+			return nil, p.fail(fmt.Sprintf(
+				"more than P-002 §4.8's %d members in one object", MaxMembers))
+		}
 		if _, seen := pairs[key]; seen {
 			return nil, p.fail("duplicate key, which P-002 §4.2 rejects rather " +
 				"than resolving — two readings of one signed payload")
@@ -276,6 +301,9 @@ func (p *parser) string() (string, error) {
 			if err := p.escape(&out); err != nil {
 				return "", err
 			}
+			if err := p.withinStringLimit(&out); err != nil {
+				return "", err
+			}
 		case c < 0x20:
 			// RFC 8259 §7 requires it escaped, and the profile emits it
 			// escaped — so accepting a raw one would admit bytes no producer
@@ -287,8 +315,30 @@ func (p *parser) string() (string, error) {
 			r, width := utf8.DecodeRuneInString(p.text[p.at:])
 			out.WriteRune(r)
 			p.at += width
+			if err := p.withinStringLimit(&out); err != nil {
+				return "", err
+			}
 		}
 	}
+}
+
+// withinStringLimit applies §4.8's string bound as the string is built rather
+// than at its closing quote.
+//
+// Measured on the decoded string, not the source span: an escape is six source
+// bytes and one character, and the decoded length is what has to be held.
+// Checked per character because the point of a bound is to stop the allocation,
+// and testing it at the end means a hostile payload has already made the parser
+// hold the whole value — a limit enforced after the fact bounds what is returned
+// and not what is held.
+//
+// The overshoot is at most one character, four bytes.
+func (p *parser) withinStringLimit(out *strings.Builder) error {
+	if out.Len() > p.maxString {
+		return p.fail(fmt.Sprintf(
+			"a string longer than P-002 §4.8's %d bytes", p.maxString))
+	}
+	return nil
 }
 
 func (p *parser) escape(out *strings.Builder) error {

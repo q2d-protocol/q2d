@@ -42,10 +42,21 @@
 use crate::value::Value;
 use std::collections::BTreeMap;
 
-/// The nesting bound, from P-002 §4.8. Stated here so this parser is safe on
-/// its own; issue 5 applies the full set — size, depth, and member count —
-/// at the envelope, before allocation.
-const MAX_DEPTH: usize = 16;
+// P-002 §4.8's limits. Normative rather than advisory: a limit an
+// implementation may choose is not a limit, and the two implementations must
+// reject the same payload. Raising one is an escalation, because a limit that
+// grows to fit a payload is not bounding anything.
+
+/// Nesting depth.
+pub const MAX_DEPTH: usize = 16;
+/// Members per object.
+pub const MAX_MEMBERS: usize = 64;
+/// Any single string field, in bytes. Bytes rather than characters: it bounds
+/// what has to be held, and a character is one to four of them.
+pub const MAX_STRING: usize = 2 * 1024;
+/// The whole envelope, in bytes. Checked before parsing rather than during —
+/// §4 step 1's *before any allocation on attacker-controlled data*.
+pub const MAX_ENVELOPE: usize = 64 * 1024;
 
 /// Bytes that are not a [`Value`].
 ///
@@ -73,6 +84,15 @@ impl std::error::Error for ParseError {}
 /// Taking bytes rather than a string is deliberate: a payload arrives as bytes
 /// and its encoding is this function's to check, not its caller's to promise.
 pub fn parse(bytes: &[u8]) -> Result<Value, ParseError> {
+    parse_within(bytes, MAX_STRING)
+}
+
+/// The same, with a string bound the caller sets.
+///
+/// One caller: [`crate::parse_envelope`], because the envelope's `signed`
+/// member is a whole JWS compact string and §4.8's 2 KiB cannot reach it. See
+/// that function for the arithmetic.
+pub(crate) fn parse_within(bytes: &[u8], max_string: usize) -> Result<Value, ParseError> {
     let text = std::str::from_utf8(bytes).map_err(|e| {
         ParseError(format!(
             "not valid UTF-8 at byte {}. P-002 §4.2's profile is UTF-8 and \
@@ -84,6 +104,7 @@ pub fn parse(bytes: &[u8]) -> Result<Value, ParseError> {
         bytes: text.as_bytes(),
         at: 0,
         depth: 0,
+        max_string,
     };
     parser.skip_whitespace();
     let value = parser.value()?;
@@ -98,6 +119,7 @@ struct Parser<'a> {
     bytes: &'a [u8],
     at: usize,
     depth: usize,
+    max_string: usize,
 }
 
 impl<'a> Parser<'a> {
@@ -185,6 +207,11 @@ impl<'a> Parser<'a> {
                 // derived from private data: a map keyed by a contact's name
                 // discloses the name. The position is enough to find it, and a
                 // position is a fact about the input's shape.
+                if pairs.len() == MAX_MEMBERS {
+                    return Err(p.fail(&format!(
+                        "more than P-002 §4.8's {MAX_MEMBERS} members in one object"
+                    )));
+                }
                 if pairs.insert(key, item).is_some() {
                     return Err(p.fail(
                         "duplicate key, which P-002 §4.2 rejects rather than \
@@ -245,6 +272,7 @@ impl<'a> Parser<'a> {
                 b'\\' => {
                     self.at += 1;
                     self.escape(&mut out)?;
+                    self.within_string_limit(&out)?;
                 }
                 // RFC 8259 §7: a character below U+0020 must be escaped. A
                 // parser that passed one through would accept bytes the
@@ -258,9 +286,31 @@ impl<'a> Parser<'a> {
                     let c = text.chars().next().expect("non-empty");
                     out.push(c);
                     self.at += c.len_utf8();
+                    self.within_string_limit(&out)?;
                 }
             }
         }
+    }
+
+    /// §4.8's string bound, checked **as the string is built** rather than at
+    /// its closing quote.
+    ///
+    /// Measured on the decoded string, not the source span: an escape is six
+    /// source bytes and one character, and the decoded length is what has to be
+    /// held. Checked per character because the point of a bound is to stop the
+    /// allocation, and testing it at the end means a hostile payload has
+    /// already made the parser hold the whole value — a limit enforced after
+    /// the fact bounds what is *returned* and not what is *held*.
+    ///
+    /// The overshoot is at most one character, four bytes.
+    fn within_string_limit(&self, out: &str) -> Result<(), ParseError> {
+        if out.len() > self.max_string {
+            return Err(self.fail(&format!(
+                "a string longer than P-002 §4.8's {} bytes",
+                self.max_string
+            )));
+        }
+        Ok(())
     }
 
     fn escape(&mut self, out: &mut String) -> Result<(), ParseError> {

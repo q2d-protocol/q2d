@@ -156,9 +156,9 @@ func TestNestingPastTheLimitIsRefusedRatherThanOverflowing(t *testing.T) {
 	// Verified is not trusted: a signature says who sent the bytes, not that
 	// they meant well. Recursive descent without a bound is a stack overflow,
 	// which is a crash rather than a rejection.
-	parsed(t, strings.Repeat("[", maxDepth)+strings.Repeat("]", maxDepth))
+	parsed(t, strings.Repeat("[", MaxDepth)+strings.Repeat("]", MaxDepth))
 
-	deeper := strings.Repeat("[", maxDepth+1) + strings.Repeat("]", maxDepth+1)
+	deeper := strings.Repeat("[", MaxDepth+1) + strings.Repeat("]", MaxDepth+1)
 	if message := rejected(t, deeper); !strings.Contains(message, "§4.8") {
 		t.Errorf("one past the limit: %s", message)
 	}
