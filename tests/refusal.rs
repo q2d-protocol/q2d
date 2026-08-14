@@ -142,3 +142,34 @@ fn rust_cannot_construct_the_value_the_other_two_have_to_refuse() {
     let same = "a\u{FFFD}b";
     accepted(V::object([("a", V::string(same))]));
 }
+
+#[test]
+fn operation_data_is_serializable_on_its_own() {
+    // P-002 §4.7 digests `public_context` as a sub-object, so it becomes the
+    // root of a serialization. If protocol level were read off the nesting, the
+    // same bytes would be held to §2.2 when digested and not when reached
+    // through a query — one object, two rules, decided by the call site.
+    let context = V::object([("issued_at", V::string("whenever the kitchen opens"))]);
+
+    // Through a query: below protocol level, so §2.6 governs.
+    accepted(public_context([(
+        "issued_at",
+        V::string("whenever the kitchen opens"),
+    )]));
+
+    // On its own, through the entry point that says what it is.
+    let bytes = q2d::serialize_operation_data(&context).expect("§2.6 data, not a §2.2 field");
+    assert_eq!(
+        String::from_utf8(bytes).unwrap(),
+        r#"{"issued_at":"whenever the kitchen opens"}"#
+    );
+
+    // And the protocol entry point still holds a real `issued_at` to §2.2 —
+    // the two differ in what they refuse, not in what they emit.
+    assert!(q2d::serialize(&context).is_err());
+    let real = V::object([("issued_at", V::string("2026-07-31T09:00:00Z"))]);
+    assert_eq!(
+        q2d::serialize(&real).unwrap(),
+        q2d::serialize_operation_data(&real).unwrap()
+    );
+}

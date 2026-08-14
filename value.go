@@ -76,9 +76,13 @@ type Array []Value
 // in order, so P-002 §4.2's ordering rule cannot be forgotten by a caller.
 type Object map[string]Value
 
-// Serialize renders a value under P-002 §4.2's deterministic production
-// profile: UTF-8, no whitespace between tokens, keys ascending, integers
-// without exponent or leading zeros, and minimal string escaping.
+// Serialize renders a protocol structure — a core object, a response, a
+// receipt, or routing — under P-002 §4.2's deterministic production profile:
+// UTF-8, no whitespace between tokens, keys ascending, integers without
+// exponent or leading zeros, and minimal string escaping.
+//
+// For a predicate's own data, use SerializeOperationData: the bytes are the
+// same and the field-name rules are not.
 //
 // P-002 §5 names this serialize_core and gives it a CoreObject. CoreObject does
 // not exist yet, and the profile is a property of the value model rather than of
@@ -98,6 +102,27 @@ type Object map[string]Value
 func Serialize(v Value) ([]byte, error) {
 	var b strings.Builder
 	if err := write(v, &b, true); err != nil {
+		return nil, err
+	}
+	return []byte(b.String()), nil
+}
+
+// SerializeOperationData renders operation-defined data under the same profile.
+//
+// Identical bytes, and one difference in what is refused: core-model.md §2.6
+// says a predicate's public_context may mean anything at all, so a field there
+// called issued_at is the predicate's and not §2.2's.
+//
+// Two entry points rather than one, because protocol level is a property of
+// what the caller is serializing and cannot be read off the nesting. Reached
+// through a query, public_context is already below protocol level and its
+// fields carry no §2.2 meaning; digested on its own for §4.7's
+// public_context_digest it would be the root, and a single entry point would
+// hold the same bytes to two different rules depending on how they were
+// reached.
+func SerializeOperationData(v Value) ([]byte, error) {
+	var b strings.Builder
+	if err := write(v, &b, false); err != nil {
 		return nil, err
 	}
 	return []byte(b.String()), nil

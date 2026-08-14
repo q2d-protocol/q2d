@@ -12,4 +12,4 @@
 pub mod timestamp;
 pub mod value;
 
-pub use value::{serialize, ProfileError, Value};
+pub use value::{serialize, serialize_operation_data, ProfileError, Value};

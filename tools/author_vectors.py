@@ -267,12 +267,33 @@ PROTOCOL_SUBOBJECTS = frozenset({"receipt", "routing"})
 
 
 def serialize(value) -> bytes:
-    """A value as P-002 §4.2's profile produces it. UTF-8, no BOM.
+    """A protocol structure as P-002 §4.2's profile produces it. UTF-8, no BOM.
+
+    A core object, a response, a receipt, or `routing`. For a predicate's own
+    data use `serialize_operation_data`: the bytes are the same and the
+    field-name rules are not.
 
     Returns bytes rather than a string, because the profile is about bytes and
     a caller that wants to sign them must not have to guess an encoding.
     """
     return _serialize(value, protocol_level=True).encode("utf-8")
+
+
+def serialize_operation_data(value) -> bytes:
+    """Operation-defined data under the same profile.
+
+    Identical bytes, and one difference in what is refused: §2.6 says a
+    predicate's `public_context` may mean anything at all, so a field there
+    called `issued_at` is the predicate's and not §2.2's.
+
+    Two entry points rather than one, because protocol level is a property of
+    *what the caller is serializing* and cannot be read off the nesting.
+    Reached through a query, `public_context` is already below protocol level;
+    digested on its own for P-002 §4.7's `public_context_digest` it would be the
+    root, and a single entry point would hold the same bytes to two different
+    rules depending on how they were reached.
+    """
+    return _serialize(value, protocol_level=False).encode("utf-8")
 
 
 def _serialize(value, protocol_level: bool = False) -> str:

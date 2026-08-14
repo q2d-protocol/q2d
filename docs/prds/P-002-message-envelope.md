@@ -130,6 +130,15 @@ here, because serialization is the last point at which a value can be refused
 before it becomes bytes somebody signs — and inside a signed payload a malformed
 timestamp is past the reach of anything that reads it as text.
 
+That rule needs a **second entry point**, which §5 now lists. §2.2 gives a field
+name a meaning at protocol level — the core object, `routing`, and a receipt —
+and §2.6 says a predicate's `public_context` may mean anything at all. Whether a
+value is at protocol level is therefore a property of *what the caller is
+serializing*, not of how deep it sits: reached through a query, `public_context`
+is already below protocol level; digested on its own for §4.7's
+`public_context_digest` it is the root. One entry point would hold the same
+bytes to two different rules depending on which path reached them.
+
 ### 4.4 Envelope
 
 ```
@@ -216,6 +225,7 @@ Values are proposed, not derived. Open question 3.
 
 ```
 serialize_core(core: CoreObject)          -> bytes        // §4.2 profile; errors on a §2.2 timestamp
+serialize_operation_data(value)           -> bytes        // §2.6 data; same bytes, no §2.2 field names
 parse_core(payload: bytes)                -> CoreObject   // post-verification only
 project_routing(core: CoreObject)         -> Routing      // derive; never authored
 check_routing(core: CoreObject, r: Routing) -> Result     // compare only

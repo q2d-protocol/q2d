@@ -165,6 +165,21 @@ class RefusalTest(unittest.TestCase):
         self.refused({"a": lone_surrogate})
         self.refused({lone_surrogate: "a"})
 
+    def test_operation_data_is_serializable_on_its_own(self):
+        # P-002 §4.7 digests `public_context` as a sub-object, so it becomes the
+        # root of a serialization. If protocol level were read off the nesting,
+        # the same bytes would be held to §2.2 when digested and not when
+        # reached through a query — one object, two rules, decided by the call
+        # site.
+        context = {"issued_at": "whenever the kitchen opens"}
+        self.assertEqual(av.serialize_operation_data(context),
+                         b'{"issued_at":"whenever the kitchen opens"}')
+        with self.assertRaises(av.ProfileError):
+            av.serialize(context)
+        # The two differ in what they refuse, not in what they emit.
+        real = {"issued_at": "2026-07-31T09:00:00Z"}
+        self.assertEqual(av.serialize(real), av.serialize_operation_data(real))
+
     def test_an_integer_outside_the_pair_s_range_is_refused(self):
         # E-37. Python's `int` is arbitrary-precision and both value models hold
         # a signed 64-bit one, so without this the tool could author a vector

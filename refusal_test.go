@@ -141,3 +141,31 @@ func TestANilValueIsRefusedRatherThanPanicking(t *testing.T) {
 		t.Errorf("Null{} was caught by the nil check: %s", got)
 	}
 }
+
+func TestOperationDataIsSerializableOnItsOwn(t *testing.T) {
+	// P-002 §4.7 digests public_context as a sub-object, so it becomes the root
+	// of a serialization. If protocol level were read off the nesting, the same
+	// bytes would be held to §2.2 when digested and not when reached through a
+	// query — one object, two rules, decided by the call site.
+	context := Object{"issued_at": String("whenever the kitchen opens")}
+
+	got, err := SerializeOperationData(context)
+	if err != nil {
+		t.Fatalf("§2.6 data was held to §2.2: %v", err)
+	}
+	if want := `{"issued_at":"whenever the kitchen opens"}`; string(got) != want {
+		t.Errorf("got %s, want %s", got, want)
+	}
+
+	// And the protocol entry point still holds a real issued_at to §2.2 — the
+	// two differ in what they refuse, not in what they emit.
+	if _, err := Serialize(context); err == nil {
+		t.Error("the protocol entry point accepted a malformed timestamp field")
+	}
+	real := Object{"issued_at": String("2026-07-31T09:00:00Z")}
+	viaProtocol, _ := Serialize(real)
+	viaData, _ := SerializeOperationData(real)
+	if string(viaProtocol) != string(viaData) {
+		t.Errorf("the two entry points emit different bytes: %s vs %s", viaProtocol, viaData)
+	}
+}

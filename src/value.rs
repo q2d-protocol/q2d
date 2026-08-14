@@ -72,11 +72,15 @@ impl Value {
     }
 }
 
-/// Serialize under P-002 §4.2's deterministic production profile.
+/// Serialize a **protocol structure** under P-002 §4.2's deterministic
+/// production profile: a core object, a response, a receipt, or `routing`.
 ///
 /// UTF-8, no whitespace between tokens, keys ascending, absent optionals
 /// omitted rather than nulled, integers without exponent or leading zeros, and
 /// minimal string escaping.
+///
+/// For a predicate's own data, use [`serialize_operation_data`] — the bytes are
+/// the same and the field-name rules are not.
 ///
 /// §5 names this `serialize_core` and gives it a `CoreObject`. `CoreObject` does
 /// not exist yet, and the profile is a property of the value model rather than
@@ -93,6 +97,25 @@ impl Value {
 pub fn serialize(value: &Value) -> Result<Vec<u8>, ProfileError> {
     let mut out = String::new();
     write(value, true, &mut out)?;
+    Ok(out.into_bytes())
+}
+
+/// Serialize **operation-defined data** under the same profile.
+///
+/// Identical bytes, and one difference in what is refused: `core-model.md` §2.6
+/// says a predicate's `public_context` may mean anything at all, so a field
+/// there called `issued_at` is the predicate's and not §2.2's.
+///
+/// Two entry points rather than one, because protocol level is a property of
+/// *what the caller is serializing* and cannot be read off the nesting. Reached
+/// through a query, `public_context` is already below protocol level and its
+/// fields carry no §2.2 meaning; digested on its own for §4.7's
+/// `public_context_digest`, it would be the root, and a single entry point
+/// would hold the same bytes to two different rules depending on how they were
+/// reached.
+pub fn serialize_operation_data(value: &Value) -> Result<Vec<u8>, ProfileError> {
+    let mut out = String::new();
+    write(value, false, &mut out)?;
     Ok(out.into_bytes())
 }
 
