@@ -2947,6 +2947,38 @@ safest against malformed signed timestamps, and it is the least work. But it
 makes the protocol refuse valid data on the strength of a rule that is nowhere
 in `spec/`, and the reason it is nowhere is that nobody decided it — a tool did.
 
+
+### On "the code should not resolve this"
+
+It cannot abstain, and the shape of the argument is worth recording once because
+it applies to every open escalation with a running implementation behind it.
+
+[CLAUDE.md](../CLAUDE.md) says a spec ambiguity is fixed in `spec/` and never
+resolved in code. That rule is about *deciding* — it forbids picking an answer
+and writing it down as though it were settled. It cannot forbid the code from
+behaving, because a serializer confronted with a string either emits it or
+refuses it, and both are a behaviour. Review flagged the wide rule as resolving
+the ambiguity in code, and after it was narrowed, flagged the narrow rule as
+resolving it in code. Both readings are correct and they have no common fix.
+
+So the rule this repository actually needs, stated here so the next open
+escalation does not rediscover it:
+
+> While an ambiguity is open, implement the **minimum the specification states**,
+> say in the register that the behaviour is provisional, and say what flips under
+> each option.
+
+The minimum is the right default for three reasons. An implementer building only
+from `spec/` produces it, so nothing diverges from the document that governs.
+Adding a rule later refuses messages that used to be accepted, which is a change
+a deployment can absorb; removing one accepts messages that used to be refused,
+which is a change a *security review* has to re-do. And a behaviour that is
+merely absent is visible as absent — a behaviour that is present and undecided
+looks settled to everyone who did not read the register.
+
+What it is not is a claim that the minimum is the right answer. It is what to do
+while there is no answer.
+
 ### Where the recommendation stops being right
 
 **If a predicate's `public_context` is ever compared byte-for-byte across
@@ -3081,6 +3113,13 @@ so in `question_notes` and register a string, as E-30 decided for decimals. That
 precedent is close enough that B may be a special case of it.
 
 ### What is built today, pending the decision
+
+**64 bits is not a resolution of this question; it is the absence of one.** A
+compiled implementation has to choose an integer type, and the alternative to a
+fixed width is arbitrary-precision arithmetic — a dependency, a performance
+question, and a much larger decision than the one being asked. Rust and Go are
+therefore bounded because their types are, not because anyone decided the
+protocol should be. See E-36's note on why an implementation cannot abstain.
 
 The tool refuses an integer outside the signed 64-bit range, so it cannot author
 what the pair cannot serialize. That is the safe direction under every option —

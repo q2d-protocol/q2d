@@ -64,6 +64,12 @@ type Bool bool
 
 // Int is a JSON integer. Every numeric field in the protocol is a count, a
 // cardinality, or a capacity in integer millibits (core-model.md §3.1).
+//
+// Nothing in spec/ states an integer's range — that is E-37, open. int64 is not
+// an answer to it: a compiled implementation has to choose a type, and the
+// alternative to a fixed width is arbitrary-precision arithmetic, which is a
+// larger decision than the one being asked. The bound is here because the type
+// system needs one, and E-37 decides whether the specification should say so.
 type Int int64
 
 // String is a JSON string.
