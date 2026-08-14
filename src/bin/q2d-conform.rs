@@ -354,23 +354,58 @@ impl<'a> Parser<'a> {
         char::from_u32(combined).ok_or_else(|| ParseError("invalid surrogate pair".into()))
     }
 
+    /// RFC 8259 §6's grammar, walked directly.
+    ///
+    /// ```text
+    /// number = [ minus ] int [ frac ] [ exp ]
+    /// int    = zero / ( digit1-9 *DIGIT )
+    /// frac   = "." 1*DIGIT
+    /// exp    = ("e" / "E") [ minus / plus ] 1*DIGIT
+    /// ```
+    ///
+    /// Not `f64::from_str`, which accepts `01`, `1.` and `.5` — forms the RFC
+    /// forbids and `encoding/json` refuses. Delegating to a float parser would
+    /// have let this runner answer a projection the Go one rejects, which is
+    /// the divergence-about-encoding `harness cross` must never report. The
+    /// value is never kept: the runner has no use for it, and holding one would
+    /// invite it to be compared as a float.
     fn number(&mut self) -> Result<Json, ParseError> {
-        let start = self.at;
         if self.peek() == Some(b'-') {
             self.at += 1;
         }
-        while matches!(self.peek(), Some(b) if b.is_ascii_digit()
-            || b == b'.' || b == b'e' || b == b'E' || b == b'+' || b == b'-')
-        {
-            self.at += 1;
+        match self.peek() {
+            // A leading zero admits no more digits: `01` is two tokens, not one
+            // number.
+            Some(b'0') => self.at += 1,
+            Some(b) if b.is_ascii_digit() => {
+                while matches!(self.peek(), Some(b) if b.is_ascii_digit()) {
+                    self.at += 1;
+                }
+            }
+            _ => return self.err("a number needs at least one digit"),
         }
-        let text = std::str::from_utf8(&self.bytes[start..self.at])
-            .map_err(|_| ParseError("invalid number".into()))?;
-        // Parsed only to reject what is not a number. The runner never needs
-        // the value, and holding one would invite it to be compared as a float.
-        text.parse::<f64>()
-            .map(|_| Json::Number)
-            .map_err(|_| ParseError(format!("invalid number {text:?}")))
+        if self.peek() == Some(b'.') {
+            self.at += 1;
+            if !matches!(self.peek(), Some(b) if b.is_ascii_digit()) {
+                return self.err("a fraction needs at least one digit");
+            }
+            while matches!(self.peek(), Some(b) if b.is_ascii_digit()) {
+                self.at += 1;
+            }
+        }
+        if matches!(self.peek(), Some(b'e') | Some(b'E')) {
+            self.at += 1;
+            if matches!(self.peek(), Some(b'+') | Some(b'-')) {
+                self.at += 1;
+            }
+            if !matches!(self.peek(), Some(b) if b.is_ascii_digit()) {
+                return self.err("an exponent needs at least one digit");
+            }
+            while matches!(self.peek(), Some(b) if b.is_ascii_digit()) {
+                self.at += 1;
+            }
+        }
+        Ok(Json::Number)
     }
 }
 
@@ -534,6 +569,20 @@ mod tests {
     fn control_characters_must_be_escaped() {
         assert!(parse("\"a\nb\"").is_err());
         assert!(parse(r#""a\nb""#).is_ok());
+    }
+
+    #[test]
+    fn only_rfc_8259_numbers_are_accepted() {
+        for text in ["0", "-0", "1", "-1.5", "1e10", "1E-10", "0.5", "12345"] {
+            assert!(parse(&format!("{{\"x\":{text}}}")).is_ok(), "{text} is a number");
+        }
+        // Every one of these is accepted by `f64::from_str` and refused by
+        // `encoding/json`, which is why the grammar is walked rather than
+        // delegated.
+        for text in ["01", "1.", ".5", "+1", "-", "1e", "1e+", "00", "0x1"] {
+            assert!(parse(&format!("{{\"x\":{text}}}")).is_err(),
+                    "{text} is not an RFC 8259 number");
+        }
     }
 
     #[test]

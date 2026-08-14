@@ -71,6 +71,14 @@ CASES = {
         '{"id":"a\\ude00","operation":"digest","input":{}}', 1),
 }
 
+# RFC 8259 §6's grammar admits none of these, and `f64::from_str` accepts every
+# one — which is why the Rust runner walks the grammar rather than delegating.
+# `encoding/json` refuses them all, so a delegating runner would have answered
+# projections the other rejects.
+for _bad in ("01", "1.", ".5", "+1", "-", "1e", "1e+", "00"):
+    CASES[f"the number {_bad!r}"] = (
+        '{"id":"a","operation":"digest","input":{"x":' + _bad + '}}', 1)
+
 # A valid surrogate pair is a character, and both must accept it: RFC 8259 §7
 # encodes every non-BMP character this way, so a runner refusing one would
 # refuse a legitimate vector.
