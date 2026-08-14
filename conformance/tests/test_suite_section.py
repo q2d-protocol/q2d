@@ -8,10 +8,10 @@ bytes come from [`tools/author_suite.py`](../../tools/author_suite.py) by way of
 the committed vectors and the tool that produced them from drifting apart.
 
 What this section asserts beyond that is **where** a rejection happens. A header
-is read before verification and a payload only after, so a suite declared in the
-header fails at a different step from one declared in the payload — and a vector
-that got the step wrong would still lint, still reject, and still be wrong about
-the thing the section exists to pin down.
+is read at §4 step 3, before there is a signature to rely on, and nothing else
+can be judged until step 4 — so an unregistered suite fails earlier than a bad
+signature does. A vector that got the step wrong would still lint, still reject,
+and still be wrong about the thing the section exists to pin down.
 """
 
 from __future__ import annotations
@@ -77,10 +77,11 @@ class OrderingTest(unittest.TestCase):
     """Where each rejection happens, which is this section's subject.
 
     `crypto-suites.md` §3: the header is the only attacker-controlled data a
-    verifier touches while it has no signature to rely on, so what it declares
-    is checked at §4 step 3 and what the payload declares cannot be read until
-    after step 4. A vector asserting the wrong step would still reject, and
-    would still be wrong about the ordering the suite's whole design rests on.
+    verifier touches while it has no signature to rely on. So what it declares
+    is checked at §4 step 3, and everything else waits for step 4 — including
+    the payload, which §2.1 forbids parsing until the bytes verify. A vector
+    asserting the wrong step would still reject, and would still be wrong about
+    the ordering the suite's whole design rests on.
     """
 
     def test_what_the_header_declares_is_rejected_before_verification(self):
@@ -89,30 +90,29 @@ class OrderingTest(unittest.TestCase):
             with self.subTest(vector=name):
                 self.assertEqual(by_id()[name]["expect"]["rejection"]["step"], 3)
 
-    def test_what_the_payload_declares_is_rejected_after_verification(self):
-        # P-003 §4.2 step 4. The signature verifies in both -- the verifier used
-        # the header's suite and key -- so these cannot be caught earlier, and a
-        # vector claiming step 3 would be asserting a check no verifier can
-        # perform yet.
-        for name in ("suite/downgrade/header-payload-suite-mismatch",
-                     "suite/downgrade/header-payload-key-mismatch"):
+    def test_what_only_the_signature_can_settle_is_rejected_after_verification(self):
+        # Everything that needs the signature checked first lands at step 4, and
+        # nothing here may claim step 3: a verifier at step 3 has read a header
+        # and nothing else.
+        for name in ("suite/verify/tampered-payload",
+                     "suite/verify/tampered-header",
+                     "suite/verify/tampered-signature",
+                     "suite/keys/unresolvable"):
             with self.subTest(vector=name):
                 self.assertEqual(by_id()[name]["expect"]["rejection"]["step"], 4)
 
     def test_authentication_failures_are_indistinguishable_on_the_wire(self):
-        # §5.2.1 collapses an unresolvable key, an invalid signature and a
-        # tampered payload into one class so a requester cannot probe which
-        # identities a custodian holds. Asserted across causes rather than per
-        # cause: a per-vector check cannot catch a divergence between two of
-        # them.
+        # §5.2.1 collapses an unresolvable key and an invalid signature into
+        # one class so a requester cannot probe which identities a custodian
+        # holds. Asserted across causes rather than per cause: a per-vector
+        # check cannot catch a divergence between two of them.
         authentication = [
             v for v in vectors()
             if v["expect"]["outcome"] == "rejected"
             and v["expect"]["rejection"]["internal_reason"] in {
-                "signature_invalid", "key_unresolvable",
-                "header_payload_key_mismatch"}
+                "signature_invalid", "key_unresolvable"}
         ]
-        self.assertGreaterEqual(len(authentication), 3)
+        self.assertGreaterEqual(len(authentication), 4)
         self.assertEqual(
             {v["expect"]["rejection"]["wire"]["external_reason"]
              for v in authentication},
@@ -120,7 +120,7 @@ class OrderingTest(unittest.TestCase):
 
 
 class ExpectedStateTest(unittest.TestCase):
-    """The two groups P-003 §5 names that this section does not have.
+    """What P-003 §5 names that this section does not have.
 
     `.github/workflows/checks.yml` prescribes an assertion over the expected
     state rather than a job that is red by design. These turn red when the thing
@@ -135,6 +135,20 @@ class ExpectedStateTest(unittest.TestCase):
         self.assertFalse((SECTION / "rfc8032").exists(),
                          "suite/rfc8032/ landed — issue 17 has presumably added "
                          "a raw-signing operation, so delete this assertion")
+
+    def test_the_header_payload_mismatch_cases_are_absent(self):
+        # Both reject -- P-003 §4.2 step 4 -- and neither has a class in
+        # core-model.md §5.2.1: `unsupported_suite` is defined as unregistered
+        # or below-floor, and `unauthenticated` is closed over an unresolvable
+        # key, an invalid signature and a bad delegation. E-34 decides it, and
+        # picking one here would settle in the corpus what belongs in `spec/`.
+        present = set(by_id())
+        for name in ("suite/downgrade/header-payload-suite-mismatch",
+                     "suite/downgrade/header-payload-key-mismatch"):
+            with self.subTest(vector=name):
+                self.assertNotIn(name, present,
+                                 "E-34 has presumably closed — delete this and "
+                                 "assert the class it decided")
 
     def test_status_has_no_group_yet(self):
         # It needs a deprecated or withdrawn suite to assert against, and

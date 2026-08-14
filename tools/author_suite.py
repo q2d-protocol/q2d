@@ -6,9 +6,10 @@
 
 [P-001](../docs/prds/P-001-conformance-corpus.md) §5 gives `suite/` as *"suite
 resolution, downgrade rejection, unknown suite"*, and issue 13 authors it.
-[P-003](../docs/prds/P-003-crypto-suites.md) §5 names six groups; four are
-authorable and two are not, for reasons that are about the registry rather than
-about this tool.
+[P-003](../docs/prds/P-003-crypto-suites.md) §5 names six groups. Four are here;
+two are not, and neither absence is about this tool — one needs an operation the
+vocabulary does not have, the other a second registered suite. Two cases inside a
+group that *is* here are absent for a third reason, below.
 
 Generated with a `--check`, for the reason
 [`author_message.py`](author_message.py) is. The bytes come from
@@ -19,8 +20,8 @@ bytes nobody can re-derive are numbers rather than assertions.
 
 Most of this section asserts what a verifier **refuses**, and every refusal here
 needs a message no correct implementation would send: a header carrying `alg`, a
-header declaring a suite the payload does not, a header naming one key over
-bytes another signed. `jws_with_header` exists for that — the signature is real,
+header declaring an unregistered suite, a header naming a key nobody holds.
+`jws_with_header` exists for that — the signature is real,
 so the message is wrong in exactly the one way the vector names, rather than
 being corrupt bytes that would fail for a reason the vector is not about.
 
@@ -36,6 +37,15 @@ protocol-level, and adding one is issue 17's, which settles vocabulary additions
 as a single change. The known answers are not unchecked meanwhile —
 [`author_vectors.py`](author_vectors.py) refuses to sign anything until it
 reproduces all three, so every byte this file emits already depends on them.
+
+**`suite/downgrade/`'s two header/payload mismatch cases** — a header declaring
+one suite or key over a payload declaring another. Both reject, P-003 §4.2 step 4
+says so, and neither has a **class**: §5.2.1's `unsupported_suite` is defined as
+*unregistered, or below the verifier's floor*, and its `unauthenticated` is
+closed over an unresolvable key, an invalid signature, and a bad delegation. A
+post-verification disagreement between two declarations is none of those, and
+choosing one here would settle in the corpus what E-33 decided belongs in
+`spec/`. [`open-escalations.md`](../docs/open-escalations.md) **E-34**.
 
 **`suite/status/`**, and `suite/downgrade/`'s below-floor case — both need a
 second registered suite. [`crypto-suites.md`](../spec/crypto-suites.md) §3
@@ -172,6 +182,24 @@ def vectors() -> list[dict]:
             "expect": rejects("signature_invalid", "unauthenticated", 4),
         },
         {
+            "id": "suite/verify/tampered-header",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#4",
+                            "core-model.md#5.2.1"],
+            "description": (
+                "The header segment replaced with one naming a different key, "
+                "over an untouched payload and the original signature. The "
+                "protected header is covered by the signature (P-003 §4.1), so "
+                "altering it invalidates the signature — the named key resolves, "
+                "and verification fails against it at §4 step 4."
+            ),
+            "operation": "verify_query",
+            "input": envelope(
+                av.base64url(av.serialize({"key_id": IMPOSTOR, "suite": av.SUITE}))
+                + f".{payload}.{signature}"),
+            "expect": rejects("signature_invalid", "unauthenticated", 4),
+        },
+        {
             "id": "suite/downgrade/unregistered-suite",
             "section": "suite",
             "requirement": ["crypto-suites.md#3", "core-model.md#4",
@@ -211,47 +239,6 @@ def vectors() -> list[dict]:
                 {"alg": "EdDSA", "key_id": REQUESTER, "suite": av.SUITE},
                 QUERY)),
             "expect": rejects("header_member_not_permitted", "unsupported_suite", 3),
-        },
-        {
-            "id": "suite/downgrade/header-payload-suite-mismatch",
-            "section": "suite",
-            "requirement": ["crypto-suites.md#3", "core-model.md#2.7",
-                            "core-model.md#5.2.1"],
-            "description": (
-                "A header declaring the registered suite over a payload whose "
-                "`signature.profile` declares another. The signature verifies — "
-                "the verifier used the header's suite — so this is caught "
-                "**after** verification by P-003 §4.2 step 4, which is the "
-                "point: the payload's copy is authoritative and the header's is "
-                "not, and comparing them catches a producer no verifier would "
-                "otherwise notice."
-            ),
-            "operation": "verify_query",
-            "input": envelope(av.jws_compact(
-                seed, REQUESTER,
-                dict(QUERY, signature=dict(QUERY["signature"],
-                                           profile=UNREGISTERED_SUITE)))),
-            "expect": rejects("header_payload_suite_mismatch", "unsupported_suite", 4),
-        },
-        {
-            "id": "suite/downgrade/header-payload-key-mismatch",
-            "section": "suite",
-            "requirement": ["crypto-suites.md#3", "core-model.md#2.7",
-                            "core-model.md#5.2.1"],
-            "description": (
-                "A header naming one key over a payload whose "
-                "`signature.key_id` names another, signed by the key the header "
-                "names — so the signature verifies and only the comparison "
-                "fails. `unauthenticated` rather than `unsupported_suite`: what "
-                "disagrees is which key signed, and §5.2.1 collapses the whole "
-                "of authentication into one class."
-            ),
-            "operation": "verify_query",
-            "input": envelope(av.jws_compact(
-                seed, REQUESTER,
-                dict(QUERY, signature=dict(QUERY["signature"],
-                                           key_id=IMPOSTOR)))),
-            "expect": rejects("header_payload_key_mismatch", "unauthenticated", 4),
         },
         {
             "id": "suite/keys/unresolvable",
