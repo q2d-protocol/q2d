@@ -104,5 +104,61 @@ class IntegerRangeTest(unittest.TestCase):
                                  f"{entry['id']}.{field} now carries an integer")
 
 
+class DeclaredTimestampTest(unittest.TestCase):
+    """E-36 in the manifest validator: the schema says which strings are §2.2's.
+
+    This scanned every date-shaped string until E-36 closed — the same rule the
+    three serializers carried and lost, in a sixth place, and the one where it
+    mattered most: `registry/validate.py` takes a manifest path, so being
+    stricter than `scope.md` §4.1 here rejects a **conforming entry** rather
+    than tidying our own corpus. That is why `conformance/harness/lint.py`
+    keeps its copy and this file does not.
+    """
+
+    OFFSET = "2026-07-31T19:30:00+01:00"
+
+    def declared(self, value, schema):
+        return sorted(validate.declared_timestamps(value, schema, "v"))
+
+    def test_a_declared_field_is_held_to_2_2(self):
+        schema = {"type": "object", "properties": {
+            "at": {"type": "string", "format": "date-time"}}}
+        found = self.declared({"at": self.OFFSET}, schema)
+        self.assertEqual(found, [("v.at", self.OFFSET)])
+        self.assertFalse(validate.q2d_timestamp(self.OFFSET))
+
+    def test_an_undeclared_field_is_the_predicate_s_own(self):
+        # The booking case E-36 was raised about. A predicate declaring a
+        # bounded string carries the offset, and the offset is the local time
+        # the requester meant — which `Z` does not record.
+        schema = {"type": "object", "properties": {
+            "booked_for": {"type": "string", "maxLength": 40}}}
+        self.assertEqual(self.declared({"booked_for": self.OFFSET}, schema), [])
+
+    def test_the_walk_follows_arrays_and_nesting(self):
+        # Where the reference manifest's own timestamps live:
+        # `candidates[].start` under `availability_window`.
+        schema = {"type": "object", "properties": {
+            "candidates": {"type": "array", "items": {
+                "type": "object", "properties": {
+                    "start": {"type": "string", "format": "date-time"}}}}}}
+        found = self.declared({"candidates": [{"start": self.OFFSET}]}, schema)
+        self.assertEqual(found, [("v.candidates[0].start", self.OFFSET)])
+
+    def test_a_value_with_no_matching_subschema_is_not_reached(self):
+        # §4.1 requires `additionalProperties: false`, so a field with no
+        # subschema is already a registry error caught elsewhere. This walk
+        # must not also guess at it.
+        schema = {"type": "object", "properties": {}}
+        self.assertEqual(self.declared({"stray": self.OFFSET}, schema), [])
+
+    def test_the_manifest_s_declared_timestamps_are_all_found(self):
+        import json
+        manifest = json.loads((REPO / "registry" / "manifest.json").read_text("utf-8"))
+        found = list(validate.entry_timestamps(manifest))
+        self.assertEqual(len(found), 36)
+        self.assertTrue(all(validate.q2d_timestamp(value) for _, value in found))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3211,6 +3211,15 @@ files.
   rule, and the note there now says why in terms of the resolution rather than
   in terms of a pending one: a serializer produces bytes somebody signs, a
   linter checks vectors that are ours.
+- `registry/validate.py` — **a sixth site, found by review after the other five
+  were done, and the one where the rule did most damage.** It scanned every
+  date-shaped string in a manifest and required §2.2's spelling. Unlike the
+  linter this file takes a manifest path, so a predicate declaring a bounded
+  `string` for a booking time would have had a conforming entry rejected by the
+  reference validator. The check is now driven by the entry's schema: §2.2's
+  spelling is required exactly where `format: date-time` is declared. Every
+  date-shaped string in the reference manifest is under such a declaration, so
+  nothing about our own manifest changed — which is why five passes missed it.
 
 **E-37 — B:**
 

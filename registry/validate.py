@@ -436,8 +436,64 @@ def unrepresentable_integer(schema, path):
         yield from unrepresentable_integer(schema["items"], f"{path}.items")
 
 
+def declared_timestamps(value, schema, path):
+    """Every value an entry's schema declares to be a `core-model.md` §2.2 one.
+
+    Driven by the schema rather than by the value's shape, which is E-36's
+    resolution: §2.2 binds the fields §2.2 names, and a predicate constrains a
+    field of its own by declaring `format: date-time` — which `scope.md` §4.1
+    makes an assertion. A predicate that instead declares a bounded `string`
+    may carry `2026-07-31T19:30:00+01:00`, and the offset is its data.
+
+    This scanned every date-shaped string in the manifest until E-36 closed.
+    That was the same rule the three serializers carried and lost, in a sixth
+    place, and it was the one that mattered most: this file validates *any*
+    manifest -- `python3 registry/validate.py path/to/manifest.json` -- so
+    being stricter than §4.1 here rejects a conforming entry rather than
+    tidying our own corpus, which is why `conformance/harness/lint.py` keeps
+    its copy and this one does not.
+    """
+    if isinstance(schema, dict) and schema.get("format") == "date-time":
+        if isinstance(value, str):
+            yield path, value
+        return
+    if isinstance(value, dict) and isinstance(schema, dict):
+        properties = schema.get("properties")
+        if isinstance(properties, dict):
+            for key, item in value.items():
+                if key in properties:
+                    yield from declared_timestamps(item, properties[key],
+                                                   f"{path}.{key}")
+    elif isinstance(value, list) and isinstance(schema, dict):
+        items = schema.get("items")
+        if items is not None:
+            for index, item in enumerate(value):
+                yield from declared_timestamps(item, items, f"{path}[{index}]")
+
+
+def entry_timestamps(manifest):
+    """`declared_timestamps` over every vector of every entry."""
+    for index, entry in enumerate(manifest.get("predicates", [])):
+        for vector_index, vector in enumerate(entry.get("test_vectors", [])):
+            for field, schema_field in (("public_context", "public_context_schema"),
+                                        ("private_input", "private_input_schema"),
+                                        ("input", "input_schema"),
+                                        ("output", "output_schema")):
+                if field not in vector or schema_field not in entry:
+                    continue
+                where = (f"manifest.predicates[{index}]"
+                         f".test_vectors[{vector_index}].{field}")
+                yield from declared_timestamps(vector[field], entry[schema_field],
+                                               where)
+
+
 def timestamps(value, path="manifest"):
-    """Every string in the manifest that is shaped like a date-time."""
+    """Every string in the manifest that is shaped like a date-time.
+
+    Retained for the leap-second stop below, which is a statement about what
+    this *tool* can parse rather than about what the manifest may contain, and
+    therefore has to see every value it will later hand to `ts()`.
+    """
     if isinstance(value, str):
         # Any date-prefixed string, whatever separator follows. Matching only
         # `T`/`t` would skip `2026-01-01 00:00:00Z`, which Python's
@@ -483,10 +539,11 @@ def main(argv: list[str]) -> int:
     # which raises on a malformed value -- so running this check after the
     # vector evaluation meant it never ran on exactly the input it exists to
     # reject, and the run died mid-sweep instead of reporting.
-    wrong = [f"{path}={value}" for path, value in timestamps(manifest)
+    wrong = [f"{path}={value}" for path, value in entry_timestamps(manifest)
              if not q2d_timestamp(value)]
     check(not wrong,
-          "every date-time is core-model.md §2.2's spelling (scope.md §4.1)",
+          "every declared date-time is core-model.md §2.2's spelling "
+          "(scope.md §4.1)",
           "; ".join(wrong))
     # A leap second is valid RFC 3339 and valid under §2.2, and this validator
     # cannot check a manifest containing one: `ts()` uses `fromisoformat`,
