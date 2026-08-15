@@ -6,11 +6,17 @@
 // # What it refuses, and why refusing matters here
 //
 // A decoder that accepts more than one spelling of the same bytes is a
-// malleability surface, and this one sits directly under a signature.
-// request_digest is taken over the exact signed bytes (core-model.md §6), so two
-// spellings of one payload are two digests for one exchange — and a relay that
-// re-spelled a segment would leave a signature that still verifies against a
-// receipt that no longer matches.
+// malleability surface, and one segment of a compact JWS is exposed to it.
+//
+// Re-spelling the header or the payload changes the signing input, so a
+// permissive decoder gains an attacker nothing there — verification fails on its
+// own. The signature segment is the exception: it is not an input to anything, so
+// a second spelling of the same 64 bytes verifies exactly as the first does,
+// while the signed string differs. request_digest is taken over the exact signed
+// bytes (core-model.md §6), so that is one exchange with two digests, and a
+// receipt that no longer matches the message anyone holds.
+//
+// suite/verify/respelled-signature-segment is that case as a shared vector.
 //
 // So three refusals, none of them optional:
 //
@@ -32,7 +38,8 @@
 // accepts non-canonical trailing bits — Go's decoder does not check them, which
 // is documented behaviour and correct for RFC 4648, whose §3.5 makes the check
 // optional. It is not optional under a signature. Hand-written for that one
-// reason, and DecodeCanonical below is the whole of the difference.
+// reason, and the trailing-bit check in DecodeBase64URL is the whole of the
+// difference.
 package q2d
 
 import (
@@ -91,7 +98,14 @@ func DecodeBase64URL(text string) ([]byte, error) {
 		}
 		// Whatever the emitted bytes did not consume must have been zero. A
 		// non-zero remainder is a second spelling of the bytes above it.
-		if spare := 8 * (4 - len(chunk)); spare > 0 && bits&(1<<spare-1) != 0 {
+		//
+		// The mask covers every bit below the last emitted byte; the bits below
+		// the group itself are structurally zero, so it is the same test. The
+		// count is not the mask width — a group of two characters holds twelve
+		// bits and emits eight, so four are spare, and a group of three holds
+		// eighteen and emits sixteen.
+		if unconsumed := 8 * (4 - len(chunk)); unconsumed > 0 && bits&(1<<unconsumed-1) != 0 {
+			spare := 6*len(chunk) - 8*(len(chunk)-1)
 			return nil, fmt.Errorf("%d trailing bits that are not zero, which "+
 				"is a second spelling of the same bytes", spare)
 		}

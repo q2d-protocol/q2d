@@ -6,11 +6,18 @@
 //! ## What it refuses, and why refusing matters here
 //!
 //! A decoder that accepts more than one spelling of the same bytes is a
-//! **malleability** surface, and this one sits directly under a signature.
-//! `request_digest` is taken over the exact `signed` bytes (`core-model.md`
-//! §6), so two spellings of one payload are two digests for one exchange —
-//! and a relay that re-spelled a segment would leave a signature that still
-//! verifies against a receipt that no longer matches.
+//! **malleability** surface, and one segment of a compact JWS is exposed to it.
+//!
+//! Re-spelling the header or the payload changes the signing input, so a
+//! permissive decoder gains an attacker nothing there — verification fails on
+//! its own. **The signature segment is the exception**: it is not an input to
+//! anything, so a second spelling of the same 64 bytes verifies exactly as the
+//! first does, while the `signed` string differs. `request_digest` is taken
+//! over the exact `signed` bytes (`core-model.md` §6), so that is one exchange
+//! with two digests, and a receipt that no longer matches the message anyone
+//! holds.
+//!
+//! `suite/verify/respelled-signature-segment` is that case as a shared vector.
 //!
 //! So three refusals, none of them optional:
 //!
@@ -112,12 +119,21 @@ pub fn decode(text: &str) -> Result<Vec<u8>, DecodeError> {
         }
         // Whatever the emitted bytes did not consume must have been zero. A
         // non-zero remainder is a second spelling of the bytes above it.
-        let spare = 8 * (4 - chunk.len());
-        if spare > 0 && bits & ((1 << spare) - 1) != 0 {
-            return Err(DecodeError(format!(
-                "{spare} trailing bits that are not zero, which is a second \
-                 spelling of the same bytes"
-            )));
+        //
+        // The mask covers every bit below the last emitted byte; the bits
+        // below the group itself are structurally zero, so it is the same
+        // test. The *count* is not the mask width — a group of two characters
+        // holds twelve bits and emits eight, so four are spare, and a group of
+        // three holds eighteen and emits sixteen.
+        if chunk.len() < 4 {
+            let unconsumed = 8 * (4 - chunk.len());
+            if bits & ((1 << unconsumed) - 1) != 0 {
+                let spare = 6 * chunk.len() - 8 * (chunk.len() - 1);
+                return Err(DecodeError(format!(
+                    "{spare} trailing bits that are not zero, which is a \
+                     second spelling of the same bytes"
+                )));
+            }
         }
     }
     Ok(out)
