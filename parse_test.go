@@ -189,7 +189,7 @@ func mustSerialize(t *testing.T, v Value) []byte {
 
 func TestAProtocolStringIsBoundedAt2KiBAndAPredicatesIsNot(t *testing.T) {
 	// §2.8: the 2 KiB covers the fields the specification defines and stops at
-	// predicate.public_context, which §2.6 makes operation-defined. The parser
+	// predicate.public_context, which §2.4 leaves to its entry's schema. The parser
 	// knows which is which — the same protocol knowledge Serialize carries for
 	// §2.2's field names.
 	threeKiB := strings.Repeat("d", 3*1024)

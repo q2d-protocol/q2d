@@ -196,8 +196,8 @@ class RefusalTest(unittest.TestCase):
 
     def test_a_timestamp_outside_a_timestamp_field_is_left_alone(self):
         # §2.2 states its spelling for the fields it names. A string somewhere
-        # else is not a Q2D timestamp however much it looks like one, and §2.6
-        # says a predicate's `public_context` may mean anything at all.
+        # else is not a Q2D timestamp however much it looks like one, and §2.4
+        # says a predicate's `public_context` is its entry's to shape.
         #
         # **E-36, closed as C.** §2.2 now states that the rule reaches the
         # fields it names and no further, and a predicate wanting one spelling
@@ -208,7 +208,7 @@ class RefusalTest(unittest.TestCase):
         self.accepted(["2026-07-31T09:00:00.000Z"])
 
     def test_the_field_name_rule_applies_only_at_protocol_level(self):
-        # §2.6: a predicate's `public_context` may mean anything at all.
+        # §2.4: a predicate's `public_context` is its entry's to shape.
         self.accepted(self.public_context({"issued_at": "whenever the kitchen opens"}))
 
     def test_routing_and_receipt_re_enter_protocol_level(self):

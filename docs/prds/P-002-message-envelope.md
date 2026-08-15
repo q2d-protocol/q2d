@@ -140,7 +140,7 @@ timestamp is past the reach of anything that reads it as text.
 
 That rule needs a **second entry point**, which §5 now lists. §2.2 gives a field
 name a meaning at protocol level — the core object, `routing`, and a receipt —
-and §2.6 says a predicate's `public_context` may mean anything at all. Whether a
+and §2.4 makes a predicate's `public_context` its entry's to shape. Whether a
 value is at protocol level is therefore a property of *what the caller is
 serializing*, not of how deep it sits: reached through a query, `public_context`
 is already below protocol level; digested on its own for §4.7's
@@ -263,7 +263,7 @@ fields §2.8 refuses.
 
 ```
 serialize_core(core: CoreObject)          -> bytes        // §4.2 profile; errors on a §2.2 timestamp
-serialize_operation_data(value)           -> bytes        // §2.6 data; same bytes, no §2.2 field names
+serialize_operation_data(value)           -> bytes        // §2.4 data; same bytes, no §2.2 field names
 parse_core(payload: bytes)                -> CoreObject   // post-verification only
 project_routing(core: CoreObject)         -> Routing      // derive; never authored
 check_routing(core: CoreObject, r: Routing) -> Result     // compare only
@@ -321,7 +321,7 @@ it — **a corpus of realistic documents tests the protocol, not the profile.** 
 ASCII, and every value §2 defines is a bounded string, a count, or an enum.
 
 A conforming query can still reach them, through `predicate.public_context`,
-which §2.6 makes operation-defined — a non-ASCII key, a string needing every
+which §2.4 leaves to its entry's schema — a non-ASCII key, a string needing every
 escape, or an integer at the boundary all travel into the signed payload. So
 `message/serialize/` has to author them on purpose: they are reachable by a real
 message and by no realistic-looking one.

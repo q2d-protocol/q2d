@@ -276,7 +276,7 @@ def escape_string(value: str) -> str:
 # the object being serialized -- a core object (§2.2) or a response (§5.3) --
 # and the `receipt` inside it (§6). Nowhere else: `public_context` and a
 # predicate's own structures are operation-defined, and a field called
-# `expires_at` in one may mean anything at all.
+# `expires_at` in one is its entry's to shape.
 # `routing` is here as well as `receipt`, because §2.2 covers "the core object,
 # `routing`, and a receipt" -- and `routing` is where the spelling matters most,
 # since §4 step 8 compares its fields against the verified object's.
@@ -299,8 +299,8 @@ def serialize(value) -> bytes:
 def serialize_operation_data(value) -> bytes:
     """Operation-defined data under the same profile.
 
-    Identical bytes, and one difference in what is refused: §2.6 says a
-    predicate's `public_context` may mean anything at all, so a field there
+    Identical bytes, and one difference in what is refused: §2.4 says a
+    predicate's `public_context` is its entry's to shape, so a field there
     called `issued_at` is the predicate's and not §2.2's.
 
     Two entry points rather than one, because protocol level is a property of
@@ -359,7 +359,7 @@ def _serialize(value, protocol_level: bool = False) -> str:
         # A string is written as it is. §2.2 states its spelling for the fields
         # it names -- and since E-36 closed as C, says so explicitly: "the rule
         # reaches the fields this specification names, and no further". A string
-        # elsewhere is operation-defined data under §2.6, and whether it has one
+        # elsewhere is operation-defined data under §2.4, and whether it has one
         # spelling is the predicate's entry to say, through `scope.md` §4.1's
         # `format: date-time`.
         return escape_string(value)
@@ -402,7 +402,7 @@ def _serialize(value, protocol_level: bool = False) -> str:
         # `receipt` re-enters protocol level only from protocol level. A
         # `public_context` carrying a field called `receipt` is the predicate's
         # own structure, and promoting it would enforce §6's field meanings
-        # inside data the previous line says may mean anything.
+        # inside data the previous line leaves to a predicate's entry.
         return "{" + ",".join(
             f"{escape_string(k)}:"
             f"{_serialize(value[k], protocol_level=protocol_level and k in PROTOCOL_SUBOBJECTS)}"

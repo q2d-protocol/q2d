@@ -331,7 +331,7 @@ class JwsTest(unittest.TestCase):
         # core-model.md gives those names a timestamp's meaning at the top
         # level of a core object or response, and inside `receipt`. A
         # `public_context` field called `expires_at` is the predicate's, and
-        # may mean anything.
+        # is its entry's to shape.
         author.serialize({"public_context": {"expires_at": "never"}})
         with self.assertRaises(author.ProfileError):
             author.serialize({"receipt": {"decided_at": "never"}})
@@ -357,8 +357,8 @@ class JwsTest(unittest.TestCase):
         # This asserted the opposite until E-36 was raised: any string with an
         # RFC 3339 spelling that was not §2.2's was refused wherever it sat, on
         # the reasoning that "a wrong spelling is a wrong spelling". The
-        # reasoning presumes the string is a timestamp, and §2.6 says a
-        # predicate's `public_context` may mean anything at all -- so an offset
+        # reasoning presumes the string is a timestamp, and §2.4 says a
+        # predicate's `public_context` is its entry's to shape -- so an offset
         # spelling there is the predicate's data, not a malformed §2.2 value.
         #
         # E-23 settled the *spelling* and its reach over `routing`, which §4

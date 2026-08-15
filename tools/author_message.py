@@ -239,7 +239,7 @@ def serialize_vectors() -> list[dict]:
             "default string ordering — Rust's `BTreeMap`, Go's byte comparison "
             "— produces the other order and fails here. No field name in "
             "`core-model.md` §2 is outside ASCII, so this is unreachable "
-            "except through a predicate's own public context, which §2.6 makes "
+            "except through a predicate's own public context, which §2.4 makes "
             "operation-defined.",
             {"\U00010000": "supplementary", "\uFFFD": "bmp", "a": "ascii"},
         ),

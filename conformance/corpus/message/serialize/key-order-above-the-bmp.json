@@ -4,7 +4,7 @@
   "requirement": [
     "core-model.md#2.6"
   ],
-  "description": "Object keys sorted by **UTF-16 code unit**, which differs from Unicode scalar order above the BMP: U+10000 encodes as the surrogate pair D800 DC00 and therefore sorts below U+FFFD, where scalar order puts it above. A serializer using its language's default string ordering — Rust's `BTreeMap`, Go's byte comparison — produces the other order and fails here. No field name in `core-model.md` §2 is outside ASCII, so this is unreachable except through a predicate's own public context, which §2.6 makes operation-defined.",
+  "description": "Object keys sorted by **UTF-16 code unit**, which differs from Unicode scalar order above the BMP: U+10000 encodes as the surrogate pair D800 DC00 and therefore sorts below U+FFFD, where scalar order puts it above. A serializer using its language's default string ordering — Rust's `BTreeMap`, Go's byte comparison — produces the other order and fails here. No field name in `core-model.md` §2 is outside ASCII, so this is unreachable except through a predicate's own public context, which §2.4 makes operation-defined.",
   "operation": "sign_query",
   "input": {
     "key_id": "test-requester-1",

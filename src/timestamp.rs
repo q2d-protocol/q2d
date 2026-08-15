@@ -21,7 +21,7 @@ pub const TIMESTAMP_FIELDS: [&str; 3] = ["issued_at", "expires_at", "decided_at"
 ///
 /// Only from protocol level. A `public_context` carrying a field called
 /// `receipt` is the predicate's own structure, and promoting it would enforce
-/// §6's field meanings inside data §2.6 says may mean anything at all.
+/// §6's field meanings inside data §2.4 leaves to a predicate's entry.
 pub const PROTOCOL_SUBOBJECTS: [&str; 2] = ["receipt", "routing"];
 
 /// §2.2's timestamp: the one spelling, and a real instant.
