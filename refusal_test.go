@@ -147,10 +147,11 @@ func TestANilValueIsRefusedRatherThanPanicking(t *testing.T) {
 }
 
 func TestOperationDataIsSerializableOnItsOwn(t *testing.T) {
-	// P-002 §4.7 digests public_context as a sub-object, so it becomes the root
-	// of a serialization. If protocol level were read off the nesting, the same
-	// bytes would be held to §2.2 when digested and not when reached through a
-	// query — one object, two rules, decided by the call site.
+	// P-002 §4.7 digests public_context on its own, so it is the top-level value
+	// of that serialization and still operation data — serialization.md §3. If
+	// protocol level were read off the position, the same bytes would be held to
+	// §2.2 when digested and not when reached through a query: one object, two
+	// rules, decided by the call site.
 	context := Object{"issued_at": String("whenever the kitchen opens")}
 
 	got, err := SerializeOperationData(context)

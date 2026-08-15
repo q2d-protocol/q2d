@@ -114,20 +114,31 @@ Size limits are a separate matter and are [`core-model.md`](core-model.md) §2.8
 
 ## 3. What is being serialized
 
-Whether a value sits at **protocol level** is a property of what is being
-serialized, not of how deeply the value sits inside it.
+Whether a value is at **protocol level** is a property of *what it is* — which
+this specification decides — and not of where it sits in the structure being
+serialized.
 
 [`core-model.md`](core-model.md) §2.2 gives the protocol's own fields their
 meaning, and §2.4 leaves a predicate's `public_context` to its registry entry to
-shape. The same object is therefore bound by different rules depending on what
-it is the serialization *of*: reached through a query, `public_context` is
-operation-defined data below protocol level; digested on its own to produce a
-`public_context_digest`, it is the root, and the rules that apply to a root
-apply to it.
+shape. So:
 
-An implementation needs two entry points for this reason, and a single one is a
-defect: it would hold the same bytes to different rules according to which path
-reached them.
+- A **protocol structure** — a core object, a response, a receipt, `routing`, a
+  protected header — carries fields this specification names, and §2.2's
+  timestamp spelling binds them.
+- A predicate's **`public_context`** is operation data. Its field names are its
+  entry's, and §2.2 binds none of them, so a member called `issued_at` means
+  whatever the entry says it means.
+
+**Neither changes when the value is serialized on its own.** A `public_context`
+digested to produce a `public_context_digest` is the top-level value of that
+serialization and is still operation data; being at the top makes it the root of
+some bytes, not a protocol structure. Position is not what decides.
+
+An implementation therefore needs **two entry points**, and one is a defect: a
+single entry point would have to read the answer off the value's position, which
+does not carry it — the same bytes would be held to §2.2 when digested and not
+when reached through a query, or the reverse, decided by the call site rather
+than by what the value is.
 
 ## 4. This is not canonicalization
 

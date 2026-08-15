@@ -146,10 +146,11 @@ fn rust_cannot_construct_the_value_the_other_two_have_to_refuse() {
 
 #[test]
 fn operation_data_is_serializable_on_its_own() {
-    // P-002 §4.7 digests `public_context` as a sub-object, so it becomes the
-    // root of a serialization. If protocol level were read off the nesting, the
+    // P-002 §4.7 digests `public_context` on its own, so it is the top-level
+    // value of that serialization and still operation data —
+    // `serialization.md` §3. If protocol level were read off the position, the
     // same bytes would be held to §2.2 when digested and not when reached
-    // through a query — one object, two rules, decided by the call site.
+    // through a query: one object, two rules, decided by the call site.
     let context = V::object([("issued_at", V::string("whenever the kitchen opens"))]);
 
     // Through a query: below protocol level, so §2.4 governs.

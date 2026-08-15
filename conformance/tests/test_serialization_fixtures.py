@@ -230,10 +230,11 @@ class RefusalTest(unittest.TestCase):
         self.refused({lone_surrogate: "a"})
 
     def test_operation_data_is_serializable_on_its_own(self):
-        # P-002 §4.7 digests `public_context` as a sub-object, so it becomes the
-        # root of a serialization. If protocol level were read off the nesting,
+        # P-002 §4.7 digests `public_context` on its own, so it is the
+        # top-level value of that serialization and still operation data --
+        # `serialization.md` §3. If protocol level were read off the position,
         # the same bytes would be held to §2.2 when digested and not when
-        # reached through a query — one object, two rules, decided by the call
+        # reached through a query: one object, two rules, decided by the call
         # site.
         context = {"issued_at": "whenever the kitchen opens"}
         self.assertEqual(av.serialize_operation_data(context),

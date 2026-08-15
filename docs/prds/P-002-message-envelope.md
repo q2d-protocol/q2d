@@ -144,11 +144,11 @@ reads it as text.
 
 That rule needs a **second entry point**, which §5 lists, and
 [`serialization.md`](../../spec/serialization.md) §3 is why: protocol level is a
-property of *what the caller is serializing*, not of how deep a value sits.
-Reached through a query, `public_context` is already below protocol level;
-digested on its own for §4.7's `public_context_digest` it is the root. One entry
-point would hold the same bytes to two different rules depending on which path
-reached them.
+property of *what a value is*, not of where it sits. A predicate's
+`public_context` is operation data reached through a query and operation data
+digested on its own for §4.7's `public_context_digest` — being the top-level
+value there makes it the root of some bytes, not a protocol structure. One entry
+point would have to read the answer off the position, which does not carry it.
 
 ### 4.4 Envelope
 
@@ -217,7 +217,7 @@ algorithm is additive rather than ambiguous.
 | `request_digest` | The exact `signed` bytes of the query |
 | `response_digest` | The response's **semantic content**, excluding the receipt and the signature — `serialization.md` §1. [`core-model.md`](../../spec/core-model.md) §6 is authoritative |
 | `effective_contract_digest` | The effective answer contract, `serialization.md` §1 |
-| `public_context_digest` | The public context — `serialization.md` §1's bytes through §3's **operation-data** entry point, since the field names inside it are the predicate entry's rather than the protocol's |
+| `public_context_digest` | The public context — `serialization.md` §1's bytes through the **operation-data** entry point, because §3 makes a public context operation data whether it is reached through a query or serialized on its own |
 
 Only `request_digest` digests received bytes, with no re-serialization. The other
 three digest a sub-object and therefore need the production profile, which is why

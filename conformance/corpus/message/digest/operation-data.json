@@ -5,7 +5,7 @@
     "serialization.md#3",
     "core-model.md#2.4"
   ],
-  "description": "A public context digested **on its own**, carrying an `issued_at` that is not a timestamp. Reached through a query the same object is §2.4 data, and §2.2's spelling does not reach it ([E-36](../docs/open-escalations.md)) — a predicate's entry decides what its own fields mean. Digested on its own it is the root of a serialization, and `serialization.md` §3 is explicit that protocol level is a property of *what is being serialized* rather than of how deep a value sits. An implementation with one entry point holds these bytes to §2.2 here and not through a query, or the reverse: one object, two rules, decided by the call site. It refuses this vector, which is how the corpus finds it.",
+  "description": "A public context digested **on its own**, carrying an `issued_at` that is not a timestamp. Reached through a query the same object is §2.4 data, and §2.2's spelling does not reach it ([E-36](../docs/open-escalations.md)) — a predicate's entry decides what its own fields mean. Digested on its own it is the top-level value of that serialization and **still operation data** — `serialization.md` §3 makes protocol level a property of what a value is rather than of where it sits, so being at the top makes it the root of some bytes and not a protocol structure. An implementation with one entry point holds these bytes to §2.2 here and not through a query, or the reverse: one object, two rules, decided by the call site. It refuses this vector, which is how the corpus finds it.",
   "operation": "digest",
   "input": {
     "operation_data": {
