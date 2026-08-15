@@ -75,16 +75,16 @@ of one function agreeing.
 
 ## `ed25519-acceptance.txt`
 
-Eight rows, each a case where "Ed25519" alone does not decide the answer. RFC
+Ten rows, each a case where "Ed25519" alone does not decide the answer. RFC
 8032 leaves the choice open, libraries take it differently, and two
 implementations that disagreed here would disagree about whether a message is
 authentic **while both passing RFC 8032's own vectors** — which is exactly the
 failure the two implementations exist to detect rather than to produce.
 
 Columns: name, public key, signature, message (`-` for empty), and whether Q2D
-accepts it. The four rules are stated in [`src/ed25519.rs`](../src/ed25519.rs)
-and [`ed25519.go`](../ed25519.go); this file is the evidence that both reach
-them.
+accepts it. The four rules are
+[`crypto-suites.md`](../spec/crypto-suites.md) §3's; this file is the evidence
+that both implementations reach them.
 
 Four rows are the ones that pay for the file:
 
