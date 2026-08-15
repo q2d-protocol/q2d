@@ -597,6 +597,34 @@ def jws_with_header(seed: bytes, header, payload) -> str:
     return f"{signing_input}.{base64url(signature)}"
 
 
+def jws_over_payload_bytes(seed: bytes, key_id: str, payload: bytes,
+                           suite: str = SUITE) -> str:
+    """The same construction, over payload bytes supplied whole.
+
+    `jws_compact` serializes a Python object, so every payload it can produce
+    is one this profile permits. Some rejections are about payloads it cannot:
+    a **duplicate key**, which no `dict` holds, and a **float**, which
+    `serialize` refuses by P-002 §4.3. Both are defects a parser must catch and
+    neither is expressible as an object.
+
+    They are expressible as *bytes*, which is what the payload is: base64url
+    inside the envelope's `signed` string. So the vector carries them exactly
+    as a sender would have transmitted them, validly signed, and wrong in one
+    stated way — not corrupt bytes, which would fail for a reason the vector is
+    not about.
+
+    Used only where an object cannot say it. A vector whose payload *can* be
+    written as an object uses `jws_compact`, so that the corpus's expected
+    bytes stay the profile's own output wherever they can be.
+    """
+    check_known_answers()
+
+    header = serialize({"key_id": key_id, "suite": suite})
+    signing_input = f"{base64url(header)}.{base64url(payload)}"
+    signature = sign(seed, signing_input.encode("ascii"))
+    return f"{signing_input}.{base64url(signature)}"
+
+
 def main(argv: list[str]) -> int:
     if "--self-test" not in argv[1:]:
         print(__doc__.strip().splitlines()[0])

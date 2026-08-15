@@ -300,9 +300,172 @@ def serialize_vectors() -> list[dict]:
     ]
 
 
+def reject_vector(name: str, requirement: list[str], description: str,
+                  signed: str, internal: str) -> dict:
+    """A `verify_query` vector whose payload is wrong in one stated way.
+
+    Every one is **validly signed**. A vector whose bytes were corrupt would
+    fail at step 4 for a reason it is not about, and would pass an
+    implementation that never reached the defect — so the signature is over
+    exactly the payload the vector is asserting a parser refuses.
+
+    All of these are §5.2.1's `malformed` on the wire: *the verified core
+    object malformed, or missing a field §2 requires*. The internal reasons
+    differ because an operator needs to know which, and `denial/`'s uniformity
+    assertion is what proves the wire response does not.
+    """
+    return {
+        "id": f"message/reject/{name}",
+        "section": "message",
+        "requirement": requirement,
+        "description": description,
+        "operation": "verify_query",
+        "input": {"envelope": {"signed": signed, "routing": ROUTING}},
+        "expect": {
+            "outcome": "rejected",
+            "rejection": {
+                "internal_reason": internal,
+                "wire": {"status": "deny", "external_reason": "malformed"},
+                "step": 5,
+            },
+            "comparison": "bytes",
+        },
+    }
+
+
+def payload_bytes(replacement: str) -> bytes:
+    """`QUERY`'s serialization with one member replaced by raw text.
+
+    Built from the profile's own output and edited, rather than assembled by
+    hand, so the vector differs from a conforming payload in exactly the way it
+    names and in nothing else — same field order, same escaping, same
+    everything a byte comparison would otherwise catch.
+    """
+    conforming = av.serialize(QUERY).decode("utf-8")
+    marker = '"nonce":"' + QUERY["nonce"] + '"'
+    assert conforming.count(marker) == 1, "the nonce is where this edit anchors"
+    return conforming.replace(marker, replacement).encode("utf-8")
+
+
+def reject_vectors() -> list[dict]:
+    seed = seed_of(REQUESTER)
+
+    duplicate = av.jws_over_payload_bytes(
+        seed, REQUESTER,
+        payload_bytes('"nonce":"' + QUERY["nonce"] + '","nonce":"Ux7kFQ2mS0aVvJ1cPzN4bx"'))
+    a_float = av.jws_over_payload_bytes(
+        seed, REQUESTER,
+        payload_bytes('"nonce":"' + QUERY["nonce"] + '","capacity_millibits":1.5'))
+
+    deep = json.loads(json.dumps(QUERY))
+    nest = {"bottom": True}
+    for _ in range(20):
+        nest = {"deeper": nest}
+    deep["predicate"]["public_context"] = nest
+
+    wide = json.loads(json.dumps(QUERY))
+    wide["predicate"]["public_context"] = {f"k{i:03d}": i for i in range(65)}
+
+    long_string = json.loads(json.dumps(QUERY))
+    long_string["nonce"] = "n" * 2100
+
+    old_version = json.loads(json.dumps(QUERY))
+    old_version["q2d_version"] = "0.2"
+
+    return [
+        reject_vector(
+            "duplicate-key",
+            ["core-model.md#4"],
+            "A payload carrying `nonce` twice. §4.2 prohibits duplicate keys on "
+            "production and requires rejection on parse, and the reason is that "
+            "the alternatives are worse than a refusal: a parser taking "
+            "last-wins and one taking first-wins read **one signed payload two "
+            "ways**, and both readings carry a valid signature. Go's "
+            "`encoding/json` takes last-wins silently, which is why this vector "
+            "exists rather than being assumed. The payload is supplied as bytes "
+            "because no JSON object can hold the defect.",
+            duplicate, "core_object_duplicate_key"),
+        reject_vector(
+            "float-in-the-payload",
+            ["core-model.md#3.1"],
+            "A payload carrying `1.5`. §4.3 admits no floating-point in a "
+            "signed structure — capacity is integer millibits, timestamps are "
+            "strings — because IEEE-754 rendering differs between languages and "
+            "one float field would make two implementations emit different "
+            "bytes for the same message. Refused **syntactically**, on the "
+            "fraction rather than on the value: deciding that `1e2` is a "
+            "hundred means exponent arithmetic, and with `1e400`, arithmetic in "
+            "what. Supplied as bytes because the authoring tool refuses to "
+            "serialize a float at all.",
+            a_float, "core_object_float"),
+        reject_vector(
+            "nesting-past-the-limit",
+            ["core-model.md#2.8"],
+            "A public context nested twenty deep, past §2.8's sixteen. The "
+            "limit is normative rather than advisory: a limit an implementation "
+            "may choose is not a limit, and §1 admits no round trip in which a "
+            "requester could discover which one it is addressing. Unbounded "
+            "recursive descent is also a stack overflow, and a crash is not a "
+            "rejection.",
+            av.jws_compact(seed, REQUESTER, deep), "core_object_too_deep"),
+        reject_vector(
+            "too-many-members",
+            ["core-model.md#2.8"],
+            "An object of sixty-five members, past §2.8's sixty-four. Counted "
+            "per object rather than per message, so a payload may hold many "
+            "objects and none of them may be wide.",
+            av.jws_compact(seed, REQUESTER, wide), "core_object_too_many_members"),
+        reject_vector(
+            "string-past-the-limit",
+            ["core-model.md#2.8"],
+            "A `nonce` of 2100 bytes, past §2.8's 2 KiB. A **protocol** field, "
+            "deliberately: §2.8's string limit covers the fields the "
+            "specification defines and stops at `predicate.public_context`, so "
+            "a vector using a predicate's own field would assert the opposite "
+            "of the rule.",
+            av.jws_compact(seed, REQUESTER, long_string), "core_object_string_too_long"),
+    ] + [
+        {
+            "id": "message/reject/unknown-version",
+            "section": "message",
+            "requirement": ["core-model.md#4", "core-model.md#5.2.1"],
+            "description": (
+                "A payload declaring `q2d_version` 0.2. The **only** vector in "
+                "this group whose wire response is not `malformed`: §5.2.1 "
+                "gives `unsupported_version` its own row, and an absent or "
+                "non-string version would be `malformed` instead — *missing a "
+                "field §2 requires*. The internal reason is a different string "
+                "from the external one even here, where the wire value has the "
+                "same name: they are separate values, and equal halves would "
+                "assert the leak rather than the separation. A responder rejects without interpreting "
+                "anything else, because version 0.2 may have moved or retyped "
+                "any field and a diagnostic built by reading them is a guess "
+                "presented as fact."
+            ),
+            "operation": "verify_query",
+            "input": {"envelope": {"signed": av.jws_compact(seed, REQUESTER, old_version),
+                                   "routing": dict(ROUTING, q2d_version="0.2")}},
+            "expect": {
+                "outcome": "rejected",
+                "rejection": {
+                    # Not `unsupported_version`, which is the *external*
+                    # value. They are separate values (P-001 §4.6), and a
+                    # vector whose two halves were equal would assert the leak
+                    # rather than the separation — `test_message_section.py`
+                    # holds every rejection here to that, and caught this one.
+                    "internal_reason": "core_object_unsupported_version",
+                    "wire": {"status": "deny", "external_reason": "unsupported_version"},
+                    "step": 5,
+                },
+                "comparison": "bytes",
+            },
+        },
+    ]
+
+
 def vectors() -> list[dict]:
     signed = signed_query()
-    return serialize_vectors() + [
+    return serialize_vectors() + reject_vectors() + [
         {
             "id": "message/sign/query-minimal",
             "section": "message",

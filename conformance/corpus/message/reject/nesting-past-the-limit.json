@@ -1,0 +1,38 @@
+{
+  "id": "message/reject/nesting-past-the-limit",
+  "section": "message",
+  "requirement": [
+    "core-model.md#2.8"
+  ],
+  "description": "A public context nested twenty deep, past §2.8's sixteen. The limit is normative rather than advisory: a limit an implementation may choose is not a limit, and §1 admits no round trip in which a requester could discover which one it is addressing. Unbounded recursive descent is also a stack overflow, and a crash is not a rejection.",
+  "operation": "verify_query",
+  "input": {
+    "envelope": {
+      "signed": "eyJrZXlfaWQiOiJ0ZXN0LXJlcXVlc3Rlci0xIiwic3VpdGUiOiJlZGRzYS1qd3MtMjAyNiJ9.eyJhbnN3ZXJfY29udHJhY3QiOnsiYWxsb3dlZF9kZXRhaWxfZmllbGRzIjpbXSwiZG9tYWluIjpbZmFsc2UsdHJ1ZV0sInJlbGVhc2Vfc2hhcGUiOiJib29sZWFuIn0sImRlbGl2ZXJ5Ijp7ImFuc3dlcl9yZWNpcGllbnQiOiJkaWQ6a2V5Ono2TWtSZXF1ZXN0ZXJSdW50aW1lIiwicGVybWl0dGVkX3NpbmtzIjpbInVybjpxMmQ6c2luazptb2RlbDpsb2NhbCJdfSwiZXhwaXJlc19hdCI6IjIwMjYtMDctMzFUMDk6MDU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0wNy0zMVQwOTowMDowMFoiLCJub25jZSI6IlV4N2tGUTJtUzBhVnZKMWNQek40YnciLCJwcmVkaWNhdGUiOnsiaWQiOiJodHRwczovL3EyZC5kZXYvcHJlZGljYXRlcy9kaWV0YXJ5L21lbnUtY29tcGF0aWJsZSIsInB1YmxpY19jb250ZXh0Ijp7ImRlZXBlciI6eyJkZWVwZXIiOnsiZGVlcGVyIjp7ImRlZXBlciI6eyJkZWVwZXIiOnsiZGVlcGVyIjp7ImRlZXBlciI6eyJkZWVwZXIiOnsiZGVlcGVyIjp7ImRlZXBlciI6eyJkZWVwZXIiOnsiZGVlcGVyIjp7ImRlZXBlciI6eyJkZWVwZXIiOnsiZGVlcGVyIjp7ImRlZXBlciI6eyJkZWVwZXIiOnsiZGVlcGVyIjp7ImRlZXBlciI6eyJkZWVwZXIiOnsiYm90dG9tIjp0cnVlfX19fX19fX19fX19fX19fX19fX19LCJyZWdpc3RyeV9kaWdlc3QiOiJzaGEyNTY6YmQwOGZmMjMwZGUwZDhjZTM0ZGU5OTk2N2Y3YTkwOTc5ODhiNDkwNThmMGEyMWRkMzViOTQ0NGMyNDA5OGUzNSIsInZlcnNpb24iOiIwLjEifSwicHVycG9zZSI6eyJjb2RlIjoic29jaWFsLm1lYWwtcGxhbm5pbmciLCJkZXNjcmlwdGlvbiI6IkNob29zZSBhIGRpbm5lciB2ZW51ZSBmb3IgMjAyNi0wNy0zMSJ9LCJxMmRfdmVyc2lvbiI6IjAuMSIsInF1ZXJ5X2lkIjoidXJuOnV1aWQ6MGUxODMzODktMGYzNy00YzVmLThjNTYtMWVhN2U1ODE4ZTE4IiwicmVxdWVzdGVyIjp7ImFnZW50IjoiZGlkOmtleTp6Nk1rUmVxdWVzdGVyQWdlbnQiLCJkZWxlZ2F0aW9uIjp7InByb2ZpbGUiOiJsb2NhbC1wYWlyaW5nLTAuMSIsInJlZmVyZW5jZSI6InNoYTI1Njo3ZWYxIn0sInByaW5jaXBhbCI6ImRpZDprZXk6ejZNa1JlcXVlc3RlclByaW5jaXBhbCJ9LCJzaWduYXR1cmUiOnsia2V5X2lkIjoidGVzdC1yZXF1ZXN0ZXItMSIsInByb2ZpbGUiOiJlZGRzYS1qd3MtMjAyNiJ9LCJ0YXJnZXQiOnsiY3VzdG9kaWFuIjoiaHR0cHM6Ly9mcmllbmQuZXhhbXBsZS8ud2VsbC1rbm93bi9xMmQifSwidHlwZSI6InF1ZXJ5In0.wV3hG7WC9L71V4M6PjOfxbv40P9q-jRGimErONKONMrE799ZxhMYc1fApiu13qUnu2Lmgl9WTCgnBzFY6J7xBA",
+      "routing": {
+        "q2d_version": "0.1",
+        "type": "query",
+        "target": {
+          "custodian": "https://friend.example/.well-known/q2d"
+        },
+        "predicate": {
+          "id": "https://q2d.dev/predicates/dietary/menu-compatible",
+          "version": "0.1"
+        },
+        "expires_at": "2026-07-31T09:05:00Z"
+      }
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "core_object_too_deep",
+      "wire": {
+        "status": "deny",
+        "external_reason": "malformed"
+      },
+      "step": 5
+    },
+    "comparison": "bytes"
+  }
+}

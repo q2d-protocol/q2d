@@ -1,0 +1,38 @@
+{
+  "id": "message/reject/float-in-the-payload",
+  "section": "message",
+  "requirement": [
+    "core-model.md#3.1"
+  ],
+  "description": "A payload carrying `1.5`. §4.3 admits no floating-point in a signed structure — capacity is integer millibits, timestamps are strings — because IEEE-754 rendering differs between languages and one float field would make two implementations emit different bytes for the same message. Refused **syntactically**, on the fraction rather than on the value: deciding that `1e2` is a hundred means exponent arithmetic, and with `1e400`, arithmetic in what. Supplied as bytes because the authoring tool refuses to serialize a float at all.",
+  "operation": "verify_query",
+  "input": {
+    "envelope": {
+      "signed": "eyJrZXlfaWQiOiJ0ZXN0LXJlcXVlc3Rlci0xIiwic3VpdGUiOiJlZGRzYS1qd3MtMjAyNiJ9.eyJhbnN3ZXJfY29udHJhY3QiOnsiYWxsb3dlZF9kZXRhaWxfZmllbGRzIjpbXSwiZG9tYWluIjpbZmFsc2UsdHJ1ZV0sInJlbGVhc2Vfc2hhcGUiOiJib29sZWFuIn0sImRlbGl2ZXJ5Ijp7ImFuc3dlcl9yZWNpcGllbnQiOiJkaWQ6a2V5Ono2TWtSZXF1ZXN0ZXJSdW50aW1lIiwicGVybWl0dGVkX3NpbmtzIjpbInVybjpxMmQ6c2luazptb2RlbDpsb2NhbCJdfSwiZXhwaXJlc19hdCI6IjIwMjYtMDctMzFUMDk6MDU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0wNy0zMVQwOTowMDowMFoiLCJub25jZSI6IlV4N2tGUTJtUzBhVnZKMWNQek40YnciLCJjYXBhY2l0eV9taWxsaWJpdHMiOjEuNSwicHJlZGljYXRlIjp7ImlkIjoiaHR0cHM6Ly9xMmQuZGV2L3ByZWRpY2F0ZXMvZGlldGFyeS9tZW51LWNvbXBhdGlibGUiLCJwdWJsaWNfY29udGV4dCI6eyJtZW51IjpbeyJjb250YWlucyI6WyJtaWxrIl0sIml0ZW1faWQiOiJyaXNvdHRvIn0seyJjb250YWlucyI6W10sIml0ZW1faWQiOiJzYWxhZCJ9XX0sInJlZ2lzdHJ5X2RpZ2VzdCI6InNoYTI1NjpiZDA4ZmYyMzBkZTBkOGNlMzRkZTk5OTY3ZjdhOTA5Nzk4OGI0OTA1OGYwYTIxZGQzNWI5NDQ0YzI0MDk4ZTM1IiwidmVyc2lvbiI6IjAuMSJ9LCJwdXJwb3NlIjp7ImNvZGUiOiJzb2NpYWwubWVhbC1wbGFubmluZyIsImRlc2NyaXB0aW9uIjoiQ2hvb3NlIGEgZGlubmVyIHZlbnVlIGZvciAyMDI2LTA3LTMxIn0sInEyZF92ZXJzaW9uIjoiMC4xIiwicXVlcnlfaWQiOiJ1cm46dXVpZDowZTE4MzM4OS0wZjM3LTRjNWYtOGM1Ni0xZWE3ZTU4MThlMTgiLCJyZXF1ZXN0ZXIiOnsiYWdlbnQiOiJkaWQ6a2V5Ono2TWtSZXF1ZXN0ZXJBZ2VudCIsImRlbGVnYXRpb24iOnsicHJvZmlsZSI6ImxvY2FsLXBhaXJpbmctMC4xIiwicmVmZXJlbmNlIjoic2hhMjU2OjdlZjEifSwicHJpbmNpcGFsIjoiZGlkOmtleTp6Nk1rUmVxdWVzdGVyUHJpbmNpcGFsIn0sInNpZ25hdHVyZSI6eyJrZXlfaWQiOiJ0ZXN0LXJlcXVlc3Rlci0xIiwicHJvZmlsZSI6ImVkZHNhLWp3cy0yMDI2In0sInRhcmdldCI6eyJjdXN0b2RpYW4iOiJodHRwczovL2ZyaWVuZC5leGFtcGxlLy53ZWxsLWtub3duL3EyZCJ9LCJ0eXBlIjoicXVlcnkifQ.MDKaddvUkJU2fLjpRukjwobbaXTDCVxAOBSMtLxlr4VmA_fXjcBiLivEpZuTyXi5FaxXb8gue2PZ_qIix4DBAQ",
+      "routing": {
+        "q2d_version": "0.1",
+        "type": "query",
+        "target": {
+          "custodian": "https://friend.example/.well-known/q2d"
+        },
+        "predicate": {
+          "id": "https://q2d.dev/predicates/dietary/menu-compatible",
+          "version": "0.1"
+        },
+        "expires_at": "2026-07-31T09:05:00Z"
+      }
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "core_object_float",
+      "wire": {
+        "status": "deny",
+        "external_reason": "malformed"
+      },
+      "step": 5
+    },
+    "comparison": "bytes"
+  }
+}
