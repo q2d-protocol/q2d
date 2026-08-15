@@ -130,6 +130,33 @@ class RoutingProjectionTest(unittest.TestCase):
         self.assertNotIn("public_context", am.ROUTING.get("predicate", {}))
 
 
+class SignedFixtureTest(unittest.TestCase):
+    """`testdata/canonical-query.signed` is the compact JWS both implementations
+    are held to (P-003 issue 5).
+
+    Python is the third reading here as it is for the serialization: it authored
+    the bytes, and Rust and Go each assert they reproduce them.
+    """
+
+    def test_the_fixture_is_what_the_authoring_tool_signs(self):
+        signed = av.jws_compact(am.seed_of(am.REQUESTER), am.REQUESTER, am.QUERY)
+        self.assertEqual(
+            (FIXTURES / "canonical-query.signed").read_text("utf-8").strip(), signed)
+
+    def test_the_fixture_is_the_corpus_vector(self):
+        # The reason the fixture may stand in for the vector at all. Neither
+        # implementation can read a corpus file with its own parser -- a vector
+        # carries a `signed` string past core-model.md §2.8's 2 KiB, which is a
+        # rule about messages -- so they assert against `testdata/`. This is
+        # what stops the two drifting apart.
+        vector = json.loads(
+            (ROOT / "conformance" / "corpus" / "message" / "sign"
+             / "query-minimal.json").read_text("utf-8"))
+        self.assertEqual(
+            vector["expect"]["output"],
+            (FIXTURES / "canonical-query.signed").read_text("utf-8").strip())
+
+
 class DigestFixtureTest(unittest.TestCase):
     """`testdata/digests.txt` is what `hashlib` says, so the other two can differ from it.
 

@@ -4,7 +4,7 @@ package q2d
 //
 // The algorithm prefix is mandatory, so a digest is self-describing and a future
 // algorithm is additive rather than ambiguous. Changing the encoding changes
-// every receipt, which is why §9.6 makes it an escalation.
+// every receipt, which is why P-002 §9 item 6 makes it an escalation.
 //
 // # Which four
 //
