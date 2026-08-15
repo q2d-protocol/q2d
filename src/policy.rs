@@ -68,6 +68,24 @@ pub struct SuitePolicy {
 ///
 /// Adding an identifier here is a code change, and it is the change that adds
 /// the code. Adding one to the registry is not.
+///
+/// ## Why the identifier is the whole question
+///
+/// A registry entry also carries `algorithm`, `serialization` and `hash`, and
+/// this check does **not** compare them. That is deliberate and it is worth
+/// stating, because "validate the parameters too" is the obvious next thought.
+///
+/// Those fields are prose for a human reading the registry — *"Ed25519 (RFC
+/// 8032), with the acceptance rule in spec/crypto-suites.md §3"* — and nothing
+/// selects a code path from them. What binds an identifier to an algorithm is
+/// `crypto-suites.md` §1, which names the three **as one unit**, and §2, which
+/// makes a registered identifier permanent and never reused for different
+/// parameters. An entry claiming `eddsa-jws-2026` with other parameters is a
+/// registry that is wrong about itself, and comparing free text would be a
+/// check that looks rigorous and is not.
+///
+/// What actually defends against a registry that lies is
+/// [`SuiteRegistry::load_pinned`]: changing the prose changes the digest.
 pub const IMPLEMENTED: &[&str] = &["eddsa-jws-2026"];
 
 /// Does this build implement the suite an identifier names?
