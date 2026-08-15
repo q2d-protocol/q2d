@@ -56,17 +56,27 @@ type SuitePolicy struct {
 //
 // Adding an identifier here is a code change, and it is the change that adds the
 // code. Adding one to the registry is not.
-var Implemented = []string{"eddsa-jws-2026"}
-
-// ImplementsSuite reports whether this build implements the suite an identifier
-// names.
-func ImplementsSuite(id string) bool {
-	for _, known := range Implemented {
-		if known == id {
-			return true
-		}
+//
+// Unexported, and a switch rather than a slice. An exported `var` slice is
+// mutable: a caller could append an identifier it had just read out of a
+// registry and this build would then treat an unimplemented suite as
+// implemented, which is the guard removing itself. Rust states the same set as a
+// `const`, and the two must not differ in what a caller can do to them.
+func implementsSuite(id string) bool {
+	switch id {
+	case "eddsa-jws-2026":
+		return true
+	default:
+		return false
 	}
-	return false
+}
+
+// ImplementedSuites returns the identifiers this build can execute, for operator
+// tooling and capability discovery.
+//
+// A fresh slice each call, so a caller mutating the result changes nothing.
+func ImplementedSuites() []string {
+	return []string{"eddsa-jws-2026"}
 }
 
 // meetsFloor is the compiled-in floor: registered, implemented, and permitted to
@@ -77,7 +87,7 @@ func ImplementsSuite(id string) bool {
 // start — the operator finds out when they change the configuration rather than
 // when a message arrives.
 func meetsFloor(registry SuiteRegistry, id string) bool {
-	if !ImplementsSuite(id) {
+	if !implementsSuite(id) {
 		return false
 	}
 	entry, err := registry.Resolve(id)

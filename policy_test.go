@@ -107,3 +107,15 @@ func TestARegisteredSuiteThisBuildCannotExecuteIsBelowTheFloor(t *testing.T) {
 		t.Error("a suite this build cannot execute was accepted")
 	}
 }
+
+func TestTheImplementedSetCannotBeChangedByACaller(t *testing.T) {
+	// An exported mutable slice would let a caller append an identifier it read
+	// out of a registry, after which this build treats an unimplemented suite as
+	// implemented — the guard removing itself. Rust states the set as a const, so
+	// what a caller can do to it must match.
+	got := ImplementedSuites()
+	got[0] = "anything-at-all"
+	if !implementsSuite("eddsa-jws-2026") || implementsSuite("anything-at-all") {
+		t.Error("mutating the returned slice changed what this build implements")
+	}
+}
