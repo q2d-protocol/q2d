@@ -165,7 +165,7 @@ responder must accept it.
 
 **The envelope is closed**, and [`core-model.md`](../../spec/core-model.md) §2.1
 says so — a member outside the two is `malformed` at step 1 rather than ignored
-([E-45](../open-escalations.md)). Both implementations already denied and this
+([E-44](../open-escalations.md)). Both implementations already denied and this
 PRD already said they should; what was missing was a normative source, which is
 [E-43](../open-escalations.md)'s class exactly. §2.1 gives the reason the
 implementations could not: an ignored member is one a relay may act on and a
