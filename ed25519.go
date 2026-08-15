@@ -5,51 +5,33 @@
 //
 // # Which signatures verify
 //
-// crypto-suites.md §3 states the rule; this file implements it. It is there
-// rather than here because "Ed25519" does not name one verification rule — RFC
-// 8032 leaves choices open and libraries take them differently, so a third
-// implementation building from spec/ alone would otherwise pick its own edge
-// cases and disagree with both of these about whether a message is authentic.
+// crypto-suites.md §3. Four rules, and this file does not restate them — they
+// are spec/'s, and a copy here would be a second source of truth that drifts.
 //
-// Repeated here because this is where the code is, and a reader checking the
-// code against the rule should not have to hold it in their head. The
-// specification governs; if these ever disagree, this comment is the bug:
+// What belongs here is which of them the standard library supplies and which
+// this file has to apply itself, because that is a fact about the code:
 //
-//  1. The public key is 32 bytes and decodes to a point on the curve, with a
-//     canonical field encoding.
-//  2. The signature is 64 bytes. R decodes to a point; S is canonical, meaning
-//     S < L.
-//  3. Neither A nor R has small order — that is, [8]A and [8]R are not the
-//     identity.
-//  4. The cofactorless verification equation holds:
-//     [S]B = R + [SHA-512(R ‖ A ‖ M) mod L]A.
+//   - crypto/ed25519.Verify gives the canonical S and the verification
+//     equation, and the half of rule 1 that decodes the point.
+//   - smallOrder is this file's, because Verify does not reject a small-order
+//     public key: with A = R = the identity point and S = 0 the equation holds
+//     for every message, which is a valid signature over anything with no
+//     private key. Rust's verify_strict refuses it and the standard library
+//     accepts it, so this is where the two are brought back together. Computed
+//     as [8]P == identity rather than looked up in a blacklist, which would
+//     need its own completeness argument and fails open when it is an entry
+//     short.
+//   - canonicalPoint is this file's too, because neither edwards25519 nor
+//     ed25519-dalek applies the field-encoding rule, and they accept the same
+//     encodings. Written as a byte comparison so that Go and Rust run the
+//     identical test rather than two libraries' opinions of it.
 //
-// # Rules 1 and 3 are why crypto/ed25519 is not enough on its own
+// filippo.io/edwards25519 supplies the point arithmetic smallOrder needs. It is
+// the standard library's own implementation, published separately by its author,
+// and crypto/ed25519 is built on the internal copy of it.
 //
-// It implements rule 2 and rule 4, half of rule 1 — the point decodes — and
-// neither the canonical-encoding half nor rule 3.
-//
-// The canonical half: y may be written as y + p for nineteen values, twelve of
-// which are points on the curve. edwards25519 and ed25519-dalek both accept
-// them, so that one is not a difference between the two implementations but a
-// rule neither was applying. canonicalPoint applies it, in bytes, so both run
-// the identical test.
-//
-// Rule 3 is the one where the two libraries genuinely differ. With
-// A = R = the identity point and S = 0, the equation reduces to
-// identity = identity and holds for every message: a universal forgery
-// requiring no private key, which Verify accepts and ed25519-dalek's
-// verify_strict refuses.
-//
-// Rust picks the strict rule (P-003 issue 1, E-47), so this file has to reach
-// it too. The check is computed rather than looked up: [8]P is compared with
-// the identity, which is exactly what dalek's is_weak does. A blacklist of the
-// eight small-order encodings would need its own completeness argument, and a
-// blacklist that is one entry short fails open.
-//
-// filippo.io/edwards25519 supplies the point arithmetic. It is the standard
-// library's own implementation, published separately by its author, and
-// crypto/ed25519 is built on the internal copy of it.
+// testdata/ed25519-acceptance.txt holds both implementations to the same answers
+// on the cases RFC 8032 leaves open.
 //
 // # Not constant-time, and not claimed to be
 //
@@ -75,7 +57,7 @@ var ErrSignatureInvalid = errors.New("signature does not verify")
 
 // PublicKey is a key that has been checked far enough to be worth keeping.
 //
-// Constructing one runs rule 1 and the A half of rule 3, so a small-order key
+// Constructing one runs §3's rule 1 and the A half of rule 3, so a small-order key
 // cannot reach Verify at all — the check is at key resolution rather than at
 // every call site.
 type PublicKey struct {
@@ -95,24 +77,17 @@ var fieldOrder = [32]byte{
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f,
 }
 
-// canonicalPoint reports whether a compressed point's field element is
-// canonically encoded.
+// canonicalPoint applies crypto-suites.md §3's field-encoding rule: the
+// y-coordinate is below p.
 //
 // A compressed Edwards point is the y-coordinate in the low 255 bits and the
-// sign of x in the top one. Canonical means y < p, and p = 2^255 - 19 leaves
-// exactly nineteen values above it — twelve of which decode to a point on the
-// curve, so this is not a theoretical set.
+// sign of x in the top one, so the check is an integer comparison on bytes.
 //
-// Neither library enforces this. edwards25519.Point.SetBytes accepts a
-// non-canonical encoding, and so does ed25519-dalek, and they accept the same
+// Neither library enforces it. edwards25519.Point.SetBytes accepts a
+// non-canonical encoding, ed25519-dalek accepts one, and they accept the same
 // ones — so this is not a divergence between the two implementations but a rule
-// stated in both module headers that neither was applying. Written as a byte
-// comparison rather than reached for through the curve library, so that Go and
-// Rust run the identical test rather than two libraries' opinions of it.
-//
-// It matters because a key is pinned as bytes. Two spellings of one point are
-// two key_id bindings for one signer, and any comparison made on bytes rather
-// than on points sees two different keys.
+// neither of their libraries applies. Written in bytes rather than reached for
+// through the curve library so that Go and Rust run the identical test.
 func canonicalPoint(encoded []byte) bool {
 	if len(encoded) != 32 {
 		return false
@@ -140,7 +115,7 @@ func smallOrder(encoded []byte) (bool, error) {
 	return cleared.Equal(edwards25519.NewIdentityPoint()) == 1, nil
 }
 
-// NewPublicKey decodes a 32-byte public key, refusing anything rules 1 and 3
+// NewPublicKey decodes a 32-byte public key, refusing anything §3's rules 1 and 3
 // exclude.
 func NewPublicKey(raw []byte) (PublicKey, error) {
 	if len(raw) != ed25519.PublicKeySize || !canonicalPoint(raw) {

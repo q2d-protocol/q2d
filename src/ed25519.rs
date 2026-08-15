@@ -6,47 +6,26 @@
 //!
 //! ## Which signatures verify
 //!
-//! **`crypto-suites.md` §3 states the rule; this module implements it.** It is
-//! there rather than here because "Ed25519" does not name one verification
-//! rule — RFC 8032 leaves choices open and libraries take them differently, so
-//! a third implementation building from `spec/` alone would otherwise pick its
-//! own edge cases and disagree with both of these about whether a message is
-//! authentic.
+//! **`crypto-suites.md` §3.** Four rules, and this module does not restate
+//! them — they are `spec/`'s, and a copy here would be a second source of
+//! truth that drifts.
 //!
-//! Repeated here because this is where the code is, and a reader checking the
-//! code against the rule should not have to hold it in their head. The
-//! specification governs; if these ever disagree, this comment is the bug:
+//! What belongs here is which of them the dependency supplies and which this
+//! module has to apply itself, because that is a fact about the code:
 //!
-//! 1. The public key is 32 bytes and decodes to a point on the curve, with a
-//!    **canonical** field encoding.
-//! 2. The signature is 64 bytes. `R` decodes to a point; `S` is **canonical**,
-//!    meaning `S < L`.
-//! 3. Neither `A` nor `R` has small order — that is, `[8]A` and `[8]R` are not
-//!    the identity.
-//! 4. The cofactorless verification equation holds:
-//!    `[S]B = R + [SHA-512(R ‖ A ‖ M) mod L]A`.
+//! - `verify_strict`, never `verify`, gives the small-order rule and the
+//!   canonical `S`. The difference is not academic — under the permissive rule
+//!   a signature exists that verifies over every message with no private key,
+//!   and `acceptance_differs_from_the_permissive_rule` asserts dalek accepts
+//!   what this module refuses.
+//! - [`canonical_point`] is **this module's**, because neither
+//!   `ed25519-dalek` nor Go's `edwards25519` applies the field-encoding rule,
+//!   and they accept the same encodings. Written as a byte comparison so that
+//!   Rust and Go run the identical test rather than two libraries' opinions of
+//!   it.
 //!
-//! Rules 1, 2 and 3 are the ones that are optional elsewhere, and each decides
-//! a real case:
-//!
-//! - **A non-canonical field encoding.** `y` may be written as `y + p` for
-//!   nineteen values, twelve of which are points on the curve. Both libraries
-//!   accept them — this is not a difference between the two implementations but
-//!   a rule neither was applying, and it is applied here, in bytes, so that
-//!   both run the identical test.
-//! - **Non-canonical `S`.** `S` and `S + L` are two encodings of one scalar.
-//!   Without the check, every signature has a second form that verifies, and a
-//!   `signed` string can be altered in transit while still verifying — a
-//!   different `request_digest` for one exchange (`core-model.md` §6).
-//! - **Small-order `A`.** With `A = R = the identity point` and `S = 0`, the
-//!   equation reduces to `identity = identity` and holds **for every
-//!   message**. That is a universal forgery requiring no private key, and it
-//!   is accepted by Go's `crypto/ed25519.Verify`, which is why `ed25519.go`
-//!   carries an explicit small-order check rather than calling the standard
-//!   library alone.
-//!
-//! `testdata/ed25519-acceptance.txt` is that table as a fixture, and both
-//! implementations are held to it.
+//! `testdata/ed25519-acceptance.txt` holds both implementations to the same
+//! answers on the cases RFC 8032 leaves open.
 //!
 //! ## Not constant-time, and not claimed to be
 //!
@@ -57,23 +36,16 @@
 
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
 
-/// Is a compressed point's field element canonically encoded?
+/// `crypto-suites.md` §3's field-encoding rule: the y-coordinate is below `p`.
 ///
 /// A compressed Edwards point is the y-coordinate in the low 255 bits and the
-/// sign of x in the top one. Canonical means `y < p`, and `p = 2^255 - 19`
-/// leaves exactly nineteen values above it — twelve of which decode to a point
-/// on the curve, so this is not a theoretical set.
+/// sign of x in the top one, so the check is an integer comparison on bytes.
 ///
-/// **Neither library enforces this.** `ed25519-dalek` accepts a non-canonical
-/// `A`, and so does `filippo.io/edwards25519`, and they accept the same ones —
+/// **Neither library enforces it.** `ed25519-dalek` accepts a non-canonical
+/// `A`, `filippo.io/edwards25519` accepts one, and they accept the same ones —
 /// so this is not a divergence between the two implementations but a rule
-/// stated in both module headers that neither was applying. Written as a byte
-/// comparison rather than reached for through a curve library, so that Rust and
-/// Go run the identical test rather than two libraries' opinions of it.
-///
-/// It matters because a key is pinned as bytes. Two spellings of one point are
-/// two `key_id` bindings for one signer, and any comparison made on bytes
-/// rather than on points sees two different keys.
+/// neither of their libraries applies. Written in bytes rather than reached for
+/// through a curve library so that Rust and Go run the identical test.
 fn canonical_point(encoded: &[u8; 32]) -> bool {
     // p = 2^255 - 19, little-endian, with the sign bit masked off.
     let mut y = *encoded;
@@ -113,7 +85,7 @@ impl std::error::Error for SignatureInvalid {}
 
 /// A public key that has been checked far enough to be worth keeping.
 ///
-/// Constructing one runs rules 1 and the `A` half of rule 3, so a small-order
+/// Constructing one runs §3's rule 1 and the `A` half of rule 3, so a small-order
 /// key cannot reach [`verify`] at all — the check is in the type rather than
 /// in each call site.
 #[derive(Debug, Clone)]
@@ -124,7 +96,7 @@ pub struct PublicKey(VerifyingKey);
 pub struct PrivateKey(SigningKey);
 
 impl PublicKey {
-    /// Decode a 32-byte public key, refusing anything rules 1 and 3 exclude.
+    /// Decode a 32-byte public key, refusing anything §3's rules 1 and 3 exclude.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, SignatureInvalid> {
         let array: [u8; 32] = bytes.try_into().map_err(|_| SignatureInvalid)?;
         if !canonical_point(&array) {
