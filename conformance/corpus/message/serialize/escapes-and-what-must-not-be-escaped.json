@@ -2,7 +2,8 @@
   "id": "message/serialize/escapes-and-what-must-not-be-escaped",
   "section": "message",
   "requirement": [
-    "core-model.md#2.6"
+    "crypto-suites.md#3",
+    "core-model.md#2.4"
   ],
   "description": "Minimal escaping. The two RFC 8259 requires and the five two-character forms it names are escaped; a control character with no short form takes `\\u0001` in lowercase hex; and `<`, `>`, `&` and `/` are **not** escaped, which is where Go's `encoding/json` differs by default and would produce different bytes for the same message.",
   "operation": "sign_query",

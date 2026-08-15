@@ -2,6 +2,7 @@
   "id": "message/serialize/integer-boundaries",
   "section": "message",
   "requirement": [
+    "crypto-suites.md#3",
     "scope.md#4.1"
   ],
   "description": "Integers with no exponent, no leading `+` and no leading zeros, at both ends of the range `scope.md` §4.1 requires an entry's integers to lie within. A serializer that rendered these through a float — or a parser that read them into one — loses the low bits above 2^53 and produces different bytes, which is the hazard `crypto-suites.md` §3 cites against a JCS-based suite.",

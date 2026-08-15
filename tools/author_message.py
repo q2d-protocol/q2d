@@ -210,6 +210,14 @@ def serialize_vector(name: str, requirement: list[str], description: str,
     exact transmitted bytes, so a vector asserting the compact string asserts
     the serialization that produced it. A wrong key order or a stray escape
     changes the payload segment and the vector fails on the byte comparison.
+
+    Each traces to `crypto-suites.md` §3, which is the requirement these
+    actually test: **both implementations must produce identical bytes for the
+    same message.** The profile that delivers it is P-002 §4.2, and a vector's
+    `requirement` list cites `spec/` rather than a PRD — so the citation is the
+    obligation, not the mechanism. The second entry is where the *shape* being
+    serialized comes from: §2.4 for a public context, `scope.md` §4.1 for the
+    integer range.
     """
     query = with_public_context(context)
     return {
@@ -231,7 +239,7 @@ def serialize_vectors() -> list[dict]:
     return [
         serialize_vector(
             "key-order-above-the-bmp",
-            ["core-model.md#2.6"],
+            ["crypto-suites.md#3", "core-model.md#2.4"],
             "Object keys sorted by **UTF-16 code unit**, which differs from "
             "Unicode scalar order above the BMP: U+10000 encodes as the "
             "surrogate pair D800 DC00 and therefore sorts below U+FFFD, where "
@@ -245,7 +253,7 @@ def serialize_vectors() -> list[dict]:
         ),
         serialize_vector(
             "escapes-and-what-must-not-be-escaped",
-            ["core-model.md#2.6"],
+            ["crypto-suites.md#3", "core-model.md#2.4"],
             "Minimal escaping. The two RFC 8259 requires and the five "
             "two-character forms it names are escaped; a control character "
             "with no short form takes `\\u0001` in lowercase hex; and `<`, "
@@ -260,7 +268,7 @@ def serialize_vectors() -> list[dict]:
         ),
         serialize_vector(
             "integer-boundaries",
-            ["scope.md#4.1"],
+            ["crypto-suites.md#3", "scope.md#4.1"],
             "Integers with no exponent, no leading `+` and no leading zeros, "
             "at both ends of the range `scope.md` §4.1 requires an entry's "
             "integers to lie within. A serializer that rendered these through "
@@ -272,7 +280,7 @@ def serialize_vectors() -> list[dict]:
         ),
         serialize_vector(
             "empty-containers-and-a-present-null",
-            ["core-model.md#2.6"],
+            ["crypto-suites.md#3", "core-model.md#2.4"],
             "An empty object, an empty array, and a field explicitly set to "
             "null — each with one serialization and no other. §4.2 omits an "
             "*absent* optional rather than nulling it, so a present null and "
