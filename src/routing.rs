@@ -20,7 +20,7 @@
 //! projected field is legible *without decoding*, and is therefore the one
 //! infrastructure indexes and retains at scale. The list is closed: adding to
 //! it is a disclosure decision rather than a plumbing one, and an escalation
-//! (§9.4).
+//! (P-002 §9 item 4).
 //!
 //! ## Why this type has no other constructor
 //!

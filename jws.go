@@ -73,7 +73,7 @@ func compactSegments(compact string) (header, payload, signature string, err err
 
 // VerifyCompact verifies a compact serialization and returns the payload bytes.
 //
-// Bytes rather than a parsed object, deliberately (§9.7): core-model.md §4 steps
+// Bytes rather than a parsed object, deliberately (P-003 §9 item 7): core-model.md §4 steps
 // 4–5 require verification before parsing, and returning bytes makes that a
 // type-level fact. There is no way to obtain a parsed core object from this file
 // without having verified it first.

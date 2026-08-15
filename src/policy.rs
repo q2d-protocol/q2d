@@ -1,6 +1,6 @@
 //! The verifier's acceptable set — local configuration, never a message.
 //!
-//! P-003 issue 4, and §9.1: **this is the entire downgrade defence.** §4.2
+//! P-003 issue 4, and its §9 item 1: **this is the entire downgrade defence.** §4.2
 //! step 2 rejects unless the declared suite is a member of this set, and a
 //! verifier that verifies with whatever the header names has agility in the
 //! same sense that an unlocked door has a lock.

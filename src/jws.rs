@@ -101,9 +101,9 @@ fn segments(compact: &str) -> Result<(&str, &str, &str), SignatureInvalid> {
 
 /// Verify a compact serialization and return the **payload bytes**.
 ///
-/// Bytes rather than a parsed object, deliberately (§9.7): `core-model.md` §4
-/// steps 4–5 require verification before parsing, and returning bytes makes
-/// that a type-level fact. There is no way to obtain a parsed core object from
+/// Bytes rather than a parsed object, deliberately — P-003 §9 item 7.
+/// `core-model.md` §4 steps 4–5 require verification before parsing, and
+/// returning bytes makes that a type-level fact. There is no way to obtain a parsed core object from
 /// this module without having verified it first.
 ///
 /// This is **not** §4.2's four-step sequence — it does not read the suite, does
