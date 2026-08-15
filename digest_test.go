@@ -34,7 +34,8 @@ func TestDigestReproducesThePublishedKnownAnswers(t *testing.T) {
 
 func TestADigestCarriesThePrefixAndIsLowercaseHex(t *testing.T) {
 	d := Digest([]byte("abc"))
-	// §4.7: the prefix is mandatory so the digest is self-describing.
+	// serialization.md §5: the prefix is mandatory so the digest is
+	// self-describing.
 	if !strings.HasPrefix(d, "sha256:") {
 		t.Errorf("no prefix: %s", d)
 	}

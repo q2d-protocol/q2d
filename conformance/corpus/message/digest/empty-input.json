@@ -2,7 +2,7 @@
   "id": "message/digest/empty-input",
   "section": "message",
   "requirement": [
-    "core-model.md#6"
+    "serialization.md#5"
   ],
   "description": "The empty input. No Q2D digest is taken over nothing, and that is why this is here: it is the case a padding mistake reaches first, and the one an implementation that special-cased an empty buffer would get wrong without any other vector noticing. `testdata/digests.txt` carries the same value from three implementations.",
   "operation": "digest",

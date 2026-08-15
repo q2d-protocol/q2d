@@ -112,14 +112,15 @@ func ParseEnvelope(payload []byte) (Envelope, error) {
 		default:
 			// The name is the sender's own structure rather than a value, and an
 			// envelope has no operation-defined members for it to be data from:
-			// §4.4 gives the envelope two fields and P-003 owns what is inside
-			// signed.
-			return Envelope{}, fmt.Errorf("unknown envelope member %q — §4.4 has "+
-				"`signed` and `routing`", key)
+			// core-model.md §2.1 gives the envelope two members and no others,
+			// and P-003 owns what is inside signed.
+			return Envelope{}, fmt.Errorf("unknown envelope member %q — "+
+				"core-model.md §2.1 carries `signed` and `routing` and no "+
+				"others", key)
 		}
 	}
 	if !seenSigned {
-		return Envelope{}, fmt.Errorf("no `signed` member — §4.4")
+		return Envelope{}, fmt.Errorf("no `signed` member — core-model.md §2.1")
 	}
 
 	// §4.8's 2 KiB, over the part of the envelope it can reach. Post-parse

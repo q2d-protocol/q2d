@@ -1,6 +1,6 @@
 package q2d
 
-// digest = "sha256:" + lowercase_hex(SHA-256(bytes)) — P-002 §4.7.
+// digest = "sha256:" + lowercase_hex(SHA-256(bytes)) — serialization.md §5.
 //
 // The algorithm prefix is mandatory, so a digest is self-describing and a future
 // algorithm is additive rather than ambiguous. Changing the encoding changes
@@ -40,11 +40,11 @@ import (
 	"encoding/hex"
 )
 
-// Digest returns a digest of bytes, as §4.7 spells it.
+// Digest returns a digest of bytes, as serialization.md §5 spells it.
 func Digest(bytes []byte) string {
 	sum := sha256.Sum256(bytes)
-	// hex.EncodeToString is lowercase and fixed width, which is what §4.7 asks
-	// for: a formatter that dropped a leading zero would give a 63-character
-	// digest for one input in 256.
+	// hex.EncodeToString is lowercase and fixed width, which is what
+	// serialization.md §5 asks for: a formatter that dropped a leading zero
+	// would give a 63-character digest for one input in 256.
 	return "sha256:" + hex.EncodeToString(sum[:])
 }

@@ -2,6 +2,7 @@
   "id": "message/digest/received-bytes",
   "section": "message",
   "requirement": [
+    "serialization.md#5",
     "core-model.md#6"
   ],
   "description": "`request_digest`'s construction: the exact `signed` bytes of the query `message/sign/query-minimal` produces, digested as received. **The one digest with no re-serialization** — it is over bytes that arrived, so nothing about the production profile can affect it, which is why it is the digest a relay and a responder can compute alike.",

@@ -48,6 +48,19 @@ A message has an authoritative part and an optional advisory one.
 }
 ```
 
+**The envelope carries these two members and no others.** `signed` is required,
+`routing` is optional, and a member outside that set is **rejected** rather than
+ignored — `malformed`, at §4 step 1, before anything is allocated on it.
+
+It is closed for the reason [`crypto-suites.md`](crypto-suites.md) §3 closes the
+protected header, and the two should be read together: both are attacker-supplied
+data a verifier touches while it still has no signature to rely on. An ignored
+member is worse here than a rejected one, because the envelope is read by an
+intermediary *and* by a responder — a member one acts on and the other discards
+is a disagreement about what the message says, and the disagreement is the
+vulnerability rather than the field. A message needing more than these two is a
+new protocol version (§8), not a new member.
+
 **`signed`** carries the core object and its signature under a registered suite
 ([`crypto-suites.md`](crypto-suites.md)). The signature covers the exact bytes
 transmitted. There is nothing to canonicalize, and a verifier parses the core

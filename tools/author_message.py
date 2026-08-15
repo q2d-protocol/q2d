@@ -530,11 +530,16 @@ def envelope_vectors() -> list[dict]:
             "requirement": ["core-model.md#2.1", "core-model.md#5.2.1"],
             "description": (
                 "An envelope carrying a third member beside `signed` and "
-                "`routing`. §2.1 names two, and an unknown member **denies** "
-                "rather than being ignored: ignoring it makes the envelope an "
-                "extension point the specification does not have, and the first "
-                "thing to travel through one is a field a relay reads and a "
-                "responder does not."
+                "`routing`. §2.1 carries those two **and no others**, and an "
+                "unknown member denies rather than being ignored "
+                "([E-44](../docs/open-escalations.md)): the envelope is read by "
+                "an intermediary and by a responder alike, so a member one acts "
+                "on and the other discards is a disagreement about what the "
+                "message says — and the disagreement is the vulnerability "
+                "rather than the field. §2.1 closes it for the reason "
+                "`crypto-suites.md` §3 closes the protected header, which is "
+                "the same reason: both are attacker-supplied data read while "
+                "there is still no signature to rely on."
             ),
             "operation": "verify_query",
             "input": {"envelope_bytes_base64url": envelope_bytes(
@@ -604,7 +609,7 @@ def digest_vectors() -> list[dict]:
         {
             "id": "message/digest/received-bytes",
             "section": "message",
-            "requirement": ["core-model.md#6"],
+            "requirement": ["serialization.md#5", "core-model.md#6"],
             "description": (
                 "`request_digest`'s construction: the exact `signed` bytes of "
                 "the query `message/sign/query-minimal` produces, digested as "
@@ -621,7 +626,7 @@ def digest_vectors() -> list[dict]:
         {
             "id": "message/digest/empty-input",
             "section": "message",
-            "requirement": ["core-model.md#6"],
+            "requirement": ["serialization.md#5"],
             "description": (
                 "The empty input. No Q2D digest is taken over nothing, and that "
                 "is why this is here: it is the case a padding mistake reaches "
@@ -638,7 +643,7 @@ def digest_vectors() -> list[dict]:
         {
             "id": "message/digest/protocol-structure",
             "section": "message",
-            "requirement": ["core-model.md#6", "serialization.md#1"],
+            "requirement": ["serialization.md#5", "serialization.md#1"],
             "description": (
                 "A sub-object serialized under `serialization.md` §1 and then "
                 "digested — the query's `answer_contract`, which is what "
@@ -658,7 +663,7 @@ def digest_vectors() -> list[dict]:
         {
             "id": "message/digest/operation-data",
             "section": "message",
-            "requirement": ["serialization.md#3", "core-model.md#2.4"],
+            "requirement": ["serialization.md#3", "serialization.md#5", "core-model.md#2.4"],
             "description": (
                 "A public context digested **on its own**, carrying an "
                 "`issued_at` that is not a timestamp. Reached through a query "

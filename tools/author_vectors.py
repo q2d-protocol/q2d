@@ -553,7 +553,7 @@ def check_known_answers() -> None:
 
 
 def digest(raw: bytes) -> str:
-    """[P-002](../docs/prds/P-002-message-envelope.md) §4.7:
+    """[`serialization.md`](../spec/serialization.md) §5:
     `"sha256:" + lowercase_hex(SHA-256(bytes))`.
 
     `hashlib`, as `testdata/digests.txt` is, and for the same reason the

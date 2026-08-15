@@ -1,4 +1,4 @@
-//! `digest = "sha256:" + lowercase_hex(SHA-256(bytes))` — P-002 §4.7.
+//! `digest = "sha256:" + lowercase_hex(SHA-256(bytes))` — serialization.md §5.
 //!
 //! The algorithm prefix is mandatory, so a digest is self-describing and a
 //! future algorithm is additive rather than ambiguous. Changing the encoding
@@ -34,7 +34,7 @@
 //! rather than as two copies of the same mistake. That is the opposite of the
 //! serializer, where the standard library had behaviours the profile forbids.
 
-/// A digest of `bytes`, as §4.7 spells it.
+/// A digest of `bytes`, as serialization.md §5 spells it.
 pub fn digest(bytes: &[u8]) -> String {
     let mut out = String::with_capacity(7 + 64);
     out.push_str("sha256:");
@@ -193,7 +193,8 @@ mod tests {
             d,
             "sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
         );
-        // §4.7: the prefix is mandatory so the digest is self-describing.
+        // serialization.md §5: the prefix is mandatory so the digest is
+        // self-describing.
         assert!(d.starts_with("sha256:"));
         // 7 + 64. A `{:x}` that dropped a leading zero would be 63 for one
         // input in 256, which is the kind of defect that passes a spot check.

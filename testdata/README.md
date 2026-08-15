@@ -75,7 +75,7 @@ of one function agreeing.
 
 ## `digests.txt`
 
-P-002 §4.7's `"sha256:" + lowercase_hex(SHA-256(bytes))`, over every
+`serialization.md` §5's `"sha256:" + lowercase_hex(SHA-256(bytes))`, over every
 `.serialized` file here and over the empty input — the case a padding mistake
 reaches first.
 
