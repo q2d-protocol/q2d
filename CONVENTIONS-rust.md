@@ -57,11 +57,13 @@ decision and are conditions on it, not commentary:
    anyone, with no private key. `src/ed25519.rs` states the four rules Q2D
    accepts a signature under, and a test asserts the permissive rule accepts
    what Q2D refuses.
-2. **The criteria are written down where an implementer reads them**, in
-   `src/ed25519.rs`'s module header and in `CONVENTIONS-go.md` §2, rather than
-   left as "whatever the library does".
+2. **The criteria are written down where an implementer reads them** —
+   [`crypto-suites.md`](spec/crypto-suites.md) §3, which is `spec/` and
+   therefore governs, rather than left as "whatever the library does". They
+   started in this document and the module headers; Codex was right that a
+   third implementation reads `spec/` and would have picked its own edge cases.
 3. **A shared fixture holds both implementations to the same answers.**
-   [`testdata/ed25519-acceptance.txt`](testdata/README.md) — eight rows, each a
+   [`testdata/ed25519-acceptance.txt`](testdata/README.md) — ten rows, each a
    case RFC 8032 does not decide.
 
 `default-features = false` drops key *generation*, which needs an RNG and which

@@ -3,15 +3,17 @@
 // P-003 issue 1. See CONVENTIONS-go.md §2 for why this file has a dependency
 // when nothing else in the Go implementation does.
 //
-// # Which signatures verify, stated rather than inherited
+// # Which signatures verify
 //
-// "Ed25519" does not name one verification rule. RFC 8032 leaves choices open
-// and libraries take them differently, so two conforming implementations can
-// disagree about whether a given signature is valid — which for this project is
-// not a curiosity but a failure of the thing the two implementations exist to
-// demonstrate.
+// crypto-suites.md §3 states the rule; this file implements it. It is there
+// rather than here because "Ed25519" does not name one verification rule — RFC
+// 8032 leaves choices open and libraries take them differently, so a third
+// implementation building from spec/ alone would otherwise pick its own edge
+// cases and disagree with both of these about whether a message is authentic.
 //
-// Q2D accepts a signature exactly when all of these hold:
+// Repeated here because this is where the code is, and a reader checking the
+// code against the rule should not have to hold it in their head. The
+// specification governs; if these ever disagree, this comment is the bug:
 //
 //  1. The public key is 32 bytes and decodes to a point on the curve, with a
 //     canonical field encoding.

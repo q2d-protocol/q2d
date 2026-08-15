@@ -4201,12 +4201,28 @@ That second dependency is a consequence of pinning strict verification rather
 than a separate decision, and it is recorded here rather than left to be
 discovered in `go.mod`.
 
+### Where the criteria ended up, which was not where they started
+
+They went into the module headers and the two conventions documents first, and
+Codex was right that this was the wrong level: a third implementation builds
+from [`spec/`](../spec/), where `crypto-suites.md` §3 said *"Ed25519 (RFC
+8032)"* and nothing about which edge cases that admits. It would have picked its
+own and disagreed with both of ours about whether a message is authentic, while
+following the specification.
+
+So **`crypto-suites.md` §3 states the four rules**, and the modules implement
+them. This is [E-43](#e-43--the-production-profile-is-defined-in-a-prd-and-the-spec-cites-it-as-if-it-were-not)'s
+class a fourth time, and the fourth time it was caught before merge rather than
+four PRDs later. It is a `spec/` change made under this escalation's own second
+condition — *the acceptance criteria stated rather than inherited* — rather than
+a separate decision; if it belongs somewhere else, moving it is one commit.
+
 ### What was built
 
 `CONVENTIONS-rust.md` and `CONVENTIONS-go.md`, both new and both overdue —
 Stage 1 is where §6 says they belong. `src/ed25519.rs` and `ed25519.go`, each
 stating the four rules Q2D accepts a signature under.
-`testdata/ed25519-acceptance.txt`, eight rows, read by both.
+`testdata/ed25519-acceptance.txt`, ten rows, read by both.
 CI builds Rust `--locked`, because a build that silently resolved a different
 version of the crate would be green and the version is what was pinned.
 

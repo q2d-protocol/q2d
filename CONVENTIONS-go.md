@@ -55,12 +55,19 @@ filippo.io/edwards25519 v1.1.0
 It is there for one reason, and the reason is a cross-implementation
 disagreement rather than a convenience.
 
-`crypto/ed25519.Verify` implements three of the four rules Q2D accepts a
-signature under, and not the fourth: it does **not** reject a small-order public
-key. With `A = R = the identity point` and `S = 0`, the verification equation
-reduces to `identity = identity` and holds for *every* message — a universal
-forgery requiring no private key, which `crypto/ed25519` accepts and which
+`crypto/ed25519.Verify` implements two of the four rules
+[`crypto-suites.md`](spec/crypto-suites.md) §3 states, half of a third, and not
+the one that matters most here: it does **not** reject a small-order public key.
+With `A = R = the identity point` and `S = 0`, the verification equation reduces
+to `identity = identity` and holds for *every* message — a universal forgery
+requiring no private key, which `crypto/ed25519` accepts and which
 `ed25519-dalek`'s `verify_strict` refuses.
+
+The half it does not implement is the canonical field encoding in rule 1, and
+**neither library does** — `edwards25519.Point.SetBytes` and dalek's
+`VerifyingKey::from_bytes` accept the same non-canonical encodings. That one is
+a byte comparison in `canonicalPoint`, written identically in both languages, so
+the rule is one test rather than two libraries' opinions of it.
 
 Rust pins the strict rule ([E-47](docs/open-escalations.md)), so Go has to reach
 it too, and reaching it needs point arithmetic the standard library does not
@@ -74,7 +81,7 @@ needs its own completeness argument and one that is an entry short fails open.
 
 `ed25519.go`'s header states all four acceptance rules, and
 [`testdata/ed25519-acceptance.txt`](testdata/README.md) holds both
-implementations to the same answers on the eight cases RFC 8032 does not decide.
+implementations to the same answers on the ten cases RFC 8032 does not decide.
 
 **Adding a second dependency is an escalation**, not a commit.
 
