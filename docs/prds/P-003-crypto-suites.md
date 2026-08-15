@@ -224,7 +224,7 @@ in a message. There is no code path that derives it from received data.
 
 | Group | Vectors |
 |---|---|
-| `suite/rfc8032/` | Raw Ed25519 against RFC 8032 §7.1 known-answer vectors |
+| `suite/rfc8032/` | Raw Ed25519 against RFC 8032 §7.1 known-answer vectors. **Not authored as corpus vectors**, and this row is the record of why: a raw signature is not a Q2D operation, and [P-001](P-001-conformance-corpus.md) §4.5's vocabulary has no name for one. Adding a name is issue 17's, deliberately a single coordinated change. The known answers are a unit gate in both implementations instead, reading the same committed key material, and the cross-implementation half lives in `testdata/ed25519-acceptance.txt` where the other three-way fixtures are |
 | `suite/sign/` | JWS compact construction, byte-exact, over P-002 payloads |
 | `suite/verify/` | Valid, tampered payload, tampered header, tampered signature |
 | `suite/downgrade/` | Below-floor suite, unregistered suite, a header carrying `alg`, header/payload suite mismatch, header/payload key mismatch |
@@ -300,8 +300,8 @@ registry entry.
 
 | # | Issue | Done when |
 |---|---|---|
-| 1 | Ed25519 primitive wired to a vetted library, both languages | `suite/rfc8032/` passes; no hand-rolled curve arithmetic |
-| 2 | Base64url without padding, both languages | Round-trip property test; rejects padded input |
+| 1 | Ed25519 primitive wired to a vetted library, both languages | **Done.** [`src/ed25519.rs`](../../src/ed25519.rs) on `ed25519-dalek`, [`ed25519.go`](../../ed25519.go) on `crypto/ed25519` plus `filippo.io/edwards25519` — [E-47](../open-escalations.md), and `CONVENTIONS-{rust,go}.md` §2 carry the policy. **The acceptance rule is pinned, not inherited**, and that was not a formality: dalek's `verify_strict` and Go's `ed25519.Verify` disagree, and the case they disagree on is a *universal forgery* — `A = R =` the identity point with `S = 0` satisfies the verification equation for every message, with no private key, and the standard library accepts it. Go carries an explicit small-order check because of it, computed as `[8]P == identity` rather than looked up in a blacklist that would need its own completeness argument. The four rules are [`crypto-suites.md`](../../spec/crypto-suites.md) §3's — they were in the module headers first, and Codex was right that a third implementation reads `spec/` and would have picked its own edge cases. [`testdata/ed25519-acceptance.txt`](../../testdata/README.md) holds both implementations to the same answers on ten cases RFC 8032 does not decide. The RFC 8032 §7.1 gate reads its seeds from `conformance/keys/`, so it asserts the material the corpus signs with rather than a copy |
+| 2 | Base64url without padding, both languages | **Done.** [`src/base64url.rs`](../../src/base64url.rs) and [`base64url.go`](../../base64url.go), hand-written — `base64.RawURLEncoding` accepts non-canonical trailing bits, which RFC 4648 §3.5 permits and a signature does not. Refuses padding, the standard alphabet, a one-character group, and a non-zero trailing bit. The last is the one that matters: the signature segment is an input to nothing, so a second spelling of the same 64 bytes verifies while the `signed` string differs — one exchange, two `request_digest` values. `suite/verify/respelled-signature-segment` is that case, and `tools/author_vectors.py` has a third implementation so the corpus is not derived from either |
 | 3 | `registry/suites.json` format, file, and loader | Loads; status read from file; open question 1 resolved |
 | 4 | `SuitePolicy` construction from config | No constructor accepts message-derived input |
 | 5 | `sign` — compact JWS construction | `suite/sign/` byte-matches across implementations |
@@ -309,7 +309,7 @@ registry entry.
 | 7 | Header/payload suite agreement check | Mismatch vector rejects |
 | 8 | Status enforcement, both directions | `suite/status/` passes |
 | 9 | `resolve_key` interface plus a test-fixture implementation | Unresolvable key rejects; wire response identical to signature failure |
-| 10 | Test key material, RFC 8032-seeded | Committed, marked test-only, referenced by fixtures |
+| 10 | Test key material, RFC 8032-seeded | **Done before this PRD opened**, by [P-001](P-001-conformance-corpus.md) issue 10: `conformance/keys/ed25519-test-only.json`, three keypairs with RFC 8032 §7.1's known answers beside them. Issue 1's gate now reads from it rather than repeating the seeds, which a containment test in `test_keys.py` requires — it asserts no seed appears anywhere else in the repository, and it caught the first version of both `ed25519` modules doing the obvious thing |
 | 11 | Author `suite/` corpus section | Six groups present; `harness lint` clean |
 | 12 | Header-parameter attack vector | A header carrying weakening parameters is ignored, not honoured |
 | 13 | Suite value exposed for receipt construction | [P-011](P-011-receipts-audit.md) can record it without reaching into this module |

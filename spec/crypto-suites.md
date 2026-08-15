@@ -90,6 +90,44 @@ This is the default and the only suite an implementation must support to claim
 
 Signature size: 64 bytes. Public key: 32 bytes.
 
+#### Which signatures verify
+
+**"Ed25519" does not name one verification rule.** RFC 8032 leaves choices open,
+and implementations take them differently — so two verifiers can both be
+correct Ed25519 and disagree about whether a given signature is valid. A
+protocol that left the choice open would have agreement about the format and
+none about authenticity.
+
+Under `eddsa-jws-2026` a signature verifies **exactly when all of these hold**:
+
+1. The public key is 32 bytes, and its low 255 bits — the y-coordinate — are
+   **below `p = 2^255 − 19`**. It decodes to a point on the curve.
+2. The signature is 64 bytes. `R` satisfies the same encoding rule as the
+   public key; `S` is **below the group order `L`**.
+3. **Neither `A` nor `R` has small order** — `[8]A` and `[8]R` are not the
+   identity.
+4. The **cofactorless** verification equation holds:
+   `[S]B = R + [SHA-512(R ‖ A ‖ M) mod L]A`.
+
+Rules 1 to 3 are the ones widely-used libraries differ on, and each excludes a
+real case rather than a hypothetical one:
+
+- **A non-canonical field encoding.** `y` may be written as `y + p` for
+  nineteen values, twelve of which are points on the curve. A key is pinned by
+  its bytes, so two spellings of one point are two bindings for one signer, and
+  any comparison made on bytes sees two different keys.
+- **A non-canonical `S`.** `S` and `S + L` encode one scalar, so without rule 2
+  every signature has a second form that also verifies — and the `signed`
+  string a `request_digest` is taken over could be altered in transit while
+  still verifying (§6 of [`core-model.md`](core-model.md)).
+- **A small-order `A`.** With `A = R =` the identity point and `S = 0`, the
+  equation reduces to `identity = identity` and holds **for every message**:
+  a valid signature over anything, by anyone, with no private key.
+
+An implementation that inherits these from whatever library it uses has not
+implemented this suite. Widely-used libraries sit on both sides of rules 1 and
+3 — including, for rule 3, one standard library that accepts the forgery above.
+
 #### The protected header
 
 **Exactly two members, and no others:**

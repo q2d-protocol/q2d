@@ -12,3 +12,10 @@ keywords = ["protocol", "privacy", "agents", "mcp", "authorization"]
 categories = ["network-programming"]
 
 [dependencies]
+# The one dependency, and CONVENTIONS-rust.md §2 records why: hand-rolled curve
+# arithmetic is the single loudest "do not trust this" signal a security
+# protocol can send, and the acceptance rule this pins (`verify_strict`) is
+# what makes the two implementations agree about which signatures are valid.
+# `default-features = false` drops key *generation*, which needs an RNG and
+# which Q2D does not do: every key here is a fixed test seed.
+ed25519-dalek = { version = "3.0", default-features = false }

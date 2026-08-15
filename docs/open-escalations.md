@@ -18,8 +18,14 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** **E-36** through **E-45** all closed, every one raised
-> while building P-002's message layer.
+> **E-46 is open**, raised while building P-003 issue 2: §5.2.1 has no
+> `external_reason` for a `signed` string that is not a well-formed compact JWS.
+> `malformed` names steps 1 and 5, `structurally_invalid` requires that the
+> message *parsed*, and `unsupported_suite` cannot apply to a header that will
+> not decode. It blocks P-003 issue 6.
+>
+> **E-36** through **E-45** all closed, every one raised while building P-002's
+> message layer, and **E-47** with them.
 >
 > **E-44** and **E-45** are [E-43](#e-43--the-production-profile-is-defined-in-a-prd-and-the-spec-cites-it-as-if-it-were-not)'s
 > class, found by looking for more of it: the envelope's **closedness** and the
@@ -200,6 +206,8 @@ question is still fresh than after the answer arrives.
 | **E-43** | The deterministic production profile is defined in a PRD, and three artifacts above it cite it as if it were not | P-002 issue 10 | `serialization.md` (new) · `crypto-suites.md` §1–§3 · `core-model.md` preamble, §2.8, §3.2, §6 · `registry/manifest.json`, `registry/validate.py` · P-002 §4.1–§4.3, P-011 §4.2 · both implementations · corpus | **Closed** |
 | **E-44** | Is the envelope object closed, or may it carry unknown members? | P-002 issue 10 | `core-model.md` §2.1 · P-002 §4.4 · both implementations · `message/envelope/unknown-member` | **Closed** |
 | **E-45** | The digest string form is defined only in P-002 | P-002 issue 10 | `serialization.md` §5 (new) · P-002 §4.7 · P-011 §4.2 · both implementations · `testdata/` · `message/digest/` | **Closed** |
+| **E-46** | Which `external_reason` for a `signed` string that is not a well-formed compact JWS? | P-003 issue 2 | `core-model.md` §5.2.1 · P-003 §4.2, issue 6 · `suite/verify/` | **Open** |
+| **E-47** | Ed25519 in Rust needs a dependency policy, and there is no conventions document | P-003 issue 1 | `CONVENTIONS-rust.md`, `CONVENTIONS-go.md` (both new) · `Cargo.toml`, `go.mod` · both implementations · `testdata/ed25519-acceptance.txt` · CI | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -4095,6 +4103,134 @@ CC-11 already required *"the `core-model.md` §2.1 envelope as the request"*, so
 closing §2.1 tightened it by citation without a word changing there. The
 specification's version is unchanged: no behaviour moved, only which document
 states it.
+
+---
+
+## E-46 — Which `external_reason` for a `signed` string that is not a compact JWS?
+
+**Raised by** P-003 issue 2, while authoring
+`suite/verify/respelled-signature-segment`. **Open.**
+
+The envelope parses. `signed` turns out not to be a compact JWS — wrong number
+of segments, a header segment that is not base64url, a header that is not JSON,
+a header that is not an object. Every implementation must return something, and
+[`core-model.md`](../spec/core-model.md) §5.2.1's three candidates each exclude
+it by their own wording:
+
+| Value | Wording | Why it does not reach |
+|---|---|---|
+| `malformed` | *"Envelope malformed or oversized (step 1); or the **verified** core object malformed…(step 5)"* | The envelope parsed — P-002 §4.4 makes `signed` opaque there deliberately, with a test pinning it — and there is no verified core object |
+| `structurally_invalid` | *"The message **parses**, and what is wrong with it is neither a parse failure nor an authentication one"* | This did not parse |
+| `unsupported_suite` | step 3 | A suite cannot be read out of a header that will not decode |
+
+One sub-case *is* answerable and is authored: a signature segment that will not
+decode is an invalid signature, which is `unauthenticated` at step 4, and
+`suite/verify/respelled-signature-segment` asserts it. The header-side cases
+have nowhere to go.
+
+**Why it matters more than tidiness.** This is where JWT libraries historically
+diverge, and the divergence is itself the finding: differing values tell an
+attacker how far their input got through the parser. It is also a `harness
+cross` failure waiting to happen — if Rust picks one value and Go picks
+another, the corpus reports two implementations reading the specification
+differently and there is no text to say which is wrong.
+
+**Options:** **A** extend `malformed`, which is what a parse failure is
+everywhere else in the table but makes it the catch-all §5.2.1's split exists
+to avoid · **B** extend `structurally_invalid`, rewording it to be about *where*
+the fault is rather than whether it parsed, which is where the other header
+faults already live · **C** a seventh value, precise and an extra oracle bit for
+no action difference.
+
+**Recommendation: B.** Blocks P-003 issue 6.
+
+---
+
+## E-47 — Ed25519 in Rust needs a dependency policy
+
+**Raised by** P-003 issue 1, which asks for the primitive *"wired to a vetted
+library, both languages — no hand-rolled curve arithmetic."* Go satisfies that
+from its standard library. Rust has no crypto in `std`, and the crate carried
+**zero dependencies** as a stated position: `src/digest.rs` hand-writes SHA-256
+*"because its standard library has none and the crate takes no dependencies"*,
+and `src/bin/q2d-conform.rs` recorded dependency policy as *"a Stage 1 question
+and nothing here needs it answered."*
+
+[`mvp-scope.md`](mvp-scope.md) §6 puts that policy in
+`CONVENTIONS-{rust,go}.md`, *"written once, at Stage 1"*. Neither existed.
+
+## The options
+
+**A. `ed25519-dalek`, with strict verification pinned.** ✅ The de facto Rust
+implementation; documents precisely which signatures it accepts, and that
+written-down criterion is what cross-implementation agreement needs.
+
+**B. `ring`.** Audited and minimal, but assembly and C in the build and a larger
+surface than this needs.
+
+**C. Hand-write it**, gated on RFC 8032 plus an edge-case set. Keeps zero
+dependencies. Against: RFC 8032's vectors pass for implementations with timing
+leaks *and* for implementations that disagree about which signatures are valid,
+so the gate does not cover the two failures that matter. And hand-rolled curve
+arithmetic is the loudest "do not trust this" signal a security protocol can
+send.
+
+## Resolution — A, with three conditions
+
+Peter's decision, and the conditions are the decision rather than commentary:
+the acceptance rule pinned rather than inherited, the criteria stated where an
+implementer reads them, and a vector set proving Rust and Go agree on the cases
+RFC 8032 does not cover.
+
+**The third condition found something.** dalek's `verify_strict` and Go's
+`crypto/ed25519.Verify` disagree, and the disagreement is not an edge case in
+the harmless sense: with `A = R =` the identity point and `S = 0`, the
+verification equation reduces to `identity = identity` and holds **for every
+message**. It is a universal forgery requiring no private key, `verify_strict`
+refuses it, and the Go standard library **accepts** it.
+
+So Go could not simply call `ed25519.Verify`. It carries an explicit small-order
+check, computed as `[8]P == identity` rather than looked up in a blacklist of
+the eight encodings — a blacklist needs its own completeness argument and one
+that is an entry short fails open. That needs point arithmetic `crypto/ed25519`
+does not export, so **Go gains one dependency too**: `filippo.io/edwards25519`,
+which is the standard library's own implementation published separately by its
+author.
+
+That second dependency is a consequence of pinning strict verification rather
+than a separate decision, and it is recorded here rather than left to be
+discovered in `go.mod`.
+
+### Where the criteria ended up, which was not where they started
+
+They went into the module headers and the two conventions documents first, and
+Codex was right that this was the wrong level: a third implementation builds
+from [`spec/`](../spec/), where `crypto-suites.md` §3 said *"Ed25519 (RFC
+8032)"* and nothing about which edge cases that admits. It would have picked its
+own and disagreed with both of ours about whether a message is authentic, while
+following the specification.
+
+So **`crypto-suites.md` §3 states the four rules**, and the modules implement
+them. This is [E-43](#e-43--the-production-profile-is-defined-in-a-prd-and-the-spec-cites-it-as-if-it-were-not)'s
+class a fourth time, and the fourth time it was caught before merge rather than
+four PRDs later. It is a `spec/` change made under this escalation's own second
+condition — *the acceptance criteria stated rather than inherited* — rather than
+a separate decision; if it belongs somewhere else, moving it is one commit.
+
+### What was built
+
+`CONVENTIONS-rust.md` and `CONVENTIONS-go.md`, both new and both overdue —
+Stage 1 is where §6 says they belong. `src/ed25519.rs` and `ed25519.go`, each
+stating the four rules Q2D accepts a signature under.
+`testdata/ed25519-acceptance.txt`, ten rows, read by both.
+CI builds Rust `--locked`, because a build that silently resolved a different
+version of the crate would be green and the version is what was pinned.
+
+**Checked and unchanged:** `claims.md`. Q2D-C-05 and Q2D-C-06 are qualified by
+*"the suite in force and the verifier's minimum acceptable policy"* already, and
+this decision is what implements that qualification rather than a change to it.
+No claim is made about timing or physical side channels, and both modules say so
+rather than leaving the silence to be read either way.
 
 ---
 

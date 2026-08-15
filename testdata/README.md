@@ -73,6 +73,42 @@ and Go's. That makes this a **two-way** agreement with an independently authored
 expectation, which is a different and stronger thing than three implementations
 of one function agreeing.
 
+## `ed25519-acceptance.txt`
+
+Ten rows, each a case where "Ed25519" alone does not decide the answer. RFC
+8032 leaves the choice open, libraries take it differently, and two
+implementations that disagreed here would disagree about whether a message is
+authentic **while both passing RFC 8032's own vectors** — which is exactly the
+failure the two implementations exist to detect rather than to produce.
+
+Columns: name, public key, signature, message (`-` for empty), and whether Q2D
+accepts it. The four rules are
+[`crypto-suites.md`](../spec/crypto-suites.md) §3's; this file is the evidence
+that both implementations reach them.
+
+Four rows are the ones that pay for the file:
+
+- **`s-plus-l`** — `S` and `S + L` encode one scalar, so without the canonical
+  check every signature has a twin that verifies, and a `signed` string can be
+  altered in transit and still verify.
+- **`a-above-the-field-order`** — `y = p + 3`, which is above the field order
+  and still a point on the curve. `ed25519-dalek` and `filippo.io/edwards25519`
+  **both accept it**, so this is not a difference between the two
+  implementations but a rule neither of them applies. Q2D applies it in bytes,
+  in both, so that the two run the identical test rather than two libraries'
+  opinions of it.
+- **`identity-forgery-empty`** and **`identity-forgery-message`** — `A = R =`
+  the identity point with `S = 0` satisfies the equation for *every* message.
+  It is a valid signature over anything, by anyone, with no private key.
+  Go's `crypto/ed25519.Verify` **accepts** it; `ed25519-dalek`'s
+  `verify_strict` refuses it. That difference is why `ed25519.go` carries an
+  explicit small-order check rather than calling the standard library alone.
+
+A **two-way** agreement, unlike `digests.txt`. Python signs but does not verify,
+so it cannot hold an opinion about which signatures are acceptable; it authored
+the cases instead, which is a different and weaker kind of independence and is
+worth saying rather than implying.
+
 ## `digests.txt`
 
 `serialization.md` §5's `"sha256:" + lowercase_hex(SHA-256(bytes))`, over every
