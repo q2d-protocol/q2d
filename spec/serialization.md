@@ -72,12 +72,15 @@ managing it. Adding such a field is an escalation, not a schema change.
 ## 2. Parsing
 
 **A verifier must not require this profile of what it reads.** It verifies a
-signature over the received bytes and parses them afterwards, so whitespace, key
-order, and every other production choice are outside its concern — it never
-re-derives the bytes, and nothing it could conclude from how they were spelled
-would be authenticated. A verifier that re-serializes a parsed value in order to
-check a signature has reintroduced the dependency the envelope design exists to
-remove.
+signature over the received bytes and parses them afterwards. The signature
+covers the spelling along with everything else, but nothing in the model reads
+anything from it: a payload with whitespace between tokens, or keys in another
+order, is a valid payload, and a verifier that rejected it would reject a
+conforming implementation's output. §1 binds producers; it is not a property a
+reader may require.
+
+A verifier that re-serializes a parsed value in order to check a signature has
+reintroduced the dependency the envelope design exists to remove.
 
 Everything below is about reading a **Q2D structure** — a payload, a receipt, a
 `routing` object, a registry entry. A file an implementation reads for its own
