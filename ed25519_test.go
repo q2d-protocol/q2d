@@ -188,6 +188,36 @@ func TestASmallOrderKeyIsRefusedBeforeItIsAKey(t *testing.T) {
 	}
 }
 
+func TestANonCanonicalFieldEncodingIsRefused(t *testing.T) {
+	// Rule 1's other half. y + p for the twelve values above p that are still
+	// points on the curve — both libraries accept these, so this is the rule Q2D
+	// applies that neither of its dependencies does.
+	above := fieldOrder
+	above[0] += 3 // y = p + 3
+	if _, err := NewPublicKey(above[:]); err == nil {
+		t.Error("a non-canonical public key was accepted")
+	}
+
+	// And in R, where it reaches Verify rather than key construction.
+	key, _ := NewPrivateKey(knownAnswers(t)[0].seed)
+	signature := key.Sign(nil)
+	forged := append(append([]byte(nil), above[:]...), signature[32:]...)
+	if err := Verify(key.PublicKey(), nil, forged); err == nil {
+		t.Error("a non-canonical R was accepted")
+	}
+
+	// The boundary: y = p - 1 is the largest canonical value and must not be
+	// caught by a rule written with <= where it needs <.
+	largest := fieldOrder
+	largest[0]--
+	if !canonicalPoint(largest[:]) {
+		t.Error("p - 1 must be canonical")
+	}
+	if canonicalPoint(fieldOrder[:]) {
+		t.Error("p must not be canonical")
+	}
+}
+
 func TestAcceptanceDiffersFromTheStandardLibrary(t *testing.T) {
 	// The whole reason this file exists rather than a call to ed25519.Verify.
 	// Under the standard library's rule the identity forgery is a valid

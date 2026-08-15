@@ -51,7 +51,7 @@ func TestEveryRowOfTheAcceptanceTableHolds(t *testing.T) {
 		rows++
 	}
 	// A table that failed to load would pass every assertion above.
-	if rows != 8 {
+	if rows != 10 {
 		t.Errorf("the fixture lost a row: %d", rows)
 	}
 }

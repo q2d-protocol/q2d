@@ -86,11 +86,17 @@ accepts it. The four rules are stated in [`src/ed25519.rs`](../src/ed25519.rs)
 and [`ed25519.go`](../ed25519.go); this file is the evidence that both reach
 them.
 
-Three rows are the ones that pay for the file:
+Four rows are the ones that pay for the file:
 
 - **`s-plus-l`** — `S` and `S + L` encode one scalar, so without the canonical
   check every signature has a twin that verifies, and a `signed` string can be
   altered in transit and still verify.
+- **`a-above-the-field-order`** — `y = p + 3`, which is above the field order
+  and still a point on the curve. `ed25519-dalek` and `filippo.io/edwards25519`
+  **both accept it**, so this is not a difference between the two
+  implementations but a rule neither of them applies. Q2D applies it in bytes,
+  in both, so that the two run the identical test rather than two libraries'
+  opinions of it.
 - **`identity-forgery-empty`** and **`identity-forgery-message`** — `A = R =`
   the identity point with `S = 0` satisfies the equation for *every* message.
   It is a valid signature over anything, by anyone, with no private key.

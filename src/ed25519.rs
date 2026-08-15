@@ -23,9 +23,14 @@
 //! 4. The cofactorless verification equation holds:
 //!    `[S]B = R + [SHA-512(R ‖ A ‖ M) mod L]A`.
 //!
-//! Rules 2 and 3 are the ones that are optional elsewhere, and each of them
-//! decides a real case:
+//! Rules 1, 2 and 3 are the ones that are optional elsewhere, and each decides
+//! a real case:
 //!
+//! - **A non-canonical field encoding.** `y` may be written as `y + p` for
+//!   nineteen values, twelve of which are points on the curve. Both libraries
+//!   accept them — this is not a difference between the two implementations but
+//!   a rule neither was applying, and it is applied here, in bytes, so that
+//!   both run the identical test.
 //! - **Non-canonical `S`.** `S` and `S + L` are two encodings of one scalar.
 //!   Without the check, every signature has a second form that verifies, and a
 //!   `signed` string can be altered in transit while still verifying — a
@@ -48,6 +53,41 @@
 //! `claims.md` has no such claim and this module does not create one.
 
 use ed25519_dalek::{Signature, Signer, SigningKey, VerifyingKey};
+
+/// Is a compressed point's field element canonically encoded?
+///
+/// A compressed Edwards point is the y-coordinate in the low 255 bits and the
+/// sign of x in the top one. Canonical means `y < p`, and `p = 2^255 - 19`
+/// leaves exactly nineteen values above it — twelve of which decode to a point
+/// on the curve, so this is not a theoretical set.
+///
+/// **Neither library enforces this.** `ed25519-dalek` accepts a non-canonical
+/// `A`, and so does `filippo.io/edwards25519`, and they accept the same ones —
+/// so this is not a divergence between the two implementations but a rule
+/// stated in both module headers that neither was applying. Written as a byte
+/// comparison rather than reached for through a curve library, so that Rust and
+/// Go run the identical test rather than two libraries' opinions of it.
+///
+/// It matters because a key is pinned as bytes. Two spellings of one point are
+/// two `key_id` bindings for one signer, and any comparison made on bytes
+/// rather than on points sees two different keys.
+fn canonical_point(encoded: &[u8; 32]) -> bool {
+    // p = 2^255 - 19, little-endian, with the sign bit masked off.
+    let mut y = *encoded;
+    y[31] &= 0x7f;
+    // Compare against p from the top down.
+    const P: [u8; 32] = [
+        0xed, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+        0xff, 0x7f,
+    ];
+    for i in (0..32).rev() {
+        if y[i] != P[i] {
+            return y[i] < P[i];
+        }
+    }
+    false // y == p is not below it
+}
 
 /// Why a signature is not acceptable.
 ///
@@ -84,6 +124,9 @@ impl PublicKey {
     /// Decode a 32-byte public key, refusing anything rules 1 and 3 exclude.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, SignatureInvalid> {
         let array: [u8; 32] = bytes.try_into().map_err(|_| SignatureInvalid)?;
+        if !canonical_point(&array) {
+            return Err(SignatureInvalid);
+        }
         let key = VerifyingKey::from_bytes(&array).map_err(|_| SignatureInvalid)?;
         // `is_weak` is dalek's name for small order. Checked here as well as by
         // `verify_strict` below, so that a caller holding a `PublicKey` knows
@@ -123,6 +166,15 @@ impl PrivateKey {
 /// Verify `signature` over `message` under `key`, against the four rules above.
 pub fn verify(key: &PublicKey, message: &[u8], signature: &[u8]) -> Result<(), SignatureInvalid> {
     let array: [u8; 64] = signature.try_into().map_err(|_| SignatureInvalid)?;
+    // `R` is canonical for the same reason `A` is, and neither library checks
+    // it. Unlike `A`, a non-canonical `R` does not survive verification anyway
+    // — `R` is hashed as the bytes it arrived as, so a different spelling is a
+    // different challenge — but the rule is stated, so it is applied where it
+    // is stated rather than left to hold by accident somewhere else.
+    let r: [u8; 32] = array[..32].try_into().expect("32 of 64");
+    if !canonical_point(&r) {
+        return Err(SignatureInvalid);
+    }
     // `Signature::from_bytes` is infallible in dalek 3; `verify_strict` is what
     // enforces canonical `S` and rejects a small-order `R`. Calling `verify`
     // here instead would accept the identity forgery.
@@ -298,6 +350,35 @@ mod tests {
         for point in [IDENTITY, ORDER_TWO] {
             assert!(PublicKey::from_bytes(&hex(point)).is_err(), "{point}");
         }
+    }
+
+    #[test]
+    fn a_non_canonical_field_encoding_is_refused() {
+        // Rule 1's other half. `y + p` for the twelve values above `p` that are
+        // still points on the curve — both libraries accept these, so this is
+        // the rule Q2D applies that neither of its dependencies does.
+        let p = [
+            0xed, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+            0xff, 0xff, 0xff, 0x7f,
+        ];
+        let mut above = p;
+        above[0] += 3; // y = p + 3
+        assert!(PublicKey::from_bytes(&above).is_err());
+
+        // And in `R`, where it reaches `verify` rather than key construction.
+        let key = PrivateKey::from_seed(&known_answers()[0].0).unwrap();
+        let signature = key.sign(b"");
+        let mut forged = signature;
+        forged[..32].copy_from_slice(&above);
+        assert!(verify(&key.public_key(), b"", &forged).is_err());
+
+        // The boundary: `y = p - 1` is the largest canonical value and must not
+        // be caught by a rule written with `<=` where it needs `<`.
+        let mut largest = p;
+        largest[0] -= 1;
+        assert!(canonical_point(&largest), "p - 1 is canonical");
+        assert!(!canonical_point(&p), "p is not");
     }
 
     #[test]

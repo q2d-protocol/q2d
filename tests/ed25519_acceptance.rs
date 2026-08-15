@@ -52,5 +52,5 @@ fn every_row_of_the_acceptance_table_holds() {
         rows += 1;
     }
     // A table that failed to load would pass every assertion above.
-    assert_eq!(rows, 8, "the fixture lost a row");
+    assert_eq!(rows, 10, "the fixture lost a row");
 }

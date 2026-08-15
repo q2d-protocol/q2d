@@ -22,9 +22,18 @@
 //  4. The cofactorless verification equation holds:
 //     [S]B = R + [SHA-512(R ‖ A ‖ M) mod L]A.
 //
-// # Rule 3 is why crypto/ed25519 is not enough on its own
+// # Rules 1 and 3 are why crypto/ed25519 is not enough on its own
 //
-// crypto/ed25519.Verify implements rules 1, 2 and 4 and **not** rule 3. With
+// It implements rule 2 and rule 4, half of rule 1 — the point decodes — and
+// neither the canonical-encoding half nor rule 3.
+//
+// The canonical half: y may be written as y + p for nineteen values, twelve of
+// which are points on the curve. edwards25519 and ed25519-dalek both accept
+// them, so that one is not a difference between the two implementations but a
+// rule neither was applying. canonicalPoint applies it, in bytes, so both run
+// the identical test.
+//
+// Rule 3 is the one where the two libraries genuinely differ. With
 // A = R = the identity point and S = 0, the equation reduces to
 // identity = identity and holds for every message: a universal forgery
 // requiring no private key, which Verify accepts and ed25519-dalek's
@@ -77,6 +86,46 @@ type PrivateKey struct {
 	key ed25519.PrivateKey
 }
 
+// fieldOrder is p = 2^255 - 19, little-endian.
+var fieldOrder = [32]byte{
+	0xed, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x7f,
+}
+
+// canonicalPoint reports whether a compressed point's field element is
+// canonically encoded.
+//
+// A compressed Edwards point is the y-coordinate in the low 255 bits and the
+// sign of x in the top one. Canonical means y < p, and p = 2^255 - 19 leaves
+// exactly nineteen values above it — twelve of which decode to a point on the
+// curve, so this is not a theoretical set.
+//
+// Neither library enforces this. edwards25519.Point.SetBytes accepts a
+// non-canonical encoding, and so does ed25519-dalek, and they accept the same
+// ones — so this is not a divergence between the two implementations but a rule
+// stated in both module headers that neither was applying. Written as a byte
+// comparison rather than reached for through the curve library, so that Go and
+// Rust run the identical test rather than two libraries' opinions of it.
+//
+// It matters because a key is pinned as bytes. Two spellings of one point are
+// two key_id bindings for one signer, and any comparison made on bytes rather
+// than on points sees two different keys.
+func canonicalPoint(encoded []byte) bool {
+	if len(encoded) != 32 {
+		return false
+	}
+	var y [32]byte
+	copy(y[:], encoded)
+	y[31] &= 0x7f
+	for i := 31; i >= 0; i-- {
+		if y[i] != fieldOrder[i] {
+			return y[i] < fieldOrder[i]
+		}
+	}
+	return false // y == p is not below it
+}
+
 // smallOrder reports whether an encoded point has order dividing 8, i.e.
 // whether [8]P is the identity. An encoding that is not a point at all is
 // reported as an error, which callers treat the same way.
@@ -92,7 +141,7 @@ func smallOrder(encoded []byte) (bool, error) {
 // NewPublicKey decodes a 32-byte public key, refusing anything rules 1 and 3
 // exclude.
 func NewPublicKey(raw []byte) (PublicKey, error) {
-	if len(raw) != ed25519.PublicKeySize {
+	if len(raw) != ed25519.PublicKeySize || !canonicalPoint(raw) {
 		return PublicKey{}, ErrSignatureInvalid
 	}
 	weak, err := smallOrder(raw)
@@ -136,9 +185,12 @@ func Verify(key PublicKey, message, signature []byte) error {
 	if len(key.bytes) != ed25519.PublicKeySize || len(signature) != ed25519.SignatureSize {
 		return ErrSignatureInvalid
 	}
-	// Rule 3 for R. A was checked when the key was built; checking it again
-	// here would be free, and is left out so that there is one place a key is
-	// admitted rather than two rules to keep in step.
+	// Rules 1 and 3 for R. A was checked when the key was built; checking it
+	// again here would be free, and is left out so that there is one place a
+	// key is admitted rather than two rules to keep in step.
+	if !canonicalPoint(signature[:32]) {
+		return ErrSignatureInvalid
+	}
 	weak, err := smallOrder(signature[:32])
 	if err != nil || weak {
 		return ErrSignatureInvalid
