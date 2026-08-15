@@ -55,13 +55,45 @@ func (s SuiteStatus) MayVerify() bool {
 }
 
 // SuiteEntry is one registry entry.
+//
+// Its fields are not exported, and that is load-bearing. SignCompact takes an
+// entry rather than an identifier so that crypto-suites.md §6's producing rule
+// cannot be bypassed by naming a suite — and that only holds if an entry cannot
+// be built. With exported fields a caller could write
+// SuiteEntry{ID: "withdrawn-suite", Status: SuiteActive} and sign under it,
+// which is the check restated rather than enforced.
+//
+// So the only origin is SuiteRegistry.Resolve, exactly as Routing's only origin
+// is the projection (P-002 §4.5). The honest limit is the same one P-002 §8
+// records: code inside this package can still construct one, and what the type
+// removes is the accident rather than the determined bypass.
 type SuiteEntry struct {
-	ID            string
-	Algorithm     string
-	Serialization string
-	Hash          string
-	Status        SuiteStatus
+	id            string
+	algorithm     string
+	serialization string
+	hash          string
+	status        SuiteStatus
 }
+
+// ID returns the suite identifier — the value a receipt records
+// (crypto-suites.md §5), and P-003 issue 13's whole seam.
+func (e SuiteEntry) ID() string { return e.id }
+
+// Status returns what may be done with this suite.
+func (e SuiteEntry) Status() SuiteStatus { return e.status }
+
+// Algorithm returns the algorithm as the registry describes it. Descriptive:
+// nothing selects a verification path from this string — §4.2 step 3 takes
+// parameters from the entry the identifier resolved to, never from text in a
+// message.
+func (e SuiteEntry) Algorithm() string { return e.algorithm }
+
+// Serialization returns how signed bytes are derived, as the registry describes
+// it.
+func (e SuiteEntry) Serialization() string { return e.serialization }
+
+// Hash returns the hash, where the algorithm does not fix one.
+func (e SuiteEntry) Hash() string { return e.hash }
 
 // SuiteRegistry is a loaded registry.
 type SuiteRegistry struct {
@@ -162,14 +194,14 @@ func LoadSuiteRegistry(raw []byte) (SuiteRegistry, error) {
 			}
 		}
 
-		entry := SuiteEntry{ID: id, Status: status}
+		entry := SuiteEntry{id: id, status: status}
 		for _, field := range []struct {
 			name string
 			into *string
 		}{
-			{"algorithm", &entry.Algorithm},
-			{"serialization", &entry.Serialization},
-			{"hash", &entry.Hash},
+			{"algorithm", &entry.algorithm},
+			{"serialization", &entry.serialization},
+			{"hash", &entry.hash},
 		} {
 			value, err := registryText(suite, field.name)
 			if err != nil {

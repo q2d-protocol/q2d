@@ -154,7 +154,7 @@ func TestASuiteThatMayNotProduceRefusesToSign(t *testing.T) {
 	// regardless, because production is where a deprecated suite stops.
 	entry := testSuiteEntry(t)
 	for _, status := range []SuiteStatus{SuiteDeprecated, SuiteWithdrawn} {
-		entry.Status = status
+		entry.status = status
 		if _, err := SignCompact([]byte("{}"), signingKey(t), entry, "test-requester-1"); err == nil {
 			t.Errorf("%s signed", status)
 		}

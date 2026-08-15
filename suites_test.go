@@ -24,11 +24,14 @@ func TestTheReferenceRegistryCarriesTheMandatorySuite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("registered: %v", err)
 	}
-	if entry.Status != SuiteActive {
-		t.Errorf("status = %q", entry.Status)
+	if entry.Status() != SuiteActive {
+		t.Errorf("status = %q", entry.Status())
 	}
-	if !strings.Contains(entry.Algorithm, "Ed25519") {
-		t.Errorf("algorithm = %q", entry.Algorithm)
+	if !strings.Contains(entry.Algorithm(), "Ed25519") {
+		t.Errorf("algorithm = %q", entry.Algorithm())
+	}
+	if entry.ID() != "eddsa-jws-2026" {
+		t.Errorf("id = %q", entry.ID())
 	}
 }
 
@@ -42,10 +45,10 @@ func TestStatusComesFromTheFile(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 	entry, _ := registry.Resolve("x")
-	if entry.Status.MayProduce() {
+	if entry.Status().MayProduce() {
 		t.Error("a deprecated suite may not produce")
 	}
-	if !entry.Status.MayVerify() {
+	if !entry.Status().MayVerify() {
 		t.Error("a deprecated suite must still verify")
 	}
 }

@@ -54,7 +54,7 @@ type SuitePolicy struct {
 // when a message arrives.
 func meetsFloor(registry SuiteRegistry, id string) bool {
 	entry, err := registry.Resolve(id)
-	return err == nil && entry.Status.MayVerify()
+	return err == nil && entry.status.MayVerify()
 }
 
 // NewSuitePolicy builds a policy from configuration.

@@ -54,13 +54,55 @@ impl SuiteStatus {
 }
 
 /// One registry entry.
+///
+/// **Its fields are not public, and that is load-bearing.** [`crate::sign`]
+/// takes an entry rather than an identifier so that `crypto-suites.md` §6's
+/// producing rule cannot be bypassed by naming a suite — and that only holds if
+/// an entry cannot be *built*. With public fields a caller could write
+/// `SuiteEntry { id: "withdrawn-suite", status: Active, .. }` and sign under it,
+/// which is the check restated rather than enforced.
+///
+/// So the only origin is [`SuiteRegistry::resolve`], exactly as `Routing`'s only
+/// origin is the projection (P-002 §4.5). The honest limit is the same one P-002
+/// §8 records: code *inside* this crate can still construct one, and what the
+/// type removes is the accident rather than the determined bypass.
 #[derive(Debug, Clone)]
 pub struct SuiteEntry {
-    pub id: String,
-    pub algorithm: String,
-    pub serialization: String,
-    pub hash: String,
-    pub status: SuiteStatus,
+    pub(crate) id: String,
+    pub(crate) algorithm: String,
+    pub(crate) serialization: String,
+    pub(crate) hash: String,
+    pub(crate) status: SuiteStatus,
+}
+
+impl SuiteEntry {
+    /// The suite identifier — the value a receipt records
+    /// (`crypto-suites.md` §5), and P-003 issue 13's whole seam.
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// What may be done with this suite.
+    pub fn status(&self) -> SuiteStatus {
+        self.status
+    }
+
+    /// The algorithm as the registry describes it. Descriptive: nothing selects
+    /// a verification path from this string — §4.2 step 3 takes parameters from
+    /// the entry the *identifier* resolved to, never from text in a message.
+    pub fn algorithm(&self) -> &str {
+        &self.algorithm
+    }
+
+    /// How signed bytes are derived, as the registry describes it.
+    pub fn serialization(&self) -> &str {
+        &self.serialization
+    }
+
+    /// The hash, where the algorithm does not fix one.
+    pub fn hash(&self) -> &str {
+        &self.hash
+    }
 }
 
 /// A loaded registry.
@@ -255,8 +297,9 @@ mod tests {
     fn the_reference_registry_loads_and_carries_the_mandatory_suite() {
         let registry = reference();
         let entry = registry.resolve("eddsa-jws-2026").expect("registered");
-        assert_eq!(entry.status, SuiteStatus::Active);
-        assert!(entry.algorithm.contains("Ed25519"));
+        assert_eq!(entry.status(), SuiteStatus::Active);
+        assert!(entry.algorithm().contains("Ed25519"));
+        assert_eq!(entry.id(), "eddsa-jws-2026");
     }
 
     #[test]
@@ -268,8 +311,8 @@ mod tests {
             "hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"deprecated"}]}"#;
         let registry = SuiteRegistry::load(deprecated.as_bytes()).unwrap();
         let entry = registry.resolve("x").unwrap();
-        assert!(!entry.status.may_produce());
-        assert!(entry.status.may_verify());
+        assert!(!entry.status().may_produce());
+        assert!(entry.status().may_verify());
     }
 
     #[test]

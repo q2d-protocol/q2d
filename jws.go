@@ -52,14 +52,14 @@ func protectedHeader(suite, keyID string) Value {
 // exist somewhere else and be forgotten here. Resolving the suite is how you get
 // an entry, so the status is in hand by construction.
 func SignCompact(payload []byte, key PrivateKey, suite SuiteEntry, keyID string) (string, error) {
-	if !suite.Status.MayProduce() {
+	if !suite.status.MayProduce() {
 		// The asymmetry in §6: this same suite may still verify. Refusing here
 		// and not there is the whole point, because receipts signed under it
 		// remain evidence.
 		return "", fmt.Errorf("`%s` may not be produced under: crypto-suites.md "+
-			"§6 permits production under an active suite only", suite.ID)
+			"§6 permits production under an active suite only", suite.id)
 	}
-	header, err := Serialize(protectedHeader(suite.ID, keyID))
+	header, err := Serialize(protectedHeader(suite.id, keyID))
 	if err != nil {
 		return "", fmt.Errorf("the protected header does not serialize: %w", err)
 	}
