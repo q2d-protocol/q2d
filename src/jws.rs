@@ -114,6 +114,11 @@ pub fn sign(
     ))
 }
 
+// `segments` and `verify_compact` have no caller inside the crate yet: P-003
+// issue 6 is the caller, and it is blocked on E-46. Allowed rather than
+// exported, because exporting it to silence a warning is how the half-verifier
+// becomes public by accident.
+#[allow(dead_code)]
 /// Split a compact serialization into its three segments.
 ///
 /// Structural only — nothing here verifies anything, and a caller that used the
@@ -151,6 +156,7 @@ fn segments(compact: &str) -> Result<(&str, &str, &str), SignatureInvalid> {
 /// what a malformed one produces. Doing the cryptographic half now leaves issue
 /// 6 as the ordering and the policy rather than the ordering, the policy and
 /// the mathematics.
+#[allow(dead_code)]
 pub(crate) fn verify_compact(compact: &str, key: &PublicKey) -> Result<Vec<u8>, SignatureInvalid> {
     let (header, payload, signature) = segments(compact)?;
     // **All three segments must be base64url**, including the one this function

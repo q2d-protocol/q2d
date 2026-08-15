@@ -229,11 +229,14 @@ impl SuiteRegistry {
 
     /// Load a registry whose digest a verifier has pinned.
     ///
-    /// **The digest is checked before the bytes are parsed**, which is the same
-    /// ordering `core-model.md` §4 applies to a signature: an unpinned file is
-    /// attacker-controlled input, and parsing it first would run this module's
-    /// parser over bytes nobody vouched for to learn something the digest
-    /// already decided.
+    /// **The digest is checked before the bytes are parsed.** The nearest thing
+    /// in `core-model.md` §4 is step 5's boundary — the *verified* core object
+    /// is what gets parsed — and the analogy stops there: §4 deliberately reads
+    /// the protected header at step 3, before anything is authenticated,
+    /// because a verifier must know which suite to verify with. So this is not
+    /// "§4 forbids parsing before authentication"; it is a fail-closed choice
+    /// available here and not there. Nothing in this file has to be read before
+    /// the digest can be computed, so nothing is.
     ///
     /// A mismatch is fatal to startup rather than a warning. §4.3's reason is
     /// that a file deciding which algorithms a verifier accepts is the last one
