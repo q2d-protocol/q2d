@@ -403,11 +403,27 @@ to be profile-conformant cannot distinguish a correct verifier from one that
 re-serializes.
 
 **Every box is unticked and every one of them now has its vector.** Each says
-*both implementations*, and a runner is what puts a vector to an implementation —
-[P-001](P-001-conformance-corpus.md) issue 19. What this PRD could build is
-built; what these boxes wait on is not this PRD's to land. Ticking them off the
-mirrored unit tests instead would say the corpus had been run when it has not,
-which is the overstatement this repository is most careful about.
+*both implementations*, and what puts a vector to an implementation is a runner
+that answers it. Both runners exist and both answer `error` to everything —
+[`conformance/RUNNER-CONTRACT.md`](../../conformance/RUNNER-CONTRACT.md) is
+explicit that adding behaviour to them is a deliberate act rather than a
+consequence.
+
+**Not [P-001](P-001-conformance-corpus.md) issue 19.** That is cross-verification
+— A's artefact put to B — and P-001 says in terms that P-002 §7 does not need it:
+byte agreement over `message/` is what `harness cross` already does, and issue 9
+delivered that. The dependency here is narrower and different.
+
+**Of the three operations this section uses, this PRD owns one.** `digest` is
+answerable from what is built. `sign_query` and `verify_query` are not: signing
+and verifying are [P-003](P-003-crypto-suites.md)'s, so seventeen of the
+twenty-two vectors cannot be answered by anything P-002 delivers. That is why no
+issue here owns wiring the runner — it is Stage 1 work spanning both PRDs, and
+[`mvp-scope.md`](../mvp-scope.md) Stage 1 is where the two meet.
+
+Ticking these off the mirrored unit tests instead would say the corpus had been
+run when it has not, which is the overstatement this repository is most careful
+about.
 
 The nearest thing to evidence today is [`testdata/`](../../testdata/README.md):
 three serializers, no shared code, held to the same bytes, plus the digests over
