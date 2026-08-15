@@ -65,7 +65,7 @@ func TestSigningIsDeterministicAndRoundTrips(t *testing.T) {
 	if first != second {
 		t.Error("two signings of one payload differ")
 	}
-	got, err := VerifyCompact(first, key.PublicKey())
+	got, err := verifyCompact(first, key.PublicKey())
 	if err != nil || !bytes.Equal(got, payload) {
 		t.Errorf("round trip: %x, %v", got, err)
 	}
@@ -97,7 +97,7 @@ func TestAWrongSegmentCountIsRefused(t *testing.T) {
 		compact + ".extra",                   // four
 		"",
 	} {
-		if _, err := VerifyCompact(broken, key.PublicKey()); err == nil {
+		if _, err := verifyCompact(broken, key.PublicKey()); err == nil {
 			t.Errorf("%q was accepted", broken)
 		}
 	}
@@ -108,7 +108,7 @@ func TestATamperedPayloadIsRefused(t *testing.T) {
 	compact, _ := SignCompact([]byte(`{"a":1}`), key, testSuiteEntry(t), "test-requester-1")
 	header, _, signature, _ := compactSegments(compact)
 	swapped := header + "." + EncodeBase64URL([]byte(`{"a":2}`)) + "." + signature
-	if _, err := VerifyCompact(swapped, key.PublicKey()); err == nil {
+	if _, err := verifyCompact(swapped, key.PublicKey()); err == nil {
 		t.Error("accepted")
 	}
 }
@@ -121,7 +121,7 @@ func TestATamperedHeaderIsRefused(t *testing.T) {
 	_, payload, signature, _ := compactSegments(compact)
 	other, _ := Serialize(protectedHeader("eddsa-jws-2026", "test-requester-2"))
 	swapped := EncodeBase64URL(other) + "." + payload + "." + signature
-	if _, err := VerifyCompact(swapped, key.PublicKey()); err == nil {
+	if _, err := verifyCompact(swapped, key.PublicKey()); err == nil {
 		t.Error("accepted")
 	}
 }
@@ -142,7 +142,7 @@ func TestASegmentThatIsNotBase64URLIsRefusedEvenWhenSigned(t *testing.T) {
 			t.Fatalf("%q: the signature should verify over the raw text: %v", header, err)
 		}
 		// ...and the message is still refused.
-		if _, err := VerifyCompact(compact, key.PublicKey()); err == nil {
+		if _, err := verifyCompact(compact, key.PublicKey()); err == nil {
 			t.Errorf("%q was accepted", header)
 		}
 	}

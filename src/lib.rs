@@ -26,7 +26,7 @@ pub mod version;
 pub use digest::digest;
 pub use ed25519::{verify, PrivateKey, PublicKey, SignatureInvalid};
 pub use envelope::{parse_envelope, Envelope};
-pub use jws::{sign, verify_compact, SignError};
+pub use jws::{sign, SignError};
 pub use keys::{FixedKeys, KeyResolver};
 pub use parse::{parse, ParseError};
 pub use policy::{PolicyError, SuitePolicy, DEFAULT_ACCEPTABLE};

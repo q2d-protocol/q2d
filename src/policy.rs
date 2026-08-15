@@ -27,7 +27,7 @@
 //! reads as success — the operator believes they configured something they did
 //! not, and the belief survives until the day it matters.
 
-use crate::suites::{SuiteRegistry, SuiteStatus};
+use crate::suites::SuiteRegistry;
 use std::collections::BTreeSet;
 use std::fmt;
 

@@ -98,12 +98,20 @@ func compactSegments(compact string) (header, payload, signature string, err err
 // type-level fact. There is no way to obtain a parsed core object from this file
 // without having verified it first.
 //
-// This is not §4.2's four-step sequence — it does not read the suite, does not
-// consult a policy, and does not compare the header against the payload. Those
-// need P-003 issue 6, which waits on E-46. What this does is the cryptographic
-// half, so that issue 6 is the ordering and the policy rather than the ordering,
-// the policy and the mathematics.
-func VerifyCompact(compact string, key PublicKey) ([]byte, error) {
+// Unexported, and it stays that way until issue 6. This is not §4.2's four-step
+// sequence: it does not read the suite, does not consult a policy, does not
+// compare the header against the payload, and does not check that the header is
+// the closed two-member object crypto-suites.md §3 defines. A caller outside the
+// package holding a function that returns verified payload bytes from a string
+// whose header was never inspected would reasonably treat those bytes as a Q2D
+// message. They are bytes with a good signature over them, which is a weaker
+// thing.
+//
+// Completing it needs E-46: the header cases have no external_reason, so there
+// is no way yet to say what a malformed one produces. Doing the cryptographic
+// half now leaves issue 6 as the ordering and the policy rather than the
+// ordering, the policy and the mathematics.
+func verifyCompact(compact string, key PublicKey) ([]byte, error) {
 	header, payload, signature, err := compactSegments(compact)
 	if err != nil {
 		return nil, err
