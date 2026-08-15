@@ -799,7 +799,7 @@
   },
   "entry_digest_rule": {
     "algorithm": "sha256",
-    "over": "the entry object with entry_digest removed, serialized under the deterministic production profile: UTF-8, no insignificant whitespace, object keys sorted ascending, no floating-point values",
+    "over": "the entry object with entry_digest removed, serialized under spec/serialization.md \u00a71. Stated by citation rather than restated: this field used to carry an abbreviated copy that said 'object keys sorted ascending' without saying by what, which is the one detail two implementations can disagree about.",
     "purpose": "A requester states the digest of the entry it built against. A mismatch means this predicate's definition differs between the two parties, which is a semantic disagreement and rejects.",
     "note": "The manifest digest a custodian pins and the entry digest a requester declares are different things. The manifest digest is what this custodian accepted; the entry digest is what the two parties agree the predicate means."
   }

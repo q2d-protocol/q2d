@@ -2,9 +2,10 @@
   "id": "message/reject/float-in-the-payload",
   "section": "message",
   "requirement": [
-    "core-model.md#3.1"
+    "serialization.md#1",
+    "serialization.md#2"
   ],
-  "description": "A payload carrying `1.5`. §4.3 admits no floating-point in a signed structure — capacity is integer millibits, timestamps are strings — because IEEE-754 rendering differs between languages and one float field would make two implementations emit different bytes for the same message. Refused **syntactically**, on the fraction rather than on the value: deciding that `1e2` is a hundred means exponent arithmetic, and with `1e400`, arithmetic in what. Supplied as bytes because the authoring tool refuses to serialize a float at all.",
+  "description": "A payload carrying `1.5`. serialization.md §1 admits no floating-point in a signed structure — capacity is integer millibits, timestamps are strings — because IEEE-754 rendering differs between languages and one float field would make two implementations emit different bytes for the same message. Refused **syntactically**, on the fraction rather than on the value: deciding that `1e2` is a hundred means exponent arithmetic, and with `1e400`, arithmetic in what. Supplied as bytes because the authoring tool refuses to serialize a float at all.",
   "operation": "verify_query",
   "input": {
     "envelope": {

@@ -2,9 +2,9 @@
   "id": "message/reject/duplicate-key",
   "section": "message",
   "requirement": [
-    "core-model.md#4"
+    "serialization.md#2"
   ],
-  "description": "A payload carrying `nonce` twice. §4.2 prohibits duplicate keys on production and requires rejection on parse, and the reason is that the alternatives are worse than a refusal: a parser taking last-wins and one taking first-wins read **one signed payload two ways**, and both readings carry a valid signature. Go's `encoding/json` takes last-wins silently, which is why this vector exists rather than being assumed. The payload is supplied as bytes because no JSON object can hold the defect.",
+  "description": "A payload carrying `nonce` twice. serialization.md §2 rejects a duplicate key rather than resolving it, and the reason is that the alternatives are worse than a refusal: a parser taking last-wins and one taking first-wins read **one signed payload two ways**, and both readings carry a valid signature. Go's `encoding/json` takes last-wins silently, which is why this vector exists rather than being assumed. The payload is supplied as bytes because no JSON object can hold the defect.",
   "operation": "verify_query",
   "input": {
     "envelope": {

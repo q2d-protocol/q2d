@@ -2,6 +2,7 @@
   "id": "message/serialize/escapes-and-what-must-not-be-escaped",
   "section": "message",
   "requirement": [
+    "serialization.md#1",
     "crypto-suites.md#3",
     "core-model.md#2.4"
   ],

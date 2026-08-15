@@ -2,10 +2,11 @@
   "id": "message/serialize/empty-containers-and-a-present-null",
   "section": "message",
   "requirement": [
+    "serialization.md#1",
     "crypto-suites.md#3",
     "core-model.md#2.4"
   ],
-  "description": "An empty object, an empty array, and a field explicitly set to null — each with one serialization and no other. §4.2 omits an *absent* optional rather than nulling it, so a present null and an absent field are different documents; this vector carries the present one, and `message/sign/query-minimal` is the query with every optional absent.",
+  "description": "An empty object, an empty array, and a field explicitly set to null — each with one serialization and no other. serialization.md §1 omits an *absent* optional rather than nulling it, so a present null and an absent field are different documents; this vector carries the present one, and `message/sign/query-minimal` is the query with every optional absent.",
   "operation": "sign_query",
   "input": {
     "key_id": "test-requester-1",

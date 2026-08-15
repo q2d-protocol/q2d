@@ -2,6 +2,7 @@
   "id": "message/serialize/integer-boundaries",
   "section": "message",
   "requirement": [
+    "serialization.md#1",
     "crypto-suites.md#3",
     "scope.md#4.1"
   ],

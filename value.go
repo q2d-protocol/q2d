@@ -9,10 +9,10 @@
 //
 // # The value model, and why it has no float
 //
-// P-002 §4.3 prohibits floating-point in any signed structure and says a float
-// reaching the serializer "is a programming error and fails loudly". A Value
-// that cannot hold one fails louder: the error is a compile error, and there is
-// no runtime path to test because there is no runtime path.
+// serialization.md §1 prohibits floating-point in any signed structure, and a
+// serializer could refuse one at runtime. A Value that cannot hold one refuses
+// it earlier: the error is a compile error, and there is no runtime path to
+// test because there is no runtime path. P-002 §4.3 records the choice.
 //
 // That moves the check rather than removing it. Bytes arriving from outside can
 // contain a float, and the parser is where that is refused; serialization is
@@ -24,10 +24,10 @@
 //
 // # Why the serializer is not a canonicalizer
 //
-// P-002 §4.1: producers must emit this profile; verifiers must not depend on
-// it. A signature covers the exact bytes transmitted, so nothing verifies by
-// re-deriving them, and a verifier that re-serialized would put a
-// canonicalization dependency back into the security path — which is what
+// serialization.md §1 and §2: producers must emit this profile; verifiers
+// must not depend on it. A signature covers the exact bytes transmitted, so
+// nothing verifies by re-deriving them, and a verifier that re-serialized would
+// put a canonicalization dependency back into the security path — which is what
 // signing received bytes exists to remove.
 package q2d
 
@@ -55,8 +55,9 @@ type Value interface {
 	write(b *strings.Builder, protocolLevel bool) error
 }
 
-// Null is JSON null. Distinct from an absent field: P-002 §4.2 omits an absent
-// optional rather than nulling it, so the two are different documents.
+// Null is JSON null. Distinct from an absent field: serialization.md §1 omits
+// an absent optional rather than nulling it, so the two are different
+// documents.
 type Null struct{}
 
 // Bool is JSON true or false.
@@ -84,13 +85,14 @@ type String string
 type Array []Value
 
 // Object is a JSON object. Keys are sorted at serialization rather than stored
-// in order, so P-002 §4.2's ordering rule cannot be forgotten by a caller.
+// in order, so serialization.md §1's ordering rule cannot be forgotten by a
+// caller.
 type Object map[string]Value
 
 // Serialize renders a protocol structure — a core object, a response, a
-// receipt, or routing — under P-002 §4.2's deterministic production profile:
-// UTF-8, no whitespace between tokens, keys ascending, integers without
-// exponent or leading zeros, and minimal string escaping.
+// receipt, or routing — under serialization.md §1: UTF-8, no whitespace
+// between tokens, keys ascending, integers without exponent or leading zeros,
+// and minimal string escaping.
 //
 // For a predicate's own data, use SerializeOperationData: the bytes are the
 // same and the field-name rules are not.
@@ -102,11 +104,12 @@ type Object map[string]Value
 //
 // # Errors
 //
-// §4.3's float ban needs no check here — Value has no float member, so a float
-// is a compile error. What remains is core-model.md §2.2's timestamp, which
-// §4.2 cites: this is the last point at which a value can be refused before it
-// becomes bytes somebody signs, and inside a signed payload a malformed
-// timestamp is past the reach of anything that reads it as text.
+// serialization.md §1's float ban needs no check here — Value has no float
+// member, so a float is a compile error. What remains is core-model.md §2.2's
+// timestamp, which serialization.md §1 cites: this is the last point at which
+// a value can be refused before it becomes bytes somebody signs, and inside a
+// signed payload a malformed timestamp is past the reach of anything that
+// reads it as text.
 //
 // An error carries no private data: every message names a field or a spelling,
 // both of which the caller supplied and neither of which is an answer.
@@ -157,7 +160,8 @@ func SerializeOperationData(v Value) ([]byte, error) {
 // containers, with nothing left to alias.
 //
 // Null{} is the JSON null and is unaffected. A nil *interface* is the absence
-// of a value, which is a different thing and not one §4.2 can render.
+// of a value, which is a different thing and not one serialization.md §1 can
+// render.
 func write(v Value, b *strings.Builder, protocolLevel bool) error {
 	if err := concrete(v); err != nil {
 		return err
@@ -175,14 +179,15 @@ func concrete(v Value) error {
 	case Null, Bool, Int, String, Array, Object:
 		return nil
 	case nil:
-		return fmt.Errorf("a nil Value has no serialization. P-002 §4.2 renders " +
-			"JSON values, and the absence of one is not null — use Null{} for that")
+		return fmt.Errorf("a nil Value has no serialization. serialization.md §1 " +
+			"renders JSON values, and the absence of one is not null — use " +
+			"Null{} for that")
 	default:
 		// A pointer to one of the six, or anything else that satisfies the
 		// interface. Named without its contents: the type is the caller's own
 		// mistake and the value may be data.
-		return fmt.Errorf("%T is not one of the six Value types. P-002 §4.2 "+
-			"renders JSON values, and a pointer to one is not one", v)
+		return fmt.Errorf("%T is not one of the six Value types. serialization.md "+
+			"§1 renders JSON values, and a pointer to one is not one", v)
 	}
 }
 
@@ -200,9 +205,9 @@ func (v Bool) write(b *strings.Builder, _ bool) error {
 	return nil
 }
 
-// strconv.FormatInt is exactly §4.2's integer rule: no exponent, no leading
-// plus, no leading zeros. Nothing to configure and nothing two languages can
-// render differently.
+// strconv.FormatInt is exactly serialization.md §1's integer rule: no
+// exponent, no leading plus, no leading zeros. Nothing to configure and
+// nothing two languages can render differently.
 func (v Int) write(b *strings.Builder, _ bool) error {
 	b.WriteString(strconv.FormatInt(int64(v), 10))
 	return nil
@@ -248,11 +253,11 @@ func (v Object) write(b *strings.Builder, protocolLevel bool) error {
 		}
 		keys = append(keys, key)
 	}
-	// §4.2 orders by UTF-16 code unit. Go's string comparison orders by byte,
-	// which for UTF-8 is Unicode scalar order — the two agree for every
-	// character in the BMP and disagree above it, because UTF-16 encodes a
-	// supplementary character as a surrogate pair beginning at 0xD800, below
-	// U+E000..U+FFFF.
+	// serialization.md §1 orders by UTF-16 code unit. Go's string comparison
+	// orders by byte, which for UTF-8 is Unicode scalar order — the two agree
+	// for every character in the BMP and disagree above it, because UTF-16
+	// encodes a supplementary character as a surrogate pair beginning at
+	// 0xD800, below U+E000..U+FFFF.
 	//
 	// No field name in core-model.md §2 is outside ASCII, so nothing in the
 	// protocol reaches the difference. It is implemented anyway, because the
@@ -299,7 +304,8 @@ func (v Object) write(b *strings.Builder, protocolLevel bool) error {
 }
 
 // typeName gives a value's JSON type, for an error message. Never its contents
-// — §4.3's sibling rule is that no private value reaches an error string.
+// — serialization.md §1's sibling rule is that no private value reaches an
+// error string.
 func typeName(v Value) string {
 	if v == nil {
 		return "nothing"
@@ -323,9 +329,10 @@ func typeName(v Value) string {
 
 // validUTF8 refuses a string Go can hold and the profile cannot emit.
 //
-// §4.2 produces UTF-8. A Go string is an arbitrary byte sequence, so it can
-// carry bytes that are not — and ranging over one silently substitutes U+FFFD
-// for each invalid sequence, which would sign a value the caller never supplied.
+// serialization.md §1 produces UTF-8. A Go string is an arbitrary byte
+// sequence, so it can carry bytes that are not — and ranging over one silently
+// substitutes U+FFFD for each invalid sequence, which would sign a value the
+// caller never supplied.
 //
 // Rust's String cannot hold invalid UTF-8 at all, so without this the two
 // implementations differ on which values exist rather than on what they produce.
@@ -341,11 +348,13 @@ func validUTF8(what, s string) error {
 	if utf8.ValidString(s) {
 		return nil
 	}
-	return fmt.Errorf("%s is not valid UTF-8. P-002 §4.2 produces UTF-8, and "+
+	return fmt.Errorf("%s is not valid UTF-8. serialization.md §1 produces "+
+		"UTF-8, and "+
 		"substituting U+FFFD would sign a value the caller did not supply", what)
 }
 
-// lessUTF16 compares two strings by UTF-16 code unit, as P-002 §4.2 requires.
+// lessUTF16 compares two strings by UTF-16 code unit, as serialization.md §1
+// requires.
 func lessUTF16(a, b string) bool {
 	x, y := utf16.Encode([]rune(a)), utf16.Encode([]rune(b))
 	for i := 0; i < len(x) && i < len(y); i++ {
@@ -356,7 +365,8 @@ func lessUTF16(a, b string) bool {
 	return len(x) < len(y)
 }
 
-// writeString renders a JSON string under §4.2's minimal escaping rule.
+// writeString renders a JSON string under serialization.md §1's minimal
+// escaping rule.
 //
 // Escaped: what RFC 8259 §7 requires — the quote, the backslash, and the
 // control characters below U+0020. Nothing else. A \uXXXX escape for a

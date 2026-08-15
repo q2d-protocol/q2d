@@ -191,7 +191,8 @@ def with_public_context(context: dict) -> dict:
 
     `sign_query` signs; it does not resolve a predicate, so nothing here is
     validated against `menu_compatible`'s schema and these contexts are
-    deliberately shapes no registered entry declares. That is the point: §4.2's
+    deliberately shapes no registered entry declares. That is the point:
+    serialization.md §1's
     edges are not reachable through a schema-valid public context, because no
     entry has a reason to declare a supplementary-plane key or an `i64`
     boundary — which is exactly why `testdata/profile-edges` exists and why
@@ -206,14 +207,16 @@ def serialize_vector(name: str, requirement: list[str], description: str,
                      context: dict) -> dict:
     """A `sign_query` vector whose expectation is the compact bytes.
 
-    §4.2 has no operation of its own and needs none: a signature covers the
+    serialization.md §1 has no operation of its own and needs none: a signature
+    covers the
     exact transmitted bytes, so a vector asserting the compact string asserts
     the serialization that produced it. A wrong key order or a stray escape
     changes the payload segment and the vector fails on the byte comparison.
 
     Each traces to `crypto-suites.md` §3, which is the requirement these
     actually test: **both implementations must produce identical bytes for the
-    same message.** The profile that delivers it is P-002 §4.2, and a vector's
+    same message.** The profile that delivers it is serialization.md §1, and a
+    vector's
     `requirement` list cites `spec/` rather than a PRD — so the citation is the
     obligation, not the mechanism. The second entry is where the *shape* being
     serialized comes from: §2.4 for a public context, `scope.md` §4.1 for the
@@ -245,7 +248,7 @@ def serialize_vectors() -> list[dict]:
     return [
         serialize_vector(
             "key-order-above-the-bmp",
-            ["crypto-suites.md#3", "core-model.md#2.4"],
+            ["serialization.md#1", "crypto-suites.md#3", "core-model.md#2.4"],
             "Object keys sorted by **UTF-16 code unit**, which differs from "
             "Unicode scalar order above the BMP: U+10000 encodes as the "
             "surrogate pair D800 DC00 and therefore sorts below U+FFFD, where "
@@ -260,7 +263,7 @@ def serialize_vectors() -> list[dict]:
         ),
         serialize_vector(
             "escapes-and-what-must-not-be-escaped",
-            ["crypto-suites.md#3", "core-model.md#2.4"],
+            ["serialization.md#1", "crypto-suites.md#3", "core-model.md#2.4"],
             "Minimal escaping. The two RFC 8259 requires and the five "
             "two-character forms it names are escaped; a control character "
             "with no short form takes `\\u0001` in lowercase hex; and `<`, "
@@ -275,7 +278,7 @@ def serialize_vectors() -> list[dict]:
         ),
         serialize_vector(
             "integer-boundaries",
-            ["crypto-suites.md#3", "scope.md#4.1"],
+            ["serialization.md#1", "crypto-suites.md#3", "scope.md#4.1"],
             "Integers with no exponent, no leading `+` and no leading zeros, "
             "at both ends of the range `scope.md` §4.1 requires an entry's "
             "integers to lie within. A serializer that rendered these through "
@@ -287,9 +290,10 @@ def serialize_vectors() -> list[dict]:
         ),
         serialize_vector(
             "empty-containers-and-a-present-null",
-            ["crypto-suites.md#3", "core-model.md#2.4"],
+            ["serialization.md#1", "crypto-suites.md#3", "core-model.md#2.4"],
             "An empty object, an empty array, and a field explicitly set to "
-            "null — each with one serialization and no other. §4.2 omits an "
+            "null — each with one serialization and no other. "
+            "serialization.md §1 omits an "
             "*absent* optional rather than nulling it, so a present null and "
             "an absent field are different documents; this vector carries the "
             "present one, and `message/sign/query-minimal` is the query with "
@@ -375,9 +379,9 @@ def reject_vectors() -> list[dict]:
     return [
         reject_vector(
             "duplicate-key",
-            ["core-model.md#4"],
-            "A payload carrying `nonce` twice. §4.2 prohibits duplicate keys on "
-            "production and requires rejection on parse, and the reason is that "
+            ["serialization.md#2"],
+            "A payload carrying `nonce` twice. serialization.md §2 rejects a "
+            "duplicate key rather than resolving it, and the reason is that "
             "the alternatives are worse than a refusal: a parser taking "
             "last-wins and one taking first-wins read **one signed payload two "
             "ways**, and both readings carry a valid signature. Go's "
@@ -387,9 +391,10 @@ def reject_vectors() -> list[dict]:
             duplicate, "core_object_duplicate_key"),
         reject_vector(
             "float-in-the-payload",
-            ["core-model.md#3.1"],
-            "A payload carrying `1.5`. §4.3 admits no floating-point in a "
-            "signed structure — capacity is integer millibits, timestamps are "
+            ["serialization.md#1", "serialization.md#2"],
+            "A payload carrying `1.5`. serialization.md §1 admits no "
+            "floating-point in a signed structure — capacity is integer "
+            "millibits, timestamps are "
             "strings — because IEEE-754 rendering differs between languages and "
             "one float field would make two implementations emit different "
             "bytes for the same message. Refused **syntactically**, on the "

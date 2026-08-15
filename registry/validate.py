@@ -42,9 +42,35 @@ def check(ok: bool, label: str, detail: str = "") -> bool:
     return ok
 
 
+def utf16_key(key: str) -> list[int]:
+    """A key's UTF-16 code units, which is what serialization.md §1 orders by."""
+    return list(key.encode("utf-16-be"))
+
+
+def ordered(obj):
+    """`obj` with every object's keys in serialization.md §1's order.
+
+    Not `json.dumps(sort_keys=True)`, which orders by Unicode scalar. The two
+    agree for ASCII and part company above the BMP, and every key in this
+    manifest is ASCII today — so this is the difference that would appear in a
+    later entry rather than in a failing check now, which is exactly the kind
+    that ships.
+    """
+    if isinstance(obj, dict):
+        return {k: ordered(obj[k]) for k in sorted(obj, key=utf16_key)}
+    if isinstance(obj, list):
+        return [ordered(v) for v in obj]
+    return obj
+
+
 def canon(obj) -> bytes:
-    """The deterministic production profile the entry digest is computed over."""
-    return json.dumps(obj, sort_keys=True, separators=(",", ":"),
+    """serialization.md §1, which the entry digest is computed over.
+
+    Floating-point is refused separately by `has_float`, over the whole entry,
+    rather than by `allow_nan` here — the profile prohibits every float and not
+    only the three JSON cannot spell.
+    """
+    return json.dumps(ordered(obj), separators=(",", ":"),
                       ensure_ascii=False, allow_nan=False).encode("utf-8")
 
 
@@ -549,7 +575,19 @@ def main(argv: list[str]) -> int:
 
     wire_seen: list[tuple[str, str]] = []
 
-    print("manifest")
+    print("serialization")
+    # The one rule in serialization.md §1 that two implementations disagree
+    # about while both looking right, asserted directly rather than left to a
+    # manifest that happens to be ASCII. U+1F680 encodes as the surrogate pair
+    # D83D DE80 and sorts below U+E000 by code unit; by code point it sorts
+    # above. `json.dumps(sort_keys=True)` gives the second answer, which is why
+    # `ordered` exists and why reverting to it must fail here.
+    rocket, private_use = "\U0001F680", "\uE000"
+    check(list(ordered({private_use: 1, rocket: 2})) == [rocket, private_use],
+          "object keys order by UTF-16 code unit, not code point",
+          "serialization.md §1; Python's default sort gives the other answer")
+
+    print("\nmanifest")
     cu = manifest.get("capacity_unit", {})
     check(cu.get("name") == "millibits", "capacity unit is millibits", str(cu.get("name")))
     check(any("MUST NOT compute log2 at runtime" in r for r in cu.get("rules", [])),
@@ -643,7 +681,9 @@ def main(argv: list[str]) -> int:
         check(not has_float(p), "entry contains no floating-point value",
               "a float would make the signed bytes non-deterministic across implementations")
         check(all(k.isascii() for k in p), "entry keys are ASCII",
-              "non-ASCII keys make code-point ordering differ from UTF-16 ordering")
+              "not required by serialization.md §1, which orders any key — a "
+              "property of this reference manifest, asserted so that the "
+              "ordering self-check below stays the thing that carries the rule")
 
         dom = p["answer_domain"]
         if dom["kind"] == "enumerated":

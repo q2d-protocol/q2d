@@ -11,7 +11,8 @@ is the Python third of both; `cargo test` and `go test ./...` are the others.
 `canonical-query` is a real query and is P-002 §7's first acceptance criterion.
 `profile-edges` is not a Q2D message at all: it exists because the canonical
 query is entirely ASCII, carries no escape, and has no integer near a boundary,
-so three serializers could agree on it while disagreeing about most of §4.2.
+so three serializers could agree on it while disagreeing about most of
+serialization.md §1.
 They did — see that fixture's own note.
 
 Python is the implementation that **generated** both files, so on its own this
@@ -92,9 +93,9 @@ class ProfileEdgesTest(unittest.TestCase):
 
     def test_the_characters_go_escapes_by_default_are_not_escaped(self):
         # `encoding/json` escapes <, > and & unless told otherwise. They are
-        # representable directly, so §4.2's minimal-escaping rule forbids it,
-        # and the Go serializer is hand-written rather than delegating for
-        # exactly this reason.
+        # representable directly, so serialization.md §1's minimal-escaping
+        # rule forbids it, and the Go serializer is hand-written rather than
+        # delegating for exactly this reason.
         self.assertIn("<a>&b'c/d", serialized("profile-edges").decode("utf-8"))
 
 

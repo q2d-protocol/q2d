@@ -47,10 +47,10 @@ func TestIntegersCarryNoExponentSignOrLeadingZero(t *testing.T) {
 }
 
 func TestStringsEscapeOnlyWhatMustBeEscaped(t *testing.T) {
-	// §4.2: no \uXXXX for characters representable directly. encoding/json
-	// escapes <, > and & by default, which is why this does not use it — those
-	// are representable directly and escaping them would emit different bytes
-	// from the Rust side.
+	// serialization.md §1: no \uXXXX for characters representable directly.
+	// encoding/json escapes <, > and & by default, which is why this does not use
+	// it — those are representable directly and escaping them would emit
+	// different bytes from the Rust side.
 	for _, c := range []struct{ in, want string }{
 		{"é😀", `"é😀"`},
 		{"a\"b\\c", `"a\"b\\c"`},
@@ -78,10 +78,10 @@ func TestAnAbsentOptionalIsAbsentRatherThanNull(t *testing.T) {
 }
 
 func TestKeysSortByUTF16CodeUnit(t *testing.T) {
-	// The one case where §4.2's ordering differs from Go's byte order: UTF-16
-	// encodes a supplementary character as a surrogate pair beginning at
-	// 0xD800, which is below U+FFFD, so it sorts first — where comparing UTF-8
-	// bytes would put it last.
+	// The one case where serialization.md §1's ordering differs from Go's byte
+	// order: UTF-16 encodes a supplementary character as a surrogate pair
+	// beginning at 0xD800, which is below U+FFFD, so it sorts first — where
+	// comparing UTF-8 bytes would put it last.
 	//
 	// Nothing in core-model.md §2 has a non-ASCII field name, so the protocol
 	// does not reach this today. It is implemented so that the day something
