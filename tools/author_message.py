@@ -186,9 +186,108 @@ def rejects(internal: str, external: str, step) -> dict:
     }
 
 
+def with_public_context(context: dict) -> dict:
+    """`QUERY` with its public context replaced.
+
+    `sign_query` signs; it does not resolve a predicate, so nothing here is
+    validated against `menu_compatible`'s schema and these contexts are
+    deliberately shapes no registered entry declares. That is the point: §4.2's
+    edges are not reachable through a schema-valid public context, because no
+    entry has a reason to declare a supplementary-plane key or an `i64`
+    boundary — which is exactly why `testdata/profile-edges` exists and why
+    these vectors carry the same shapes into the shared corpus.
+    """
+    query = json.loads(json.dumps(QUERY))
+    query["predicate"]["public_context"] = context
+    return query
+
+
+def serialize_vector(name: str, requirement: list[str], description: str,
+                     context: dict) -> dict:
+    """A `sign_query` vector whose expectation is the compact bytes.
+
+    §4.2 has no operation of its own and needs none: a signature covers the
+    exact transmitted bytes, so a vector asserting the compact string asserts
+    the serialization that produced it. A wrong key order or a stray escape
+    changes the payload segment and the vector fails on the byte comparison.
+    """
+    query = with_public_context(context)
+    return {
+        "id": f"message/serialize/{name}",
+        "section": "message",
+        "requirement": requirement,
+        "description": description,
+        "operation": "sign_query",
+        "input": {"key_id": REQUESTER, "query": query},
+        "expect": {
+            "outcome": "ok",
+            "output": av.jws_compact(seed_of(REQUESTER), REQUESTER, query),
+            "comparison": "bytes",
+        },
+    }
+
+
+def serialize_vectors() -> list[dict]:
+    return [
+        serialize_vector(
+            "key-order-above-the-bmp",
+            ["core-model.md#2.6"],
+            "Object keys sorted by **UTF-16 code unit**, which differs from "
+            "Unicode scalar order above the BMP: U+10000 encodes as the "
+            "surrogate pair D800 DC00 and therefore sorts below U+FFFD, where "
+            "scalar order puts it above. A serializer using its language's "
+            "default string ordering — Rust's `BTreeMap`, Go's byte comparison "
+            "— produces the other order and fails here. No field name in "
+            "`core-model.md` §2 is outside ASCII, so this is unreachable "
+            "except through a predicate's own public context, which §2.6 makes "
+            "operation-defined.",
+            {"\U00010000": "supplementary", "\uFFFD": "bmp", "a": "ascii"},
+        ),
+        serialize_vector(
+            "escapes-and-what-must-not-be-escaped",
+            ["core-model.md#2.6"],
+            "Minimal escaping. The two RFC 8259 requires and the five "
+            "two-character forms it names are escaped; a control character "
+            "with no short form takes `\\u0001` in lowercase hex; and `<`, "
+            "`>`, `&` and `/` are **not** escaped, which is where Go's "
+            "`encoding/json` differs by default and would produce different "
+            "bytes for the same message.",
+            {
+                "escapes": "\"\\\b\f\n\r\t\u0001",
+                "unescaped": "<a>&b'c/d",
+                "direct": "\u00e9\U0001F600\u65e5\u672c\u8a9e",
+            },
+        ),
+        serialize_vector(
+            "integer-boundaries",
+            ["scope.md#4.1"],
+            "Integers with no exponent, no leading `+` and no leading zeros, "
+            "at both ends of the range `scope.md` §4.1 requires an entry's "
+            "integers to lie within. A serializer that rendered these through "
+            "a float — or a parser that read them into one — loses the low "
+            "bits above 2^53 and produces different bytes, which is the "
+            "hazard `crypto-suites.md` §3 cites against a JCS-based suite.",
+            {"max": 2**63 - 1, "min": -(2**63), "just_past_2_53": 2**53 + 1,
+             "zero": 0, "negative": -1},
+        ),
+        serialize_vector(
+            "empty-containers-and-a-present-null",
+            ["core-model.md#2.6"],
+            "An empty object, an empty array, and a field explicitly set to "
+            "null — each with one serialization and no other. §4.2 omits an "
+            "*absent* optional rather than nulling it, so a present null and "
+            "an absent field are different documents; this vector carries the "
+            "present one, and `message/sign/query-minimal` is the query with "
+            "every optional absent.",
+            {"empty_object": {}, "empty_array": [], "explicit_null": None,
+             "nested": {"z": {"y": [{"x": 1}]}}},
+        ),
+    ]
+
+
 def vectors() -> list[dict]:
     signed = signed_query()
-    return [
+    return serialize_vectors() + [
         {
             "id": "message/sign/query-minimal",
             "section": "message",

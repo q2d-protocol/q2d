@@ -1,0 +1,70 @@
+{
+  "id": "message/serialize/integer-boundaries",
+  "section": "message",
+  "requirement": [
+    "scope.md#4.1"
+  ],
+  "description": "Integers with no exponent, no leading `+` and no leading zeros, at both ends of the range `scope.md` §4.1 requires an entry's integers to lie within. A serializer that rendered these through a float — or a parser that read them into one — loses the low bits above 2^53 and produces different bytes, which is the hazard `crypto-suites.md` §3 cites against a JCS-based suite.",
+  "operation": "sign_query",
+  "input": {
+    "key_id": "test-requester-1",
+    "query": {
+      "q2d_version": "0.1",
+      "type": "query",
+      "query_id": "urn:uuid:0e183389-0f37-4c5f-8c56-1ea7e5818e18",
+      "issued_at": "2026-07-31T09:00:00Z",
+      "expires_at": "2026-07-31T09:05:00Z",
+      "nonce": "Ux7kFQ2mS0aVvJ1cPzN4bw",
+      "requester": {
+        "principal": "did:key:z6MkRequesterPrincipal",
+        "agent": "did:key:z6MkRequesterAgent",
+        "delegation": {
+          "profile": "local-pairing-0.1",
+          "reference": "sha256:7ef1"
+        }
+      },
+      "target": {
+        "custodian": "https://friend.example/.well-known/q2d"
+      },
+      "predicate": {
+        "id": "https://q2d.dev/predicates/dietary/menu-compatible",
+        "version": "0.1",
+        "registry_digest": "sha256:bd08ff230de0d8ce34de99967f7a9097988b49058f0a21dd35b9444c24098e35",
+        "public_context": {
+          "max": 9223372036854775807,
+          "min": -9223372036854775808,
+          "just_past_2_53": 9007199254740993,
+          "zero": 0,
+          "negative": -1
+        }
+      },
+      "answer_contract": {
+        "release_shape": "boolean",
+        "domain": [
+          false,
+          true
+        ],
+        "allowed_detail_fields": []
+      },
+      "purpose": {
+        "code": "social.meal-planning",
+        "description": "Choose a dinner venue for 2026-07-31"
+      },
+      "delivery": {
+        "answer_recipient": "did:key:z6MkRequesterRuntime",
+        "permitted_sinks": [
+          "urn:q2d:sink:model:local"
+        ]
+      },
+      "signature": {
+        "profile": "eddsa-jws-2026",
+        "key_id": "test-requester-1"
+      }
+    }
+  },
+  "expect": {
+    "outcome": "ok",
+    "output": "eyJrZXlfaWQiOiJ0ZXN0LXJlcXVlc3Rlci0xIiwic3VpdGUiOiJlZGRzYS1qd3MtMjAyNiJ9.eyJhbnN3ZXJfY29udHJhY3QiOnsiYWxsb3dlZF9kZXRhaWxfZmllbGRzIjpbXSwiZG9tYWluIjpbZmFsc2UsdHJ1ZV0sInJlbGVhc2Vfc2hhcGUiOiJib29sZWFuIn0sImRlbGl2ZXJ5Ijp7ImFuc3dlcl9yZWNpcGllbnQiOiJkaWQ6a2V5Ono2TWtSZXF1ZXN0ZXJSdW50aW1lIiwicGVybWl0dGVkX3NpbmtzIjpbInVybjpxMmQ6c2luazptb2RlbDpsb2NhbCJdfSwiZXhwaXJlc19hdCI6IjIwMjYtMDctMzFUMDk6MDU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0wNy0zMVQwOTowMDowMFoiLCJub25jZSI6IlV4N2tGUTJtUzBhVnZKMWNQek40YnciLCJwcmVkaWNhdGUiOnsiaWQiOiJodHRwczovL3EyZC5kZXYvcHJlZGljYXRlcy9kaWV0YXJ5L21lbnUtY29tcGF0aWJsZSIsInB1YmxpY19jb250ZXh0Ijp7Imp1c3RfcGFzdF8yXzUzIjo5MDA3MTk5MjU0NzQwOTkzLCJtYXgiOjkyMjMzNzIwMzY4NTQ3NzU4MDcsIm1pbiI6LTkyMjMzNzIwMzY4NTQ3NzU4MDgsIm5lZ2F0aXZlIjotMSwiemVybyI6MH0sInJlZ2lzdHJ5X2RpZ2VzdCI6InNoYTI1NjpiZDA4ZmYyMzBkZTBkOGNlMzRkZTk5OTY3ZjdhOTA5Nzk4OGI0OTA1OGYwYTIxZGQzNWI5NDQ0YzI0MDk4ZTM1IiwidmVyc2lvbiI6IjAuMSJ9LCJwdXJwb3NlIjp7ImNvZGUiOiJzb2NpYWwubWVhbC1wbGFubmluZyIsImRlc2NyaXB0aW9uIjoiQ2hvb3NlIGEgZGlubmVyIHZlbnVlIGZvciAyMDI2LTA3LTMxIn0sInEyZF92ZXJzaW9uIjoiMC4xIiwicXVlcnlfaWQiOiJ1cm46dXVpZDowZTE4MzM4OS0wZjM3LTRjNWYtOGM1Ni0xZWE3ZTU4MThlMTgiLCJyZXF1ZXN0ZXIiOnsiYWdlbnQiOiJkaWQ6a2V5Ono2TWtSZXF1ZXN0ZXJBZ2VudCIsImRlbGVnYXRpb24iOnsicHJvZmlsZSI6ImxvY2FsLXBhaXJpbmctMC4xIiwicmVmZXJlbmNlIjoic2hhMjU2OjdlZjEifSwicHJpbmNpcGFsIjoiZGlkOmtleTp6Nk1rUmVxdWVzdGVyUHJpbmNpcGFsIn0sInNpZ25hdHVyZSI6eyJrZXlfaWQiOiJ0ZXN0LXJlcXVlc3Rlci0xIiwicHJvZmlsZSI6ImVkZHNhLWp3cy0yMDI2In0sInRhcmdldCI6eyJjdXN0b2RpYW4iOiJodHRwczovL2ZyaWVuZC5leGFtcGxlLy53ZWxsLWtub3duL3EyZCJ9LCJ0eXBlIjoicXVlcnkifQ.Kdoq6myI5jDLEt22K0EKntQd46HyKNMaH6UdLnk8HlpQkK-1QXQsqhP9HvVmF35oUs98dojt79ttiyCtMwBqCg",
+    "comparison": "bytes"
+  }
+}
