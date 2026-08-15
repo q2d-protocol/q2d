@@ -50,7 +50,9 @@ A message has an authoritative part and an optional advisory one.
 
 **The envelope carries these two members and no others.** `signed` is required,
 `routing` is optional, and a member outside that set is **rejected** rather than
-ignored — `malformed`, at §4 step 1, before anything is allocated on it.
+ignored — `malformed`, at §4 step 1, where the envelope is parsed. The size bound
+is what that step applies before allocating; this one is applied as the envelope
+is read, since a member cannot be known to be unknown until it has been read.
 
 It is closed for the reason [`crypto-suites.md`](crypto-suites.md) §3 closes the
 protected header, and the two should be read together: both are attacker-supplied
