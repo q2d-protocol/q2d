@@ -75,9 +75,10 @@ managing it. Adding such a field is an escalation, not a schema change.
 signature over the received bytes and parses them afterwards. The signature
 covers the spelling along with everything else, but nothing in the model reads
 anything from it: a payload with whitespace between tokens, or keys in another
-order, is a valid payload, and a verifier that rejected it would reject a
-conforming implementation's output. §1 binds producers; it is not a property a
-reader may require.
+order, parses to the same value and is accepted.
+
+§1 binds producers. It is not a property a reader may require, and a reader that
+required it would be enforcing an obligation it was not given.
 
 A verifier that re-serializes a parsed value in order to check a signature has
 reintroduced the dependency the envelope design exists to remove.
