@@ -551,6 +551,20 @@ def check_known_answers() -> None:
                 f"RFC 8032 publishes {answer['signature']}")
 
 
+def digest(raw: bytes) -> str:
+    """[P-002](../docs/prds/P-002-message-envelope.md) §4.7:
+    `"sha256:" + lowercase_hex(SHA-256(bytes))`.
+
+    `hashlib`, as `testdata/digests.txt` is, and for the same reason the
+    signer is not: SHA-256 is a case where the standard library does exactly
+    what the specification says. A hand-written one here would be a private
+    truth rather than a third opinion — the Rust side hand-writes it because
+    its standard library has none, and is gated on FIPS 180-4's published
+    known answers because of that.
+    """
+    return "sha256:" + hashlib.sha256(raw).hexdigest()
+
+
 def base64url(raw: bytes) -> str:
     """RFC 7515's base64url: no padding, URL-safe alphabet."""
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")

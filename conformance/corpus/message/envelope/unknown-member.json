@@ -1,0 +1,25 @@
+{
+  "id": "message/envelope/unknown-member",
+  "section": "message",
+  "requirement": [
+    "core-model.md#2.1",
+    "core-model.md#5.2.1"
+  ],
+  "description": "An envelope carrying a third member beside `signed` and `routing`. §2.1 names two, and an unknown member **denies** rather than being ignored: ignoring it makes the envelope an extension point the specification does not have, and the first thing to travel through one is a field a relay reads and a responder does not.",
+  "operation": "verify_query",
+  "input": {
+    "envelope_bytes_base64url": "eyJoaW50IjoidXJnZW50Iiwicm91dGluZyI6eyJleHBpcmVzX2F0IjoiMjAyNi0wNy0zMVQwOTowNTowMFoiLCJwcmVkaWNhdGUiOnsiaWQiOiJodHRwczovL3EyZC5kZXYvcHJlZGljYXRlcy9kaWV0YXJ5L21lbnUtY29tcGF0aWJsZSIsInZlcnNpb24iOiIwLjEifSwicTJkX3ZlcnNpb24iOiIwLjEiLCJ0YXJnZXQiOnsiY3VzdG9kaWFuIjoiaHR0cHM6Ly9mcmllbmQuZXhhbXBsZS8ud2VsbC1rbm93bi9xMmQifSwidHlwZSI6InF1ZXJ5In0sInNpZ25lZCI6ImV5SnJaWGxmYVdRaU9pSjBaWE4wTFhKbGNYVmxjM1JsY2kweElpd2ljM1ZwZEdVaU9pSmxaR1J6WVMxcWQzTXRNakF5TmlKOS5leUpoYm5OM1pYSmZZMjl1ZEhKaFkzUWlPbnNpWVd4c2IzZGxaRjlrWlhSaGFXeGZabWxsYkdSeklqcGJYU3dpWkc5dFlXbHVJanBiWm1Gc2MyVXNkSEoxWlYwc0luSmxiR1ZoYzJWZmMyaGhjR1VpT2lKaWIyOXNaV0Z1SW4wc0ltUmxiR2wyWlhKNUlqcDdJbUZ1YzNkbGNsOXlaV05wY0dsbGJuUWlPaUprYVdRNmEyVjVPbm8yVFd0U1pYRjFaWE4wWlhKU2RXNTBhVzFsSWl3aWNHVnliV2wwZEdWa1gzTnBibXR6SWpwYkluVnlianB4TW1RNmMybHVhenB0YjJSbGJEcHNiMk5oYkNKZGZTd2laWGh3YVhKbGMxOWhkQ0k2SWpJd01qWXRNRGN0TXpGVU1EazZNRFU2TURCYUlpd2lhWE56ZFdWa1gyRjBJam9pTWpBeU5pMHdOeTB6TVZRd09Ub3dNRG93TUZvaUxDSnViMjVqWlNJNklsVjROMnRHVVRKdFV6QmhWblpLTVdOUWVrNDBZbmNpTENKd2NtVmthV05oZEdVaU9uc2lhV1FpT2lKb2RIUndjem92TDNFeVpDNWtaWFl2Y0hKbFpHbGpZWFJsY3k5a2FXVjBZWEo1TDIxbGJuVXRZMjl0Y0dGMGFXSnNaU0lzSW5CMVlteHBZMTlqYjI1MFpYaDBJanA3SW0xbGJuVWlPbHQ3SW1OdmJuUmhhVzV6SWpwYkltMXBiR3NpWFN3aWFYUmxiVjlwWkNJNkluSnBjMjkwZEc4aWZTeDdJbU52Ym5SaGFXNXpJanBiWFN3aWFYUmxiVjlwWkNJNkluTmhiR0ZrSW4xZGZTd2ljbVZuYVhOMGNubGZaR2xuWlhOMElqb2ljMmhoTWpVMk9tSmtNRGhtWmpJek1HUmxNR1E0WTJVek5HUmxPVGs1TmpkbU4yRTVNRGszT1RnNFlqUTVNRFU0WmpCaE1qRmtaRE0xWWprME5EUmpNalF3T1RobE16VWlMQ0oyWlhKemFXOXVJam9pTUM0eEluMHNJbkIxY25CdmMyVWlPbnNpWTI5a1pTSTZJbk52WTJsaGJDNXRaV0ZzTFhCc1lXNXVhVzVuSWl3aVpHVnpZM0pwY0hScGIyNGlPaUpEYUc5dmMyVWdZU0JrYVc1dVpYSWdkbVZ1ZFdVZ1ptOXlJREl3TWpZdE1EY3RNekVpZlN3aWNUSmtYM1psY25OcGIyNGlPaUl3TGpFaUxDSnhkV1Z5ZVY5cFpDSTZJblZ5YmpwMWRXbGtPakJsTVRnek16ZzVMVEJtTXpjdE5HTTFaaTA0WXpVMkxURmxZVGRsTlRneE9HVXhPQ0lzSW5KbGNYVmxjM1JsY2lJNmV5SmhaMlZ1ZENJNkltUnBaRHByWlhrNmVqWk5hMUpsY1hWbGMzUmxja0ZuWlc1MElpd2laR1ZzWldkaGRHbHZiaUk2ZXlKd2NtOW1hV3hsSWpvaWJHOWpZV3d0Y0dGcGNtbHVaeTB3TGpFaUxDSnlaV1psY21WdVkyVWlPaUp6YUdFeU5UWTZOMlZtTVNKOUxDSndjbWx1WTJsd1lXd2lPaUprYVdRNmEyVjVPbm8yVFd0U1pYRjFaWE4wWlhKUWNtbHVZMmx3WVd3aWZTd2ljMmxuYm1GMGRYSmxJanA3SW10bGVWOXBaQ0k2SW5SbGMzUXRjbVZ4ZFdWemRHVnlMVEVpTENKd2NtOW1hV3hsSWpvaVpXUmtjMkV0YW5kekxUSXdNallpZlN3aWRHRnlaMlYwSWpwN0ltTjFjM1J2WkdsaGJpSTZJbWgwZEhCek9pOHZabkpwWlc1a0xtVjRZVzF3YkdVdkxuZGxiR3d0YTI1dmQyNHZjVEprSW4wc0luUjVjR1VpT2lKeGRXVnllU0o5LlJyaTZsMFFTeVNxazhkdUxuN1NxVjY5UUxUMlBOUGpjdGplb0FPaFdmMWdrZnZBUUVUREJ1QmdYZ1QyWGVyZF9BdElkaXpXYnRxbE9RcTZCU2FlaENnIn0"
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "envelope_unknown_member",
+      "wire": {
+        "status": "deny",
+        "external_reason": "malformed"
+      },
+      "step": 1
+    },
+    "comparison": "bytes"
+  }
+}

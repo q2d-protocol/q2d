@@ -1,0 +1,17 @@
+{
+  "id": "message/digest/empty-input",
+  "section": "message",
+  "requirement": [
+    "core-model.md#6"
+  ],
+  "description": "The empty input. No Q2D digest is taken over nothing, and that is why this is here: it is the case a padding mistake reaches first, and the one an implementation that special-cased an empty buffer would get wrong without any other vector noticing. `testdata/digests.txt` carries the same value from three implementations.",
+  "operation": "digest",
+  "input": {
+    "bytes_base64url": ""
+  },
+  "expect": {
+    "outcome": "ok",
+    "output": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "comparison": "bytes"
+  }
+}

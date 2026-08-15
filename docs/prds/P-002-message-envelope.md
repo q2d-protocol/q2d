@@ -279,6 +279,39 @@ digest(bytes)                             -> DigestString
 signature is checked by P-003 before this function is reachable, so the type
 system carries the ordering requirement rather than a comment.
 
+### What a vector supplies to each of these
+
+The corpus reaches these functions through the operations
+[P-001](P-001-conformance-corpus.md) §4.5 defines, and two of them take more
+than one kind of input. A runner cannot tell which from a value alone, so the
+**field name says which**, and exactly one may be present:
+
+| Operation | Field | Means |
+|---|---|---|
+| `verify_query` | `envelope` | A parsed envelope. Everything downstream of `parse_envelope`. |
+| `verify_query` | `envelope_bytes_base64url` | **Received bytes.** `parse_envelope`, and every limit [`core-model.md`](../../spec/core-model.md) §2.8 places on an envelope. |
+| `digest` | `bytes_base64url` | Digest these bytes as they are — `request_digest`. |
+| `digest` | `value` | A protocol structure: serialize under [`serialization.md`](../../spec/serialization.md) §1, then digest. |
+| `digest` | `operation_data` | §2.4 data: `serialization.md` §3's other entry point. |
+
+**`envelope_bytes_base64url` exists because §2.8 bounds received bytes.** A
+vector handing over a parsed object leaves the runner to reconstruct them, and
+what it then measures depends on how it chose to spell what it was given rather
+than on what the vector says. The two forms are not interchangeable and a vector
+carrying both is malformed.
+
+**Base64url rather than JSON text**, so one field means *received bytes* wherever
+a vector supplies them, including bytes that are not valid UTF-8 — which text
+could not carry. The cost is a group that cannot be read without decoding it, and
+`message/envelope/above-the-envelope-limit` is 88 KB on disk because 64 KiB is
+what it is testing. Both are accepted: the alternative is no shared vector for
+the one limit that can be enforced before allocation.
+
+`digest`'s three forms are P-002 §4.7's three kinds of input. `request_digest` is
+over bytes that arrived; the other three digest a sub-object and therefore need a
+serializer, and which serializer is `serialization.md` §3's question rather than
+a value's.
+
 ## 6. Corpus sections
 
 `message/` — authored under this PRD, against the P-001 format, **and partly
@@ -299,11 +332,22 @@ here was built. Two consequences, both deliberate:
 
 | Group | Vectors | State |
 |---|---|---|
-| `message/serialize/` | Key ordering, omitted optionals, integer forms, timestamp format, escaping | new — but see `testdata/` below |
-| `message/envelope/` | Construction, parse, size limits, depth limit | new |
-| `message/routing/` | Derivation, strict subset, each disagreement case, a routing field absent from signed | **three landed** under P-001 issue 12 |
-| `message/digest/` | Each of the four digests against known bytes | new |
-| `message/reject/` | Oversized, over-deep, duplicate keys, float present, unknown version | new — **and now owed by issue 4 as well as issue 5**: both parsers refuse duplicate keys, a float, invalid UTF-8 and over-depth input, asserted by mirrored unit tests, which catch a divergence only where the same case was written twice |
+| `message/serialize/` | Key ordering above the BMP, escaping and what must not be escaped, `i64`'s boundaries, empty containers beside a present null | **four landed** — and see `testdata/` below |
+| `message/envelope/` | Routing absent, unknown member, an over-long `routing` string, an envelope above 64 KiB | **four landed** — the group that tests `parse_envelope`, so every vector supplies received bytes (§5) |
+| `message/routing/` | Strict subset, an `expires_at` disagreement, a `type` disagreement, a field outside the allowlist | **four landed** — three under P-001 issue 12, `type-disagrees` under issue 12 here |
+| `message/digest/` | Received bytes, the empty input, a protocol structure, operation data | **four landed** — one per input shape §5 defines, and the empty input besides |
+| `message/reject/` | Duplicate keys, a float, over-deep, too many members, an over-long protocol string, unknown version | **six landed** — **owed by issue 4 as well as issue 5**: both parsers refuse duplicate keys, a float, invalid UTF-8 and over-depth input, asserted by mirrored unit tests, which catch a divergence only where the same case was written twice |
+
+This table used to promise a vector for **a routing field absent from the
+signed object**, and there is no such vector because there is no such message.
+Every field §4.5 projects is required by §2 — `q2d_version`, `type`,
+`target.custodian`, `predicate.id`, `predicate.version`, `expires_at` — so a
+signed object missing one is rejected at §4 step 5 for missing a field §2
+requires, and step 8 is never reached. `project_routing` still handles it,
+because derivation is total and a field that is not there is not projected; what
+does not exist is a conforming pipeline that reaches the check with such a
+message. `introduces-field` covers the reachable half of the same rule, a field
+outside the allowlist entirely.
 
 Ahead of `message/serialize/`, [`testdata/`](../../testdata/README.md) already
 holds all three serializers to the same bytes, from Python, Rust and Go, by tests
@@ -337,6 +381,7 @@ message and by no realistic-looking one.
 - [ ] Both produce identical digests for every `message/digest/` vector.
 - [ ] A verifier accepts bytes that verify but do not match the production
       profile — proving verification does not depend on serialization.
+      `message/verify/non-conformant-payload` is that vector.
 - [ ] Round trip: `parse_core(serialize_core(x)) == x` for every vector.
 - [ ] `harness cross` reports agreement for every `message/` vector. Note that
       agreement is exit **3**, not 0, until [P-001](P-001-conformance-corpus.md)
@@ -416,20 +461,40 @@ by this list. They stay listed because a reader of this PRD is who needs to know
 | 7 | `check_routing` | **Done.** In [`src/routing.rs`](../../src/routing.rs) and [`routing.go`](../../routing.go), beside the projection they check. Objects recurse — a projection carrying `target.custodian` is a subset of a `target` that also has `subjects` — and everything else compares whole, because §4.4 makes array order significant and a subset rule for arrays would let a relay drop an element and call it a projection. Nothing is coerced: an integer never equals the string that spells it, which is what §4 step 8's *same type, same value* asks for. The mismatch carries the **path and neither value** — the projection is attacker-supplied and the core object is the requester's — and it is the *internal* reason, kept a separate type from the wire response P-009 builds even though §5.2.1 spells the external value the same. **A field outside §4.5's allowlist is refused however faithful the copy** — §2.1 says `routing` *carries at most* those six, so `purpose` matching the signed value byte for byte is still rejected, because the harm is the projection rather than the mismatch. `message/routing/introduces-field` pins exactly that and the first version of this check would have passed it; the two internal reasons take the corpus's own names, `routing_signed_mismatch` and `routing_introduced_field`, rather than a third vocabulary for the same two facts. **The comparison is against `project_routing(core)`, not against the core object.** Comparing against the core object means enumerating what `routing` may *not* contain, and review found three of those one at a time — a field outside the allowlist, a literal `"predicate.id"` key read as a nested path, a value that differs. §4.5 already says what a projection holds, and says it by construction, so *is this a subset of that* answers all three at once. The two reasons then mean what their names say: introduced is **not in the derivation**, mismatch is **in it and different**. One case is deliberately accepted and **[E-42](../open-escalations.md) closed as A**: `{"target":{}}` is not something the projection emits and is refused by nothing §2.1 states, which is where *not derivable* and *not permitted* come apart. §2.1 now says it rather than leaving it to be inferred — *"may carry fewer, or none of them, at any depth"* — because the next implementation will meet the same question, and an unstated answer inside a security check is where two implementations quietly differ. An absent projection passes: nothing that is not there can disagree ([E-38](../open-escalations.md)). A test asserts the two halves agree — a derived projection always passes the check, which is what stops every conforming exchange failing at step 8 |
 | 8 | Digest construction | **The construction is done**; the four call sites are not, and cannot be here. [`src/digest.rs`](../../src/digest.rs) and [`digest.go`](../../digest.go) implement `"sha256:" + lowercase_hex(SHA-256(bytes))`, held to [`testdata/digests.txt`](../../testdata/README.md) across three provenances: Rust writes SHA-256 out by hand — its standard library has none and the crate takes no dependencies — gated on FIPS 180-4's published known answers; Go uses `crypto/sha256`; `hashlib` wrote the fixture. A defect in the hand-written one therefore shows up as a disagreement with two standard libraries rather than as its own private truth. **What each of the four digests covers is P-011's and P-012's**, and `response_digest` is the one to watch: the receipt travels inside the response and carries the digest, so digesting the whole response would include it — P-011 §4.2 is authoritative. `message/digest/` is issue 10's |
 | 9 | Version field handling | **Done.** [`src/version.rs`](../../src/version.rs) and [`version.go`](../../version.go). One value, not a range — a range implies a negotiation and [`core-model.md`](../../spec/core-model.md) §1 has none. The function **reads exactly one key**, which makes *without interpreting other fields* structural rather than a discipline a caller keeps, and a test hands it a message whose every other field is wrong to prove nothing else is consulted. **Not the stronger claim that nothing is read first**: step 5 is *parse the verified core object*, so parsing precedes this and may reject on its own — those are §5.2.1's `malformed`, the other cause that row gives for step 5, so a message that never reaches the check is still refused under the right external value. It takes the verified core object and has **no parameter for `routing`**: §5.2.1 puts `unsupported_version` at step 5 precisely because the authoritative value is inside the signed object, and §4 step 2's shedding on a projected copy is load shedding rather than a rejection reason. **Absent and non-string are `malformed`, not `unsupported_version`** — §5.2.1 gives those two rows separately, and §2.2 requires the field, so *missing a field §2 requires* is the row that applies. The internal value keeps the distinction because the external ones differ, which is the mirror image of `routing`'s two internal reasons collapsing into one external: there normalization is the point, here it would send a requester looking for a version it does not have. `message/reject/`'s unknown-version vector is issue 10's |
-| 10 | Author `message/` corpus section | All five groups present; `harness lint` clean. **To be authored through the operations that already exist.** Worth stating because the first reading of the `operation` enum is that four of these five groups need names it does not have; they do not. The corpus tests protocol behaviour through protocol operations, so `serialization.md` §1's serializer is exercised by a `sign_query` vector asserting the compact string byte for byte — `message/sign/query-minimal` is the one that exists and does exactly this — and the parser and §2.8's limits *will be* exercised by `verify_query` and `process_query` vectors whose payloads are malformed one way each. `digest` is in the enum on its own account and no vector uses it yet.
+| 10 | Author `message/` corpus section | **Done.** All five groups present — twenty-two vectors, `harness lint` clean, `--check` in the suite. What remains is not authoring: no runner answers a vector until [P-001](P-001-conformance-corpus.md) issue 19, so the section is a contract nothing has been run against yet. Original criterion: all five groups present; `harness lint` clean. **To be authored through the operations that already exist.** Worth stating because the first reading of the `operation` enum is that four of these five groups need names it does not have; they do not. The corpus tests protocol behaviour through protocol operations, so `serialization.md` §1's serializer is exercised by a `sign_query` vector asserting the compact string byte for byte — `message/sign/query-minimal` is the one that exists and does exactly this — and the parser and §2.8's limits *will be* exercised by `verify_query` and `process_query` vectors whose payloads are malformed one way each. `digest` is in the enum on its own account and no vector uses it yet.
 
 **`serialize/` is written** — four vectors, generated by [`tools/author_message.py`](../../tools/author_message.py) with a `--check` in the suite: key order above the BMP, minimal escaping and what must *not* be escaped, `i64`'s boundaries, and empty containers beside a present null. Each signs a query whose `public_context` carries the shape and asserts the compact string byte for byte, so a wrong key order or a stray escape changes the payload segment and fails the comparison. They are deliberately not schema-valid for any registered entry — `sign_query` resolves no predicate, and `serialization.md` §1's edges are unreachable through a public context an entry would declare, which is the same reason `testdata/profile-edges` exists.
 
 **`reject/` is written** — six vectors. Duplicate keys and a float go in as **payload bytes**, since neither is expressible as an object and both are exactly what a JSON library does silently: `encoding/json` resolves a duplicate key by last-wins, which is the rule `serialization.md` §2 requires *rejecting*, and every library reads a float into a double. `jws_over_payload_bytes` signs them, so each is a validly signed message wrong in one stated way rather than corrupt bytes that would fail at step 4 for a reason the vector is not about. Over-depth, member count and an over-long protocol string go in as objects. Five are `malformed` on the wire with five different internal reasons; the sixth is the only `unsupported_version` in the corpus.
 
-**`envelope/` is not**, and one of its cases stays awkward: §2.8's 64 KiB bounds *received bytes* and `input.envelope` is a parsed object, so what a runner measures depends on how it reconstructs the envelope rather than on what the vector says. An unknown envelope member and a `routing` string above 2 KiB are straightforward.
+**`envelope/` is written** — four vectors, and the group carries **received
+bytes** rather than a parsed envelope. That was recorded here as awkward and it
+was the wrong shape rather than a hard case: §2.8 bounds the bytes as
+transmitted, so a vector handing over an object leaves the runner to reconstruct
+them and measures its choice of spelling instead. §5 now defines
+`envelope_bytes_base64url` beside `envelope`, and the two are not
+interchangeable. `above-the-envelope-limit` is 88 KB on disk, which is what 64
+KiB base64urls to; the alternative was no shared vector for the one limit that
+can be enforced before allocation. `routing-absent` is the positive case the
+other three are measured against — an implementation that required `routing`
+would reject every message from a producer that sends none ([E-38](../open-escalations.md)),
+and nothing else in the section catches it.
 
-**`digest/` waits on one small decision**: `digest` is in the operation enum and no vector uses it, so the first one settles whether its input carries base64url, hex, or a value to serialize. That is a runner-contract choice every implementation then keeps. Until they do, every behaviour listed below is covered only by two suites written to mirror each other.
+**`digest/` is written** — four vectors, and the decision it waited on is in §5:
+the input's **field name** says which of three things it carries, because §4.7
+takes four digests over three different kinds of thing and a runner cannot tell
+them apart from a value alone. `bytes_base64url` digests bytes as they are
+(`request_digest`); `value` serializes a protocol structure first; and
+`operation_data` is `serialization.md` §3's other entry point, which is what
+`public_context_digest` needs. The fourth vector is the one that makes those two
+entry points different rather than redundant: a public context whose `issued_at`
+is not a timestamp, which an implementation with a single entry point either
+refuses here or wrongly accepts through a query.
 
 P-001 issue 17's remit is the **Stage 5–8** extension; P-002 is Stage 1, and nothing here waits on it.
 
-**What the implementations owe this section**, gathered here rather than repeated in each issue row: duplicate keys, a float, invalid UTF-8, over-depth and over-wide input (issue 4); an oversize envelope, an unknown envelope member, and a `routing` string or key above 2 KiB (issue 5); and §2.8's three string bounds by position — a protocol field at 2 KiB, `predicate.public_context` at 32 KiB both per string and as an object, and `signed` at the envelope limit ([E-40](../open-escalations.md)). Each is asserted today by two suites written to mirror each other, which catches a divergence only where the same case was written twice. None can be *run* against the implementations until [P-001](P-001-conformance-corpus.md) issue 19 gives a runner that answers. |
-| 11 | Non-conformant-but-valid payload vector | Proves verification does not re-serialize |
-| 12 | `routing` carries `type`; §4.8 limits enforced as normative | `message/routing/` covers a `type` disagreement; an over-limit payload rejects identically in both implementations |
+**What the implementations owe this section**, gathered here rather than repeated in each issue row: duplicate keys, a float, invalid UTF-8, over-depth and over-wide input (issue 4); an oversize envelope, an unknown envelope member, and a `routing` string or key above 2 KiB (issue 5); and §2.8's three string bounds by position — a protocol field at 2 KiB, `predicate.public_context` at 32 KiB both per string and as an object, and `signed` at the envelope limit ([E-40](../open-escalations.md)). Each is asserted today by two suites written to mirror each other, which catches a divergence only where the same case was written twice. None can be *run* against the implementations until [P-001](P-001-conformance-corpus.md) issue 19 gives a runner that answers.<br><br>**And they owe the internal reasons by name.** A runner reports `internal_reason` and the harness compares it, so the names this section uses are the contract: `envelope_too_large`, `envelope_unknown_member`, `envelope_string_too_long`, `core_object_duplicate_key`, `core_object_float`, `core_object_too_deep`, `core_object_too_many_members`, `core_object_string_too_long`, `core_object_unsupported_version`. Only the two routing reasons are typed values today (`routing.rs`, `routing.go`); every parse-level rejection returns a formatted string, which no runner can report as a reason. Nothing is *wrong* — the strings say the right thing to an operator, and there is no runner yet to be wrong at — but a typed reason per case is what issue 19 will need, and inventing the names then rather than reading them from here is how two implementations end up with two vocabularies for one set of facts |
+| 11 | Non-conformant-but-valid payload vector | **Done.** `message/verify/non-conformant-payload` — a payload spaced where `serialization.md` §1 emits nothing, validly signed over those bytes, expecting `ok`. The **only** vector in the corpus whose input is deliberately non-conformant and whose outcome is not a rejection, which is what makes it worth having: a suite where every payload happens to be profile-conformant cannot distinguish a correct verifier from one that re-serializes, and every other vector here is such a payload. Both implementations already accept it — `parse_core` was written to RFC 8259 rather than to the profile — so this is the case a *third* implementation gets wrong, and the corpus is where a third implementation meets it |
+| 12 | `routing` carries `type`; the size limits enforced as normative | **Done.** `message/routing/type-disagrees` rewrites `type` to `response` over a signed query. Worth its own vector beside `routing/disagrees`, which moves `expires_at` by a second: a responder trusting that one sheds a live message, and a responder trusting this one hands a query to the code that reads responses. The limits are normative and now live in [`core-model.md`](../../spec/core-model.md) §2.8 rather than in this PRD ([E-39](../open-escalations.md)); `message/envelope/` and `message/reject/` assert four of the five, each rejecting with its own internal reason and the same wire response |
 
 Issue 1 blocks the rest.

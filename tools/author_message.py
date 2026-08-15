@@ -468,9 +468,284 @@ def reject_vectors() -> list[dict]:
     ]
 
 
+def envelope_bytes(envelope: dict) -> str:
+    """An envelope as **received bytes**, base64url.
+
+    `envelope/` is the group that tests `parse_envelope`, and every limit
+    [`core-model.md`](../spec/core-model.md) §2.8 places on an envelope is on
+    the bytes as transmitted. A vector handing over a parsed object would leave
+    the runner to reconstruct them, and what it measured would then depend on
+    how it chose to spell what it was given rather than on what the vector says.
+
+    Base64url rather than the JSON text, so one field means *received bytes*
+    wherever a vector supplies them — including bytes that are not valid UTF-8,
+    which text could not carry. The cost is that the group is unreadable without
+    decoding it, which is what each `description` is for.
+
+    The bytes here are `serialize`'s, and **nothing requires that**: an envelope
+    is a transport wrapper, not a signed or digested structure, so
+    `serialization.md` §1 does not reach it. A vector needs *some* fixed
+    spelling and this is the one available; a runner must not read anything into
+    it.
+    """
+    return av.base64url(av.serialize(envelope))
+
+
+def envelope_vectors() -> list[dict]:
+    signed = signed_query()
+
+    # A well-formed JWS compact shape, oversized in its third segment. The
+    # signature does not verify and never needs to: §4 step 1 rejects on size
+    # before step 3 reads a suite, which is the ordering this vector exists to
+    # hold an implementation to. An implementation that verified first would
+    # have allocated for 65 KiB of attacker-controlled input to learn what step
+    # 1 already knew.
+    header, payload, signature = signed.split(".")
+    oversize = f"{header}.{payload}.{signature}{'A' * 65536}"
+
+    long_routing = json.loads(json.dumps(ROUTING))
+    long_routing["target"]["custodian"] = "https://friend.example/" + "p" * 2100
+
+    return [
+        {
+            "id": "message/envelope/routing-absent",
+            "section": "message",
+            "requirement": ["core-model.md#2.1", "core-model.md#4"],
+            "description": (
+                "An envelope carrying `signed` alone. `routing` is advisory and "
+                "optional — [E-38](../docs/open-escalations.md) — and §4 step 8 "
+                "has nothing to compare, so the query verifies exactly as "
+                "`message/verify/query-valid` does. The positive case the rest "
+                "of this group is measured against: an implementation that "
+                "required `routing` would reject every message from a producer "
+                "that sends none, and nothing else here would catch it."
+            ),
+            "operation": "verify_query",
+            "input": {"envelope_bytes_base64url": envelope_bytes({"signed": signed})},
+            "expect": {"outcome": "ok", "output": QUERY, "comparison": "semantic"},
+        },
+        {
+            "id": "message/envelope/unknown-member",
+            "section": "message",
+            "requirement": ["core-model.md#2.1", "core-model.md#5.2.1"],
+            "description": (
+                "An envelope carrying a third member beside `signed` and "
+                "`routing`. §2.1 names two, and an unknown member **denies** "
+                "rather than being ignored: ignoring it makes the envelope an "
+                "extension point the specification does not have, and the first "
+                "thing to travel through one is a field a relay reads and a "
+                "responder does not."
+            ),
+            "operation": "verify_query",
+            "input": {"envelope_bytes_base64url": envelope_bytes(
+                {"signed": signed, "routing": ROUTING, "hint": "urgent"})},
+            "expect": rejects("envelope_unknown_member", "malformed", 1),
+        },
+        {
+            "id": "message/envelope/routing-string-past-the-limit",
+            "section": "message",
+            "requirement": ["core-model.md#2.8"],
+            "description": (
+                "A `target.custodian` in `routing` of 2123 bytes, past §2.8's "
+                "2 KiB. The limit reaches `routing` because `routing` is a "
+                "protocol structure whose fields the specification names — and "
+                "it does not reach `signed`, which is a whole JWS compact "
+                "string and would not fit inside 2 KiB for any real query. The "
+                "envelope as a whole is far below 64 KiB, so this is the string "
+                "limit and not the envelope's."
+            ),
+            "operation": "verify_query",
+            "input": {"envelope_bytes_base64url": envelope_bytes(
+                {"signed": signed, "routing": long_routing})},
+            "expect": rejects("envelope_string_too_long", "malformed", 1),
+        },
+        {
+            "id": "message/envelope/above-the-envelope-limit",
+            "section": "message",
+            "requirement": ["core-model.md#2.8", "core-model.md#4"],
+            "description": (
+                "An envelope above §2.8's 64 KiB. **The only limit that can be "
+                "enforced before allocation**, which is what §4 step 1 asks of "
+                "it: the rest are enforced as the message is read and are "
+                "bounded by this one. The oversize is in `signed`'s third "
+                "segment, so the input keeps the shape of a JWS compact "
+                "string; the signature does not verify and never needs to, "
+                "because step 1 precedes step 3 and an implementation that "
+                "reached verification has already allocated for 65 KiB of "
+                "attacker-controlled input."
+            ),
+            "operation": "verify_query",
+            "input": {"envelope_bytes_base64url": envelope_bytes({"signed": oversize})},
+            "expect": rejects("envelope_too_large", "malformed", 1),
+        },
+    ]
+
+
+def digest_vectors() -> list[dict]:
+    """`digest`'s three input shapes, one vector each, plus the empty case.
+
+    P-002 §4.7 takes four digests over three different kinds of thing, and a
+    runner cannot tell them apart from a value alone — so the vector says which
+    by the field it uses, and exactly one may be present:
+
+    - `bytes_base64url` — digest these bytes as they are. `request_digest`.
+    - `value` — a protocol structure: serialize under `serialization.md` §1,
+      then digest. `response_digest`, `effective_contract_digest`.
+    - `operation_data` — §2.4 data: same bytes, but the field names are the
+      predicate entry's rather than the protocol's. `public_context_digest`.
+
+    The last two are `serialization.md` §3's two entry points, and the fourth
+    vector here is the case that makes them different rather than redundant.
+    """
+    signed = signed_query()
+    context = {"issued_at": "whenever the kitchen opens"}
+
+    return [
+        {
+            "id": "message/digest/received-bytes",
+            "section": "message",
+            "requirement": ["core-model.md#6"],
+            "description": (
+                "`request_digest`'s construction: the exact `signed` bytes of "
+                "the query `message/sign/query-minimal` produces, digested as "
+                "received. **The one digest with no re-serialization** — it is "
+                "over bytes that arrived, so nothing about the production "
+                "profile can affect it, which is why it is the digest a relay "
+                "and a responder can compute alike."
+            ),
+            "operation": "digest",
+            "input": {"bytes_base64url": av.base64url(signed.encode("ascii"))},
+            "expect": {"outcome": "ok", "output": av.digest(signed.encode("ascii")),
+                       "comparison": "bytes"},
+        },
+        {
+            "id": "message/digest/empty-input",
+            "section": "message",
+            "requirement": ["core-model.md#6"],
+            "description": (
+                "The empty input. No Q2D digest is taken over nothing, and that "
+                "is why this is here: it is the case a padding mistake reaches "
+                "first, and the one an implementation that special-cased an "
+                "empty buffer would get wrong without any other vector "
+                "noticing. `testdata/digests.txt` carries the same value from "
+                "three implementations."
+            ),
+            "operation": "digest",
+            "input": {"bytes_base64url": ""},
+            "expect": {"outcome": "ok", "output": av.digest(b""),
+                       "comparison": "bytes"},
+        },
+        {
+            "id": "message/digest/protocol-structure",
+            "section": "message",
+            "requirement": ["core-model.md#6", "serialization.md#1"],
+            "description": (
+                "A sub-object serialized under `serialization.md` §1 and then "
+                "digested — the query's `answer_contract`, which is what "
+                "`effective_contract_digest` is taken over once a responder has "
+                "narrowed it. Unlike `request_digest` there are no received "
+                "bytes to digest, so two implementations agree here only if "
+                "they agree about the profile: a difference in key order or "
+                "escaping is a different digest and a receipt that fails to "
+                "verify."
+            ),
+            "operation": "digest",
+            "input": {"value": QUERY["answer_contract"]},
+            "expect": {"outcome": "ok",
+                       "output": av.digest(av.serialize(QUERY["answer_contract"])),
+                       "comparison": "bytes"},
+        },
+        {
+            "id": "message/digest/operation-data",
+            "section": "message",
+            "requirement": ["serialization.md#3", "core-model.md#2.4"],
+            "description": (
+                "A public context digested **on its own**, carrying an "
+                "`issued_at` that is not a timestamp. Reached through a query "
+                "the same object is §2.4 data, and §2.2's spelling does not "
+                "reach it ([E-36](../docs/open-escalations.md)) — a predicate's "
+                "entry decides what its own fields mean. Digested on its own it "
+                "is the root of a serialization, and `serialization.md` §3 is "
+                "explicit that protocol level is a property of *what is being "
+                "serialized* rather than of how deep a value sits. An "
+                "implementation with one entry point holds these bytes to §2.2 "
+                "here and not through a query, or the reverse: one object, two "
+                "rules, decided by the call site. It refuses this vector, which "
+                "is how the corpus finds it."
+            ),
+            "operation": "digest",
+            "input": {"operation_data": context},
+            "expect": {"outcome": "ok",
+                       "output": av.digest(av.serialize_operation_data(context)),
+                       "comparison": "bytes"},
+        },
+    ]
+
+
+def non_conformant_payload() -> dict:
+    """P-002 issue 11: a payload that verifies and is not profile-conformant."""
+    conforming = av.serialize(QUERY).decode("utf-8")
+    # A space after the opening brace and one before the closing brace. Legal
+    # JSON, insignificant whitespace, and not what `serialization.md` §1 emits —
+    # which is the whole of what this vector needs to be wrong about.
+    assert conforming.startswith("{") and conforming.endswith("}")
+    spelled_differently = "{ " + conforming[1:-1] + " }"
+    assert spelled_differently != conforming
+    assert json.loads(spelled_differently) == json.loads(conforming)
+    signed = av.jws_over_payload_bytes(
+        seed_of(REQUESTER), REQUESTER, spelled_differently.encode("utf-8"))
+
+    return {
+        "id": "message/verify/non-conformant-payload",
+        "section": "message",
+        "requirement": ["serialization.md#2", "core-model.md#4"],
+        "description": (
+            "A payload carrying whitespace the production profile does not "
+            "emit, validly signed. **It verifies.** `serialization.md` §1 binds "
+            "producers and §2 is explicit that it is not a property a reader "
+            "may require — a verifier hashes the bytes it received and never "
+            "re-derives them, so a payload spelled differently parses to the "
+            "same value and is accepted. An implementation that re-serialized "
+            "to check a signature would reject this, and would have "
+            "reintroduced the canonicalization dependency signing received "
+            "bytes exists to remove. It is the only vector in the corpus whose "
+            "input is deliberately non-conformant and whose outcome is `ok`."
+        ),
+        "operation": "verify_query",
+        "input": {"envelope": {"signed": signed, "routing": ROUTING}},
+        "expect": {"outcome": "ok", "output": QUERY, "comparison": "semantic"},
+    }
+
+
+def type_disagrees() -> dict:
+    """P-002 issue 12: `routing` carries `type`, and a relay may not rewrite it."""
+    rewritten = dict(ROUTING, type="response")
+    return {
+        "id": "message/routing/type-disagrees",
+        "section": "message",
+        "requirement": ["core-model.md#2.1", "core-model.md#4", "core-model.md#5.2.1"],
+        "description": (
+            "A routing projection declaring `type: response` over a signed "
+            "query. `type` is projected because a relay dispatches on it "
+            "without unwrapping (§4.5), which is exactly why a rewritten one "
+            "is worth its own vector: `routing/disagrees` moves `expires_at` by "
+            "a second and a responder that trusted it would shed a live "
+            "message, while a responder that trusted this one would hand a "
+            "query to the code that reads responses. §4 step 8 compares each "
+            "projected field exactly, and a disagreement is a tampering signal "
+            "rather than something to reconcile — the signed object governs, "
+            "and `routing` is never used for a decision the signature covers."
+        ),
+        "operation": "verify_query",
+        "input": {"envelope": {"signed": signed_query(), "routing": rewritten}},
+        "expect": rejects("routing_signed_mismatch", "routing_mismatch", 8),
+    }
+
+
 def vectors() -> list[dict]:
     signed = signed_query()
-    return serialize_vectors() + reject_vectors() + [
+    return (serialize_vectors() + reject_vectors() + envelope_vectors()
+            + digest_vectors() + [non_conformant_payload(), type_disagrees()] + [
         {
             "id": "message/sign/query-minimal",
             "section": "message",
@@ -590,7 +865,7 @@ def vectors() -> list[dict]:
             },
             "expect": rejects("routing_introduced_field", "routing_mismatch", 8),
         },
-    ]
+    ])
 
 
 def generate() -> dict[Path, str]:
