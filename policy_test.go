@@ -9,8 +9,8 @@ import (
 func policyRegistry(t *testing.T, status string) SuiteRegistry {
 	t.Helper()
 	document := fmt.Sprintf(`{"suites":[
-		{"id":"eddsa-jws-2026","algorithm":"a","serialization":"s","hash":"h","status":"%s"},
-		{"id":"withdrawn-suite","algorithm":"a","serialization":"s","hash":"h","status":"withdrawn"}]}`,
+		{"id":"eddsa-jws-2026","algorithm":"a","serialization":"s","hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"%s"},
+		{"id":"withdrawn-suite","algorithm":"a","serialization":"s","hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"withdrawn"}]}`,
 		status)
 	registry, err := LoadSuiteRegistry([]byte(document))
 	if err != nil {

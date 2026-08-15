@@ -80,14 +80,18 @@ The compact JWS of `canonical-query.json` under `test-requester-1`, and
 test asserts that, so the fixture and the corpus cannot drift apart.
 
 It exists because neither implementation can read a corpus vector with its own
-parser. A vector carries a `signed` string of 1604 bytes, and both parsers apply
-[`core-model.md`](../spec/core-model.md) §2.8's 2 KiB protocol-string limit,
-which is a rule about *messages* — a vector is not one. Reading vectors is the
-runner's job and the runner has its own parser for exactly this reason.
+parser. **Seven vectors carry a string past
+[`core-model.md`](../spec/core-model.md) §2.8's limits** —
+`message/envelope/above-the-envelope-limit`'s is 89 KB — because those vectors
+exist to *test* the limits. A parser that enforces them cannot read the corpus
+that tests them, which is why reading vectors is the runner's job and the runner
+has its own parser.
 
-So P-003 issue 5's acceptance is asserted through here: Python authored the
-bytes, Rust and Go each reproduce them, and the Python test above ties them to
-the vector. Three readings of one string, by tests that share no code.
+So P-003 issue 5's acceptance is asserted through here: the authoring tool
+produced the bytes, Rust and Go each reproduce them, and the Python test above
+ties them to the vector. **Three readings of one string**, by tests that share no
+code — Python being the authoring tool rather than a third implementation of the
+protocol.
 
 ## `ed25519-acceptance.txt`
 

@@ -17,11 +17,11 @@ import (
 // the fixture and the corpus cannot drift apart. This test and
 // tests/canonical_query_signed.rs are the other two readings.
 //
-// Why not read the vector file directly: a corpus vector is not a Q2D structure.
-// It carries a signed string of 1604 bytes, and Parse applies core-model.md
-// §2.8's 2 KiB protocol-string limit, which is a rule about messages. Reading a
-// vector needs the runner's own parser, which is cmd/q2d-conform's and
-// deliberately separate.
+// Why not read the vector file directly: seven corpus vectors carry a string
+// past core-model.md §2.8's limits — above-the-envelope-limit's is 89 KB —
+// because those vectors exist to test the limits. A parser that enforces them
+// cannot read the corpus that tests them, which is why the runner has its own
+// vector parser in cmd/q2d-conform and why this test reads testdata/ instead.
 func TestSigningTheCanonicalQueryReproducesTheCommittedString(t *testing.T) {
 	raw, err := os.ReadFile("testdata/canonical-query.json")
 	if err != nil {

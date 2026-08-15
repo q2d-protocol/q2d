@@ -133,6 +133,32 @@ impl SuiteRegistry {
                     )))
                 }
             };
+            // Every field `crypto-suites.md` §2 lists must be present, not
+            // only the five this type reads. A registry missing
+            // `withdrawn_from` is one whose author did not fill in the shape,
+            // and the field it omitted is the one that says when verification
+            // must stop — so a partial entry is refused rather than read for
+            // the parts that happen to be there.
+            //
+            // Presence, and the type where this reads it. The *dates* are not
+            // interpreted here: §4.4's rules are driven by `status`, and a
+            // date-driven transition is a scheduling question no part of Q2D
+            // 0.1 answers. Requiring them keeps the registry honest about what
+            // it is claiming without inventing a rule about clocks.
+            for required in ["effective_from", "security_notes", "references"] {
+                member(suite, required)?;
+            }
+            for nullable in ["deprecated_from", "withdrawn_from"] {
+                match member(suite, nullable)? {
+                    Value::Null | Value::String(_) => {}
+                    _ => {
+                        return Err(RegistryError(format!(
+                            "`{nullable}` is neither a date nor null"
+                        )))
+                    }
+                }
+            }
+
             let entry = SuiteEntry {
                 id: id.clone(),
                 algorithm: text(member(suite, "algorithm")?, "algorithm")?,
@@ -239,7 +265,7 @@ mod tests {
         // without touching code. A compiled-in table would pass every other
         // test in this module.
         let deprecated = r#"{"suites":[{"id":"x","algorithm":"a","serialization":"s",
-            "hash":"h","status":"deprecated"}]}"#;
+            "hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"deprecated"}]}"#;
         let registry = SuiteRegistry::load(deprecated.as_bytes()).unwrap();
         let entry = registry.resolve("x").unwrap();
         assert!(!entry.status.may_produce());
@@ -259,7 +285,7 @@ mod tests {
         // Fail-closed: not a default, and not ignored. A registry this build
         // cannot read the rules of is one it must not act on.
         let text = r#"{"suites":[{"id":"x","algorithm":"a","serialization":"s",
-            "hash":"h","status":"provisional"}]}"#;
+            "hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"provisional"}]}"#;
         let error = SuiteRegistry::load(text.as_bytes()).unwrap_err();
         assert!(error.to_string().contains("provisional"), "{error}");
     }
@@ -267,8 +293,8 @@ mod tests {
     #[test]
     fn a_duplicate_identifier_fails_the_load() {
         let text = r#"{"suites":[
-            {"id":"x","algorithm":"a","serialization":"s","hash":"h","status":"active"},
-            {"id":"x","algorithm":"a","serialization":"s","hash":"h","status":"withdrawn"}]}"#;
+            {"id":"x","algorithm":"a","serialization":"s","hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"active"},
+            {"id":"x","algorithm":"a","serialization":"s","hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"withdrawn"}]}"#;
         let error = SuiteRegistry::load(text.as_bytes()).unwrap_err();
         assert!(error.to_string().contains("twice"), "{error}");
     }
@@ -279,7 +305,7 @@ mod tests {
         // registry with `status` twice is not a registry with one of them, and
         // last-wins would let the second copy decide what a verifier accepts.
         let text = r#"{"suites":[{"id":"x","algorithm":"a","serialization":"s",
-            "hash":"h","status":"withdrawn","status":"active"}]}"#;
+            "hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"withdrawn","status":"active"}]}"#;
         assert!(SuiteRegistry::load(text.as_bytes()).is_err());
     }
 
@@ -291,18 +317,59 @@ mod tests {
     }
 
     #[test]
-    fn a_missing_field_fails_the_load() {
-        for missing in ["id", "algorithm", "serialization", "hash", "status"] {
-            let mut fields: Vec<String> = ["id", "algorithm", "serialization", "hash", "status"]
+    fn a_missing_section_2_field_fails_the_load() {
+        // The shape is enforced whole, not only the five fields this type
+        // reads. The omitted field here is the one that says when verification
+        // must stop.
+        let text = r#"{"suites":[{"id":"x","algorithm":"a","serialization":"s",
+            "hash":"h","effective_from":"2026-08-15","deprecated_from":null,
+            "security_notes":[],"references":[],"status":"active"}]}"#;
+        let error = SuiteRegistry::load(text.as_bytes()).unwrap_err();
+        assert!(error.to_string().contains("withdrawn_from"), "{error}");
+
+        let wrong_type = r#"{"suites":[{"id":"x","algorithm":"a","serialization":"s",
+            "hash":"h","effective_from":"2026-08-15","deprecated_from":null,
+            "withdrawn_from":3,"security_notes":[],"references":[],"status":"active"}]}"#;
+        assert!(SuiteRegistry::load(wrong_type.as_bytes()).is_err());
+    }
+
+    #[test]
+    fn every_field_section_2_lists_is_required() {
+        // Each case omits exactly one field and keeps the rest, so a failure
+        // says the named field was required rather than that the document was
+        // short of something else. The first version of this test built
+        // documents with five fields and asserted they failed — which they did,
+        // for the other four fields' absence, whatever the loop said.
+        const FIELDS: &[(&str, &str)] = &[
+            ("id", r#""x""#),
+            ("algorithm", r#""a""#),
+            ("serialization", r#""s""#),
+            ("hash", r#""h""#),
+            ("status", r#""active""#),
+            ("effective_from", r#""2026-08-15""#),
+            ("deprecated_from", "null"),
+            ("withdrawn_from", "null"),
+            ("security_notes", "[]"),
+            ("references", "[]"),
+        ];
+
+        let document = |omit: &str| {
+            let body: Vec<String> = FIELDS
                 .iter()
-                .filter(|f| **f != missing)
-                .map(|f| format!(r#""{f}":"{}""#, if *f == "status" { "active" } else { "x" }))
+                .filter(|(name, _)| *name != omit)
+                .map(|(name, value)| format!(r#""{name}":{value}"#))
                 .collect();
-            fields.sort();
-            let text = format!(r#"{{"suites":[{{{}}}]}}"#, fields.join(","));
+            format!(r#"{{"suites":[{{{}}}]}}"#, body.join(","))
+        };
+
+        // The control: nothing omitted, and it must load. Without this the
+        // loop below would pass against a document that never loads at all.
+        assert!(SuiteRegistry::load(document("").as_bytes()).is_ok());
+
+        for (name, _) in FIELDS {
             assert!(
-                SuiteRegistry::load(text.as_bytes()).is_err(),
-                "a registry without `{missing}` loaded"
+                SuiteRegistry::load(document(name).as_bytes()).is_err(),
+                "a registry without `{name}` loaded"
             );
         }
     }
@@ -310,7 +377,7 @@ mod tests {
     #[test]
     fn a_pinned_digest_must_match() {
         let bytes = br#"{"suites":[{"id":"x","algorithm":"a","serialization":"s",
-            "hash":"h","status":"active"}]}"#;
+            "hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"active"}]}"#;
         let digest = crate::digest(bytes);
         assert!(SuiteRegistry::load_pinned(bytes, &digest).is_ok());
 

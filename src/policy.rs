@@ -133,9 +133,9 @@ mod tests {
         let text = format!(
             r#"{{"suites":[
                 {{"id":"eddsa-jws-2026","algorithm":"a","serialization":"s",
-                  "hash":"h","status":"{status}"}},
+                  "hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"{status}"}},
                 {{"id":"withdrawn-suite","algorithm":"a","serialization":"s",
-                  "hash":"h","status":"withdrawn"}}]}}"#
+                  "hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"withdrawn"}}]}}"#
         );
         SuiteRegistry::load(text.as_bytes()).unwrap()
     }

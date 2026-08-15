@@ -133,6 +133,35 @@ func LoadSuiteRegistry(raw []byte) (SuiteRegistry, error) {
 				"`%s` is not a status crypto-suites.md §6 defines", declared)
 		}
 
+		// Every field crypto-suites.md §2 lists must be present, not only the
+		// five this type reads. A registry missing withdrawn_from is one whose
+		// author did not fill in the shape, and the field it omitted is the one
+		// that says when verification must stop — so a partial entry is refused
+		// rather than read for the parts that happen to be there.
+		//
+		// Presence, and the type where this reads it. The dates are not
+		// interpreted here: §4.4's rules are driven by status, and a
+		// date-driven transition is a scheduling question no part of Q2D 0.1
+		// answers. Requiring them keeps the registry honest about what it is
+		// claiming without inventing a rule about clocks.
+		for _, required := range []string{"effective_from", "security_notes", "references"} {
+			if _, err := registryMember(suite, required); err != nil {
+				return SuiteRegistry{}, err
+			}
+		}
+		for _, nullable := range []string{"deprecated_from", "withdrawn_from"} {
+			value, err := registryMember(suite, nullable)
+			if err != nil {
+				return SuiteRegistry{}, err
+			}
+			switch value.(type) {
+			case Null, String:
+			default:
+				return SuiteRegistry{}, fmt.Errorf(
+					"`%s` is neither a date nor null", nullable)
+			}
+		}
+
 		entry := SuiteEntry{ID: id, Status: status}
 		for _, field := range []struct {
 			name string

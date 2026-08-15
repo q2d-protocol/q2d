@@ -37,7 +37,7 @@ func TestStatusComesFromTheFile(t *testing.T) {
 	// without touching code. A compiled-in table would pass every other test in
 	// this file.
 	registry, err := LoadSuiteRegistry([]byte(`{"suites":[{"id":"x","algorithm":"a",
-		"serialization":"s","hash":"h","status":"deprecated"}]}`))
+		"serialization":"s","hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"deprecated"}]}`))
 	if err != nil {
 		t.Fatalf("load: %v", err)
 	}
@@ -72,23 +72,23 @@ func TestARegistryThatMustNotLoad(t *testing.T) {
 		// Fail-closed: not a default, and not ignored. A registry this build
 		// cannot read the rules of is one it must not act on.
 		"unknown status": `{"suites":[{"id":"x","algorithm":"a","serialization":"s",
-			"hash":"h","status":"provisional"}]}`,
+			"hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"provisional"}]}`,
 		"duplicate identifier": `{"suites":[
-			{"id":"x","algorithm":"a","serialization":"s","hash":"h","status":"active"},
-			{"id":"x","algorithm":"a","serialization":"s","hash":"h","status":"withdrawn"}]}`,
+			{"id":"x","algorithm":"a","serialization":"s","hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"active"},
+			{"id":"x","algorithm":"a","serialization":"s","hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"withdrawn"}]}`,
 		// Because this reads with Parse rather than encoding/json. Last-wins
 		// would let the second copy decide what a verifier accepts.
 		"duplicate key": `{"suites":[{"id":"x","algorithm":"a","serialization":"s",
-			"hash":"h","status":"withdrawn","status":"active"}]}`,
+			"hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"withdrawn","status":"active"}]}`,
 		// A registry with no entries verifies nothing, so loading one silently
 		// would turn a distribution failure into a total outage with no error.
 		"no entries":          `{"suites":[]}`,
 		"no suites":           `{"registry_id":"x"}`,
 		"suites not an array": `{"suites":{"id":"x"}}`,
 		"missing status":      `{"suites":[{"id":"x","algorithm":"a","serialization":"s","hash":"h"}]}`,
-		"missing id":          `{"suites":[{"algorithm":"a","serialization":"s","hash":"h","status":"active"}]}`,
+		"missing id":          `{"suites":[{"algorithm":"a","serialization":"s","hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"active"}]}`,
 		"status not a string": `{"suites":[{"id":"x","algorithm":"a","serialization":"s",
-			"hash":"h","status":1}]}`,
+			"hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":1}]}`,
 	} {
 		if _, err := LoadSuiteRegistry([]byte(document)); err == nil {
 			t.Errorf("%s: loaded", name)
@@ -113,7 +113,7 @@ func TestAnUnregisteredSuiteDoesNotResolve(t *testing.T) {
 
 func TestAPinnedDigestMustMatch(t *testing.T) {
 	raw := []byte(`{"suites":[{"id":"x","algorithm":"a","serialization":"s",
-		"hash":"h","status":"active"}]}`)
+		"hash":"h","effective_from":"2026-08-15","deprecated_from":null,"withdrawn_from":null,"security_notes":[],"references":[],"status":"active"}]}`)
 	digest := Digest(raw)
 	if _, err := LoadPinnedSuiteRegistry(raw, digest); err != nil {
 		t.Fatalf("the matching digest was refused: %v", err)

@@ -9,16 +9,23 @@
 //! that, so the fixture and the corpus cannot drift apart. This test and
 //! `canonical_query_signed_test.go` are the other two readings.
 //!
-//! Three implementations, three languages, tests that share no code. The third
-//! reading is the one that matters: two implementations agreeing with each other
-//! but not with the authoring tool would pass every vector and still be wrong.
+//! Three **readings** of one string, by tests that share no code. Python is the
+//! authoring tool rather than a third implementation of Q2D — the two
+//! implementations are Rust and Go — and the reading still matters: the two
+//! agreeing with each other but not with the tool the corpus's bytes come from
+//! would pass every vector and still be wrong.
 //!
-//! **Why not read the vector file directly.** A corpus vector is not a Q2D
-//! structure — it carries a `signed` string of 1604 bytes, and `q2d::parse`
-//! applies `core-model.md` §2.8's 2 KiB protocol-string limit, which is a rule
-//! about messages. Reading a vector needs the runner's own parser, which is
-//! `src/bin/q2d-conform.rs`'s and deliberately separate. `serialization.md` §2
-//! says the same thing from the other side.
+//! **Why not read the vector file directly.** Seven corpus vectors carry a
+//! string past `core-model.md` §2.8's limits — `above-the-envelope-limit`'s is
+//! 89 KB — because those vectors exist to *test* the limits. A parser that
+//! enforces them cannot read the corpus that tests them, which is why the
+//! runner has its own vector parser in `src/bin/q2d-conform.rs` and why this
+//! test reads `testdata/` instead. `serialization.md` §2 says the same thing
+//! from the other side: a vector is not a Q2D structure.
+//!
+//! (`query-minimal`'s own compact string is 1604 bytes and would parse. The
+//! first version of this comment claimed otherwise, and the claim was wrong in
+//! both directions — the number and the direction.)
 
 use q2d::ed25519::PrivateKey;
 use q2d::value::Value;
