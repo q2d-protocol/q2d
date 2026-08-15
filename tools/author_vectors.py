@@ -566,6 +566,53 @@ def digest(raw: bytes) -> str:
     return "sha256:" + hashlib.sha256(raw).hexdigest()
 
 
+ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+
+
+def base64url_decode(text: str) -> bytes:
+    """RFC 7515's base64url, refusing every other spelling of the same bytes.
+
+    Not `base64.urlsafe_b64decode`, for the reason `src/base64url.rs` and
+    `base64url.go` are hand-written: it takes padding, and it does not check a
+    final group's spare bits. RFC 4648 §3.5 makes that check optional and it is
+    not optional under a signature — `Zg` and `Zh` are both `f` to a permissive
+    decoder, which is one byte string with two spellings.
+
+    Third implementation of the same rule, deliberately: the corpus asserts the
+    behaviour and must not be derived from either implementation of it.
+    """
+    if len(text) % 4 == 1:
+        raise ProfileError(
+            f"{len(text)} characters: a base64url group of one character "
+            f"encodes nothing")
+    out = bytearray()
+    for i in range(0, len(text), 4):
+        chunk = text[i:i + 4]
+        bits = 0
+        for j, c in enumerate(chunk):
+            v = ALPHABET.find(c)
+            if v < 0:
+                if c == "=":
+                    raise ProfileError("padding, which RFC 7515 §2 does not use")
+                if c in "+/":
+                    raise ProfileError(
+                        "a character from RFC 4648 §4's standard alphabet")
+                raise ProfileError("a character outside RFC 4648 §5's alphabet")
+            bits |= v << (18 - 6 * j)
+        out.extend((bits >> (16 - 8 * j)) & 0xFF for j in range(len(chunk) - 1))
+        # The mask covers every bit below the last emitted byte; the bits
+        # below the group itself are structurally zero, so it is the same test.
+        # The count is not the mask width -- a group of two characters holds
+        # twelve bits and emits eight, so four are spare.
+        unconsumed = 8 * (4 - len(chunk))
+        if unconsumed and bits & ((1 << unconsumed) - 1):
+            spare = 6 * len(chunk) - 8 * (len(chunk) - 1)
+            raise ProfileError(
+                f"{spare} trailing bits that are not zero, which is a second "
+                f"spelling of the same bytes")
+    return bytes(out)
+
+
 def base64url(raw: bytes) -> str:
     """RFC 7515's base64url: no padding, URL-safe alphabet."""
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")

@@ -9,6 +9,7 @@
 //!
 //! [`P-002`]: https://github.com/q2d-protocol/q2d/blob/main/docs/prds/P-002-message-envelope.md
 
+pub mod base64url;
 pub mod digest;
 pub mod envelope;
 pub mod parse;

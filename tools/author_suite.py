@@ -47,6 +47,7 @@ unregistered-suite vector below covers the part that does not need one.
 
 from __future__ import annotations
 
+import base64
 import json
 import sys
 from pathlib import Path
@@ -118,12 +119,70 @@ def envelope(signed: str) -> dict:
     return {"envelope": {"signed": signed}}
 
 
+def respelled(segment: str) -> str:
+    """`segment` with a spare trailing bit set: same bytes, different text.
+
+    A 64-byte signature base64urls to 86 characters, and the final group of two
+    carries one byte and **four spare bits**. RFC 4648 §3.5 leaves checking them
+    optional, so a permissive decoder returns the identical 64 bytes for both
+    spellings — Go's `base64.RawURLEncoding` is one such decoder.
+
+    That is the one segment where the difference matters. Re-spelling the header
+    or the payload changes the signing input, so the signature simply fails and
+    a permissive decoder gains an attacker nothing. Re-spelling the *signature*
+    changes no input to anything: it verifies, and the `signed` string
+    `request_digest` is taken over is a different string.
+    """
+    last = av.ALPHABET.index(segment[-1])
+    assert last & 1 == 0, "the low bit is already set; pick another spare bit"
+    respelt = segment[:-1] + av.ALPHABET[last | 1]
+    assert respelt != segment
+
+    # The bytes must be identical, and a *permissive* decoder is the only thing
+    # that can show that -- `base64url_decode` refuses the respelling, which is
+    # the behaviour this vector exists to require.
+    permissive = base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4))
+    assert base64.urlsafe_b64decode(respelt + "=" * (-len(respelt) % 4)) == permissive, (
+        "the two spellings must carry identical bytes, or this vector is "
+        "asserting something else entirely")
+    try:
+        av.base64url_decode(respelt)
+    except av.ProfileError:
+        return respelt
+    raise AssertionError("the authoring tool accepted the respelling")
+
+
 def vectors() -> list[dict]:
     seed = seed_of(REQUESTER)
     valid = av.jws_compact(seed, REQUESTER, QUERY)
     head, payload, signature = valid.split(".")
 
     return [
+        {
+            "id": "suite/verify/respelled-signature-segment",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#4",
+                            "core-model.md#5.2.1"],
+            "description": (
+                "A signature segment respelled: the same 64 bytes, encoded "
+                "with a spare trailing bit set. RFC 4648 §3.5 makes checking "
+                "those bits optional and `encoding/json`'s sibling "
+                "`base64.RawURLEncoding` does not check them, so **a permissive "
+                "decoder verifies this message**. That is what makes it worth a "
+                "vector: it is the one place where accepting a second spelling "
+                "is not caught by the signature failing. Re-spelling the header "
+                "or the payload changes the signing input and verification "
+                "fails on its own; re-spelling the signature changes no input "
+                "to anything, and leaves a valid message whose `signed` string "
+                "differs from the one that was sent — a different "
+                "`request_digest` for one exchange (§6). Rejected at step 4: a "
+                "signature that does not decode is not a valid signature, and "
+                "§5.2.1 gives one class for the whole of authentication."
+            ),
+            "operation": "verify_query",
+            "input": envelope(f"{head}.{payload}.{respelled(signature)}"),
+            "expect": rejects("signature_not_canonical", "unauthenticated", 4),
+        },
         {
             "id": "suite/sign/second-key",
             "section": "suite",
