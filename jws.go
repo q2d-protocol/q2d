@@ -88,6 +88,16 @@ func VerifyCompact(compact string, key PublicKey) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	// All three segments must be base64url, including the one this function does
+	// not read. crypto-suites.md §3 defines the form as BASE64URL(header) "."
+	// BASE64URL(payload) "." BASE64URL(signature), and a producer chooses its own
+	// header text — so without this, a signature over a malformed header verifies
+	// and this returns a payload from a message that is not a Q2D signed string.
+	// The caller would fail later trying to read the suite out of it, which is a
+	// different function's job and not a reason to hand it bytes.
+	if _, err := DecodeBase64URL(header); err != nil {
+		return nil, ErrSignatureInvalid
+	}
 	raw, err := DecodeBase64URL(signature)
 	if err != nil {
 		return nil, ErrSignatureInvalid

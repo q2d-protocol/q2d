@@ -114,6 +114,15 @@ fn segments(compact: &str) -> Result<(&str, &str, &str), SignatureInvalid> {
 /// and the policy rather than the ordering, the policy and the mathematics.
 pub fn verify_compact(compact: &str, key: &PublicKey) -> Result<Vec<u8>, SignatureInvalid> {
     let (header, payload, signature) = segments(compact)?;
+    // **All three segments must be base64url**, including the one this function
+    // does not read. `crypto-suites.md` §3 defines the form as
+    // `BASE64URL(header) "." BASE64URL(payload) "." BASE64URL(signature)`, and
+    // a producer chooses its own header text — so without this, a signature
+    // over a malformed header verifies and this returns a payload from a
+    // message that is not a Q2D signed string. The caller would fail later
+    // trying to read the suite out of it, which is a different function's job
+    // and not a reason to hand it bytes.
+    base64url::decode(header).map_err(|_| SignatureInvalid)?;
     let signature = base64url::decode(signature).map_err(|_| SignatureInvalid)?;
     // The signing input is the received text of the first two segments, not a
     // re-encoding of what they decode to. Re-encoding would make verification
@@ -202,6 +211,32 @@ mod tests {
             String::new(),
         ] {
             assert!(verify_compact(&broken, &public).is_err(), "{broken}");
+        }
+    }
+
+    #[test]
+    fn a_segment_that_is_not_base64url_is_refused_even_when_signed() {
+        // The signature is over the *text* of the first two segments, so a
+        // producer can sign a header that is not base64url and the signature
+        // verifies. §3 says what the form is, and this is where the form is
+        // checked — otherwise a caller receives a payload from a message that
+        // is not a Q2D signed string.
+        let key = key();
+        let payload_text = base64url::encode(b"{}");
+        for header_text in ["not base64url!", "AAAA=", "Zh"] {
+            let signing_input = format!("{header_text}.{payload_text}");
+            let signature = key.sign(signing_input.as_bytes());
+            let compact = format!("{signing_input}.{}", base64url::encode(&signature));
+            // The signature is genuinely valid over these bytes...
+            assert!(
+                crate::ed25519::verify(&key.public_key(), signing_input.as_bytes(), &signature)
+                    .is_ok()
+            );
+            // ...and the message is still refused.
+            assert!(
+                verify_compact(&compact, &key.public_key()).is_err(),
+                "{header_text}"
+            );
         }
     }
 

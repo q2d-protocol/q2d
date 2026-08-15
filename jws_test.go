@@ -116,3 +116,25 @@ func TestATamperedHeaderIsRefused(t *testing.T) {
 		t.Error("accepted")
 	}
 }
+
+func TestASegmentThatIsNotBase64URLIsRefusedEvenWhenSigned(t *testing.T) {
+	// The signature is over the text of the first two segments, so a producer
+	// can sign a header that is not base64url and the signature verifies. §3
+	// says what the form is, and this is where the form is checked — otherwise a
+	// caller receives a payload from a message that is not a Q2D signed string.
+	key := signingKey(t)
+	payload := EncodeBase64URL([]byte("{}"))
+	for _, header := range []string{"not base64url!", "AAAA=", "Zh"} {
+		signingInput := header + "." + payload
+		signature := key.Sign([]byte(signingInput))
+		compact := signingInput + "." + EncodeBase64URL(signature)
+		// The signature is genuinely valid over these bytes...
+		if err := Verify(key.PublicKey(), []byte(signingInput), signature); err != nil {
+			t.Fatalf("%q: the signature should verify over the raw text: %v", header, err)
+		}
+		// ...and the message is still refused.
+		if _, err := VerifyCompact(compact, key.PublicKey()); err == nil {
+			t.Errorf("%q was accepted", header)
+		}
+	}
+}
