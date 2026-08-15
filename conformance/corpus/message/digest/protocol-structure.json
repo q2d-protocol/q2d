@@ -1,0 +1,25 @@
+{
+  "id": "message/digest/protocol-structure",
+  "section": "message",
+  "requirement": [
+    "serialization.md#5",
+    "serialization.md#1"
+  ],
+  "description": "A sub-object serialized under `serialization.md` §1 and then digested — the query's `answer_contract`, which is what `effective_contract_digest` is taken over once a responder has narrowed it. Unlike `request_digest` there are no received bytes to digest, so two implementations agree here only if they agree about the profile: a difference in key order or escaping is a different digest and a receipt that fails to verify.",
+  "operation": "digest",
+  "input": {
+    "value": {
+      "release_shape": "boolean",
+      "domain": [
+        false,
+        true
+      ],
+      "allowed_detail_fields": []
+    }
+  },
+  "expect": {
+    "outcome": "ok",
+    "output": "sha256:92b496f360ae61f4836d58856701ee2562be4064d4900aadd98e8707827dc915",
+    "comparison": "bytes"
+  }
+}

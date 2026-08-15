@@ -129,6 +129,11 @@ machine-checkable form. **An operation a runner does not recognise is exit 1,
 never a skip** — fail-closed applies to runners too, and a skipped vector is a
 vector nobody notices is unimplemented.
 
+**What `input` carries is the operation's, and is defined by the PRD that owns
+it** — not here, and not in one list. `verify_query` and `digest` each take more
+than one kind of input and say which by the field name;
+[P-002](../docs/prds/P-002-message-envelope.md) §5 is where those are stated.
+
 ## The reference stub
 
 [`runners/stub/q2d-conform`](runners/stub/q2d-conform) implements this contract

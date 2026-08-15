@@ -114,20 +114,31 @@ Size limits are a separate matter and are [`core-model.md`](core-model.md) §2.8
 
 ## 3. What is being serialized
 
-Whether a value sits at **protocol level** is a property of what is being
-serialized, not of how deeply the value sits inside it.
+Whether a value is at **protocol level** is a property of *what it is* — which
+this specification decides — and not of where it sits in the structure being
+serialized.
 
 [`core-model.md`](core-model.md) §2.2 gives the protocol's own fields their
 meaning, and §2.4 leaves a predicate's `public_context` to its registry entry to
-shape. The same object is therefore bound by different rules depending on what
-it is the serialization *of*: reached through a query, `public_context` is
-operation-defined data below protocol level; digested on its own to produce a
-`public_context_digest`, it is the root, and the rules that apply to a root
-apply to it.
+shape. So:
 
-An implementation needs two entry points for this reason, and a single one is a
-defect: it would hold the same bytes to different rules according to which path
-reached them.
+- A **protocol structure** — a core object, a response, a receipt, `routing`, a
+  protected header — carries fields this specification names, and §2.2's
+  timestamp spelling binds them.
+- A predicate's **`public_context`** is operation data. Its field names are its
+  entry's, and §2.2 binds none of them, so a member called `issued_at` means
+  whatever the entry says it means.
+
+**Neither changes when the value is serialized on its own.** A `public_context`
+digested to produce a `public_context_digest` is the top-level value of that
+serialization and is still operation data; being at the top makes it the root of
+some bytes, not a protocol structure. Position is not what decides.
+
+An implementation therefore needs **two entry points**, and one is a defect: a
+single entry point would have to read the answer off the value's position, which
+does not carry it — the same bytes would be held to §2.2 when digested and not
+when reached through a query, or the reverse, decided by the call site rather
+than by what the value is.
 
 ## 4. This is not canonicalization
 
@@ -147,3 +158,32 @@ nothing more. It is not a canonicalization step, and no Q2D operation
 re-serializes a parsed value in order to check a signature. An implementation
 that did would satisfy §1 and still be non-conforming, because §2 is the half
 that makes §1 safe to require.
+
+## 5. Digests
+
+A **digest** is a string:
+
+```
+digest = "<algorithm>:" + lowercase_hex(<algorithm>(bytes))
+```
+
+For every digest Q2D 0.1 defines, the algorithm is `sha256` — so
+`"sha256:" + lowercase_hex(SHA-256(bytes))`, and `sha256:e3b0c442…` for the
+empty input.
+
+**Lowercase, and the prefix is mandatory.** Two implementations that agreed
+about every byte hashed would still fail every comparison by disagreeing about
+the case of the hex or whether to name the algorithm at all, and a digest is
+compared for equality wherever it appears: a receipt against an exchange, a
+requester's `registry_digest` against a custodian's entry.
+
+The prefix makes the value **self-describing**, so a second algorithm is
+additive rather than ambiguous. This is the one part of a digest that is a
+suite's business rather than this document's: when a suite registering a
+different hash exists, the algorithm comes from it and this section fixes only
+the form. None does today.
+
+This document says what a digest *is*. What each one is taken *over* is
+[`core-model.md`](core-model.md) §6 for a receipt's, §2.4.1 for an entry's — and
+which of them digest bytes as received rather than a value serialized under §1 is
+§3's question, not this section's.

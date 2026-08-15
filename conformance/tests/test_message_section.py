@@ -131,5 +131,48 @@ class RejectionTest(unittest.TestCase):
                     self.assertNotIn("value", obj.get("signature", {}))
 
 
+# P-002 §5. Two operations take more than one kind of input and say which by the
+# field name, so exactly one of each set may be present. Embedded rather than
+# read out of the PRD, for the same reason `EXTERNAL_REASONS` is.
+INPUT_FORMS = {
+    "verify_query": frozenset({"envelope", "envelope_bytes_base64url"}),
+    "digest": frozenset({"bytes_base64url", "value", "operation_data"}),
+}
+
+
+class InputShapeTest(unittest.TestCase):
+    """The field name is what tells a runner which input it was handed.
+
+    A vector carrying two of them, or none, is one a runner cannot answer
+    without guessing — and a runner that guessed would answer some other
+    question consistently enough to look correct.
+    """
+
+    def test_exactly_one_input_form_is_present(self):
+        for vector in vectors():
+            forms = INPUT_FORMS.get(vector.get("operation"))
+            if forms is None:
+                continue
+            # `input` is a required object under the schema and the linter
+            # reports a malformed one; reaching into a non-dict here would
+            # abort this file and hide every finding after it.
+            supplied = vector.get("input")
+            if not isinstance(supplied, dict):
+                continue
+            with self.subTest(vector=vector["id"]):
+                self.assertEqual(len(forms & set(supplied)), 1,
+                                 f"expected exactly one of {sorted(forms)}")
+
+    def test_both_forms_are_exercised(self):
+        # A rule satisfied by every vector using the same form is a rule no
+        # vector tests. `envelope_bytes_base64url` exists because §2.8 bounds
+        # received bytes, and it is worth nothing if nothing supplies them.
+        for operation, forms in INPUT_FORMS.items():
+            used = {form for v in vectors() if v.get("operation") == operation
+                    for form in forms & set(v.get("input", {}))}
+            with self.subTest(operation=operation):
+                self.assertEqual(used, set(forms))
+
+
 if __name__ == "__main__":
     unittest.main()

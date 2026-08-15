@@ -18,8 +18,16 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** **E-36** through **E-43** all closed, every one raised
+> **Nothing is open.** **E-36** through **E-45** all closed, every one raised
 > while building P-002's message layer.
+>
+> **E-44** and **E-45** are [E-43](#e-43--the-production-profile-is-defined-in-a-prd-and-the-spec-cites-it-as-if-it-were-not)'s
+> class, found by looking for more of it: the envelope's **closedness** and the
+> **digest string form** were each stated only in P-002. `core-model.md` §2.1
+> closes the envelope now, and `serialization.md` §5 defines a digest. Neither
+> changed a behaviour — both implementations already did the right thing — and
+> that is the point: an unstated rule two implementations happen to agree on is
+> a rule the third gets wrong.
 >
 > **E-43:** the deterministic production profile — the rules that fix the bytes a
 > signature covers — was defined only in P-002 §4.2, while `crypto-suites.md`,
@@ -189,7 +197,9 @@ question is still fresh than after the answer arrives.
 | **E-40** | Does the 2 KiB string limit reach inside `public_context`? | P-002 issue 5 | `core-model.md` §2.8 · `scope.md` §4.1 · `registry/validate.py` · both parsers | **Closed** |
 | **E-41** | §2.1 justifies the `routing` allowlist by a confidentiality 0.1 does not provide | P-002 issue 7 | `core-model.md` §2.1 · `claims.md` **Q2D-NC-13** (new) · P-002 §4.5, §10 · both implementations | **Closed** |
 | **E-42** | Is an empty prefix object a valid `routing`? | P-002 issue 7 | `core-model.md` §2.1 · P-002 §4.6 · both implementations | **Closed** |
-| **E-43** | The deterministic production profile is defined in a PRD, and three artifacts above it cite it as if it were not | P-002 issue 10 | `serialization.md` (new) · `crypto-suites.md` §1–§3 · `core-model.md` preamble, §2.8, §3.2, §6 · `registry/manifest.json`, `registry/validate.py` · P-002 §4.1–§4.3, P-011 §4.4 · both implementations · corpus | **Closed** |
+| **E-43** | The deterministic production profile is defined in a PRD, and three artifacts above it cite it as if it were not | P-002 issue 10 | `serialization.md` (new) · `crypto-suites.md` §1–§3 · `core-model.md` preamble, §2.8, §3.2, §6 · `registry/manifest.json`, `registry/validate.py` · P-002 §4.1–§4.3, P-011 §4.2 · both implementations · corpus | **Closed** |
+| **E-44** | Is the envelope object closed, or may it carry unknown members? | P-002 issue 10 | `core-model.md` §2.1 · P-002 §4.4 · both implementations · `message/envelope/unknown-member` | **Closed** |
+| **E-45** | The digest string form is defined only in P-002 | P-002 issue 10 | `serialization.md` §5 (new) · P-002 §4.7 · P-011 §4.2 · both implementations · `testdata/` · `message/digest/` | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -3972,6 +3982,119 @@ and the two rules that drifted while they lived there.
 `trust-matrix.md` — the profile is a determinism mechanism and no claim rested on
 where it was written down. The `q2d_version` of the specification is unchanged:
 nothing about the bytes changed, only which document states them.
+
+---
+
+## E-44 — Is the envelope object closed?
+
+**Raised by** P-002 issue 10, on Codex's finding against
+`message/envelope/unknown-member`: the vector made an unknown member a
+conformance failure while citing a section that does not say so.
+
+[`core-model.md`](../spec/core-model.md) §2.1 showed the envelope as `signed`
+plus optional `routing` and said a great deal about `routing` — advisory,
+optional, strict subset, never used for a decision the signature covers. It never
+said the object was **closed**, and never said what happens to a third member.
+Both implementations denied. P-002 §4.4 said they should. `spec/` said nothing.
+
+The neighbouring structure was already closed explicitly:
+[`crypto-suites.md`](../spec/crypto-suites.md) §3, on the protected header —
+*"Exactly two members, and no others"* — with the reason given, that it is read
+before verification and every member is therefore a pre-authentication input
+surface. The envelope is read before verification too and got no such sentence.
+
+## The options
+
+**A. Closed; an unknown member denies at step 1.** What both implementations do.
+`spec/` gains a sentence mirroring `crypto-suites.md` §3's. ✅
+
+**B. Open; unknown members ignored.** Extensibility without a version bump.
+Against: it creates a relay/responder divergence surface on an unauthenticated
+wrapper, for a benefit nothing in 0.1 asks for.
+
+**C. Closed, with a reserved extension member.** Keeps A's properties and
+pre-answers the binding question. Against: reserving space with no use case is
+how the space gets used badly, and a binding needing transport metadata has
+transport headers.
+
+## Resolution — A
+
+§2.1 now says the envelope carries those two members and no others, that a member
+outside the set is `malformed` at step 1, and **why**: the envelope is read by an
+intermediary *and* by a responder, so an ignored member is one a relay may act on
+and a responder may not — and the disagreement is the vulnerability rather than
+the field. It is the HTTP request-smuggling shape, on a wrapper nothing has
+authenticated yet.
+
+The precedent decided the wording as much as the rule. §2.1 and
+`crypto-suites.md` §3 now read the same way about the same hazard, where before
+the difference between them was silence rather than a decision.
+
+### What was built
+
+Nothing new. Both implementations already denied, and now cite §2.1 rather than
+P-002 §4.4 for why. `message/envelope/unknown-member` cites §2.1 and says what
+§2.1 says.
+
+---
+
+## E-45 — The digest string form is defined only in P-002
+
+**Raised by** P-002 issue 10, while checking E-44 for more of the same.
+
+[`core-model.md`](../spec/core-model.md) §6 said what each digest is taken
+*over* — `request_digest` over the exact `signed` bytes, `entry_digest` over the
+resolved entry — and never what a digest **is**.
+`"sha256:" + lowercase_hex(...)` appeared only in **P-002 §4.7**. The registry
+manifest carried `"algorithm": "sha256"` and dozens of literal `sha256:…` values,
+so the form was demonstrated by example and stated nowhere normative.
+
+Two implementations agreeing about every byte hashed would still fail every
+comparison by disagreeing about `sha256:AB12` versus `sha256:ab12` versus bare
+hex — and a digest is compared for equality wherever it appears: a receipt
+against an exchange, a requester's `registry_digest` against a custodian's entry.
+
+## The options
+
+**A. `serialization.md` gains a §5.** Consistent with E-43: a digest is used by
+receipts, the registry and the corpus alike, and that document already owns how
+bytes are formed. ✅
+
+**B. `core-model.md` §6 states it.** Where the digests are enumerated. Against:
+`entry_digest` is the registry's and has no receipt in play, so stating it under
+*Receipt* repeats E-43's mistake one size down.
+
+**C. `crypto-suites.md`, beside the hash a suite names.** Against: the entry
+digest involves no suite — the same objection that ruled out putting the profile
+there.
+
+## Resolution — A
+
+`serialization.md` §5 defines the form and says the prefix is mandatory, the hex
+lowercase, and the algorithm additive. It also says the part that is *not* this
+document's: when a suite registering a different hash exists, the algorithm comes
+from the suite and §5 fixes only the form. None does today.
+
+`core-model.md` §6 keeps what each digest is over, which is the question it was
+answering all along.
+
+### What was built
+
+Nothing new — the construction was never in dispute. `src/digest.rs`,
+`digest.go`, `testdata/README.md`, the fixture test and `author_vectors.digest`
+cite §5 instead of P-002 §4.7, and `message/digest/`'s four vectors cite it as
+the requirement they exercise. Before this they cited `core-model.md` §6, which
+is the same defect that opened E-43: the nearest true-sounding section, which
+does not state the rule.
+
+**Checked and unchanged for both E-44 and E-45:** `claims.md`,
+`conformance-classes.md`, `trust-matrix.md`. No claim rested on where either rule
+was written down — Q2D-C-05 is about what a *signature* covers and the envelope
+is outside it, and no claim states a digest's encoding. `conformance-classes.md`
+CC-11 already required *"the `core-model.md` §2.1 envelope as the request"*, so
+closing §2.1 tightened it by citation without a word changing there. The
+specification's version is unchanged: no behaviour moved, only which document
+states it.
 
 ---
 

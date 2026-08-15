@@ -307,11 +307,12 @@ def serialize_operation_data(value) -> bytes:
     called `issued_at` is the predicate's and not §2.2's.
 
     Two entry points rather than one, because protocol level is a property of
-    *what the caller is serializing* and cannot be read off the nesting.
-    Reached through a query, `public_context` is already below protocol level;
-    digested on its own for P-002 §4.7's `public_context_digest` it would be the
-    root, and a single entry point would hold the same bytes to two different
-    rules depending on how they were reached.
+    *what a value is* and cannot be read off its position (`serialization.md`
+    §3). A `public_context` is operation data reached through a query and
+    operation data digested on its own for P-002 §4.7's
+    `public_context_digest` — being the top-level value there makes it the root
+    of some bytes, not a protocol structure. A single entry point would hold the
+    same bytes to two different rules depending on how they were reached.
     """
     return _serialize(value, protocol_level=False).encode("utf-8")
 
@@ -549,6 +550,20 @@ def check_known_answers() -> None:
             raise KnownAnswerFailure(
                 f"{answer['source']}: produced signature {produced}, "
                 f"RFC 8032 publishes {answer['signature']}")
+
+
+def digest(raw: bytes) -> str:
+    """[`serialization.md`](../spec/serialization.md) §5:
+    `"sha256:" + lowercase_hex(SHA-256(bytes))`.
+
+    `hashlib`, as `testdata/digests.txt` is, and for the same reason the
+    signer is not: SHA-256 is a case where the standard library does exactly
+    what the specification says. A hand-written one here would be a private
+    truth rather than a third opinion — the Rust side hand-writes it because
+    its standard library has none, and is gated on FIPS 180-4's published
+    known answers because of that.
+    """
+    return "sha256:" + hashlib.sha256(raw).hexdigest()
 
 
 def base64url(raw: bytes) -> str:

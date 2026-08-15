@@ -106,9 +106,8 @@ response. Taken literally that is circular.
 and the signature**. Well-defined, non-circular, and computable before the
 receipt exists. [`core-model.md`](../../spec/core-model.md) §6 carries this
 normatively; [`serialization.md`](../../spec/serialization.md) §1 supplies the
-production profile it needs and [P-002](P-002-message-envelope.md) §4.7 the
-digest construction, since unlike `request_digest` it is taken over a sub-object
-rather than over received bytes.
+production profile it needs and §5 the digest construction, since unlike
+`request_digest` it is taken over a sub-object rather than over received bytes.
 
 Its purpose is standalone verification. When a receipt travels with its response
 the signature already binds them, and the digest is redundant. It earns its place
