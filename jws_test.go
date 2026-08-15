@@ -8,7 +8,16 @@ import (
 	"testing"
 )
 
-const testSuite = "eddsa-jws-2026"
+// testSuiteEntry is the registered entry, from the reference registry, so the
+// tests sign through the same path production does.
+func testSuiteEntry(t *testing.T) SuiteEntry {
+	t.Helper()
+	entry, err := referenceRegistry(t).Resolve("eddsa-jws-2026")
+	if err != nil {
+		t.Fatalf("the mandatory suite is registered: %v", err)
+	}
+	return entry
+}
 
 func signingKey(t *testing.T) PrivateKey {
 	t.Helper()
@@ -33,7 +42,7 @@ func signingKey(t *testing.T) PrivateKey {
 }
 
 func TestTheHeaderCarriesTwoMembersInTheProfileOrder(t *testing.T) {
-	header, err := Serialize(protectedHeader(testSuite, "test-requester-1"))
+	header, err := Serialize(protectedHeader("eddsa-jws-2026", "test-requester-1"))
 	if err != nil {
 		t.Fatalf("serialize: %v", err)
 	}
@@ -48,11 +57,11 @@ func TestTheHeaderCarriesTwoMembersInTheProfileOrder(t *testing.T) {
 func TestSigningIsDeterministicAndRoundTrips(t *testing.T) {
 	key := signingKey(t)
 	payload := []byte(`{"a":1}`)
-	first, err := SignCompact(payload, key, testSuite, "test-requester-1")
+	first, err := SignCompact(payload, key, testSuiteEntry(t), "test-requester-1")
 	if err != nil {
 		t.Fatalf("sign: %v", err)
 	}
-	second, _ := SignCompact(payload, key, testSuite, "test-requester-1")
+	second, _ := SignCompact(payload, key, testSuiteEntry(t), "test-requester-1")
 	if first != second {
 		t.Error("two signings of one payload differ")
 	}
@@ -63,7 +72,7 @@ func TestSigningIsDeterministicAndRoundTrips(t *testing.T) {
 }
 
 func TestTheCompactFormIsThreeBase64URLSegments(t *testing.T) {
-	compact, err := SignCompact([]byte("{}"), signingKey(t), testSuite, "test-requester-1")
+	compact, err := SignCompact([]byte("{}"), signingKey(t), testSuiteEntry(t), "test-requester-1")
 	if err != nil {
 		t.Fatalf("sign: %v", err)
 	}
@@ -80,7 +89,7 @@ func TestTheCompactFormIsThreeBase64URLSegments(t *testing.T) {
 
 func TestAWrongSegmentCountIsRefused(t *testing.T) {
 	key := signingKey(t)
-	compact, _ := SignCompact([]byte("{}"), key, testSuite, "test-requester-1")
+	compact, _ := SignCompact([]byte("{}"), key, testSuiteEntry(t), "test-requester-1")
 	parts := strings.Split(compact, ".")
 	for _, broken := range []string{
 		strings.ReplaceAll(compact, ".", ""), // one segment
@@ -96,7 +105,7 @@ func TestAWrongSegmentCountIsRefused(t *testing.T) {
 
 func TestATamperedPayloadIsRefused(t *testing.T) {
 	key := signingKey(t)
-	compact, _ := SignCompact([]byte(`{"a":1}`), key, testSuite, "test-requester-1")
+	compact, _ := SignCompact([]byte(`{"a":1}`), key, testSuiteEntry(t), "test-requester-1")
 	header, _, signature, _ := compactSegments(compact)
 	swapped := header + "." + EncodeBase64URL([]byte(`{"a":2}`)) + "." + signature
 	if _, err := VerifyCompact(swapped, key.PublicKey()); err == nil {
@@ -108,9 +117,9 @@ func TestATamperedHeaderIsRefused(t *testing.T) {
 	// The header is covered by the signature, which is the reason it can carry
 	// the suite at all.
 	key := signingKey(t)
-	compact, _ := SignCompact([]byte("{}"), key, testSuite, "test-requester-1")
+	compact, _ := SignCompact([]byte("{}"), key, testSuiteEntry(t), "test-requester-1")
 	_, payload, signature, _ := compactSegments(compact)
-	other, _ := Serialize(protectedHeader(testSuite, "test-requester-2"))
+	other, _ := Serialize(protectedHeader("eddsa-jws-2026", "test-requester-2"))
 	swapped := EncodeBase64URL(other) + "." + payload + "." + signature
 	if _, err := VerifyCompact(swapped, key.PublicKey()); err == nil {
 		t.Error("accepted")
@@ -135,6 +144,19 @@ func TestASegmentThatIsNotBase64URLIsRefusedEvenWhenSigned(t *testing.T) {
 		// ...and the message is still refused.
 		if _, err := VerifyCompact(compact, key.PublicKey()); err == nil {
 			t.Errorf("%q was accepted", header)
+		}
+	}
+}
+
+func TestASuiteThatMayNotProduceRefusesToSign(t *testing.T) {
+	// §6's asymmetry, at the producing end. The same entry may still be
+	// acceptable to a verifier — policy decides that — and this refuses
+	// regardless, because production is where a deprecated suite stops.
+	entry := testSuiteEntry(t)
+	for _, status := range []SuiteStatus{SuiteDeprecated, SuiteWithdrawn} {
+		entry.Status = status
+		if _, err := SignCompact([]byte("{}"), signingKey(t), entry, "test-requester-1"); err == nil {
+			t.Errorf("%s signed", status)
 		}
 	}
 }

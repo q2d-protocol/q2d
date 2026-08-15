@@ -28,6 +28,7 @@
 
 use crate::base64url;
 use crate::ed25519::{PrivateKey, PublicKey, SignatureInvalid};
+use crate::suites::SuiteEntry;
 use crate::value::{serialize, ProfileError, Value};
 use std::collections::BTreeMap;
 use std::fmt;
@@ -69,8 +70,28 @@ fn protected_header(suite: &str, key_id: &str) -> Value {
 /// `payload` is bytes and stays bytes: this module signs what it is handed. The
 /// caller produced it with [`crate::serialize`], and re-serializing here would
 /// mean two paths to the signed bytes with nothing holding them together.
-pub fn sign(payload: &[u8], key: &PrivateKey, suite: &str, key_id: &str) -> Result<String, SignError> {
-    let header = serialize(&protected_header(suite, key_id))?;
+///
+/// **Takes the registry entry, not a suite identifier.** `crypto-suites.md` §6
+/// refuses production under a `deprecated` or `withdrawn` suite, and a
+/// signature taking a bare string would let a caller sign under one by naming
+/// it — the check would exist somewhere else and be forgotten here. Resolving
+/// the suite is how you get an entry, so the status is in hand by construction.
+pub fn sign(
+    payload: &[u8],
+    key: &PrivateKey,
+    suite: &SuiteEntry,
+    key_id: &str,
+) -> Result<String, SignError> {
+    if !suite.status.may_produce() {
+        // The asymmetry in §6: this same suite may still *verify*. Refusing
+        // here and not there is the whole point, because receipts signed under
+        // it remain evidence.
+        return Err(SignError(format!(
+            "`{}` may not be produced under: `crypto-suites.md` §6 permits              production under an active suite only",
+            suite.id
+        )));
+    }
+    let header = serialize(&protected_header(&suite.id, key_id))?;
     let signing_input = format!(
         "{}.{}",
         base64url::encode(&header),
@@ -138,7 +159,18 @@ pub fn verify_compact(compact: &str, key: &PublicKey) -> Result<Vec<u8>, Signatu
 mod tests {
     use super::*;
 
-    const SUITE: &str = "eddsa-jws-2026";
+    /// The registered entry, from the reference registry, so the tests sign
+    /// through the same path production does.
+    fn suite() -> crate::suites::SuiteEntry {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("registry")
+            .join("suites.json");
+        crate::suites::SuiteRegistry::load(&std::fs::read(path).expect("registry"))
+            .expect("loads")
+            .resolve("eddsa-jws-2026")
+            .expect("registered")
+            .clone()
+    }
 
     fn key() -> PrivateKey {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -168,7 +200,7 @@ mod tests {
 
     #[test]
     fn the_header_carries_two_members_in_the_profile_order() {
-        let header = serialize(&protected_header(SUITE, "test-requester-1")).unwrap();
+        let header = serialize(&protected_header("eddsa-jws-2026", "test-requester-1")).unwrap();
         // `key_id` before `suite`, which is `serialization.md` §1's ordering and
         // not the order they are written above.
         assert_eq!(
@@ -181,8 +213,8 @@ mod tests {
     fn signing_is_deterministic_and_round_trips() {
         let key = key();
         let payload = br#"{"a":1}"#;
-        let first = sign(payload, &key, SUITE, "test-requester-1").unwrap();
-        assert_eq!(first, sign(payload, &key, SUITE, "test-requester-1").unwrap());
+        let first = sign(payload, &key, &suite(), "test-requester-1").unwrap();
+        assert_eq!(first, sign(payload, &key, &suite(), "test-requester-1").unwrap());
         assert_eq!(
             verify_compact(&first, &key.public_key()).unwrap(),
             payload.to_vec()
@@ -191,7 +223,7 @@ mod tests {
 
     #[test]
     fn the_compact_form_is_three_base64url_segments() {
-        let compact = sign(b"{}", &key(), SUITE, "test-requester-1").unwrap();
+        let compact = sign(b"{}", &key(), &suite(), "test-requester-1").unwrap();
         let parts: Vec<&str> = compact.split('.').collect();
         assert_eq!(parts.len(), 3);
         for part in parts {
@@ -202,7 +234,7 @@ mod tests {
     #[test]
     fn a_wrong_segment_count_is_refused() {
         let key = key();
-        let compact = sign(b"{}", &key, SUITE, "test-requester-1").unwrap();
+        let compact = sign(b"{}", &key, &suite(), "test-requester-1").unwrap();
         let public = key.public_key();
         for broken in [
             compact.replace('.', ""),                       // one segment
@@ -211,6 +243,19 @@ mod tests {
             String::new(),
         ] {
             assert!(verify_compact(&broken, &public).is_err(), "{broken}");
+        }
+    }
+
+    #[test]
+    fn a_suite_that_may_not_produce_refuses_to_sign() {
+        // §6's asymmetry, at the producing end. The same entry may still be
+        // acceptable to a verifier — `policy` decides that — and this refuses
+        // regardless, because production is where a deprecated suite stops.
+        let mut entry = suite();
+        for status in [crate::SuiteStatus::Deprecated, crate::SuiteStatus::Withdrawn] {
+            entry.status = status;
+            let error = sign(b"{}", &key(), &entry, "test-requester-1").unwrap_err();
+            assert!(error.to_string().contains("eddsa-jws-2026"), "{error}");
         }
     }
 
@@ -243,7 +288,7 @@ mod tests {
     #[test]
     fn a_tampered_payload_is_refused() {
         let key = key();
-        let compact = sign(br#"{"a":1}"#, &key, SUITE, "test-requester-1").unwrap();
+        let compact = sign(br#"{"a":1}"#, &key, &suite(), "test-requester-1").unwrap();
         let (header, _, signature) = segments(&compact).unwrap();
         let swapped = format!("{header}.{}.{signature}", base64url::encode(br#"{"a":2}"#));
         assert!(verify_compact(&swapped, &key.public_key()).is_err());
@@ -254,9 +299,9 @@ mod tests {
         // The header is covered by the signature, which is the reason it can
         // carry the suite at all.
         let key = key();
-        let compact = sign(b"{}", &key, SUITE, "test-requester-1").unwrap();
+        let compact = sign(b"{}", &key, &suite(), "test-requester-1").unwrap();
         let (_, payload, signature) = segments(&compact).unwrap();
-        let other = serialize(&protected_header(SUITE, "test-requester-2")).unwrap();
+        let other = serialize(&protected_header("eddsa-jws-2026", "test-requester-2")).unwrap();
         let swapped = format!("{}.{payload}.{signature}", base64url::encode(&other));
         assert!(verify_compact(&swapped, &key.public_key()).is_err());
     }
@@ -272,7 +317,7 @@ mod tests {
         // guaranteed; the value of the test is that it pins *why* the signing
         // input is a slice of the input rather than something rebuilt.
         let key = key();
-        let compact = sign(b"{}", &key, SUITE, "test-requester-1").unwrap();
+        let compact = sign(b"{}", &key, &suite(), "test-requester-1").unwrap();
         let (header, payload, signature) = segments(&compact).unwrap();
         let alphabet = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
         let last = alphabet

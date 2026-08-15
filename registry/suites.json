@@ -30,7 +30,7 @@
       "verifying": "refused",
       "why": "Continuing to accept it is the downgrade the registry exists to prevent. crypto-suites.md §6."
     },
-    "note": "The asymmetry is the point, and it is read from this file rather than compiled in. Neither status retroactively invalidates a receipt: a verifier assessing an old one reads the suite it records and judges accordingly, which is only possible because the suite is recorded (crypto-suites.md §5)."
+    "note": "Recorded here for a reader; the rules themselves are crypto-suites.md §6's and are NOT data. An implementation reads each suite's `status` from this file and applies §6 to it — it does not read these three objects, and a registry that changed them would change nothing. That is deliberate: a registry able to redefine what `withdrawn` means could reinstate a suite it had withdrawn. Neither status retroactively invalidates a receipt: a verifier assessing an old one reads the suite it records and judges accordingly, which is only possible because the suite is recorded (crypto-suites.md §5)."
   },
   "suites": [
     {

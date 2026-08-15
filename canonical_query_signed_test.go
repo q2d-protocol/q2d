@@ -54,7 +54,9 @@ func TestSigningTheCanonicalQueryReproducesTheCommittedString(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the query serializes: %v", err)
 	}
-	produced, err := SignCompact(payload, key, "eddsa-jws-2026", "test-requester-1")
+	// Through the registry, as production does: SignCompact takes an entry so
+	// that §6's producing rule cannot be bypassed by naming a suite.
+	produced, err := SignCompact(payload, key, testSuiteEntry(t), "test-requester-1")
 	if err != nil {
 		t.Fatalf("signing: %v", err)
 	}

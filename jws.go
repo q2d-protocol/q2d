@@ -45,8 +45,21 @@ func protectedHeader(suite, keyID string) Value {
 // payload is bytes and stays bytes: this function signs what it is handed. The
 // caller produced it with Serialize, and re-serializing here would mean two
 // paths to the signed bytes with nothing holding them together.
-func SignCompact(payload []byte, key PrivateKey, suite, keyID string) (string, error) {
-	header, err := Serialize(protectedHeader(suite, keyID))
+//
+// Takes the registry entry, not a suite identifier. crypto-suites.md §6 refuses
+// production under a deprecated or withdrawn suite, and a signature taking a
+// bare string would let a caller sign under one by naming it — the check would
+// exist somewhere else and be forgotten here. Resolving the suite is how you get
+// an entry, so the status is in hand by construction.
+func SignCompact(payload []byte, key PrivateKey, suite SuiteEntry, keyID string) (string, error) {
+	if !suite.Status.MayProduce() {
+		// The asymmetry in §6: this same suite may still verify. Refusing here
+		// and not there is the whole point, because receipts signed under it
+		// remain evidence.
+		return "", fmt.Errorf("`%s` may not be produced under: crypto-suites.md "+
+			"§6 permits production under an active suite only", suite.ID)
+	}
+	header, err := Serialize(protectedHeader(suite.ID, keyID))
 	if err != nil {
 		return "", fmt.Errorf("the protected header does not serialize: %w", err)
 	}

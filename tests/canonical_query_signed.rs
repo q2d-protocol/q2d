@@ -62,11 +62,24 @@ fn signing_the_canonical_query_reproduces_the_committed_string() {
         .map(|i| u8::from_str_radix(&seed[i..i + 2], 16).expect("hex"))
         .collect();
 
+    // Through the registry, as production does: `sign` takes an entry so that
+    // §6's producing rule cannot be bypassed by naming a suite.
+    let registry = q2d::SuiteRegistry::load(
+        &std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("registry")
+                .join("suites.json"),
+        )
+        .expect("registry/suites.json"),
+    )
+    .expect("the reference registry loads");
+    let suite = registry.resolve("eddsa-jws-2026").expect("registered");
+
     let payload = q2d::serialize(&query).expect("the query serializes");
     let produced = q2d::sign(
         &payload,
         &PrivateKey::from_seed(&seed).expect("a 32-byte seed"),
-        "eddsa-jws-2026",
+        suite,
         "test-requester-1",
     )
     .expect("signing succeeds");
