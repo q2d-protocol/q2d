@@ -41,7 +41,7 @@ never checked. P-001 §4.4 carries the rule and §10 the format question that
 would close it.
 
 The one thing this arrangement cannot catch on its own is a producer emitting
-correct values with keys in the wrong order, violating P-002 §4.2's profile.
+correct values with keys in the wrong order, violating serialization.md §1.
 That is caught where it is visible: P-002's `message/serialize/` vectors compare
 the serialized payload, which is a string.
 """
@@ -74,9 +74,9 @@ def kind(value) -> str:
         # choice of notation.
         #
         # It does not weaken the ban on floats in signed structures. That is
-        # P-002 §4.3's, enforced where it is specified -- the serializer errors
-        # on a float, and `message/reject/` carries a vector for it -- rather
-        # than by a comparison silently disagreeing with §4.4.
+        # serialization.md §1's, enforced where it is specified -- the
+        # serializer errors on a float, and `message/reject/` carries a vector
+        # for it -- rather than by a comparison silently disagreeing with §4.4.
         return "number"
     if isinstance(value, str):
         return "string"

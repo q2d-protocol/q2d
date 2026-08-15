@@ -6,8 +6,8 @@ import (
 )
 
 // These mirror src/parse.rs's tests case for case. Both parsers were written
-// from RFC 8259 and P-002 §4.1–§4.3 rather than shared, so a case one accepts
-// and the other refuses is a disagreement worth seeing.
+// from RFC 8259 and serialization.md §1–§2 rather than shared, so a case
+// one accepts and the other refuses is a disagreement worth seeing.
 
 func parsed(t *testing.T, text string) Value {
 	t.Helper()
@@ -51,7 +51,8 @@ func TestAPayloadRoundTrips(t *testing.T) {
 }
 
 func TestANonConformantPayloadStillParses(t *testing.T) {
-	// §4.1's whole point, and P-002 issue 11's vector in miniature: a verifier
+	// serialization.md §2's point, and P-002 issue 11's vector in miniature: a
+	// verifier
 	// must not require the production profile. Whitespace, key order, an
 	// escaped character that need not be escaped, and an escaped '/'.
 	value := parsed(t, "{ \"b\" : 2,\n  \"a\"\t: \"\\u00e9\\/\" }")
@@ -82,7 +83,8 @@ func TestADuplicateKeyIsRefused(t *testing.T) {
 
 func TestAFloatIsRefusedHoweverItIsWritten(t *testing.T) {
 	for _, text := range []string{"1.5", "[0.0]", "1e2", "1E2", "-2.0e-3", `{"a":1.0}`} {
-		if message := rejected(t, text); !strings.Contains(message, "§4.3") {
+		message := rejected(t, text)
+		if !strings.Contains(message, "serialization.md §2") {
 			t.Errorf("%s: %s", text, message)
 		}
 	}

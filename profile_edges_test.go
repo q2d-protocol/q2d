@@ -8,16 +8,16 @@ import (
 // profileEdges is testdata/profile-edges.json, built by hand because parsing is
 // P-002 issue 4 and does not exist yet.
 //
-// canonical_query_test.go holds all three serializers to a real query, which is
-// P-002 §7's first acceptance criterion. It is also entirely ASCII, has no
+// canonical_query_test.go holds all three serializers to a real query, which
+// is P-002 §7's first acceptance criterion. It is also entirely ASCII, has no
 // escape in it, and no integer near a boundary — so three serializers could
-// agree on it while disagreeing about most of §4.2. They did: the Rust side was
-// emitting Unicode scalar key order where §4.2 asks for UTF-16 code-unit order,
-// and the canonical query could not have caught it, because no field name in
-// core-model.md §2 is outside ASCII.
+// agree on it while disagreeing about most of serialization.md §1. They did:
+// the Rust side was emitting Unicode scalar key order where serialization.md
+// §1 asks for UTF-16 code-unit order, and the canonical query could not have
+// caught it, because no field name in core-model.md §2 is outside ASCII.
 //
-// This is deliberately not a Q2D message. Every entry is a property of §4.2
-// rather than a protocol field.
+// This is deliberately not a Q2D message. Every entry is a property of
+// serialization.md §1 rather than a protocol field.
 func profileEdges() Value {
 	return Object{
 		// Key ordering above the BMP: U+10000 encodes as D800 DC00 under UTF-16

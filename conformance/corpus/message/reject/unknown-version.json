@@ -1,0 +1,39 @@
+{
+  "id": "message/reject/unknown-version",
+  "section": "message",
+  "requirement": [
+    "core-model.md#4",
+    "core-model.md#5.2.1"
+  ],
+  "description": "A payload declaring `q2d_version` 0.2. The **only** vector in this group whose wire response is not `malformed`: §5.2.1 gives `unsupported_version` its own row, and an absent or non-string version would be `malformed` instead — *missing a field §2 requires*. The internal reason is a different string from the external one even here, where the wire value has the same name: they are separate values, and equal halves would assert the leak rather than the separation. A responder rejects without interpreting anything else, because version 0.2 may have moved or retyped any field and a diagnostic built by reading them is a guess presented as fact.",
+  "operation": "verify_query",
+  "input": {
+    "envelope": {
+      "signed": "eyJrZXlfaWQiOiJ0ZXN0LXJlcXVlc3Rlci0xIiwic3VpdGUiOiJlZGRzYS1qd3MtMjAyNiJ9.eyJhbnN3ZXJfY29udHJhY3QiOnsiYWxsb3dlZF9kZXRhaWxfZmllbGRzIjpbXSwiZG9tYWluIjpbZmFsc2UsdHJ1ZV0sInJlbGVhc2Vfc2hhcGUiOiJib29sZWFuIn0sImRlbGl2ZXJ5Ijp7ImFuc3dlcl9yZWNpcGllbnQiOiJkaWQ6a2V5Ono2TWtSZXF1ZXN0ZXJSdW50aW1lIiwicGVybWl0dGVkX3NpbmtzIjpbInVybjpxMmQ6c2luazptb2RlbDpsb2NhbCJdfSwiZXhwaXJlc19hdCI6IjIwMjYtMDctMzFUMDk6MDU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0wNy0zMVQwOTowMDowMFoiLCJub25jZSI6IlV4N2tGUTJtUzBhVnZKMWNQek40YnciLCJwcmVkaWNhdGUiOnsiaWQiOiJodHRwczovL3EyZC5kZXYvcHJlZGljYXRlcy9kaWV0YXJ5L21lbnUtY29tcGF0aWJsZSIsInB1YmxpY19jb250ZXh0Ijp7Im1lbnUiOlt7ImNvbnRhaW5zIjpbIm1pbGsiXSwiaXRlbV9pZCI6InJpc290dG8ifSx7ImNvbnRhaW5zIjpbXSwiaXRlbV9pZCI6InNhbGFkIn1dfSwicmVnaXN0cnlfZGlnZXN0Ijoic2hhMjU2OmJkMDhmZjIzMGRlMGQ4Y2UzNGRlOTk5NjdmN2E5MDk3OTg4YjQ5MDU4ZjBhMjFkZDM1Yjk0NDRjMjQwOThlMzUiLCJ2ZXJzaW9uIjoiMC4xIn0sInB1cnBvc2UiOnsiY29kZSI6InNvY2lhbC5tZWFsLXBsYW5uaW5nIiwiZGVzY3JpcHRpb24iOiJDaG9vc2UgYSBkaW5uZXIgdmVudWUgZm9yIDIwMjYtMDctMzEifSwicTJkX3ZlcnNpb24iOiIwLjIiLCJxdWVyeV9pZCI6InVybjp1dWlkOjBlMTgzMzg5LTBmMzctNGM1Zi04YzU2LTFlYTdlNTgxOGUxOCIsInJlcXVlc3RlciI6eyJhZ2VudCI6ImRpZDprZXk6ejZNa1JlcXVlc3RlckFnZW50IiwiZGVsZWdhdGlvbiI6eyJwcm9maWxlIjoibG9jYWwtcGFpcmluZy0wLjEiLCJyZWZlcmVuY2UiOiJzaGEyNTY6N2VmMSJ9LCJwcmluY2lwYWwiOiJkaWQ6a2V5Ono2TWtSZXF1ZXN0ZXJQcmluY2lwYWwifSwic2lnbmF0dXJlIjp7ImtleV9pZCI6InRlc3QtcmVxdWVzdGVyLTEiLCJwcm9maWxlIjoiZWRkc2EtandzLTIwMjYifSwidGFyZ2V0Ijp7ImN1c3RvZGlhbiI6Imh0dHBzOi8vZnJpZW5kLmV4YW1wbGUvLndlbGwta25vd24vcTJkIn0sInR5cGUiOiJxdWVyeSJ9.WAeYoLwmwEs16TsVnHo66mxuMmx9zMOEpKlWfp8A7NdB1T4Un_6AkH9FpAkuNUv6AJbRzn_FwYSiRzk9wIIiAw",
+      "routing": {
+        "q2d_version": "0.2",
+        "type": "query",
+        "target": {
+          "custodian": "https://friend.example/.well-known/q2d"
+        },
+        "predicate": {
+          "id": "https://q2d.dev/predicates/dietary/menu-compatible",
+          "version": "0.1"
+        },
+        "expires_at": "2026-07-31T09:05:00Z"
+      }
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "core_object_unsupported_version",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unsupported_version"
+      },
+      "step": 5
+    },
+    "comparison": "bytes"
+  }
+}

@@ -146,7 +146,8 @@ func TestTwoDefectsGiveTheSameReasonEveryRun(t *testing.T) {
 			t.Fatalf("run %d disagreed:\n first: %s\n then:  %s", i, first, again)
 		}
 	}
-	// And it is the first by §4.2's key order, which is what Rust reports.
+	// And it is the first by serialization.md §1's key order, which is what
+	// Rust reports.
 	if !strings.Contains(first, "aaa") {
 		t.Errorf("reported a later member than the first: %s", first)
 	}

@@ -5,30 +5,30 @@ package q2d
 // # What this must accept
 //
 // Any valid JSON the value model can hold — not only what Serialize produces.
-// P-002 §4.1: producers must emit the deterministic profile; verifiers must not
-// depend on it. A parser that required the profile would reject a conforming
-// implementation's payload for putting a space after a colon, and would make
-// verification depend on canonicalization, which is the dependency signing
-// received bytes exists to remove.
+// serialization.md §1 and §2: producers must emit the deterministic profile;
+// verifiers must not depend on it. A parser that required the profile would
+// reject a conforming implementation's payload for putting a space after a
+// colon, and would make verification depend on canonicalization, which is the
+// dependency signing received bytes exists to remove.
 //
 // # What this must refuse
 //
-//   - Duplicate keys. §4.2 prohibits them on production and requires rejection
-//     on parse. A parser taking last-wins or first-wins gives two
-//     implementations two readings of one payload — and the payload is signed,
-//     so both readings carry a valid signature.
-//   - Floats. §4.3, and Value has no member for one.
+//   - Duplicate keys. serialization.md §2 rejects them rather than resolving
+//     them. A parser taking last-wins or first-wins gives two implementations
+//     two readings of one payload — and the payload is signed, so both
+//     readings carry a valid signature.
+//   - Floats. serialization.md §2, and Value has no member for one.
 //   - An integer outside int64. scope.md §4.1's range (E-37).
 //   - Anything JSON itself refuses.
 //
 // # Not encoding/json
 //
 // The same reason writeString is hand-rolled, and a sharper one. encoding/json
-// resolves duplicate keys silently by last-wins, which is exactly the rule §4.2
-// requires rejecting; it decodes every number into float64, losing an int64
-// above 2^53 without saying so; and it substitutes U+FFFD for invalid UTF-8.
-// Three of this file's four refusals are behaviours the standard library
-// deliberately does not have.
+// resolves duplicate keys silently by last-wins, which is exactly the rule
+// serialization.md §2 requires rejecting; it decodes every number into
+// float64, losing an int64 above 2^53 without saying so; and it substitutes
+// U+FFFD for invalid UTF-8. Three of this file's four refusals are behaviours
+// the standard library deliberately does not have.
 //
 // # What it does not own
 //
@@ -150,8 +150,9 @@ func (w where) member(key string) where {
 // arithmetic.
 func parseWithin(payload []byte, at where) (Value, error) {
 	if !utf8.Valid(payload) {
-		return nil, fmt.Errorf("payload is not valid UTF-8. P-002 §4.2's profile " +
-			"is UTF-8 and RFC 8259 §8.1 requires it for exchanged JSON")
+		return nil, fmt.Errorf("payload is not valid UTF-8. serialization.md §2 " +
+			"refuses these rather than substituting, and RFC 8259 §8.1 requires " +
+			"UTF-8 for exchanged JSON")
 	}
 	p := &parser{text: string(payload), at2: at}
 	p.skipWhitespace()
@@ -302,7 +303,7 @@ func (p *parser) object() (Value, error) {
 				p.at-began, MaxPublicContext))
 		}
 		p.at2 = outer
-		// §4.2: rejected on parse, not resolved.
+		// serialization.md §2: rejected on parse, not resolved.
 		//
 		// The key is not in the message. It reads as the sender's own label,
 		// and on a query it is — but Parse runs over responses too, where a key
@@ -314,8 +315,8 @@ func (p *parser) object() (Value, error) {
 				"more than P-002 §4.8's %d members in one object", MaxMembers))
 		}
 		if _, seen := pairs[key]; seen {
-			return nil, p.fail("duplicate key, which P-002 §4.2 rejects rather " +
-				"than resolving — two readings of one signed payload")
+			return nil, p.fail("duplicate key, which serialization.md §2 rejects " +
+				"rather than resolving — two readings of one signed payload")
 		}
 		pairs[key] = item
 
@@ -532,15 +533,17 @@ func (p *parser) number() (Value, error) {
 	// A fraction or an exponent makes it a float syntactically, and that is the
 	// test — not whether the value happens to be integral.
 	//
-	// 1e2 is a hundred and no conforming producer emits it; §4.2's integers
-	// carry no exponent. Deciding that it is a hundred means exponent
+	// 1e2 is a hundred and no conforming producer emits it; serialization.md §1's
+	// integers carry no exponent. Deciding that it is a hundred means exponent
 	// arithmetic, and 1e400 means deciding in what — the float-precision
-	// divergence §4.3 removes from the protocol rather than managing. A
-	// syntactic test is decidable identically in every language, which is the
-	// property that matters here.
+	// divergence serialization.md §1 removes from the protocol rather than
+	// managing. A syntactic test is decidable identically in every language,
+	// which is the property that matters here.
 	if d, ok := p.peek(); ok && (d == '.' || d == 'e' || d == 'E') {
-		return nil, p.fail("a fraction or exponent, which P-002 §4.3 prohibits in a " +
-			"signed structure — capacity is integer millibits, timestamps are strings")
+		return nil, p.fail("a fraction or exponent, which serialization.md §2 " +
+			"refuses " +
+			"in a signed structure — capacity is integer millibits, timestamps " +
+			"are strings")
 	}
 
 	n, err := strconv.ParseInt(p.text[start:p.at], 10, 64)

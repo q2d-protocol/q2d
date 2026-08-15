@@ -46,7 +46,7 @@ JCS-based suite.
 
 ## What it can produce today, and what it cannot
 
-`serialize()` implements [P-002](../docs/prds/P-002-message-envelope.md) §4.2's
+`serialize()` implements [`serialization.md`](../spec/serialization.md) §1's
 deterministic production profile, which is fully specified — nine rules, all
 concrete.
 
@@ -99,7 +99,7 @@ KEY_FILE = REPO / "conformance" / "keys" / "ed25519-test-only.json"
 
 
 # ---------------------------------------------------------------------------
-# P-002 §4.2 — deterministic production profile
+# serialization.md §1 — the deterministic production profile
 # ---------------------------------------------------------------------------
 
 class ProfileError(Exception):
@@ -209,8 +209,9 @@ def valid_q2d_timestamp(value: str) -> bool:
 def encodable(value: str, what: str) -> None:
     """Refuse a `str` Python can hold and the profile cannot emit.
 
-    §4.2 produces UTF-8. A Python `str` is a sequence of code points and may
-    contain an unpaired surrogate, which has no UTF-8 encoding at all.
+    serialization.md §1 produces UTF-8. A Python `str` is a sequence of code
+    points and may contain an unpaired surrogate, which has no UTF-8 encoding
+    at all.
 
     Go and Rust refuse the same value -- Go because a string carrying invalid
     UTF-8 would otherwise be silently substituted with U+FFFD, Rust because its
@@ -228,18 +229,19 @@ def encodable(value: str, what: str) -> None:
         value.encode("utf-8")
     except UnicodeEncodeError:
         raise ProfileError(
-            f"{what} is not encodable as UTF-8. P-002 §4.2 produces UTF-8, and "
-            f"an unpaired surrogate has no encoding in it") from None
+            f"{what} is not encodable as UTF-8. serialization.md §1 produces "
+            f"UTF-8, and an unpaired surrogate has no encoding in it") from None
 
 
 def sort_key(key: str) -> bytes:
-    """§4.2: object keys sorted ascending by **UTF-16 code unit**.
+    """serialization.md §1: keys sorted ascending by **UTF-16 code unit**.
 
     Not Python's default, which orders by Unicode code point. The two disagree
     above the BMP: U+1F680 encodes as the surrogate pair D83D DE80, which sorts
     *below* U+E000, while by code point it sorts above. Comparing the UTF-16BE
     encoding as bytes is the same ordering as comparing code-unit sequences,
-    and is the rule JCS states and P-002 §4.2 borrows as an ordering convention.
+    and is the rule JCS states and serialization.md §1 borrows as an ordering
+    convention.
 
     This is the single subtlest line in the profile, and the one two
     implementations are most likely to disagree about while both looking right.
@@ -248,7 +250,8 @@ def sort_key(key: str) -> bytes:
 
 
 def escape_string(value: str) -> str:
-    """§4.2: minimal escaping; no `\\uXXXX` for characters representable directly.
+    """serialization.md §1: minimal escaping; no `\\uXXXX` where a character
+    is representable directly.
 
     JSON requires escaping exactly three things: the quote, the backslash, and
     control characters below U+0020. Everything else is emitted as itself --
@@ -284,7 +287,7 @@ PROTOCOL_SUBOBJECTS = frozenset({"receipt", "routing"})
 
 
 def serialize(value) -> bytes:
-    """A protocol structure as P-002 §4.2's profile produces it. UTF-8, no BOM.
+    """A protocol structure as serialization.md §1 produces it. UTF-8, no BOM.
 
     A core object, a response, a receipt, or `routing`. For a predicate's own
     data use `serialize_operation_data`: the bytes are the same and the
@@ -317,23 +320,24 @@ def _serialize(value, protocol_level: bool = False) -> str:
     kind = json_type(value)
 
     if kind == "float":
-        # §4.3: "The serializer enforces this: a float reaching it is a
-        # programming error and fails loudly rather than emitting a value two
-        # implementations might render differently."
+        # serialization.md §1 prohibits every float in a signed or digested
+        # structure. Refused loudly here rather than rendered: two languages
+        # render one float two ways, which is the whole reason for the rule.
         raise ProfileError(
-            f"float {value!r} in a signed structure — prohibited by P-002 §4.3. "
-            f"Capacity is integer millibits, timestamps are strings, sizes and "
-            f"cardinalities are integers. Adding a float field is an escalation")
+            f"float {value!r} in a signed structure — prohibited by "
+            f"serialization.md §1. Capacity is integer millibits, timestamps "
+            f"are strings, sizes and cardinalities are integers. Adding a "
+            f"float field is an escalation")
 
     if kind == "null":
         return "null"
     if kind == "boolean":
         return "true" if value else "false"
     if kind == "integer":
-        # §4.2: no exponent, no leading `+`, no leading zeros. Python's int
-        # repr is exactly that, for every magnitude -- there is no 2^53 cliff
-        # here, which is one of the hazards crypto-suites.md §3 cites against
-        # a JCS-based suite.
+        # serialization.md §1: no exponent, no leading `+`, no leading zeros.
+        # Python's int repr is exactly that, for every magnitude -- there is no
+        # 2^53 cliff here, which is one of the hazards crypto-suites.md §3
+        # cites against a JCS-based suite.
         #
         # Bounded to the range `scope.md` §4.1 requires an entry's integers to
         # lie within, which is also what both value models hold. Python cannot
@@ -374,9 +378,9 @@ def _serialize(value, protocol_level: bool = False) -> str:
             # a refusal, but not one that names what was wrong or comes from
             # the profile. The other two implementations refuse the same value.
             encodable(key, "object key")
-        # Duplicate keys cannot occur in a Python dict, so §4.2's production
-        # rule is structurally satisfied. Parsing is where it has to be
-        # enforced, and conformance/harness/corpus.py does that.
+        # Duplicate keys cannot occur in a Python dict, so serialization.md
+        # §1's production rule is structurally satisfied. Parsing is where it
+        # has to be enforced, and conformance/harness/corpus.py does that.
         keys = sorted(value, key=sort_key)
         for key in keys:
             # By name as well as by shape: core-model.md gives these fields
@@ -563,7 +567,8 @@ def jws_compact(seed: bytes, key_id: str, payload, suite: str = SUITE) -> str:
                         BASE64URL(payload))
 
     The header is `crypto-suites.md` §3's: exactly `suite` and `key_id`, in the
-    order P-002 §4.2's key rule fixes, which is `key_id` first. No `alg` --
+    order serialization.md §1's key rule fixes, which is `key_id` first. No
+    `alg` --
     §3 is explicit that a Q2D header does not carry one, so that a JOSE library
     cannot select a verification algorithm from data nobody has authenticated
     yet.
@@ -597,6 +602,34 @@ def jws_with_header(seed: bytes, header, payload) -> str:
     return f"{signing_input}.{base64url(signature)}"
 
 
+def jws_over_payload_bytes(seed: bytes, key_id: str, payload: bytes,
+                           suite: str = SUITE) -> str:
+    """The same construction, over payload bytes supplied whole.
+
+    `jws_compact` serializes a Python object, so every payload it can produce
+    is one this profile permits. Some rejections are about payloads it cannot:
+    a **duplicate key**, which no `dict` holds, and a **float**, which
+    `serialize` refuses by serialization.md §1. Both are defects a parser must
+    catch and neither is expressible as an object.
+
+    They are expressible as *bytes*, which is what the payload is: base64url
+    inside the envelope's `signed` string. So the vector carries them exactly
+    as a sender would have transmitted them, validly signed, and wrong in one
+    stated way — not corrupt bytes, which would fail for a reason the vector is
+    not about.
+
+    Used only where an object cannot say it. A vector whose payload *can* be
+    written as an object uses `jws_compact`, so that the corpus's expected
+    bytes stay the profile's own output wherever they can be.
+    """
+    check_known_answers()
+
+    header = serialize({"key_id": key_id, "suite": suite})
+    signing_input = f"{base64url(header)}.{base64url(payload)}"
+    signature = sign(seed, signing_input.encode("ascii"))
+    return f"{signing_input}.{base64url(signature)}"
+
+
 def main(argv: list[str]) -> int:
     if "--self-test" not in argv[1:]:
         print(__doc__.strip().splitlines()[0])
@@ -611,7 +644,7 @@ def main(argv: list[str]) -> int:
     keys = json.loads(KEY_FILE.read_text(encoding="utf-8"))["keys"]
     key_id, key = next(iter(keys.items()))
     signed = jws_compact(bytes.fromhex(key["seed"]), key_id, {"type": "query"})
-    print(f"P-002 §4.2 serializer and crypto-suites.md §3 header available")
+    print("serialization.md §1 serializer, crypto-suites.md §3 header")
     print(f"\n  {signed}")
     return 0
 

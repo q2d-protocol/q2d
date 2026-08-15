@@ -8,12 +8,14 @@ order in which a responder processes them. Bindings map this onto MCP, A2A, or
 direct HTTPS without changing its meaning.
 
 This document defines the **model**. Field names below are the canonical names a
-binding should preserve where its transport allows. Signature algorithms and
-serialization are not fixed here — they are named by suite in
-[`crypto-suites.md`](crypto-suites.md).
+binding should preserve where its transport allows. Signature algorithms are not
+fixed here — they are named by suite in
+[`crypto-suites.md`](crypto-suites.md) — and the bytes a structure serializes to
+are [`serialization.md`](serialization.md)'s.
 
 Terms: [`terminology.md`](terminology.md). Boundaries: [`scope.md`](scope.md).
 Properties: [`claims.md`](claims.md). Suites: [`crypto-suites.md`](crypto-suites.md).
+Bytes: [`serialization.md`](serialization.md).
 
 Where this document and the technical report disagree, this document governs.
 
@@ -364,7 +366,8 @@ query with predicate data would fit.
 it: two 20 KiB values are each inside the string limit and the object they sit
 in is not. It is measured on the bytes as transmitted, which is what a sender
 sent and a relay held — not on what those bytes would canonicalize to, since
-§4.1 forbids a verifier from depending on the production profile.
+[`serialization.md`](serialization.md) §2 forbids a verifier from depending on
+the production profile.
 
 **Only the envelope limit can be enforced before allocation**, which is what §4
 step 1 requires of it. The rest are enforced as the message is read, and are
@@ -488,9 +491,9 @@ JSON object can key only on strings. Stringifying them would put a
 number-to-string convention in the middle of a signed structure, which is the
 class of divergence [`crypto-suites.md`](crypto-suites.md) §3 declines a
 canonicalization suite to avoid. Pair order is not significant and does not
-affect admissibility; the array's *serialized* order is fixed by the production
-profile like any other array, so two implementations still produce identical
-bytes.
+affect admissibility; the array's *serialized* order is fixed by
+[`serialization.md`](serialization.md) §1 like any other array, so two
+implementations still produce identical bytes.
 
 1. **Total** — every registered value appears as a key. A missing value is a
    result with no image in the requested domain, which is the subsetting §2.5
@@ -1088,7 +1091,7 @@ and carries this digest, so a digest over the whole response would have to inclu
 itself. Excluding the receipt and the signature makes it well-defined,
 non-circular, and computable before the receipt exists. It is the one digest in
 the protocol taken over a sub-object rather than over received bytes, so it needs
-a canonical production profile where `request_digest` does not.
+[`serialization.md`](serialization.md) §1 where `request_digest` does not.
 
 Its purpose is standalone verification: when a receipt travels with its response
 the signature already binds the two, and this digest earns its place only when an

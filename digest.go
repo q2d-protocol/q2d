@@ -11,9 +11,9 @@ package q2d
 // request_digest, response_digest, effective_contract_digest,
 // public_context_digest. Only the first digests received bytes with no
 // re-serialization — it covers the exact signed bytes of the query, which is
-// what makes it checkable by anyone holding the envelope. The other three digest
-// a sub-object and therefore need §4.2's production profile, which is why that
-// profile applies beyond the payload.
+// what makes it checkable by anyone holding the envelope. The other three
+// digest a sub-object and therefore need serialization.md §1, which is why
+// that profile applies beyond the payload.
 //
 // This file is the construction. Which bytes go into each of the four is P-011's
 // and P-012's, and response_digest in particular is not the symmetric thing its

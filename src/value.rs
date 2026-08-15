@@ -1,16 +1,16 @@
 //! The value model a signed Q2D structure is built from, and its serializer.
 //!
-//! [P-002](https://github.com/q2d-protocol/q2d/blob/main/docs/prds/P-002-message-envelope.md)
-//! §4.2 defines a deterministic production profile, and §4.3 prohibits
+//! [`serialization.md`][spec] §1 defines the production profile and prohibits
 //! floating-point in any signed structure. This module is both.
+//!
+//! [spec]: https://github.com/q2d-protocol/q2d/blob/main/spec/serialization.md
 //!
 //! ## Why there is no float variant
 //!
-//! §4.3 says a float reaching the serializer *"is a programming error and fails
-//! loudly"*, and the interface in §5 describes `serialize_core` as erroring on
-//! one. A [`Value`] that cannot hold a float fails louder: the error is a
-//! compile error, and there is no runtime path to test because there is no
-//! runtime path.
+//! serialization.md §1 prohibits it, and a serializer could refuse one at
+//! runtime. A [`Value`] that cannot hold a float refuses it earlier: the error
+//! is a compile error, and there is no runtime path to test because there is no
+//! runtime path. P-002 §4.3 records the choice.
 //!
 //! That does not remove the check, it moves it. Bytes arriving from outside —
 //! a payload being parsed — can contain a float, and the parser is where that
@@ -20,15 +20,16 @@
 //! The point of the prohibition is not tidiness. IEEE-754 rendering differs
 //! between languages, so one float field would make two implementations emit
 //! different bytes for the same logical message, and the Stage 1 gate compares
-//! bytes. §4.3 removes that from the protocol rather than managing it.
+//! bytes. serialization.md §1 removes that from the protocol rather than
+//! managing it.
 //!
 //! ## Why the serializer is not a canonicalizer
 //!
-//! §4.1: producers **must** emit this profile; verifiers **must not** depend on
-//! it. A signature covers the exact bytes transmitted, so nothing verifies by
-//! re-deriving them — and a verifier that re-serialized would put a
-//! canonicalization dependency back into the security path, which is what
-//! signing received bytes exists to remove.
+//! serialization.md §1 and §2: producers **must** emit this profile;
+//! verifiers **must not** depend on it. A signature covers the exact bytes
+//! transmitted, so nothing verifies by re-deriving them — and a verifier that
+//! re-serialized would put a canonicalization dependency back into the
+//! security path, which is what signing received bytes exists to remove.
 //!
 //! So this is a *production* rule. It exists because two producers building the
 //! same logical query must agree byte for byte, not because anything reads the
@@ -67,9 +68,10 @@ pub enum Value {
     /// make two objects that differ only in the order they were built, and a
     /// duplicate key is impossible by construction.
     ///
-    /// Its iteration order is *not* §4.2's order — `Ord for String` compares
-    /// UTF-8 bytes, which is Unicode scalar order, and §4.2 asks for UTF-16
-    /// code-unit order. The two differ above the BMP. [`serialize`] sorts.
+    /// Its iteration order is *not* serialization.md §1's order — `Ord for
+    /// String` compares UTF-8 bytes, which is Unicode scalar order, and
+    /// serialization.md §1 asks for UTF-16 code-unit order. The two differ
+    /// above the BMP. [`serialize`] sorts.
     Object(BTreeMap<String, Value>),
 }
 
@@ -85,8 +87,9 @@ impl Value {
     }
 }
 
-/// Serialize a **protocol structure** under P-002 §4.2's deterministic
-/// production profile: a core object, a response, a receipt, or `routing`.
+/// Serialize a **protocol structure** under serialization.md §1's
+/// deterministic production profile: a core object, a response, a receipt, or
+/// `routing`.
 ///
 /// UTF-8, no whitespace between tokens, keys ascending, absent optionals
 /// omitted rather than nulled, integers without exponent or leading zeros, and
@@ -102,11 +105,12 @@ impl Value {
 ///
 /// # Errors
 ///
-/// §4.3's float ban needs no check here — [`Value`] has no float variant, so a
-/// float is a compile error. What remains is `core-model.md` §2.2's timestamp,
-/// which §4.2 cites: this is the last point at which a value can be refused
-/// before it becomes bytes somebody signs, and inside a signed payload a
-/// malformed timestamp is past the reach of anything that reads it as text.
+/// serialization.md §1's float ban needs no check here — [`Value`] has no
+/// float variant, so a float is a compile error. What remains is
+/// `core-model.md` §2.2's timestamp, which serialization.md §1 cites: this is
+/// the last point at which a value can be refused before it becomes bytes
+/// somebody signs, and inside a signed payload a malformed timestamp is past
+/// the reach of anything that reads it as text.
 pub fn serialize(value: &Value) -> Result<Vec<u8>, ProfileError> {
     let mut out = String::new();
     write(value, true, &mut out)?;
@@ -159,9 +163,9 @@ fn write(value: &Value, protocol_level: bool, out: &mut String) -> Result<(), Pr
         Value::Null => out.push_str("null"),
         Value::Bool(true) => out.push_str("true"),
         Value::Bool(false) => out.push_str("false"),
-        // `i64`'s `Display` is exactly §4.2's integer rule: no exponent, no
-        // leading `+`, no leading zeros. Nothing to configure and nothing two
-        // languages can render differently.
+        // `i64`'s `Display` is exactly serialization.md §1's integer rule: no
+        // exponent, no leading `+`, no leading zeros. Nothing to configure and
+        // nothing two languages can render differently.
         Value::Integer(n) => out.push_str(&n.to_string()),
         // A string is written as it is. §2.2 states its spelling for the
         // fields it names — and, since E-36 closed as C, says so explicitly:
@@ -185,10 +189,11 @@ fn write(value: &Value, protocol_level: bool, out: &mut String) -> Result<(), Pr
         Value::Object(pairs) => {
             out.push('{');
             // Sorted rather than taken in `BTreeMap` order: that is Unicode
-            // scalar order, and §4.2 asks for UTF-16 code-unit order. The two
-            // differ above the BMP, where UTF-16 uses a surrogate pair
-            // beginning at 0xD800 -- below U+E000..U+FFFF, so a supplementary
-            // key sorts *before* one that scalar order puts first.
+            // scalar order, and serialization.md §1 asks for UTF-16 code-unit
+            // order. The two differ above the BMP, where UTF-16 uses a
+            // surrogate pair beginning at 0xD800 -- below U+E000..U+FFFF, so a
+            // supplementary key sorts *before* one that scalar order puts
+            // first.
             //
             // No field name in `core-model.md` §2 is outside ASCII, so the
             // protocol does not reach the difference today. Sorting anyway,
@@ -241,8 +246,9 @@ fn write(value: &Value, protocol_level: bool, out: &mut String) -> Result<(), Pr
     Ok(())
 }
 
-/// A value's JSON type, for an error message. Never its contents — §4.3's
-/// sibling rule is that no private value reaches an error string.
+/// A value's JSON type, for an error message. Never its contents —
+/// serialization.md §1's sibling rule is that no private value reaches an
+/// error string.
 fn type_name(value: &Value) -> &'static str {
     match value {
         Value::Null => "null",
@@ -254,21 +260,22 @@ fn type_name(value: &Value) -> &'static str {
     }
 }
 
-/// A key's UTF-16 code units, which is what §4.2 orders by.
+/// A key's UTF-16 code units, which is what serialization.md §1 orders by.
 ///
 /// `pub(crate)` because three places need it now — the serializer, the envelope
 /// parser, and `check_routing` — and each having its own was how the second and
 /// third came to disagree with Go about which of two bad fields to name.
 ///
-/// Allocating per comparison is the slow way to do this and the clear one; §4.2
-/// is a correctness rule and objects here have a handful of keys. Performance
-/// is a Stage 8 concern (`CLAUDE.md`), and a hand-rolled comparator that walked
-/// both strings' code units in step would be the thing a reviewer has to check.
+/// Allocating per comparison is the slow way to do this and the clear one;
+/// serialization.md §1 is a correctness rule and objects here have a handful
+/// of keys. Performance is a Stage 8 concern (`CLAUDE.md`), and a hand-rolled
+/// comparator that walked both strings' code units in step would be the thing
+/// a reviewer has to check.
 pub(crate) fn utf16_units(s: &str) -> Vec<u16> {
     s.encode_utf16().collect()
 }
 
-/// A JSON string under §4.2's *minimal escaping* rule.
+/// A JSON string under serialization.md §1's *minimal escaping* rule.
 ///
 /// Escaped: what RFC 8259 §7 requires — the quote, the backslash, and the
 /// control characters below U+0020. Nothing else. A `\uXXXX` escape for a
@@ -344,8 +351,9 @@ mod tests {
 
     #[test]
     fn strings_escape_only_what_must_be_escaped() {
-        // §4.2: no `\uXXXX` for characters representable directly. A profile
-        // that escaped non-ASCII would emit two valid encodings of one string.
+        // serialization.md §1: no `\uXXXX` for characters representable
+        // directly. A profile that escaped non-ASCII would emit two valid
+        // encodings of one string.
         assert_eq!(text(&Value::string("é😀")), "\"é😀\"");
         assert_eq!(text(&Value::string("a\"b\\c")), r#""a\"b\\c""#);
         assert_eq!(text(&Value::string("\n\t\r")), r#""\n\t\r""#);
@@ -370,10 +378,10 @@ mod tests {
 
     #[test]
     fn keys_sort_by_utf16_code_unit_not_by_scalar_value() {
-        // The one case where §4.2's ordering differs from the container's:
-        // UTF-16 encodes a supplementary character as a surrogate pair
-        // beginning at 0xD800, which is below U+FFFD, so it sorts first --
-        // where scalar order, which is what `BTreeMap<String>` iterates in,
+        // The one case where serialization.md §1's ordering differs from the
+        // container's: UTF-16 encodes a supplementary character as a surrogate
+        // pair beginning at 0xD800, which is below U+FFFD, so it sorts first
+        // -- where scalar order, which is what `BTreeMap<String>` iterates in,
         // puts it last.
         //
         // Nothing in `core-model.md` §2 has a non-ASCII field name, so the

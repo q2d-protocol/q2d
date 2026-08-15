@@ -18,8 +18,15 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** **E-36** through **E-42** all closed, every one raised
+> **Nothing is open.** **E-36** through **E-43** all closed, every one raised
 > while building P-002's message layer.
+>
+> **E-43:** the deterministic production profile — the rules that fix the bytes a
+> signature covers — was defined only in P-002 §4.2, while `crypto-suites.md`,
+> `core-model.md` and `registry/manifest.json` each referred to it as something
+> defined above them. It is now [`serialization.md`](../spec/serialization.md),
+> a spec document of its own. Same class as **E-39**, one level more serious:
+> that was a limit living in a PRD, this was the definition of the signed bytes.
 >
 > **E-41:** §2.1 justified the `routing` allowlist by a confidentiality 0.1 does
 > not provide — the suite signs the payload without encrypting it. The rule
@@ -182,6 +189,7 @@ question is still fresh than after the answer arrives.
 | **E-40** | Does the 2 KiB string limit reach inside `public_context`? | P-002 issue 5 | `core-model.md` §2.8 · `scope.md` §4.1 · `registry/validate.py` · both parsers | **Closed** |
 | **E-41** | §2.1 justifies the `routing` allowlist by a confidentiality 0.1 does not provide | P-002 issue 7 | `core-model.md` §2.1 · `claims.md` **Q2D-NC-13** (new) · P-002 §4.5, §10 · both implementations | **Closed** |
 | **E-42** | Is an empty prefix object a valid `routing`? | P-002 issue 7 | `core-model.md` §2.1 · P-002 §4.6 · both implementations | **Closed** |
+| **E-43** | The deterministic production profile is defined in a PRD, and three artifacts above it cite it as if it were not | P-002 issue 10 | `serialization.md` (new) · `crypto-suites.md` §1–§3 · `core-model.md` preamble, §2.8, §3.2, §6 · `registry/manifest.json`, `registry/validate.py` · P-002 §4.1–§4.3, P-011 §4.4 · both implementations · corpus | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -3839,6 +3847,131 @@ Together, because both land in the same paragraph of §2.1.
 `conformance-classes.md`, whose CC-1 and CC-2 rows about `routing` are about
 derivation and disagreement; `crypto-suites.md` §7, which already named payload
 encryption as the pressing post-quantum case and is now cited from §2.1 for it.
+
+---
+
+## E-43 — The production profile is defined in a PRD, and the spec cites it as if it were not
+
+**Raised by** P-002 issue 10, while authoring `message/reject/`. Two Codex
+findings landed on the same cause: a vector citing `core-model.md` §4 for the
+duplicate-key rule, and one citing §3.1 for the float rule. Neither section
+states either rule. Neither does any other section of `spec/`.
+
+## The problem
+
+The deterministic production profile — encoding, key ordering, escaping, integer
+form, absent-optional omission, the float prohibition, duplicate-key rejection —
+was defined in exactly one place: **P-002 §4.2 and §4.3**, level 4 of the
+hierarchy.
+
+Three artifacts at levels 1 and 2 referred to it as though it were defined above
+them:
+
+| Site | Text |
+|---|---|
+| `crypto-suites.md` §3 | *"Serialized under the same deterministic production profile as the payload… by the key ordering that profile defines"* |
+| `core-model.md` §2.8, §3.2, §6 | *"§4.1 forbids a verifier from depending on the production profile"*; *"the array's serialized order is fixed by the production profile"* |
+| `registry/manifest.json` | *"serialized under the deterministic production profile: UTF-8, no insignificant whitespace, object keys sorted ascending, no floating-point values"* |
+
+`crypto-suites.md` §1 defines a suite as naming *"the serialization method"*, and
+the registry entry schema has a `serialization` field. Both pointed into a
+vacuum.
+
+**The registry's abbreviated copy had already drifted.** *"Object keys sorted
+ascending"* does not say **by what**, and the answer is the one rule in the
+profile two implementations disagree about while both looking right: Rust's
+default `BTreeMap` order is by Unicode scalar, and the profile asks for UTF-16
+code unit. Those differ above the BMP. That exact bug shipped in `src/value.rs`
+during issue 2 and was caught by a fixture, not by a document. An implementer
+reading only `spec/` and the registry — which is what the hierarchy tells them to
+do — could not have got it right.
+
+`core-model.md` §2.8 also attributed the producer/verifier split to its own
+§4.1, which says nothing of the kind. The rule was P-002 §4.1's. Same defect,
+found while drafting the fix.
+
+## The options
+
+**A. A section of `crypto-suites.md`.** §1 already defines a suite as naming the
+serialization method, and the two forward references in that file would resolve
+locally. Against: the predicate registry's `entry_digest` is computed over the
+profile with no signature and no suite in play, so a registry validator's rule
+would be defined in the crypto document — and putting it inside the suite entry
+would imply that registering a new suite changes every entry digest.
+
+**B. A new `spec/serialization.md`.** The profile is one object used by suites,
+the registry and receipts alike, and none of them owns it. Against: another spec
+file to keep in agreement.
+
+**C. A section of `core-model.md`.** Read first by implementers. Against: that
+document is the processing model and already runs to ~1200 lines, and the
+registry needs the profile with no message in play.
+
+**D. Leave it in P-002 and add a normative pointer.** Recorded to be dismissed:
+it makes level 4 govern a level-1 rule, which is how this happened.
+
+## Resolution — B
+
+[`serialization.md`](../spec/serialization.md), protocol-wide rather than
+suite-scoped. §1 production, §2 parsing, §3 what is being serialized, §4 the
+boundary against canonicalization.
+
+The registry decided it. The entry digest involves no suite, no message and no
+signature, so any home that scopes the profile to signing puts a registry rule in
+the wrong document and invites the reading that swapping suites swaps the
+profile — which would change every `entry_digest` in the manifest without anyone
+editing one.
+
+Three sub-decisions were made in the move rather than deferred:
+
+- **Ordering resolves to UTF-16 code unit**, which is what both implementations,
+  the authoring tool and the corpus already did. Every key in the manifest is
+  ASCII, so no entry digest changed; the exposure was future entries and every
+  predicate's `public_context`.
+- **Production and parse rules are separate sections.** Duplicate-key rejection
+  is a parse rule and had been sitting in a *production* profile. Codex's first
+  finding was really this.
+- **The profile is protocol-wide.** A suite needing different bytes registers a
+  different serialization method; it does not redefine this one.
+
+### What was built
+
+`spec/serialization.md`, and citations rather than restatements everywhere else.
+`registry/manifest.json`'s `entry_digest_rule.over` cites it instead of carrying
+an abbreviated copy, and `registry/validate.py` — which had been ordering by code
+point via `json.dumps(sort_keys=True)` — now orders by UTF-16 and asserts that it
+does, against a supplementary-plane key where the two answers differ. That check
+replaces a compensating one that had required entry keys to be ASCII *because*
+the ordering was wrong.
+
+P-002 §4.2 and §4.3 keep what a PRD should keep: why the value model enforces the
+float rule rather than the serializer, why `serialize_core` is still fallible,
+and the two rules that drifted while they lived there.
+
+## What E-43 cascaded into
+
+- [`serialization.md`](../spec/serialization.md) — new.
+- [`crypto-suites.md`](../spec/crypto-suites.md) §1, §2, §3 — the serialization
+  method now names a document; the suite entry and the protected header cite §1;
+  §3's *no canonicalization* line points at §4 for the boundary.
+- [`core-model.md`](../spec/core-model.md) — preamble, §2.8 (the miscitation
+  above), §3.2, §6.
+- [`registry/manifest.json`](../registry/manifest.json) and
+  [`registry/validate.py`](../registry/validate.py).
+- [P-002](prds/P-002-message-envelope.md) §2, §4.1, §4.2, §4.3, §4.7, §5, §8,
+  §11 — and [P-011](prds/P-011-receipts-audit.md) §4.2, which had cited P-002
+  §4.2 for the profile `response_digest` needs.
+- Both implementations, both test suites, `tools/author_vectors.py`,
+  `tools/author_message.py`, `testdata/README.md`, and the conformance harness —
+  every citation of the profile, roughly ninety.
+- `message/serialize/`'s four vectors now cite `serialization.md#1`;
+  `message/reject/duplicate-key` cites `#2`, and `float-in-the-payload` cites
+  both.
+
+**Checked and unchanged:** `claims.md`, `conformance-classes.md` and
+`trust-matrix.md` — the profile is a determinism mechanism and no claim rested on
+where it was written down. The `q2d_version` of the specification is unchanged:
+nothing about the bytes changed, only which document states them.
 
 ---
 

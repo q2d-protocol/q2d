@@ -19,7 +19,10 @@ A **signature suite** names three coupled choices as one unit:
 
 1. the **signature algorithm** and its parameters;
 2. the **serialization method** — how the signed bytes are produced from the
-   core object;
+   core object. Every suite registered today names
+   [`serialization.md`](serialization.md), which is protocol-wide rather than
+   suite-scoped; a suite needing different bytes registers a different method
+   here rather than changing that one;
 3. the **hash** where the algorithm does not fix one.
 
 They are one identifier because they fail together. The same algorithm over a
@@ -35,7 +38,7 @@ forever. A registered identifier is never reused for different parameters.
 |---|---|
 | `id` | The suite identifier. |
 | `algorithm` | Signature algorithm and parameters. |
-| `serialization` | How signed bytes are derived from the core object. |
+| `serialization` | How signed bytes are derived from the core object. [`serialization.md`](serialization.md) for the registered suite. |
 | `hash` | Where not fixed by the algorithm. |
 | `status` | `active`, `deprecated`, or `withdrawn`. |
 | `effective_from` | When it became usable. |
@@ -54,8 +57,11 @@ same mechanism and pinned the same way.
 
 Ed25519 (RFC 8032) over the **JWS compact form** — three base64url segments
 separated by dots, exactly as RFC 7515 §7.1 lays them out — with the core object
-as an opaque base64url payload. The signature covers the exact transmitted
-bytes. **No canonicalization is involved**, and none is required.
+as an opaque base64url payload, produced under
+[`serialization.md`](serialization.md) §1. The signature covers the exact
+transmitted bytes. **No canonicalization is involved**, and none is required —
+[`serialization.md`](serialization.md) §4 is the boundary between a production
+profile and a canonicalization step, and this suite sits on the near side of it.
 
 **A query payload is the §2 core object without `signature.value`**, which under
 this suite is not a member of it: the value is the third segment, and an object
@@ -93,9 +99,9 @@ Signature size: 64 bytes. Public key: 32 bytes.
 | `suite` | The suite identifier — `eddsa-jws-2026` here. |
 | `key_id` | The key that signed. Resolvable under the identity profile, as `signature.key_id` is. |
 
-Serialized under the same deterministic production profile as the payload, so
-the two members appear in a fixed order — `key_id` before `suite`, by the key
-ordering that profile defines.
+Serialized under [`serialization.md`](serialization.md) §1, the same profile as
+the payload, so the two members appear in a fixed order — `key_id` before
+`suite`, by the key ordering §1 defines.
 
 **The header is closed because it is read before verification.** It is the only
 attacker-controlled data a verifier touches while it still has no signature to

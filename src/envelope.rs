@@ -88,9 +88,9 @@ pub fn parse_envelope(bytes: &[u8]) -> Result<Envelope, ParseError> {
     // By UTF-16 code unit, not `BTreeMap` order, which is by Unicode scalar
     // value. The two differ above the BMP, so an envelope with two unknown
     // members named U+10000 and U+E000 would be reported by a different one
-    // here than in Go. A rejection reason two implementations disagree about is
-    // a divergence even when both reject — the same rule §4.2 states for keys,
-    // applied to the order they are *examined* in.
+    // here than in Go. A rejection reason two implementations disagree about
+    // is a divergence even when both reject — the same rule serialization.md
+    // §1 states for keys, applied to the order they are *examined* in.
     let mut ordered: Vec<(String, Value)> = pairs.into_iter().collect();
     ordered.sort_by_key(|(key, _)| crate::value::utf16_units(key));
     for (key, item) in ordered {

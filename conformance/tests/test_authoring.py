@@ -5,8 +5,8 @@
 [`tools/author_vectors.py`](../../tools/author_vectors.py) exists so the corpus
 is not derived from an implementation it is supposed to check. That only holds
 while the tool actually implements the specification, so this is where each of
-[P-002](../../docs/prds/P-002-message-envelope.md) §4.2's rules gets a test,
-and where RFC 8032's known answers gate the signer.
+[`serialization.md`](../../spec/serialization.md) §1's rules gets a test, and
+where RFC 8032's known answers gate the signer.
 
 **The known-answer gate is the load-bearing test in this file.** Every constant
 in the Ed25519 — the curve parameter, the group order, the base point — is
@@ -62,7 +62,7 @@ class KnownAnswerTest(unittest.TestCase):
 
 
 class KeyOrderTest(unittest.TestCase):
-    """§4.2: object keys sorted ascending by UTF-16 code unit."""
+    """serialization.md §1: keys sorted ascending by UTF-16 code unit."""
 
     def test_ascii_keys_sort_ascending(self):
         self.assertEqual(author.serialize({"b": 1, "a": 2, "c": 3}),
@@ -94,9 +94,10 @@ class KeyOrderTest(unittest.TestCase):
 
 class NumberTest(unittest.TestCase):
     def test_a_float_is_refused_loudly(self):
-        # §4.3: "a float reaching it is a programming error and fails loudly
-        # rather than emitting a value two implementations might render
-        # differently".
+        # serialization.md §1 prohibits every float, and this tool refuses one
+        # loudly rather than emitting a value two implementations might render
+        # differently. Both implementations refuse earlier still, in the type
+        # (P-002 §4.3) -- the tool has no type to refuse in.
         for value in (1.0, 0.1, {"a": 1.5}, [2.5]):
             with self.subTest(value=value):
                 with self.assertRaises(author.ProfileError):
@@ -139,7 +140,8 @@ class NumberTest(unittest.TestCase):
 
 
 class StringTest(unittest.TestCase):
-    """§4.2: minimal escaping; no `\\uXXXX` for characters representable directly."""
+    """serialization.md §1: minimal escaping; no `\\uXXXX` where a character
+    is representable directly."""
 
     def test_non_ascii_is_emitted_directly(self):
         self.assertEqual(author.serialize("café"), '"café"'.encode("utf-8"))
@@ -174,8 +176,9 @@ class StringTest(unittest.TestCase):
 
 class ProfileShapeTest(unittest.TestCase):
     def test_output_is_bytes_with_no_bom(self):
-        # §4.2: UTF-8, no BOM. Returned as bytes because the profile is about
-        # bytes, and a caller that signs them must not have to guess.
+        # serialization.md §1: UTF-8, no BOM. Returned as bytes because the
+        # profile is about bytes, and a caller that signs them must not have to
+        # guess.
         out = author.serialize({"a": "é"})
         self.assertIsInstance(out, bytes)
         self.assertFalse(out.startswith(b"\xef\xbb\xbf"))
@@ -186,10 +189,10 @@ class ProfileShapeTest(unittest.TestCase):
         self.assertNotIn(b" ", out)
 
     def test_null_serializes_rather_than_being_refused(self):
-        # §4.2 says an absent optional field is *omitted, never null* -- a rule
-        # binding whoever builds the object, not the serializer. `null` is a
-        # legitimate value: the registry's `none-free-returns-null` vector
-        # answers exactly that.
+        # serialization.md §1 says an absent optional field is *omitted, never
+        # null* -- a rule binding whoever builds the object, not the
+        # serializer. `null` is a legitimate value: the registry's
+        # `none-free-returns-null` vector answers exactly that.
         self.assertEqual(author.serialize(None), b"null")
         self.assertEqual(author.serialize({"result": None}), b'{"result":null}')
 
@@ -231,9 +234,9 @@ class JwsTest(unittest.TestCase):
         self.assertNotIn(b"alg", header)
 
     def test_the_header_members_are_in_the_profile_s_order(self):
-        # P-002 §4.2 sorts keys ascending by UTF-16 code unit, so `key_id`
-        # precedes `suite`. Two implementations disagreeing here produce
-        # different bytes for the same message.
+        # serialization.md §1 sorts keys ascending by UTF-16 code unit, so
+        # `key_id` precedes `suite`. Two implementations disagreeing here
+        # produce different bytes for the same message.
         header = base64.urlsafe_b64decode(self.signed().split(".")[0] + "==")
         self.assertLess(header.index(b"key_id"), header.index(b"suite"))
 

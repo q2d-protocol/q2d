@@ -1,7 +1,7 @@
 # Three-way serialization fixtures
 
 Two documents, each serialized under [P-002](../docs/prds/P-002-message-envelope.md)
-§4.2's deterministic production profile, and each held to those exact bytes by
+serialization.md §1, and each held to those exact bytes by
 **three implementations in three languages, by tests that share no code**:
 
 | Implementation | Tests |
@@ -25,7 +25,8 @@ authoring tool would pass every vector and still be wrong.
 ## `profile-edges`
 
 **Not a Q2D message**, and nothing in it should be read as one. Every entry is a
-property of §4.2 rather than a protocol field: key ordering above the BMP, the
+property of serialization.md §1 rather than a protocol field: key ordering
+above the BMP, the
 empty key, every escape RFC 8259 names, the characters `encoding/json` escapes
 by default and this profile must not, `i64`'s two boundaries, an empty object
 and an empty array, and a present null.
@@ -34,7 +35,8 @@ It exists because the canonical query could not catch a real divergence. The
 query is entirely ASCII, carries no escape, and has no integer near a boundary,
 so three serializers can agree on it while disagreeing about most of the
 profile — and they did. The Rust side emitted `BTreeMap` order, which is Unicode
-scalar order, where §4.2 asks for UTF-16 code-unit order; the two differ only
+scalar order, where serialization.md §1 asks for UTF-16 code-unit order; the
+two differ only
 above the BMP, and no field name in `core-model.md` §2 is outside ASCII. Codex
 caught it in review. This fixture is the thing that would have.
 
@@ -48,7 +50,8 @@ count, or an enum.
 They are reachable, though, and that is the reason this matters rather than a
 reason it does not. A predicate's `public_context` is its entry's to shape (§2.4):
 a conforming query can carry a non-ASCII key, a string needing every escape, or
-an integer at the boundary, and all of it goes through §4.2 into the signed
+an integer at the boundary, and all of it goes through serialization.md §1
+into the signed
 payload. So these are edges a real message can reach and no *realistic-looking*
 message will — which is the combination that makes them worth authoring and
 easy to miss.
@@ -84,7 +87,8 @@ shows up as a disagreement with two standard libraries rather than as its own
 private truth.
 
 This is the opposite arrangement from the serializer, and for the opposite
-reason: there, `encoding/json` had behaviours §4.2 forbids and the standard
+reason: there, `encoding/json` had behaviours serialization.md §1 forbids and
+the standard
 library was the thing to avoid. The question is never *stdlib or not* but
 *does the stdlib do what the specification says* — for SHA-256 it does, exactly,
 and for JSON it does not.

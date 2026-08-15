@@ -32,10 +32,13 @@ being inside the signed object rather than beside it.
 |---|---|
 | [`spec/core-model.md`](../../spec/core-model.md) §2.1 | Envelope: `signed` plus advisory `routing`; the strict-subset and disagreement rules |
 | [`spec/core-model.md`](../../spec/core-model.md) §2.2–2.7 | Query field groups and which are required |
-| [`spec/core-model.md`](../../spec/core-model.md) §3.1 | Capacity is integer millibits — see §4.3 below |
+| [`spec/core-model.md`](../../spec/core-model.md) §3.1 | Capacity is integer millibits — `serialization.md` §1 prohibits the alternative |
 | [`spec/core-model.md`](../../spec/core-model.md) §4 steps 1, 5, 8 | Bounded parse; parse only after verification; routing/signed consistency |
 | [`spec/core-model.md`](../../spec/core-model.md) §5 | Response shapes for `answer`, `deny`, `escalate` |
 | [`spec/core-model.md`](../../spec/core-model.md) §6 | Receipt fields and the digests they bind |
+| [`spec/serialization.md`](../../spec/serialization.md) §1 | The production profile — every rule about the bytes |
+| [`spec/serialization.md`](../../spec/serialization.md) §2 | What a parser rejects rather than repairs, and what a verifier must not depend on |
+| [`spec/serialization.md`](../../spec/serialization.md) §3 | Protocol level is a property of what is being serialized — hence two entry points |
 | [`spec/crypto-suites.md`](../../spec/crypto-suites.md) §3 | JWS compact is the container; the payload is what this PRD produces |
 | [`spec/claims.md`](../../spec/claims.md) Q2D-C-05 | The field set the signature must cover |
 
@@ -68,8 +71,12 @@ difference that is not a defect.
 
 So:
 
-> **Producers MUST emit the deterministic profile in §4.2. Verifiers MUST NOT
-> depend on it.**
+> **Producers MUST emit the deterministic profile. Verifiers MUST NOT depend on
+> it.**
+
+That is [`serialization.md`](../../spec/serialization.md) §1 and §2, which is
+where it belongs and where it did not used to be —
+[E-43](../open-escalations.md).
 
 A verifier that re-serializes to check a signature has reintroduced the
 canonicalization dependency the envelope design exists to remove. That is a
@@ -77,51 +84,47 @@ canonicalization dependency the envelope design exists to remove. That is a
 
 ### 4.2 Deterministic production profile
 
-Applies to the JWS payload and to every sub-object that is digested.
+[`serialization.md`](../../spec/serialization.md) §1 **is** the profile. This
+section states nothing about the bytes.
 
-| Rule | Value |
-|---|---|
-| Encoding | UTF-8, no BOM |
-| Whitespace | none between tokens |
-| Object keys | sorted ascending by UTF-16 code unit |
-| Absent optional fields | omitted, never `null` |
-| Integers | no exponent, no leading `+`, no leading zeros |
-| **Floats** | **prohibited — see §4.3** |
-| Timestamps | [`core-model.md`](../../spec/core-model.md) §2.2 |
-| Strings | minimal escaping; no `\uXXXX` for characters representable directly |
-| Duplicate keys | prohibited on production, rejected on parse |
+It used to hold the table, and that was the defect [E-43](../open-escalations.md)
+closed. Three artifacts above this PRD in the hierarchy — `crypto-suites.md`,
+`core-model.md`, and `registry/manifest.json` — each referred to *"the
+deterministic production profile"* as something defined above them, and it was
+defined nowhere but here. The registry showed what that costs: its abbreviated
+copy said *"object keys sorted ascending"* without saying by what, and Rust's
+default `BTreeMap` order is one of the answers that produces wrong bytes. An
+implementer working from `spec/` and the registry, as the hierarchy tells them
+to, could not have got it right.
 
-The timestamp row **cites rather than states**. This table used to carry the
-rule itself — "RFC 3339 with `Z`, second precision" — and was the only place in
-the repository that said `Z`, while `core-model.md` said only "RFC 3339, second
-precision". A PRD holding a rule `spec/` needs is the second source of truth
-CLAUDE.md's hierarchy exists to prevent, and it showed: the rule did not reach
-`routing`, which this profile does not cover and which §4 step 8 compares.
+Two rules that used to live in this table are worth recording as history, because
+each was a second source of truth that drifted before anyone noticed:
 
-It showed a second way, which is why the row now cites a §2.2 that says more
-than it used to. §2.2 fixed a spelling without saying which strings it bound,
-and the authoring tool resolved that by refusing *every* string that looked like
-a timestamp and was spelled differently — a rule in no specification, which
-issue 2 then copied into both implementations. [E-36](../open-escalations.md)
-settled it: §2.2 reaches the fields it names, and a predicate constrains its own
-through its registry entry.
+**The timestamp row once carried the rule itself** — "RFC 3339 with `Z`, second
+precision" — and was the only place in the repository that said `Z`, while
+`core-model.md` §2.2 said only "RFC 3339, second precision". The rule did not
+reach `routing`, which the profile does not cover and which §4 step 8 compares.
 
-Key ordering is lexicographic rather than schema-declaration order because
-declaration order is brittle as fields are added and produces no compile-time
-error when two implementations disagree. The rule is borrowed from JCS (RFC 8785)
-**as an ordering convention only** — it is not a canonicalization step, and
-nothing verifies by re-deriving.
+It drifted a second way. §2.2 fixed a spelling without saying which strings it
+bound, and the authoring tool resolved that by refusing *every* string that
+looked like a timestamp and was spelled differently — a rule in no specification,
+which issue 2 then copied into both implementations.
+[E-36](../open-escalations.md) settled it: §2.2 reaches the fields it names, and
+a predicate constrains its own through its registry entry.
+
+**Key ordering** is lexicographic rather than by schema-declaration order, and
+[`serialization.md`](../../spec/serialization.md) §1 now carries both the rule
+and the reason. §4 there draws the boundary this PRD used to draw in a paragraph:
+the rule is borrowed from JCS (RFC 8785) as an ordering convention only, and
+nothing in Q2D verifies by re-deriving bytes.
 
 ### 4.3 No floating-point in signed structures
 
-There is no float-valued field in any signed Q2D structure, and none may be
-added.
+The rule is [`serialization.md`](../../spec/serialization.md) §1, and the parse
+side is §2. What this section owns is **where each implementation enforces
+them**, which is a build decision rather than a protocol one.
 
-Capacity is integer millibits ([`core-model.md`](../../spec/core-model.md) §3.1).
-Timestamps are strings. Cardinalities and sizes are integers. This removes JSON
-float-precision divergence from the protocol entirely rather than managing it.
-
-The **value model** enforces this, which is stronger than the serializer
+The **value model** enforces production, which is stronger than the serializer
 enforcing it: neither implementation's value type has a float variant
 ([`src/value.rs`](../../src/value.rs), [`value.go`](../../value.go)), so a float
 reaching the serializer is a compile error rather than a runtime one. There is
@@ -132,20 +135,20 @@ contain a float, and `parse_core` is where one is refused — the boundary where
 value comes into existence, rather than downstream of a value that already
 exists. Adding a float field is an escalation, not a schema change.
 
-`serialize_core` is still fallible, for a different rule: `core-model.md` §2.2
-permits one spelling of a timestamp, and §4.2 cites it. That check has to live
-here, because serialization is the last point at which a value can be refused
-before it becomes bytes somebody signs — and inside a signed payload a malformed
-timestamp is past the reach of anything that reads it as text.
+`serialize_core` is still fallible, for a different rule:
+[`core-model.md`](../../spec/core-model.md) §2.2 permits one spelling of a
+timestamp. That check has to live here, because serialization is the last point
+at which a value can be refused before it becomes bytes somebody signs — and
+inside a signed payload a malformed timestamp is past the reach of anything that
+reads it as text.
 
-That rule needs a **second entry point**, which §5 now lists. §2.2 gives a field
-name a meaning at protocol level — the core object, `routing`, and a receipt —
-and §2.4 makes a predicate's `public_context` its entry's to shape. Whether a
-value is at protocol level is therefore a property of *what the caller is
-serializing*, not of how deep it sits: reached through a query, `public_context`
-is already below protocol level; digested on its own for §4.7's
-`public_context_digest` it is the root. One entry point would hold the same
-bytes to two different rules depending on which path reached them.
+That rule needs a **second entry point**, which §5 lists, and
+[`serialization.md`](../../spec/serialization.md) §3 is why: protocol level is a
+property of *what the caller is serializing*, not of how deep a value sits.
+Reached through a query, `public_context` is already below protocol level;
+digested on its own for §4.7's `public_context_digest` it is the root. One entry
+point would hold the same bytes to two different rules depending on which path
+reached them.
 
 ### 4.4 Envelope
 
@@ -212,13 +215,13 @@ algorithm is additive rather than ambiguous.
 | Digest | Over |
 |---|---|
 | `request_digest` | The exact `signed` bytes of the query |
-| `response_digest` | The response's **semantic content**, excluding the receipt and the signature — §4.2 profile. [`core-model.md`](../../spec/core-model.md) §6 is authoritative |
-| `effective_contract_digest` | The effective answer contract, §4.2 profile |
-| `public_context_digest` | The public context, §4.2 profile |
+| `response_digest` | The response's **semantic content**, excluding the receipt and the signature — `serialization.md` §1. [`core-model.md`](../../spec/core-model.md) §6 is authoritative |
+| `effective_contract_digest` | The effective answer contract, `serialization.md` §1 |
+| `public_context_digest` | The public context, `serialization.md` §1 |
 
 Only `request_digest` digests received bytes, with no re-serialization. The other
 three digest a sub-object and therefore need the production profile, which is why
-§4.2 applies beyond the payload.
+[`serialization.md`](../../spec/serialization.md) §1 applies beyond the payload.
 
 **`response_digest` is the one to watch.** The obvious definition — the exact
 `signed` bytes of the response, symmetric with `request_digest` — is not
@@ -262,7 +265,7 @@ fields §2.8 refuses.
 ## 5. Interfaces
 
 ```
-serialize_core(core: CoreObject)          -> bytes        // §4.2 profile; errors on a §2.2 timestamp
+serialize_core(core: CoreObject)          -> bytes        // serialization.md §1; errors on a §2.2 timestamp
 serialize_operation_data(value)           -> bytes        // §2.4 data; same bytes, no §2.2 field names
 parse_core(payload: bytes)                -> CoreObject   // post-verification only
 project_routing(core: CoreObject)         -> Routing      // derive; never authored
@@ -313,7 +316,7 @@ that share no code. Two fixtures, and the second one is the point:
   `encoding/json` escapes by default and this profile must not.
 
 The second exists because the first could not catch a real divergence: the Rust
-serializer was emitting Unicode scalar key order where §4.2 asks for UTF-16
+serializer was emitting Unicode scalar key order where the profile asks for UTF-16
 code-unit order, and the canonical query is entirely ASCII, so it agreed anyway.
 The generalisation is worth stating, because `message/serialize/` will inherit
 it — **a corpus of realistic documents tests the protocol, not the profile.** No
@@ -351,7 +354,7 @@ re-serializes.
 | A verifier that re-serializes to check a signature | The non-conformant-but-valid payload vector is rejected |
 | `routing` disagreeing on any projected field | Rejected at step 8, internal reason `routing_mismatch` |
 | `routing` carrying a field absent from the signed object | Same |
-| A float in a signed structure | `parse_core` rejects the payload carrying it. Not `serialize_core`: §4.3 puts the prohibition in the value model, so a float cannot be constructed to serialize — the case is unreachable from inside and is only observable on bytes from outside |
+| A float in a signed structure | `parse_core` rejects the payload carrying it. Not `serialize_core`: §4.3 puts `serialization.md` §1's prohibition in the value model, so a float cannot be constructed to serialize — the case is unreachable from inside and is only observable on bytes from outside |
 | Duplicate JSON keys in a payload | `parse_core` rejects |
 | Envelope above 64 KiB | Rejected at step 1, on the byte slice, before allocation |
 | Nesting beyond 16, or more than 64 members in an object | Rejected during the parse — §4.8. Not *before* allocation, and the distinction is real: the envelope bound is what makes the parse's work finite, and these bound its shape |
@@ -364,16 +367,22 @@ what `AGENTS.md`'s architectural-pivot rule exists for.
 
 ## 9. Escalate-if-changed decisions
 
+Items 1, 2 and 5 are now [`serialization.md`](../../spec/serialization.md)'s
+rather than this PRD's ([E-43](../open-escalations.md)), which makes changing
+them a `spec/` change and therefore an escalation by the general rule rather than
+by this list. They stay listed because a reader of this PRD is who needs to know.
+
 1. **Producers emit the deterministic profile; verifiers must not depend on it.**
    A verifier that re-serializes reintroduces the dependency the envelope design
-   removes.
+   removes. `serialization.md` §1 and §2.
 2. **No floating-point in any signed structure.** Adding one reintroduces
    cross-language divergence the protocol currently has none of.
+   `serialization.md` §1.
 3. **`routing` is derived by projection, never authored.**
 4. **The routing field allowlist is closed.** Adding a field puts it in the clear
    for every relay on the path — a disclosure decision, not a plumbing one.
-5. **Lexicographic key ordering.** Changing it invalidates every byte-comparison
-   vector.
+5. **Lexicographic key ordering, by UTF-16 code unit.** Changing it invalidates
+   every byte-comparison vector. `serialization.md` §1.
 6. **Digest is `sha256:` + lowercase hex.** Changing the encoding changes every
    receipt.
 
@@ -399,21 +408,21 @@ what `AGENTS.md`'s architectural-pivot rule exists for.
 | # | Issue | Done when |
 |---|---|---|
 | 1 | Core object type definitions, both languages | **Done.** [`src/value.rs`](../../src/value.rs) and [`value.go`](../../value.go). An absent optional and a null one are different documents, not merely distinguishable values — a field is in the map or it is not |
-| 2 | `serialize_core` with the §4.2 profile | **Done, against a narrower gate than this row asked for.** `message/serialize/` does not exist yet (issue 10), so the byte match is asserted against [`testdata/`](../../testdata/README.md)'s two fixtures instead — read by all three serializers, including the authoring tool the corpus's own expected bytes come from. Refusals agree too, case for case: §2.2's timestamp spelling, and the protocol-level rule that a field name means what `core-model.md` says only outside `public_context`. Building it found five Rust/Go divergences, raised E-31 through E-35, and took two Codex rounds — UTF-16 key ordering, then this. The row is not closed until issue 10 lands the section |
-| 3 | Float guard in the serializer | **Done, in the place the guard belongs.** Neither value model has a float variant, so §4.3's *"programming error"* is a compile error and there is no runtime path to test — and issue 4's parser refuses one on the way in, which is where external bytes arrive. Refused **syntactically**: a fraction or an exponent, rather than a value that happens to be integral. `1e2` is a hundred and no conforming producer emits it, and deciding that it *is* a hundred means exponent arithmetic — with `1e400`, arithmetic in what — which is the float-precision divergence §4.3 removes rather than manages. A `message/reject/` vector covers it under issue 10 |
-| 4 | `parse_core`, rejecting duplicate keys | **Done, against a narrower gate than this row asked for** — the same position issue 2 is in. [`src/parse.rs`](../../src/parse.rs) and [`parse.go`](../../parse.go), hand-written from RFC 8259 in both. Not `encoding/json` on the Go side, and the reason is sharper than the serializer's: it resolves duplicate keys by last-wins, which is the rule §4.2 requires *rejecting*; it decodes every number into `float64`, losing an `int64` above 2^53 silently; and it substitutes U+FFFD for invalid UTF-8. Three of the four refusals are behaviours the standard library deliberately does not have. Round-tripped against both [`testdata/`](../../testdata/README.md) fixtures rather than a value invented for the test — parsing is a **two-way** agreement, and §7 asks for both implementations rather than the serializer's three. Carries §4.8's depth bound alone, because recursive descent without one is a stack overflow and *verified* is not *trusted*; issue 5 applies the full set at the envelope. **What is owed is `message/reject/`** — duplicate keys, a float, invalid UTF-8, and over-depth input are asserted today by two test suites written to mirror each other, which is weaker than a shared vector: mirrored tests catch a divergence only where someone thought to write the same case twice, where a vector is one document both runners are handed. Issue 10 authors it, and no runner answers a vector until [P-001](P-001-conformance-corpus.md) issue 19, so the section cannot be *run* against these parsers before Stage 1 either way |
+| 2 | `serialize_core` with the `serialization.md` §1 profile | **Done, against a narrower gate than this row asked for.** `message/serialize/` does not exist yet (issue 10), so the byte match is asserted against [`testdata/`](../../testdata/README.md)'s two fixtures instead — read by all three serializers, including the authoring tool the corpus's own expected bytes come from. Refusals agree too, case for case: §2.2's timestamp spelling, and the protocol-level rule that a field name means what `core-model.md` says only outside `public_context`. Building it found five Rust/Go divergences, raised E-31 through E-35, and took two Codex rounds — UTF-16 key ordering, then this. The row is not closed until issue 10 lands the section |
+| 3 | Float guard in the serializer | **Done, in the place the guard belongs.** Neither value model has a float variant, so `serialization.md` §1's prohibition is a compile error and there is no runtime path to test — and issue 4's parser refuses one on the way in, which is where external bytes arrive. Refused **syntactically**: a fraction or an exponent, rather than a value that happens to be integral. `1e2` is a hundred and no conforming producer emits it, and deciding that it *is* a hundred means exponent arithmetic — with `1e400`, arithmetic in what — which is the divergence `serialization.md` §1 removes rather than manages. A `message/reject/` vector covers it under issue 10 |
+| 4 | `parse_core`, rejecting duplicate keys | **Done, against a narrower gate than this row asked for** — the same position issue 2 is in. [`src/parse.rs`](../../src/parse.rs) and [`parse.go`](../../parse.go), hand-written from RFC 8259 in both. Not `encoding/json` on the Go side, and the reason is sharper than the serializer's: it resolves duplicate keys by last-wins, which is the rule `serialization.md` §2 requires *rejecting*; it decodes every number into `float64`, losing an `int64` above 2^53 silently; and it substitutes U+FFFD for invalid UTF-8. Three of the four refusals are behaviours the standard library deliberately does not have. Round-tripped against both [`testdata/`](../../testdata/README.md) fixtures rather than a value invented for the test — parsing is a **two-way** agreement, and §7 asks for both implementations rather than the serializer's three. Carries §4.8's depth bound alone, because recursive descent without one is a stack overflow and *verified* is not *trusted*; issue 5 applies the full set at the envelope. **What is owed is `message/reject/`** — duplicate keys, a float, invalid UTF-8, and over-depth input are asserted today by two test suites written to mirror each other, which is weaker than a shared vector: mirrored tests catch a divergence only where someone thought to write the same case twice, where a vector is one document both runners are handed. Issue 10 authors it, and no runner answers a vector until [P-001](P-001-conformance-corpus.md) issue 19, so the section cannot be *run* against these parsers before Stage 1 either way |
 | 5 | Bounded `parse_envelope` | **Done, against a narrower gate than this row asked for** — as issues 2 and 4 are. Every boundary here is a *rejection* boundary — oversize, unknown member, routing string and key length, depth, member count — and each is asserted by two suites written to mirror each other, which catches a divergence only where the same case was written twice. `message/envelope/` and `message/reject/` are issue 10's, and no runner answers a vector until [P-001](P-001-conformance-corpus.md) issue 19. [`src/envelope.rs`](../../src/envelope.rs) and [`envelope.go`](../../envelope.go). The envelope bound is checked on the byte slice before a parser exists, which is the only one of §4.8's five that *can* run before allocation; depth, members and string length are enforced during the parse, and are bounded by it. Building it corrected §4.8 twice: `public_context`'s limit cannot be enforced at step 1, because it is inside the payload that step 5 parses, and the 2 KiB string limit cannot reach `signed`, because a JWS compact of the canonical query is ~1.6 KiB before any public context and the protocol could not otherwise carry its own worked example. An unknown envelope member **denies** rather than being ignored |
 | 6 | `project_routing` | **Done.** [`src/routing.rs`](../../src/routing.rs) and [`routing.go`](../../routing.go). `Routing` wraps a private value whose only origin is the projection, so §4.5's *never authored* is a property of the type rather than a rule a caller keeps — the honest limit being §8's last row: code *inside* the crate or package can still construct one, and what the type removes is the accident rather than the determined bypass. Go's reader returns a **deep copy**, because `Object` is a map and handing back the stored value would let a caller write `r.Value().(q2d.Object)["purpose"] = …` — authoring a routing field through the API that exists to stop it. Rust's `as_value` gets that from an immutable borrow; Go has to copy, and a test mutates a nested member to prove a shallow one would not do. Go also admits `q2d.Routing{}` where Rust's private tuple field does not — harmless, because the zero value carries no fields and reads as the projection of nothing, which §2.1 permits: a caller can construct an empty projection and cannot construct one with fields it chose. Derivation is total: a core object missing a projected field does not project it, which is what §2.1's *strict subset* and §4.6's *each field present* already describe, so there is no error path to handle wrongly and no temptation to default a field that was not there. **Checked against something authored independently** — projecting the canonical query reproduces `author_message.py`'s hand-written `ROUTING` byte for byte, and every `message/` vector's envelope carries that literal, so a disagreement would mean either §4.5 or five merged vectors are wrong |
 | 7 | `check_routing` | **Done.** In [`src/routing.rs`](../../src/routing.rs) and [`routing.go`](../../routing.go), beside the projection they check. Objects recurse — a projection carrying `target.custodian` is a subset of a `target` that also has `subjects` — and everything else compares whole, because §4.4 makes array order significant and a subset rule for arrays would let a relay drop an element and call it a projection. Nothing is coerced: an integer never equals the string that spells it, which is what §4 step 8's *same type, same value* asks for. The mismatch carries the **path and neither value** — the projection is attacker-supplied and the core object is the requester's — and it is the *internal* reason, kept a separate type from the wire response P-009 builds even though §5.2.1 spells the external value the same. **A field outside §4.5's allowlist is refused however faithful the copy** — §2.1 says `routing` *carries at most* those six, so `purpose` matching the signed value byte for byte is still rejected, because the harm is the projection rather than the mismatch. `message/routing/introduces-field` pins exactly that and the first version of this check would have passed it; the two internal reasons take the corpus's own names, `routing_signed_mismatch` and `routing_introduced_field`, rather than a third vocabulary for the same two facts. **The comparison is against `project_routing(core)`, not against the core object.** Comparing against the core object means enumerating what `routing` may *not* contain, and review found three of those one at a time — a field outside the allowlist, a literal `"predicate.id"` key read as a nested path, a value that differs. §4.5 already says what a projection holds, and says it by construction, so *is this a subset of that* answers all three at once. The two reasons then mean what their names say: introduced is **not in the derivation**, mismatch is **in it and different**. One case is deliberately accepted and **[E-42](../open-escalations.md) closed as A**: `{"target":{}}` is not something the projection emits and is refused by nothing §2.1 states, which is where *not derivable* and *not permitted* come apart. §2.1 now says it rather than leaving it to be inferred — *"may carry fewer, or none of them, at any depth"* — because the next implementation will meet the same question, and an unstated answer inside a security check is where two implementations quietly differ. An absent projection passes: nothing that is not there can disagree ([E-38](../open-escalations.md)). A test asserts the two halves agree — a derived projection always passes the check, which is what stops every conforming exchange failing at step 8 |
 | 8 | Digest construction | **The construction is done**; the four call sites are not, and cannot be here. [`src/digest.rs`](../../src/digest.rs) and [`digest.go`](../../digest.go) implement `"sha256:" + lowercase_hex(SHA-256(bytes))`, held to [`testdata/digests.txt`](../../testdata/README.md) across three provenances: Rust writes SHA-256 out by hand — its standard library has none and the crate takes no dependencies — gated on FIPS 180-4's published known answers; Go uses `crypto/sha256`; `hashlib` wrote the fixture. A defect in the hand-written one therefore shows up as a disagreement with two standard libraries rather than as its own private truth. **What each of the four digests covers is P-011's and P-012's**, and `response_digest` is the one to watch: the receipt travels inside the response and carries the digest, so digesting the whole response would include it — P-011 §4.2 is authoritative. `message/digest/` is issue 10's |
 | 9 | Version field handling | **Done.** [`src/version.rs`](../../src/version.rs) and [`version.go`](../../version.go). One value, not a range — a range implies a negotiation and [`core-model.md`](../../spec/core-model.md) §1 has none. The function **reads exactly one key**, which makes *without interpreting other fields* structural rather than a discipline a caller keeps, and a test hands it a message whose every other field is wrong to prove nothing else is consulted. **Not the stronger claim that nothing is read first**: step 5 is *parse the verified core object*, so parsing precedes this and may reject on its own — those are §5.2.1's `malformed`, the other cause that row gives for step 5, so a message that never reaches the check is still refused under the right external value. It takes the verified core object and has **no parameter for `routing`**: §5.2.1 puts `unsupported_version` at step 5 precisely because the authoritative value is inside the signed object, and §4 step 2's shedding on a projected copy is load shedding rather than a rejection reason. **Absent and non-string are `malformed`, not `unsupported_version`** — §5.2.1 gives those two rows separately, and §2.2 requires the field, so *missing a field §2 requires* is the row that applies. The internal value keeps the distinction because the external ones differ, which is the mirror image of `routing`'s two internal reasons collapsing into one external: there normalization is the point, here it would send a requester looking for a version it does not have. `message/reject/`'s unknown-version vector is issue 10's |
-| 10 | Author `message/` corpus section | All five groups present; `harness lint` clean. **To be authored through the operations that already exist.** Worth stating because the first reading of the `operation` enum is that four of these five groups need names it does not have; they do not. The corpus tests protocol behaviour through protocol operations, so §4.2's serializer is exercised by a `sign_query` vector asserting the compact string byte for byte — `message/sign/query-minimal` is the one that exists and does exactly this — and the parser and §2.8's limits *will be* exercised by `verify_query` and `process_query` vectors whose payloads are malformed one way each. `digest` is in the enum on its own account and no vector uses it yet.
+| 10 | Author `message/` corpus section | All five groups present; `harness lint` clean. **To be authored through the operations that already exist.** Worth stating because the first reading of the `operation` enum is that four of these five groups need names it does not have; they do not. The corpus tests protocol behaviour through protocol operations, so `serialization.md` §1's serializer is exercised by a `sign_query` vector asserting the compact string byte for byte — `message/sign/query-minimal` is the one that exists and does exactly this — and the parser and §2.8's limits *will be* exercised by `verify_query` and `process_query` vectors whose payloads are malformed one way each. `digest` is in the enum on its own account and no vector uses it yet.
 
-**`serialize/` is written** — four vectors, generated by [`tools/author_message.py`](../../tools/author_message.py) with a `--check` in the suite: key order above the BMP, minimal escaping and what must *not* be escaped, `i64`'s boundaries, and empty containers beside a present null. Each signs a query whose `public_context` carries the shape and asserts the compact string byte for byte, so a wrong key order or a stray escape changes the payload segment and fails the comparison. They are deliberately not schema-valid for any registered entry — `sign_query` resolves no predicate, and §4.2's edges are unreachable through a public context an entry would declare, which is the same reason `testdata/profile-edges` exists.
+**`serialize/` is written** — four vectors, generated by [`tools/author_message.py`](../../tools/author_message.py) with a `--check` in the suite: key order above the BMP, minimal escaping and what must *not* be escaped, `i64`'s boundaries, and empty containers beside a present null. Each signs a query whose `public_context` carries the shape and asserts the compact string byte for byte, so a wrong key order or a stray escape changes the payload segment and fails the comparison. They are deliberately not schema-valid for any registered entry — `sign_query` resolves no predicate, and `serialization.md` §1's edges are unreachable through a public context an entry would declare, which is the same reason `testdata/profile-edges` exists.
 
-**`envelope/`, `digest/` and `reject/` are not written yet, and only one case is hard.** A payload's defects are all expressible: the payload is opaque base64url inside `input.envelope.signed`, so **duplicate keys** and **a float** go in as signed bytes and arrive at a `verify_query` vector exactly as transmitted. The authoring tool needs one addition for it — a way to sign raw bytes rather than a dict it serializes — and that is the work, not a format question. I had recorded these as inexpressible by confusing the vector's own JSON, which cannot carry a duplicate key, with the payload it carries, which is a string.
+**`reject/` is written** — six vectors. Duplicate keys and a float go in as **payload bytes**, since neither is expressible as an object and both are exactly what a JSON library does silently: `encoding/json` resolves a duplicate key by last-wins, which is the rule `serialization.md` §2 requires *rejecting*, and every library reads a float into a double. `jws_over_payload_bytes` signs them, so each is a validly signed message wrong in one stated way rather than corrupt bytes that would fail at step 4 for a reason the vector is not about. Over-depth, member count and an over-long protocol string go in as objects. Five are `malformed` on the wire with five different internal reasons; the sixth is the only `unsupported_version` in the corpus.
 
-The one that stays awkward is an **oversized envelope**: §2.8's 64 KiB is a bound on received bytes, and `input.envelope` is a parsed object, so what a runner measures depends on how it reconstructs the envelope rather than on what the vector says. Over-depth, too many members, an over-long string, an unknown member and an unknown version are all straightforward.
+**`envelope/` is not**, and one of its cases stays awkward: §2.8's 64 KiB bounds *received bytes* and `input.envelope` is a parsed object, so what a runner measures depends on how it reconstructs the envelope rather than on what the vector says. An unknown envelope member and a `routing` string above 2 KiB are straightforward.
 
 **`digest/` waits on one small decision**: `digest` is in the operation enum and no vector uses it, so the first one settles whether its input carries base64url, hex, or a value to serialize. That is a runner-contract choice every implementation then keeps. Until they do, every behaviour listed below is covered only by two suites written to mirror each other.
 

@@ -3,8 +3,8 @@
 //! ## What this must accept
 //!
 //! **Any valid JSON that the value model can hold** — not only what
-//! [`crate::serialize`] produces. P-002 §4.1: *producers must emit the
-//! deterministic profile; verifiers must not depend on it.* A parser that
+//! [`crate::serialize`] produces. serialization.md §1: *producers must emit
+//! the deterministic profile; verifiers must not depend on it.* A parser that
 //! required the profile would reject a conforming implementation's payload for
 //! putting a space after a colon, and would make verification depend on
 //! canonicalization, which is the dependency signing received bytes exists to
@@ -16,11 +16,11 @@
 //!
 //! ## What this must refuse
 //!
-//! - **Duplicate keys.** §4.2 prohibits them on production and requires
-//!   rejection on parse. A parser taking last-wins or first-wins gives two
+//! - **Duplicate keys.** serialization.md §2 rejects them rather than
+//!   resolving them. A parser taking last-wins or first-wins gives two
 //!   implementations two readings of one payload, and the payload is signed —
 //!   so both readings carry a valid signature.
-//! - **Floats.** §4.3, and [`Value`] has no variant for one.
+//! - **Floats.** serialization.md §2, and [`Value`] has no variant for one.
 //! - **An integer outside `i64`.** `scope.md` §4.1's range (E-37).
 //! - **Anything JSON itself refuses**, which is most of this file's length:
 //!   trailing bytes, a raw control character in a string, a lone surrogate, a
@@ -33,11 +33,11 @@
 //! overflow on hostile input, and *verified* is not *trusted*: a signature says
 //! who sent the bytes, not that they meant well.
 //!
-//! And it is **not** the parser in `src/bin/q2d-conform.rs`, which reads vector
-//! files. That is a different format with different rules: a vector is not a
-//! signed structure, so §4.3 does not reach it and a float in one is legal.
-//! Sharing them would make the runner refuse a corpus file the corpus format
-//! permits, to satisfy a rule about payloads.
+//! And it is **not** the parser in `src/bin/q2d-conform.rs`, which reads
+//! vector files. That is a different format with different rules: a vector is
+//! not a signed structure, so serialization.md §1 does not reach it and a
+//! float in one is legal. Sharing them would make the runner refuse a corpus
+//! file the corpus format permits, to satisfy a rule about payloads.
 
 use crate::value::Value;
 use std::collections::BTreeMap;
@@ -157,8 +157,9 @@ impl Where {
 pub(crate) fn parse_within(bytes: &[u8], where_: Where) -> Result<Value, ParseError> {
     let text = std::str::from_utf8(bytes).map_err(|e| {
         ParseError(format!(
-            "not valid UTF-8 at byte {}. P-002 §4.2's profile is UTF-8 and \
-             RFC 8259 §8.1 requires it for exchanged JSON",
+            "not valid UTF-8 at byte {}. serialization.md §2 refuses these \
+             rather than substituting, and RFC 8259 §8.1 requires UTF-8 for \
+             exchanged JSON",
             e.valid_up_to()
         ))
     })?;
@@ -280,7 +281,7 @@ impl<'a> Parser<'a> {
                     )));
                 }
                 p.where_ = outer;
-                // §4.2: rejected on parse, not resolved.
+                // serialization.md §2: rejected on parse, not resolved.
                 //
                 // The key is **not** in the message. It reads as the sender's
                 // own label, and on a query it is — but `parse` runs over
@@ -295,7 +296,8 @@ impl<'a> Parser<'a> {
                 }
                 if pairs.insert(key, item).is_some() {
                     return Err(p.fail(
-                        "duplicate key, which P-002 §4.2 rejects rather than \
+                        "duplicate key, which serialization.md §2 rejects \
+                         rather than \
                          resolving — two readings of one signed payload",
                     ));
                 }
@@ -478,15 +480,17 @@ impl<'a> Parser<'a> {
         // A fraction or an exponent makes it a float **syntactically**, and
         // that is the test — not whether the value happens to be integral.
         //
-        // `1e2` is a hundred and no conforming producer emits it; §4.2's
-        // integers carry no exponent. Deciding that it *is* a hundred means
-        // exponent arithmetic, and `1e400` means deciding in what — the
-        // float-precision divergence §4.3 removes from the protocol rather
-        // than managing. A syntactic test is decidable identically in every
-        // language, which is the property that matters here.
+        // `1e2` is a hundred and no conforming producer emits it;
+        // serialization.md §1's integers carry no exponent. Deciding that it
+        // *is* a hundred means exponent arithmetic, and `1e400` means deciding
+        // in what — the float divergence serialization.md §1 removes
+        // from the protocol rather than managing. A syntactic test is
+        // decidable identically in every language, which is the property that
+        // matters here.
         if matches!(self.peek(), Some(b'.' | b'e' | b'E')) {
             return Err(self.fail(
-                "a fraction or exponent, which P-002 §4.3 prohibits in a signed \
+                "a fraction or exponent, which serialization.md §2 refuses in \
+                 a signed \
                  structure — capacity is integer millibits, timestamps are strings",
             ));
         }
@@ -535,10 +539,10 @@ mod tests {
 
     #[test]
     fn a_non_conformant_payload_still_parses() {
-        // §4.1's whole point, and P-002 issue 11's vector in miniature: a
-        // verifier must not require the production profile. Whitespace, key
-        // order, an escaped character that need not be escaped, and `/`
-        // escaped — none of which this profile emits.
+        // serialization.md §2's point, and P-002 issue 11's vector in
+        // miniature: a verifier must not require the production profile.
+        // Whitespace, key order, an escaped character that need not be
+        // escaped, and `/` escaped — none of which this profile emits.
         let value = parsed("{ \"b\" : 2,\n  \"a\"\t: \"\\u00e9\\/\" }");
         assert_eq!(
             value,
@@ -567,7 +571,7 @@ mod tests {
     fn a_float_is_refused_however_it_is_written() {
         for text in ["1.5", "[0.0]", "1e2", "1E2", "-2.0e-3", r#"{"a":1.0}"#] {
             let message = refused(text);
-            assert!(message.contains("§4.3"), "{text}: {message}");
+            assert!(message.contains("serialization.md §2"), "{text}");
         }
     }
 

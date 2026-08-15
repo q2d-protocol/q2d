@@ -61,8 +61,9 @@ class EqualityTest(unittest.TestCase):
         # it implements.
         #
         # The ban on floats in signed structures is not weakened: it is
-        # P-002 §4.3's, enforced by a serializer that errors on a float and by
-        # a `message/reject/` vector, which is where it is specified.
+        # serialization.md §1's, enforced by a serializer that errors on a
+        # float and by a `message/reject/` vector, which is where it is
+        # specified.
         self.assert_equal(1000, 1000.0)
         self.assert_equal(0, 0.0)
         self.assert_differs(1000, 1000.5, "different numeric values")
