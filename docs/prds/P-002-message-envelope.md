@@ -321,7 +321,7 @@ it — **a corpus of realistic documents tests the protocol, not the profile.** 
 ASCII, and every value §2 defines is a bounded string, a count, or an enum.
 
 A conforming query can still reach them, through `predicate.public_context`,
-which §2.4 leaves to its entry's schema — a non-ASCII key, a string needing every
+which §2.4 leaves to the registered predicate — a non-ASCII key, a string needing every
 escape, or an integer at the boundary all travel into the signed payload. So
 `message/serialize/` has to author them on purpose: they are reachable by a real
 message and by no realistic-looking one.

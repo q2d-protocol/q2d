@@ -137,8 +137,9 @@ each at the top of a core object, a response, or a receipt, and inside `routing`
 which §2.1 derives from the core object by projection. A string anywhere else is
 not a Q2D timestamp, whatever it resembles.
 
-Anywhere else means operation-defined data: a predicate's `public_context` and
-its answer, which §2.4 says is its entry's to shape. A booking time written
+Anywhere else means data this specification does not define: a predicate's
+`public_context` and its answer, which §2.4 leaves to the registered predicate
+and [`scope.md`](scope.md) §4.1's entry schema. A booking time written
 `2026-07-31T19:30:00+01:00` is that predicate's data and is carried unaltered.
 The offset is not a defect to normalize away — it is the local time the
 requester meant, which `Z` does not record.
@@ -348,8 +349,8 @@ requester could discover which one it is addressing.
 | `predicate.public_context` | 32 KiB |
 
 **The string limit is on the fields this specification defines.** It does not
-reach inside `predicate.public_context`, which §2.4 leaves to its entry's schema: a
-predicate's own field is bounded by its registry entry's schema, where
+reach inside `predicate.public_context`, which §2.4 leaves to the registered
+predicate: such a field is bounded by its registry entry's schema, where
 [`scope.md`](scope.md) §4.1 requires a `maxLength`, and by the 32 KiB the whole
 object may not exceed. A protocol that capped a predicate's text at 2 KiB would
 be deciding the shape of data it declines to define.

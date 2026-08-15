@@ -668,7 +668,7 @@ mod tests {
     #[test]
     fn a_protocol_string_is_bounded_at_2_kib_and_a_predicate_s_is_not() {
         // §2.8: the 2 KiB covers the fields the specification defines and stops
-        // at `predicate.public_context`, which §2.4 leaves to its entry's schema.
+        // at `predicate.public_context`, which §2.4 leaves to the registered predicate.
         // The parser knows which is which — the same protocol knowledge
         // `serialize` carries for §2.2's field names.
         let three_kib = "d".repeat(3 * 1024);
