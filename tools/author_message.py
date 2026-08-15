@@ -218,6 +218,12 @@ def serialize_vector(name: str, requirement: list[str], description: str,
     obligation, not the mechanism. The second entry is where the *shape* being
     serialized comes from: §2.4 for a public context, `scope.md` §4.1 for the
     integer range.
+
+    §2.4 is cited for *where the shape comes from* — it lists `public_context`
+    as the predicate's own input — and not as a constraint on it. The
+    constraint is `scope.md` §4.1's schema profile, and neither section defines
+    the serialization: that is `crypto-suites.md` §3's identical-bytes rule,
+    which is why it leads every list here.
     """
     query = with_public_context(context)
     return {
@@ -247,8 +253,9 @@ def serialize_vectors() -> list[dict]:
             "default string ordering — Rust's `BTreeMap`, Go's byte comparison "
             "— produces the other order and fails here. No field name in "
             "`core-model.md` §2 is outside ASCII, so this is unreachable "
-            "except through a predicate's own public context, which §2.4 makes "
-            "operation-defined.",
+            "except through a predicate's own public context, whose shape §2.4 "
+            "leaves to the registered predicate and whose length "
+            "[`scope.md`](../spec/scope.md) §4.1 bounds.",
             {"\U00010000": "supplementary", "\uFFFD": "bmp", "a": "ascii"},
         ),
         serialize_vector(

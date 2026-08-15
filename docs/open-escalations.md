@@ -2888,8 +2888,8 @@ other implementation. So all three now apply two rules:
   those three places.
 - **By shape, at any depth.** *Any* string carrying some RFC 3339 spelling that
   is not §2.2's is refused wherever it appears — including inside
-  `public_context`, which §2.4 makes its entry's to shape and which no field of
-  at all.
+  `public_context`, whose shape §2.4 leaves to the registered predicate and
+  whose fields the protocol therefore does not define.
 
 The second rule is not in `spec/`. It is in a tool, and now in two
 implementations, and it is the kind of thing an implementer building only from
