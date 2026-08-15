@@ -81,11 +81,15 @@ jobs:
       # serializer, and both are held to `testdata/canonical-query.serialized`
       # — the same bytes `tools/author_vectors.py` produces, asserted from all
       # three sides so no two of them can agree while the third drifts.
+      # `--locked` because the crate now has a dependency. Without it a build
+      # that silently resolved a different version of `ed25519-dalek` would be
+      # green, and the version is the thing E-47 pinned: `verify_strict`'s
+      # acceptance rule is what the two implementations agree on.
       - name: Rust builds
-        run: cargo build --verbose
+        run: cargo build --locked --verbose
 
       - name: Rust tests
-        run: cargo test --verbose
+        run: cargo test --locked --verbose
 
       - uses: actions/setup-go@v5
         with:

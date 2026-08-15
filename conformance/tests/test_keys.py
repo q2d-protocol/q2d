@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -125,11 +126,28 @@ class ContainmentTest(unittest.TestCase):
                    for seed in seeds
                    for form in (seed, seed.upper())]
 
+        # **What the repository contains**, asked of git rather than walked off
+        # disk. `--cached` is every tracked file and `--others
+        # --exclude-standard` is every untracked one git would add -- so a file
+        # nobody thought of is still covered, which is the property this test
+        # needs, while `target/` and `paper/build/` are not.
+        #
+        # Walking the tree instead reported a stale Rust object file, built
+        # from a revision whose test embedded a seed. The seed was gone from
+        # the source and the check still failed, which is a red result that
+        # says nothing about the repository -- and a check that cries wolf on
+        # build output is one people learn to re-run rather than read.
+        listing = subprocess.run(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            cwd=REPO, capture_output=True, check=True)
+        tracked = [REPO / name.decode("utf-8")
+                   for name in listing.stdout.split(b"\0") if name]
+
         searched = 0
-        for path in sorted(REPO.rglob("*")):
+        for path in sorted(tracked):
             if not path.is_file() or path.is_symlink():
                 continue
-            if ".git" in path.parts or KEYS in path.parents or path == KEY_FILE:
+            if KEYS in path.parents or path == KEY_FILE:
                 continue
             try:
                 blob = path.read_bytes()

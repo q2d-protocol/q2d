@@ -11,6 +11,7 @@
 
 pub mod base64url;
 pub mod digest;
+pub mod ed25519;
 pub mod envelope;
 pub mod parse;
 pub mod routing;
@@ -19,6 +20,7 @@ pub mod value;
 pub mod version;
 
 pub use digest::digest;
+pub use ed25519::{verify, PrivateKey, PublicKey, SignatureInvalid};
 pub use envelope::{parse_envelope, Envelope};
 pub use parse::{parse, ParseError};
 pub use routing::{check_routing, project_routing, Routing, RoutingMismatch};
