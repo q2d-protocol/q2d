@@ -87,3 +87,23 @@ func TestAWithdrawnDefaultFailsStartup(t *testing.T) {
 		t.Errorf("the message does not name the suite: %v", err)
 	}
 }
+
+func TestARegisteredSuiteThisBuildCannotExecuteIsBelowTheFloor(t *testing.T) {
+	// The floor is not "the registry said so". A registry is data, and one naming
+	// a suite this code cannot execute would otherwise be accepted into the
+	// policy — after which SignCompact produces Ed25519 under that suite's
+	// identifier.
+	registry, err := LoadSuiteRegistry([]byte(`{"suites":[{"id":"pqc-dilithium-2030",
+		"algorithm":"a","serialization":"s","hash":"h","effective_from":"2030-01-01",
+		"deprecated_from":null,"withdrawn_from":null,"security_notes":[],
+		"references":[],"status":"active"}]}`))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if _, err := registry.Resolve("pqc-dilithium-2030"); err != nil {
+		t.Fatalf("registered: %v", err)
+	}
+	if _, err := NewSuitePolicy(registry, []string{"pqc-dilithium-2030"}); err == nil {
+		t.Error("a suite this build cannot execute was accepted")
+	}
+}

@@ -82,6 +82,15 @@ pub fn sign(
     suite: &SuiteEntry,
     key_id: &str,
 ) -> Result<String, SignError> {
+    // A registry is data and may name a suite this build cannot execute. Signing
+    // one would produce an Ed25519 signature under another suite's identifier,
+    // which breaks the coupling `crypto-suites.md` §1 makes the identifier carry.
+    if !crate::policy::implemented(&suite.id) {
+        return Err(SignError(format!(
+            "this build does not implement `{}`, so it cannot sign under it",
+            suite.id
+        )));
+    }
     if !suite.status.may_produce() {
         // The asymmetry in §6: this same suite may still *verify*. Refusing
         // here and not there is the whole point, because receipts signed under

@@ -45,14 +45,41 @@ type SuitePolicy struct {
 	acceptable map[string]struct{}
 }
 
-// meetsFloor is the compiled-in floor: registered, and permitted to verify by
-// its status.
+// Implemented is the set of suites this build can actually execute.
+//
+// Not the same question as which suites are registered. A registry is data and
+// may name a suite whose algorithm this code does not implement; SignCompact
+// produces Ed25519 whatever identifier it is handed, so accepting such a suite
+// would mean signing one thing while calling it another — and crypto-suites.md
+// §1 makes the identifier name the algorithm, the serialization and the hash as
+// one unit, which is exactly the coupling that would break.
+//
+// Adding an identifier here is a code change, and it is the change that adds the
+// code. Adding one to the registry is not.
+var Implemented = []string{"eddsa-jws-2026"}
+
+// ImplementsSuite reports whether this build implements the suite an identifier
+// names.
+func ImplementsSuite(id string) bool {
+	for _, known := range Implemented {
+		if known == id {
+			return true
+		}
+	}
+	return false
+}
+
+// meetsFloor is the compiled-in floor: registered, implemented, and permitted to
+// verify by its status.
 //
 // Configuration cannot reach below this. A withdrawn suite is excluded here
 // rather than at verification time so that a deployment naming one fails to
 // start — the operator finds out when they change the configuration rather than
 // when a message arrives.
 func meetsFloor(registry SuiteRegistry, id string) bool {
+	if !ImplementsSuite(id) {
+		return false
+	}
 	entry, err := registry.Resolve(id)
 	return err == nil && entry.status.MayVerify()
 }
@@ -75,9 +102,10 @@ func NewSuitePolicy(registry SuiteRegistry, configured []string) (SuitePolicy, e
 			// message.
 			return SuitePolicy{}, fmt.Errorf(
 				"configuration accepts `%s`, which is below this build's floor "+
-					"— it is unregistered, or its status does not permit "+
-					"verification. Startup fails rather than dropping it, "+
-					"because a dropped entry reads as a policy that was applied", id)
+					"— it is unregistered, this build does not implement it, or "+
+					"its status does not permit verification. Startup fails "+
+					"rather than dropping it, because a dropped entry reads as "+
+					"a policy that was applied", id)
 		}
 		acceptable[id] = struct{}{}
 	}

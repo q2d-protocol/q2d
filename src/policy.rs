@@ -56,17 +56,37 @@ pub struct SuitePolicy {
     acceptable: BTreeSet<String>,
 }
 
-/// The compiled-in floor: registered, and permitted to verify by its status.
+/// The suites this build can actually execute.
+///
+/// **Not the same question as which suites are registered.** A registry is data
+/// and may name a suite whose algorithm this code does not implement; `sign`
+/// produces Ed25519 whatever identifier it is handed, so accepting such a suite
+/// would mean signing one thing while calling it another — and
+/// `crypto-suites.md` §1 makes the identifier name the algorithm, the
+/// serialization and the hash *as one unit*, which is exactly the coupling that
+/// would break.
+///
+/// Adding an identifier here is a code change, and it is the change that adds
+/// the code. Adding one to the registry is not.
+pub const IMPLEMENTED: &[&str] = &["eddsa-jws-2026"];
+
+/// Does this build implement the suite an identifier names?
+pub fn implemented(id: &str) -> bool {
+    IMPLEMENTED.contains(&id)
+}
+
+/// The compiled-in floor: registered, implemented, and permitted to verify.
 ///
 /// Configuration cannot reach below this. A `withdrawn` suite is excluded here
 /// rather than at verification time so that a deployment naming one **fails to
 /// start** — the operator finds out when they change the configuration rather
 /// than when a message arrives.
 fn meets_floor(registry: &SuiteRegistry, id: &str) -> bool {
-    registry
-        .resolve(id)
-        .map(|entry| entry.status.may_verify())
-        .unwrap_or(false)
+    implemented(id)
+        && registry
+            .resolve(id)
+            .map(|entry| entry.status.may_verify())
+            .unwrap_or(false)
 }
 
 impl SuitePolicy {
@@ -92,9 +112,10 @@ impl SuitePolicy {
                 // from a message.
                 return Err(PolicyError(format!(
                     "configuration accepts `{id}`, which is below this build's \
-                     floor — it is unregistered, or its status does not permit \
-                     verification. Startup fails rather than dropping it, \
-                     because a dropped entry reads as a policy that was applied"
+                     floor — it is unregistered, this build does not implement \
+                     it, or its status does not permit verification. Startup \
+                     fails rather than dropping it, because a dropped entry \
+                     reads as a policy that was applied"
                 )));
             }
             acceptable.insert(id);
@@ -165,6 +186,24 @@ mod tests {
             .unwrap_err();
         assert!(error.to_string().contains("withdrawn-suite"), "{error}");
         assert!(error.to_string().contains("floor"), "{error}");
+    }
+
+    #[test]
+    fn a_registered_suite_this_build_cannot_execute_is_below_the_floor() {
+        // The floor is not "the registry said so". A registry is data, and one
+        // naming a suite this code cannot execute would otherwise be accepted
+        // into the policy — after which `sign` produces Ed25519 under that
+        // suite's identifier.
+        let text = r#"{"suites":[{"id":"pqc-dilithium-2030","algorithm":"a",
+            "serialization":"s","hash":"h","effective_from":"2030-01-01",
+            "deprecated_from":null,"withdrawn_from":null,"security_notes":[],
+            "references":[],"status":"active"}]}"#;
+        let registry = SuiteRegistry::load(text.as_bytes()).unwrap();
+        assert!(registry.resolve("pqc-dilithium-2030").is_ok(), "registered");
+        assert!(
+            SuitePolicy::from_config(&registry, &["pqc-dilithium-2030".into()]).is_err(),
+            "a suite this build cannot execute was accepted"
+        );
     }
 
     #[test]

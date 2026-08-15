@@ -52,6 +52,13 @@ func protectedHeader(suite, keyID string) Value {
 // exist somewhere else and be forgotten here. Resolving the suite is how you get
 // an entry, so the status is in hand by construction.
 func SignCompact(payload []byte, key PrivateKey, suite SuiteEntry, keyID string) (string, error) {
+	// A registry is data and may name a suite this build cannot execute. Signing
+	// one would produce an Ed25519 signature under another suite's identifier,
+	// which breaks the coupling crypto-suites.md §1 makes the identifier carry.
+	if !ImplementsSuite(suite.id) {
+		return "", fmt.Errorf(
+			"this build does not implement `%s`, so it cannot sign under it", suite.id)
+	}
 	if !suite.status.MayProduce() {
 		// The asymmetry in §6: this same suite may still verify. Refusing here
 		// and not there is the whole point, because receipts signed under it
