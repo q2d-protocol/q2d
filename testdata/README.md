@@ -73,6 +73,22 @@ and Go's. That makes this a **two-way** agreement with an independently authored
 expectation, which is a different and stronger thing than three implementations
 of one function agreeing.
 
+## `canonical-query.signed`
+
+The compact JWS of `canonical-query.json` under `test-requester-1`, and
+**byte-identical to `message/sign/query-minimal`'s expected output** — a Python
+test asserts that, so the fixture and the corpus cannot drift apart.
+
+It exists because neither implementation can read a corpus vector with its own
+parser. A vector carries a `signed` string of 1604 bytes, and both parsers apply
+[`core-model.md`](../spec/core-model.md) §2.8's 2 KiB protocol-string limit,
+which is a rule about *messages* — a vector is not one. Reading vectors is the
+runner's job and the runner has its own parser for exactly this reason.
+
+So P-003 issue 5's acceptance is asserted through here: Python authored the
+bytes, Rust and Go each reproduce them, and the Python test above ties them to
+the vector. Three readings of one string, by tests that share no code.
+
 ## `ed25519-acceptance.txt`
 
 Ten rows, each a case where "Ed25519" alone does not decide the answer. RFC
