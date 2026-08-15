@@ -541,7 +541,7 @@ def expected_timestamp_errors(vector: dict) -> list[str]:
             # The shape rule stays here, and after E-36 the three serializers
             # do not have it. The difference is the subject rather than the
             # rule. A serializer produces bytes somebody signs, so refusing by
-            # shape would stop a requester sending operation-defined data §2.6
+            # shape would stop a requester sending operation-defined data §2.4
             # permits -- and E-36 closed as C, putting that constraint in the
             # predicate's own registry entry instead. This lints **authored
             # vectors**, which are ours: a stricter rule on our own corpus costs

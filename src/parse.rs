@@ -55,7 +55,7 @@ pub const MAX_MEMBERS: usize = 64;
 /// than characters: it bounds what has to be held, and a character is one to
 /// four of them.
 ///
-/// §2.8 stops this at `predicate.public_context`, which §2.6 makes
+/// §2.8 stops this at `predicate.public_context`, which §2.4 makes
 /// operation-defined — so it is applied where protocol fields are known, which
 /// is [`crate::parse_envelope`] for `routing` and `parse_core` for the payload.
 pub const MAX_STRING: usize = 2 * 1024;
@@ -118,7 +118,7 @@ pub(crate) enum Where {
     Root,
     /// Inside `predicate`, where `public_context` is the subtree that relaxes.
     Predicate,
-    /// Inside `predicate.public_context`, or below it. §2.6 data.
+    /// Inside `predicate.public_context`, or below it. §2.4 data.
     OperationDefined,
     /// Anywhere else — a protocol field, at §2.8's 2 KiB.
     Elsewhere,
@@ -668,14 +668,14 @@ mod tests {
     #[test]
     fn a_protocol_string_is_bounded_at_2_kib_and_a_predicate_s_is_not() {
         // §2.8: the 2 KiB covers the fields the specification defines and stops
-        // at `predicate.public_context`, which §2.6 makes operation-defined.
+        // at `predicate.public_context`, which §2.4 leaves to the registered predicate.
         // The parser knows which is which — the same protocol knowledge
         // `serialize` carries for §2.2's field names.
         let three_kib = "d".repeat(3 * 1024);
 
         // A predicate's own description: accepted.
         let allowed = format!(r#"{{"predicate":{{"public_context":{{"note":"{three_kib}"}}}}}}"#);
-        parse(allowed.as_bytes()).expect("§2.6 data, bounded by its entry");
+        parse(allowed.as_bytes()).expect("§2.4 data, bounded by its entry");
 
         // The same string in a protocol field: refused.
         for refused_case in [

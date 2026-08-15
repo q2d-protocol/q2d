@@ -35,8 +35,8 @@ func TestAMalformedTimestampFieldIsRefused(t *testing.T) {
 
 func TestATimestampOutsideATimestampFieldIsLeftAlone(t *testing.T) {
 	// §2.2 states its spelling for the fields it names. A string somewhere else
-	// is not a Q2D timestamp however much it looks like one, and §2.6 says a
-	// predicate's public_context may mean anything at all — an offset carries
+	// is not a Q2D timestamp however much it looks like one, and §2.4 says a
+	// predicate's public_context is its entry's to shape — an offset carries
 	// the local time the requester is thinking in, which Z would lose.
 	//
 	// E-36, closed as C. §2.2 now states that the rule reaches the fields it
@@ -56,7 +56,7 @@ func TestATimestampOutsideATimestampFieldIsLeftAlone(t *testing.T) {
 }
 
 func TestTheFieldNameRuleAppliesOnlyAtProtocolLevel(t *testing.T) {
-	// §2.6: a predicate's public_context may mean anything at all, so a field
+	// §2.4: a predicate's public_context is its entry's to shape, so a field
 	// there called issued_at is the predicate's, not §2.2's — so neither rule
 	// reaches it, and this asserts the name rule in particular, since it is the
 	// one §2.2 states and the one a reader would expect to apply everywhere.
@@ -155,7 +155,7 @@ func TestOperationDataIsSerializableOnItsOwn(t *testing.T) {
 
 	got, err := SerializeOperationData(context)
 	if err != nil {
-		t.Fatalf("§2.6 data was held to §2.2: %v", err)
+		t.Fatalf("§2.4 data was held to §2.2: %v", err)
 	}
 	if want := `{"issued_at":"whenever the kitchen opens"}`; string(got) != want {
 		t.Errorf("got %s, want %s", got, want)

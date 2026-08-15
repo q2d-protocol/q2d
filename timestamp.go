@@ -25,7 +25,7 @@ var timestampFields = map[string]bool{
 //
 // Only from protocol level. A public_context carrying a field called receipt is
 // the predicate's own structure, and promoting it would enforce §6's field
-// meanings inside data §2.6 says may mean anything at all.
+// meanings inside data §2.4 leaves to a predicate's entry.
 var protocolSubobjects = map[string]bool{"receipt": true, "routing": true}
 
 // isQ2DTimestamp reports whether a string is §2.2's timestamp: the one

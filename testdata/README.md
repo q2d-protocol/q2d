@@ -46,7 +46,7 @@ because no *protocol field* reaches them — every field name in `core-model.md`
 count, or an enum.
 
 They are reachable, though, and that is the reason this matters rather than a
-reason it does not. A predicate's `public_context` is operation-defined (§2.6):
+reason it does not. A predicate's `public_context` is its entry's to shape (§2.4):
 a conforming query can carry a non-ASCII key, a string needing every escape, or
 an integer at the boundary, and all of it goes through §4.2 into the signed
 payload. So these are edges a real message can reach and no *realistic-looking*

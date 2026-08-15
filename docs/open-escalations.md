@@ -2888,8 +2888,8 @@ other implementation. So all three now apply two rules:
   those three places.
 - **By shape, at any depth.** *Any* string carrying some RFC 3339 spelling that
   is not §2.2's is refused wherever it appears — including inside
-  `public_context`, which §2.6 says is operation-defined and may mean anything
-  at all.
+  `public_context`, whose shape §2.4 leaves to the registered predicate and
+  whose fields the protocol therefore does not define.
 
 The second rule is not in `spec/`. It is in a tool, and now in two
 implementations, and it is the kind of thing an implementer building only from
@@ -2935,17 +2935,17 @@ than in a commit.
 
 **A. Keep the shape rule, and state it in §2.2.** The rule is what the corpus
 generator has always done; this makes `spec/` say so. Cost: Q2D cannot carry an
-offset timestamp as operation-defined data anywhere, and §2.6's *"may mean
-anything at all"* acquires an exception it does not currently mention.
+offset timestamp as operation-defined data anywhere, and §2.4's *"is its entry's
+to shape"* acquires an exception it does not currently mention.
 
 **B. Restrict both rules to protocol level, and state that in §2.2.** A field
-inside `public_context` is the predicate's, exactly as §2.6 says. Cost: a
+inside `public_context` is the predicate's, exactly as §2.4 says. Cost: a
 predicate's own timestamp fields are unchecked, so a malformed one can be signed
 — and a predicate that names its field `expires_at` inside `public_context`
 would be checked while one that names it `booked_for` would not, which is a
 distinction with no principle behind it.
 
-**C. Restrict to protocol level, and make it the registry's job.** §2.6 data is
+**C. Restrict to protocol level, and make it the registry's job.** §2.4 data is
 validated by the entry's `input_schema` (`scope.md` §4.1), which already has
 `format: date-time` available to it. A predicate that wants §2.2's spelling for
 its own field says so in its schema; one that wants an offset says that instead.
@@ -2957,7 +2957,7 @@ reasoning about libraries disagreeing applies to `format` at least as much as to
 ### Recommendation — C, falling back to B
 
 **C is the only option that puts the decision where the data's meaning is
-already defined.** §2.6 says `public_context` is operation-defined, and
+already defined.** §2.4 leaves `public_context` to its entry's schema, and
 `scope.md` §4.1 already makes the entry's schema the thing that constrains it.
 A timestamp in a predicate's public context is predicate data; the predicate's
 author knows whether an offset is meaningful and the protocol does not. Under C
@@ -3095,7 +3095,7 @@ escalation being *opened* rather than closed.
 **The fifth is deliberately unchanged**, and the reason is a distinction worth
 recording: `lint.py` checks **authored vectors**, which are ours. A serializer
 produces bytes somebody signs, so refusing by shape stops a requester sending
-§2.6 data the specification permits; a linter refusing by shape costs no
+§2.4 data the specification permits; a linter refusing by shape costs no
 requester anything and catches an authoring slip. Same rule, different subject.
 If this closes as B or C *and* a vector then needs an offset timestamp under
 `expect.output`, that is where to relax it — with the vector as the reason.
@@ -3127,7 +3127,7 @@ is a count, a cardinality, or a capacity in integer millibits — §3.1's unit, 
 the largest capacity in the reference manifest is four figures. The gap is
 structural rather than live.
 
-But `public_context` is operation-defined (§2.6), and `scope.md` §4.1's schema
+But `public_context` is its entry's to shape (§2.4), and `scope.md` §4.1's schema
 profile bounds a *string*'s length and an *array*'s size without bounding an
 integer's magnitude. A predicate could register an entry admitting one, and
 nothing in the repository would object until two implementations produced
@@ -3568,7 +3568,7 @@ the failure would cite a protocol limit for a field the protocol does not define
 ### Resolution — B
 
 **The string limit covers the fields the specification defines and stops at
-`predicate.public_context`.** §2.6 makes that object operation-defined; the
+`predicate.public_context`.** §2.4 leaves that object to its entry's schema; the
 protocol bounds it as a whole at 32 KiB, and a predicate's own field is bounded
 by its registry entry.
 

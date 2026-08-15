@@ -219,7 +219,7 @@ none of them. What
 this bounds is not disclosure but *representation*, and it is the other half of
 [`core-model.md`](core-model.md) §2.8: that section's 2 KiB string limit covers
 the fields this specification defines and stops at `predicate.public_context`,
-which §2.6 makes operation-defined. Something has to bound a predicate's own
+which §2.4 leaves to the registered predicate. Something has to bound a predicate's own
 text, and its entry is where the field's meaning already lives — a protocol that
 capped it at 2 KiB would be deciding the shape of data it declines to define.
 

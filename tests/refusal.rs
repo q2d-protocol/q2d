@@ -48,8 +48,8 @@ fn a_malformed_timestamp_field_is_refused() {
 #[test]
 fn a_timestamp_outside_a_timestamp_field_is_left_alone() {
     // §2.2 states its spelling for the fields it names. A string somewhere else
-    // is not a Q2D timestamp however much it looks like one, and §2.6 says a
-    // predicate's `public_context` may mean anything at all — an offset carries
+    // is not a Q2D timestamp however much it looks like one, and §2.4 says a
+    // predicate's `public_context` is its entry's to shape — an offset carries
     // the local time the requester is thinking in, which `Z` would lose.
     //
     // **E-36, closed as C.** §2.2 now states that the rule reaches the fields
@@ -65,7 +65,7 @@ fn a_timestamp_outside_a_timestamp_field_is_left_alone() {
 
 #[test]
 fn the_field_name_rule_applies_only_at_protocol_level() {
-    // §2.6: a predicate's `public_context` may mean anything at all, so a field
+    // §2.4: a predicate's `public_context` is its entry's to shape, so a field
     // there called `issued_at` is the predicate's, not §2.2's — so neither rule
     // reaches it, and this asserts the name rule in particular, since it is the
     // one §2.2 states and the one a reader would expect to apply everywhere.
@@ -152,14 +152,14 @@ fn operation_data_is_serializable_on_its_own() {
     // through a query — one object, two rules, decided by the call site.
     let context = V::object([("issued_at", V::string("whenever the kitchen opens"))]);
 
-    // Through a query: below protocol level, so §2.6 governs.
+    // Through a query: below protocol level, so §2.4 governs.
     accepted(public_context([(
         "issued_at",
         V::string("whenever the kitchen opens"),
     )]));
 
     // On its own, through the entry point that says what it is.
-    let bytes = q2d::serialize_operation_data(&context).expect("§2.6 data, not a §2.2 field");
+    let bytes = q2d::serialize_operation_data(&context).expect("§2.4 data, not a §2.2 field");
     assert_eq!(
         String::from_utf8(bytes).unwrap(),
         r#"{"issued_at":"whenever the kitchen opens"}"#

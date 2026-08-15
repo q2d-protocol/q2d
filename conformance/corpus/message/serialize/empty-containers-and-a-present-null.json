@@ -1,0 +1,78 @@
+{
+  "id": "message/serialize/empty-containers-and-a-present-null",
+  "section": "message",
+  "requirement": [
+    "crypto-suites.md#3",
+    "core-model.md#2.4"
+  ],
+  "description": "An empty object, an empty array, and a field explicitly set to null — each with one serialization and no other. §4.2 omits an *absent* optional rather than nulling it, so a present null and an absent field are different documents; this vector carries the present one, and `message/sign/query-minimal` is the query with every optional absent.",
+  "operation": "sign_query",
+  "input": {
+    "key_id": "test-requester-1",
+    "query": {
+      "q2d_version": "0.1",
+      "type": "query",
+      "query_id": "urn:uuid:0e183389-0f37-4c5f-8c56-1ea7e5818e18",
+      "issued_at": "2026-07-31T09:00:00Z",
+      "expires_at": "2026-07-31T09:05:00Z",
+      "nonce": "Ux7kFQ2mS0aVvJ1cPzN4bw",
+      "requester": {
+        "principal": "did:key:z6MkRequesterPrincipal",
+        "agent": "did:key:z6MkRequesterAgent",
+        "delegation": {
+          "profile": "local-pairing-0.1",
+          "reference": "sha256:7ef1"
+        }
+      },
+      "target": {
+        "custodian": "https://friend.example/.well-known/q2d"
+      },
+      "predicate": {
+        "id": "https://q2d.dev/predicates/dietary/menu-compatible",
+        "version": "0.1",
+        "registry_digest": "sha256:bd08ff230de0d8ce34de99967f7a9097988b49058f0a21dd35b9444c24098e35",
+        "public_context": {
+          "empty_object": {},
+          "empty_array": [],
+          "explicit_null": null,
+          "nested": {
+            "z": {
+              "y": [
+                {
+                  "x": 1
+                }
+              ]
+            }
+          }
+        }
+      },
+      "answer_contract": {
+        "release_shape": "boolean",
+        "domain": [
+          false,
+          true
+        ],
+        "allowed_detail_fields": []
+      },
+      "purpose": {
+        "code": "social.meal-planning",
+        "description": "Choose a dinner venue for 2026-07-31"
+      },
+      "delivery": {
+        "answer_recipient": "did:key:z6MkRequesterRuntime",
+        "permitted_sinks": [
+          "urn:q2d:sink:model:local"
+        ]
+      },
+      "signature": {
+        "profile": "eddsa-jws-2026",
+        "key_id": "test-requester-1"
+      }
+    }
+  },
+  "expect": {
+    "outcome": "ok",
+    "output": "eyJrZXlfaWQiOiJ0ZXN0LXJlcXVlc3Rlci0xIiwic3VpdGUiOiJlZGRzYS1qd3MtMjAyNiJ9.eyJhbnN3ZXJfY29udHJhY3QiOnsiYWxsb3dlZF9kZXRhaWxfZmllbGRzIjpbXSwiZG9tYWluIjpbZmFsc2UsdHJ1ZV0sInJlbGVhc2Vfc2hhcGUiOiJib29sZWFuIn0sImRlbGl2ZXJ5Ijp7ImFuc3dlcl9yZWNpcGllbnQiOiJkaWQ6a2V5Ono2TWtSZXF1ZXN0ZXJSdW50aW1lIiwicGVybWl0dGVkX3NpbmtzIjpbInVybjpxMmQ6c2luazptb2RlbDpsb2NhbCJdfSwiZXhwaXJlc19hdCI6IjIwMjYtMDctMzFUMDk6MDU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0wNy0zMVQwOTowMDowMFoiLCJub25jZSI6IlV4N2tGUTJtUzBhVnZKMWNQek40YnciLCJwcmVkaWNhdGUiOnsiaWQiOiJodHRwczovL3EyZC5kZXYvcHJlZGljYXRlcy9kaWV0YXJ5L21lbnUtY29tcGF0aWJsZSIsInB1YmxpY19jb250ZXh0Ijp7ImVtcHR5X2FycmF5IjpbXSwiZW1wdHlfb2JqZWN0Ijp7fSwiZXhwbGljaXRfbnVsbCI6bnVsbCwibmVzdGVkIjp7InoiOnsieSI6W3sieCI6MX1dfX19LCJyZWdpc3RyeV9kaWdlc3QiOiJzaGEyNTY6YmQwOGZmMjMwZGUwZDhjZTM0ZGU5OTk2N2Y3YTkwOTc5ODhiNDkwNThmMGEyMWRkMzViOTQ0NGMyNDA5OGUzNSIsInZlcnNpb24iOiIwLjEifSwicHVycG9zZSI6eyJjb2RlIjoic29jaWFsLm1lYWwtcGxhbm5pbmciLCJkZXNjcmlwdGlvbiI6IkNob29zZSBhIGRpbm5lciB2ZW51ZSBmb3IgMjAyNi0wNy0zMSJ9LCJxMmRfdmVyc2lvbiI6IjAuMSIsInF1ZXJ5X2lkIjoidXJuOnV1aWQ6MGUxODMzODktMGYzNy00YzVmLThjNTYtMWVhN2U1ODE4ZTE4IiwicmVxdWVzdGVyIjp7ImFnZW50IjoiZGlkOmtleTp6Nk1rUmVxdWVzdGVyQWdlbnQiLCJkZWxlZ2F0aW9uIjp7InByb2ZpbGUiOiJsb2NhbC1wYWlyaW5nLTAuMSIsInJlZmVyZW5jZSI6InNoYTI1Njo3ZWYxIn0sInByaW5jaXBhbCI6ImRpZDprZXk6ejZNa1JlcXVlc3RlclByaW5jaXBhbCJ9LCJzaWduYXR1cmUiOnsia2V5X2lkIjoidGVzdC1yZXF1ZXN0ZXItMSIsInByb2ZpbGUiOiJlZGRzYS1qd3MtMjAyNiJ9LCJ0YXJnZXQiOnsiY3VzdG9kaWFuIjoiaHR0cHM6Ly9mcmllbmQuZXhhbXBsZS8ud2VsbC1rbm93bi9xMmQifSwidHlwZSI6InF1ZXJ5In0.KddfsYtffotOPilIqiFTKagDu_-Dd8Qu6O5LlkR2lqHEDOfG94uoFfvvXIBx-IQ6RksQbXImbHPO8ahgYq6JDg",
+    "comparison": "bytes"
+  }
+}

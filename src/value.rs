@@ -115,8 +115,8 @@ pub fn serialize(value: &Value) -> Result<Vec<u8>, ProfileError> {
 
 /// Serialize **operation-defined data** under the same profile.
 ///
-/// Identical bytes, and one difference in what is refused: `core-model.md` §2.6
-/// says a predicate's `public_context` may mean anything at all, so a field
+/// Identical bytes, and one difference in what is refused: `core-model.md` §2.4
+/// says a predicate's `public_context` is its entry's to shape, so a field
 /// there called `issued_at` is the predicate's and not §2.2's.
 ///
 /// Two entry points rather than one, because protocol level is a property of
@@ -151,7 +151,7 @@ impl std::error::Error for ProfileError {}
 /// nesting at which a field name carries a `core-model.md` meaning. It starts
 /// true and stays true only through [`PROTOCOL_SUBOBJECTS`], because a
 /// `public_context` field called `receipt` is the predicate's own structure and
-/// §2.6 says that may mean anything at all.
+/// §2.4 leaves that to its entry's schema.
 ///
 /// [`PROTOCOL_SUBOBJECTS`]: crate::timestamp::PROTOCOL_SUBOBJECTS
 fn write(value: &Value, protocol_level: bool, out: &mut String) -> Result<(), ProfileError> {
@@ -166,7 +166,7 @@ fn write(value: &Value, protocol_level: bool, out: &mut String) -> Result<(), Pr
         // A string is written as it is. §2.2 states its spelling for the
         // fields it names — and, since E-36 closed as C, says so explicitly:
         // "the rule reaches the fields this specification names, and no
-        // further". A string elsewhere is operation-defined data under §2.6,
+        // further". A string elsewhere is operation-defined data under §2.4,
         // and whether *it* has one spelling is the predicate's entry to say,
         // through `scope.md` §4.1's `format: date-time`.
         Value::String(s) => write_string(s, out),

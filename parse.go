@@ -58,7 +58,7 @@ const (
 	// bytes. Bytes rather than characters: it bounds what has to be held, and a
 	// character is one to four.
 	//
-	// §2.8 stops this at predicate.public_context, which §2.6 makes
+	// §2.8 stops this at predicate.public_context, which §2.4 makes
 	// operation-defined — so it is applied where protocol fields are known,
 	// which is ParseEnvelope for routing and parse_core for the payload.
 	MaxString = 2 * 1024
@@ -107,7 +107,7 @@ const (
 	whereRoot where = iota
 	// wherePredicate is inside predicate, where public_context relaxes.
 	wherePredicate
-	// whereOperationDefined is inside predicate.public_context or below. §2.6.
+	// whereOperationDefined is inside predicate.public_context or below. §2.4.
 	whereOperationDefined
 	// whereElsewhere is a protocol field, at §2.8's 2 KiB.
 	whereElsewhere
