@@ -99,13 +99,24 @@ Every internal reason the corpus names, with the wire value a requester receives
 and the [`core-model.md`](../spec/core-model.md) §4 step it is caught at.
 
 **Derived, not authored.** A Python test rebuilds it from the corpus and fails if
-the committed file differs, so the fixture cannot drift from the vectors. Each
-implementation asserts its own mapping agrees for **every reason the fixture
-names**, and fails rather than skips on a name it cannot find. That is narrower
-than every reason it can *return*: `suite_below_policy` is one it can and the
-fixture cannot carry — see below — so that pair is held by mirrored unit tests
-instead, which is the weaker thing. What the fixture does cover is
-which is what stops a vector passing in one and failing in the other for a
+the committed file differs, so the fixture cannot drift from the vectors.
+
+**What each implementation asserts is narrower than the file.** Each lists the
+reasons it produces today, and for every listed name checks the wire value and
+the step against this fixture — failing rather than skipping if the name is not
+here, which is what catches a typo in the list. The file names more than either
+implementation can produce: envelope, routing, expiry, registry and policy
+reasons belong to modules that are not built, and are checked when they are.
+
+Two gaps in the other direction, worth naming rather than leaving to be inferred
+from an absence. `suite_below_policy` is a reason both implementations *can*
+return and the fixture cannot carry — a vector supplies a message, and whether a
+registered suite is outside the acceptable set is a fact about the verifier. It
+is held by mirrored unit tests, which is the weaker thing this directory exists
+to replace.
+
+What the fixture does buy is agreement on every reason both sides list, which is
+what stops a vector passing in one implementation and failing in the other for a
 reason no runner reports usefully.
 
 It found two disagreements the moment it existed. §4's steps are not all
