@@ -2,10 +2,11 @@
 
     python3 -m unittest discover -s conformance/tests
 
-P-001 §4.8: uncited claims are **reported, not silently absent**. The Stage 0
-answer is that all thirteen are uncovered, and that is correct rather than a
-failure -- so this also carries the expected-state assertion the workflow asks
-for in place of a permanently red check.
+P-001 §4.8: uncited claims are **reported, not silently absent**. Most of the
+thirteen are uncovered at Stage 0, and that is correct rather than a failure --
+so this also carries the expected-state assertion the workflow asks for in place
+of a permanently red check. `COVERED_TODAY` is the exact set, and the only place
+in the repository that should state it.
 """
 
 from __future__ import annotations
@@ -78,9 +79,12 @@ class StageZeroExpectedStateTest(unittest.TestCase):
             with self.subTest(claim=claim):
                 self.assertIn(f"UNCOVERED  {claim}", output)
 
-    def test_ten_claims_still_have_no_vector(self):
-        # The number is worth asserting on its own. Three of thirteen is the
-        # honest Stage 0 answer and reads very differently from "covered".
+    def test_the_remaining_claims_still_have_no_vector(self):
+        # The number is worth asserting on its own: four of thirteen is the
+        # honest Stage 0 answer and reads very differently from "covered". It is
+        # derived from COVERED_TODAY rather than written twice, because the
+        # count has moved twice already and the second move left it stale in
+        # four documents.
         _, output = coverage(CONFORMANCE / "corpus")
         self.assertEqual(output.count("UNCOVERED  Q2D-C-"), 13 - len(COVERED_TODAY))
 

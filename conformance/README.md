@@ -225,8 +225,13 @@ convention"*, and a convention is what a check like this replaces.
 
 **Three expected-state assertions are in CI**, in place of jobs that would be
 red by design: no vector in the real corpus passes against the reference stub,
-exactly three claims are cited by a vector and ten are not, and the
-stub against itself compares nothing.
+exactly the claims `test_coverage.py` names are cited by a vector and the rest
+are not, and the stub against itself compares nothing.
+
+The count is deliberately not repeated here. It has moved twice — `registry/`
+took it off zero, Q2D-C-05 moved it again when [E-48](../docs/open-escalations.md)
+completed the third of that claim's three named checks — and a number written
+into prose is one more place to update and the place nobody checks.
 Each is green while true and red the day it stops being — which is the day
 someone should be adding a real assertion in its place.
 
