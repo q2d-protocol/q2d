@@ -124,3 +124,12 @@ range.
   rule [`serialization.md`](spec/serialization.md) §1 states — which is UTF-16
   code unit order, and **not** Go's byte-wise string comparison. That difference
   has already caused one divergence in this repository.
+- **Where a flat package forces a different identifier from Rust's, the shared
+  name is the one on the wire.** `Rejected`'s withdrawn-suite reason is
+  `SuiteWithdrawnByRegistry` here and `Rejected::SuiteWithdrawn` in Rust, because
+  Go has no module to separate it from `SuiteStatus`'s `SuiteWithdrawn` and two
+  constants cannot share a name. What both implementations must agree on is
+  `suite_withdrawn`, the internal reason the corpus asserts, and
+  [`testdata/rejection-vocabulary.txt`](testdata/README.md) is where the
+  agreement is checked — so the Go identifier is free to be longer, and says
+  *which* actor withdrew the suite, which the Rust one leaves to its module.

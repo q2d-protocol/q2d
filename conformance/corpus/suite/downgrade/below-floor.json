@@ -1,0 +1,109 @@
+{
+  "id": "suite/downgrade/below-floor",
+  "section": "suite",
+  "requirement": [
+    "Q2D-C-05",
+    "crypto-suites.md#4",
+    "core-model.md#4",
+    "core-model.md#5.2.1"
+  ],
+  "description": "A header declaring `example-unaccepted-2026`, which the verifier's registry lists as `active` and its `acceptable_suites` does not name. Refused at §4 step 3. This is the case P-003 §9 item 1 calls the entire downgrade defence: registered is not accepted, and a verifier that verified with whatever the header named would pass every other vector in this section. Distinct from `unregistered-suite`, where the registry had never heard of it, and from `status/withdrawn-refuses`, where the registry refused it — here only local configuration says no.",
+  "operation": "verify_query",
+  "input": {
+    "verifier": {
+      "suite_registry": {
+        "registry_id": "https://q2d.dev/registry/suites",
+        "registry_version": "0.1.0",
+        "q2d_version": "0.1-draft",
+        "status": "draft",
+        "effective_from": "2026-08-15",
+        "publisher": {
+          "name": "Q2D Protocol Project",
+          "url": "https://q2d.dev",
+          "review_process": "https://github.com/q2d-protocol/q2d/issues"
+        },
+        "notes": [
+          "This registry is UNSIGNED, exactly as registry/manifest.json is. A verifier pins a signing key and a registry digest; neither exists yet, so no deployment may trust this file. P-003 open question 1 resolved that it is pinned the same way the predicate manifest is, and the predicate manifest's own signature is P-005's to build.",
+          "A file that decides which algorithms a verifier accepts is the last one that should be unauthenticated. That is why the pinning path is built now, with one entry, rather than retrofitted when a second suite makes it load-bearing.",
+          "This file proposes; the verifier decides. Presence here is not acceptance: a suite is used only if it is also in the verifier's own acceptable set, which is local configuration and is never derived from a message.",
+          "Suite identifiers are permanent. A registered identifier is never reused for different parameters, so a change in parameters is a new identifier rather than a new version of this one."
+        ],
+        "status_semantics": {
+          "active": {
+            "producing": "permitted",
+            "verifying": "permitted"
+          },
+          "deprecated": {
+            "producing": "refused",
+            "verifying": "permitted",
+            "why": "Receipts signed under it remain evidence, so verification must continue. crypto-suites.md §6."
+          },
+          "withdrawn": {
+            "producing": "refused",
+            "verifying": "refused",
+            "why": "Continuing to accept it is the downgrade the registry exists to prevent. crypto-suites.md §6."
+          },
+          "note": "Recorded here for a reader; the rules themselves are crypto-suites.md §6's and are NOT data. An implementation reads each suite's `status` from this file and applies §6 to it — it does not read these three objects, and a registry that changed them would change nothing. That is deliberate: a registry able to redefine what `withdrawn` means could reinstate a suite it had withdrawn. Neither status retroactively invalidates a receipt: a verifier assessing an old one reads the suite it records and judges accordingly, which is only possible because the suite is recorded (crypto-suites.md §5)."
+        },
+        "suites": [
+          {
+            "id": "eddsa-jws-2026",
+            "algorithm": "Ed25519 (RFC 8032), with the acceptance rule in spec/crypto-suites.md §3",
+            "serialization": "JWS compact form (RFC 7515 §7.1) over a payload produced under spec/serialization.md §1",
+            "hash": "SHA-512, fixed by Ed25519",
+            "status": "active",
+            "effective_from": "2026-08-15",
+            "deprecated_from": null,
+            "withdrawn_from": null,
+            "mandatory_to_implement": true,
+            "security_notes": [
+              "Signature 64 bytes; public key 32 bytes.",
+              "The protected header carries exactly `suite` and `key_id` and no others. It is read before verification, so every member is a pre-authentication input surface.",
+              "No `alg` member. A Q2D signed string is therefore not a conformant JWS and JOSE tooling rejects it, which is the intended outcome: a header a general-purpose library can process is one where that library selects the verification algorithm from attacker-controlled data.",
+              "Which signatures verify is not left to the implementation's library. spec/crypto-suites.md §3 states four rules, and widely-used libraries sit on both sides of two of them.",
+              "No post-quantum property. crypto-suites.md §7."
+            ],
+            "references": [
+              "https://www.rfc-editor.org/rfc/rfc8032",
+              "https://www.rfc-editor.org/rfc/rfc7515",
+              "https://q2d.dev/spec/crypto-suites#3"
+            ]
+          },
+          {
+            "id": "example-unaccepted-2026",
+            "algorithm": "none — an illustrative entry, not a registration",
+            "serialization": "none — an illustrative entry, not a registration",
+            "hash": "none — an illustrative entry, not a registration",
+            "status": "active",
+            "effective_from": "2026-01-01",
+            "deprecated_from": null,
+            "withdrawn_from": null,
+            "mandatory_to_implement": false,
+            "security_notes": [
+              "Registered by a vector, never by the project. It exists so a verifier's registry can be described as holding a suite with a status, which is the fact these vectors assert."
+            ],
+            "references": []
+          }
+        ]
+      },
+      "acceptable_suites": [
+        "eddsa-jws-2026"
+      ]
+    },
+    "envelope": {
+      "signed": "eyJrZXlfaWQiOiJ0ZXN0LXJlcXVlc3Rlci0xIiwic3VpdGUiOiJleGFtcGxlLXVuYWNjZXB0ZWQtMjAyNiJ9.eyJhbnN3ZXJfY29udHJhY3QiOnsiYWxsb3dlZF9kZXRhaWxfZmllbGRzIjpbXSwiZG9tYWluIjpbZmFsc2UsdHJ1ZV0sInJlbGVhc2Vfc2hhcGUiOiJib29sZWFuIn0sImRlbGl2ZXJ5Ijp7ImFuc3dlcl9yZWNpcGllbnQiOiJkaWQ6a2V5Ono2TWtSZXF1ZXN0ZXJSdW50aW1lIiwicGVybWl0dGVkX3NpbmtzIjpbInVybjpxMmQ6c2luazptb2RlbDpsb2NhbCJdfSwiZXhwaXJlc19hdCI6IjIwMjYtMDctMzFUMDk6MDU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0wNy0zMVQwOTowMDowMFoiLCJub25jZSI6IlV4N2tGUTJtUzBhVnZKMWNQek40YnciLCJwcmVkaWNhdGUiOnsiaWQiOiJodHRwczovL3EyZC5kZXYvcHJlZGljYXRlcy9kaWV0YXJ5L21lbnUtY29tcGF0aWJsZSIsInB1YmxpY19jb250ZXh0Ijp7Im1lbnUiOlt7ImNvbnRhaW5zIjpbIm1pbGsiXSwiaXRlbV9pZCI6InJpc290dG8ifSx7ImNvbnRhaW5zIjpbXSwiaXRlbV9pZCI6InNhbGFkIn1dfSwicmVnaXN0cnlfZGlnZXN0Ijoic2hhMjU2OmJkMDhmZjIzMGRlMGQ4Y2UzNGRlOTk5NjdmN2E5MDk3OTg4YjQ5MDU4ZjBhMjFkZDM1Yjk0NDRjMjQwOThlMzUiLCJ2ZXJzaW9uIjoiMC4xIn0sInB1cnBvc2UiOnsiY29kZSI6InNvY2lhbC5tZWFsLXBsYW5uaW5nIiwiZGVzY3JpcHRpb24iOiJDaG9vc2UgYSBkaW5uZXIgdmVudWUgZm9yIDIwMjYtMDctMzEifSwicTJkX3ZlcnNpb24iOiIwLjEiLCJxdWVyeV9pZCI6InVybjp1dWlkOjBlMTgzMzg5LTBmMzctNGM1Zi04YzU2LTFlYTdlNTgxOGUxOCIsInJlcXVlc3RlciI6eyJhZ2VudCI6ImRpZDprZXk6ejZNa1JlcXVlc3RlckFnZW50IiwiZGVsZWdhdGlvbiI6eyJwcm9maWxlIjoibG9jYWwtcGFpcmluZy0wLjEiLCJyZWZlcmVuY2UiOiJzaGEyNTY6N2VmMSJ9LCJwcmluY2lwYWwiOiJkaWQ6a2V5Ono2TWtSZXF1ZXN0ZXJQcmluY2lwYWwifSwic2lnbmF0dXJlIjp7ImtleV9pZCI6InRlc3QtcmVxdWVzdGVyLTEiLCJwcm9maWxlIjoiZXhhbXBsZS11bmFjY2VwdGVkLTIwMjYifSwidGFyZ2V0Ijp7ImN1c3RvZGlhbiI6Imh0dHBzOi8vZnJpZW5kLmV4YW1wbGUvLndlbGwta25vd24vcTJkIn0sInR5cGUiOiJxdWVyeSJ9.zzJMWei_-rQkOC3YQ2tJa0vYgKi9NJA2AKIJ0-sJrSPDBzZOWJk2jqLsdYEUgTDAMeEw3bfIgWfVaWG9xlVLAg"
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "suite_below_policy",
+      "wire": {
+        "status": "deny",
+        "external_reason": "unsupported_suite"
+      },
+      "step": 3
+    },
+    "comparison": "bytes"
+  }
+}

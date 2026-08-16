@@ -210,6 +210,7 @@ func TestTheMappingToAWireValueIsManyToOneAndNotTheName(t *testing.T) {
 		{HeaderMemberNotAString, "structurally_invalid", "3"},
 		{HeaderMemberNotPermitted, "structurally_invalid", "3"},
 		{SuiteUnregistered, "unsupported_suite", "3"},
+		{SuiteWithdrawnByRegistry, "unsupported_suite", "3"},
 		{SuiteBelowPolicy, "unsupported_suite", "3"},
 		{KeyUnresolvable, "unauthenticated", "4"},
 		{SignatureInvalid, "unauthenticated", "4"},
@@ -223,6 +224,22 @@ func TestTheMappingToAWireValueIsManyToOneAndNotTheName(t *testing.T) {
 		{UnsupportedVersion, "unsupported_version", "5"},
 		{HeaderPayloadSuiteMismatch, "structurally_invalid", "5a"},
 		{HeaderPayloadKeyMismatch, "structurally_invalid", "5a"},
+	}
+
+	// The table covers the type. Without this it covers whatever it covered on
+	// the day it was written — and the Rust side's equivalent table carried one
+	// reason twice for exactly that reason.
+	if len(mapping) != int(rejectedCount) {
+		t.Fatalf("the table has %d rows and there are %d reasons", len(mapping), rejectedCount)
+	}
+	seen := map[Rejected]bool{}
+	for _, c := range mapping {
+		seen[c.rejected] = true
+	}
+	for r := Rejected(0); r < rejectedCount; r++ {
+		if !seen[r] {
+			t.Errorf("reason %v has no row in the table", r)
+		}
 	}
 
 	values := map[string]struct{}{}

@@ -69,7 +69,7 @@
       ]
     },
     "input": {
-      "description": "Everything the operation needs, including every value that would otherwise vary: keys, nonces, issued_at, expires_at, identifiers. P-001 §4.3 — a runner that reads a clock or generates a nonce is non-conforming.",
+      "description": "Everything the operation needs, including every value that would otherwise vary: keys, nonces, issued_at, expires_at, identifiers. P-001 §4.3 — a runner that reads a clock or generates a nonce is non-conforming. May carry `verifier`, the receiver's configuration, which is ambient state a vector must supply rather than inherit — §4.3, with its shape and its defaults in RUNNER-CONTRACT.md. Not constrained here: a runner reads its input as a tree, and a schema enumerating each operation's fields would be a second definition of what the owning PRD already fixes.",
       "type": "object"
     },
     "expect": {

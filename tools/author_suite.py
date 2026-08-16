@@ -6,10 +6,8 @@
 
 [P-001](../docs/prds/P-001-conformance-corpus.md) §5 gives `suite/` as *"suite
 resolution, downgrade rejection, unknown suite"*, and issue 13 authors it.
-[P-003](../docs/prds/P-003-crypto-suites.md) §6 names five groups. Three are here
-in full — `sign/`, `verify/`, `keys/` — `downgrade/` has every case but the
-below-floor one, and `status/` has none. Neither gap is about this tool; both
-wait on [E-48](../docs/open-escalations.md), and the section below says why.
+[P-003](../docs/prds/P-003-crypto-suites.md) §6 names five groups and all five
+are here.
 
 Generated with a `--check`, for the reason
 [`author_message.py`](author_message.py) is. The bytes come from
@@ -41,14 +39,20 @@ two are asserted nowhere. [`author_vectors.py`](author_vectors.py) refuses to
 sign anything until it reproduces the committed three, so every byte this file
 emits already depends on them.
 
-**`suite/status/`**, and `suite/downgrade/`'s below-floor case, wait on
-[E-48](../docs/open-escalations.md) rather than on a second registered suite.
-This file used to say they land when a second suite does, and that was the wrong
-diagnosis: a vector cannot state what the **verifier's** registry says about a
-suite, so even with a second one registered there would be no way to write *this
-verifier lists it as withdrawn*. Registering a suite nobody implements purely to
-be deprecated is also the shape `policy`'s floor exists to refuse. The
-unregistered-suite vector below covers the part that needs neither.
+**A second registered suite was never what `suite/status/` was waiting for.**
+This file said for a while that those vectors land when one does, and that was
+wrong twice: a vector could not state what the **verifier's** registry says
+about a suite, so a second registration would not have helped; and a suite
+registered purely to be deprecated is refused as *unimplemented* by `policy`'s
+floor one check before its status is read, so the vector would have passed while
+testing a different rule. [E-48](../docs/open-escalations.md) closed as
+`input.verifier`, and the three vectors carry a registry of their own.
+
+The registries they carry are read from `registry/suites.json` rather than
+written out here, so `--check` fails the day that file changes and these do not.
+The two example identifiers exist only inside a vector's registry:
+`crypto-suites.md` §2 makes a registered identifier permanent, so a corpus file
+inventing a plausible-looking one would be inventing a permanent name.
 """
 
 from __future__ import annotations
@@ -83,6 +87,65 @@ UNREGISTERED_SUITE = "eddsa-jcs-2022"
 # accident.
 SECOND_KEY_QUERY = dict(
     QUERY, signature=dict(QUERY["signature"], key_id=IMPOSTOR))
+
+
+# Two identifiers no registry registers, used only inside a registry a vector
+# supplies. Named so they cannot be mistaken for registrations: `crypto-suites.md`
+# §2 makes a registered identifier permanent, so inventing a plausible-looking one
+# in a corpus file would be inventing a permanent name.
+WITHDRAWN_EXAMPLE = "example-withdrawn-2026"
+UNACCEPTED_EXAMPLE = "example-unaccepted-2026"
+
+
+def suite_registry(*, deprecate_mti: bool = False, extra: dict | None = None) -> dict:
+    """The reference registry as a vector carries it, optionally altered.
+
+    Read from [`registry/suites.json`](../registry/suites.json) rather than
+    written out here, so that a vector's registry is the real one and cannot
+    drift from it — `--check` fails the day the file changes and these do not.
+
+    The whole document, not only `suites`: RUNNER-CONTRACT.md says a vector
+    supplies a registry *in the shape that file has*, and a runner that reads a
+    different shape from a vector than from disk is a runner with two loaders.
+    """
+    document = json.loads((REPO / "registry" / "suites.json").read_text("utf-8"))
+    suites = []
+    for entry in document["suites"]:
+        if deprecate_mti and entry["id"] == av.SUITE:
+            entry = dict(entry, status="deprecated",
+                         deprecated_from="2026-09-01")
+        suites.append(entry)
+    if extra is not None:
+        suites.append(extra)
+    return dict(document, suites=suites)
+
+
+def example_entry(identifier: str, status: str) -> dict:
+    """A registry entry for a suite nobody implements.
+
+    Every field `crypto-suites.md` §2 lists, because both implementations refuse
+    a partial entry — the omitted field is usually the one saying when
+    verification must stop. `algorithm`, `serialization` and `hash` are prose in
+    the registry and nothing selects a code path from them, so they say plainly
+    that this suite does not exist rather than describing a plausible one.
+    """
+    return {
+        "id": identifier,
+        "algorithm": "none — an illustrative entry, not a registration",
+        "serialization": "none — an illustrative entry, not a registration",
+        "hash": "none — an illustrative entry, not a registration",
+        "status": status,
+        "effective_from": "2026-01-01",
+        "deprecated_from": None,
+        "withdrawn_from": "2026-06-01" if status == "withdrawn" else None,
+        "mandatory_to_implement": False,
+        "security_notes": [
+            "Registered by a vector, never by the project. It exists so a "
+            "verifier's registry can be described as holding a suite with a "
+            "status, which is the fact these vectors assert."
+        ],
+        "references": [],
+    }
 
 
 def rejects(internal: str, external: str, step=None) -> dict:
@@ -330,7 +393,9 @@ def vectors() -> list[dict]:
         {
             "id": "suite/verify/tampered-payload",
             "section": "suite",
-            "requirement": ["crypto-suites.md#3", "core-model.md#4",
+            # Q2D-C-05's `conformance/field-tampering` -- see
+            # `message/routing/disagrees` for why all three are cited together.
+            "requirement": ["Q2D-C-05", "crypto-suites.md#3", "core-model.md#4",
                             "core-model.md#5.2.1"],
             "description": (
                 "The payload segment of a valid string, altered by one "
@@ -486,6 +551,93 @@ def vectors() -> list[dict]:
                 dict(QUERY, signature=dict(QUERY["signature"],
                                            key_id=UNKNOWN_KEY)))),
             "expect": rejects("key_unresolvable", "unauthenticated", 4),
+        },
+        {
+            "id": "suite/status/deprecated-verifies",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#6", "core-model.md#4"],
+            "description": (
+                "A conforming message under a suite the **verifier's registry** "
+                "lists as `deprecated`. It verifies: §6 refuses producing and "
+                "permits verifying, because receipts signed under a deprecated "
+                "suite remain evidence. The registry here is the reference one "
+                "with the status changed by this vector — the real registry "
+                "lists the suite as `active`, and nothing in this file changes "
+                "that. `acceptable_suites` is omitted, so the runner applies "
+                "the contract's default and this also asserts that a "
+                "deprecated suite survives it."
+            ),
+            "operation": "verify_query",
+            "input": {
+                "verifier": {"suite_registry": suite_registry(deprecate_mti=True)},
+                **envelope(valid),
+            },
+            "expect": {"outcome": "ok", "output": QUERY,
+                       "comparison": "semantic"},
+        },
+        {
+            "id": "suite/status/withdrawn-refuses",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#6", "core-model.md#4",
+                            "core-model.md#5.2.1"],
+            "description": (
+                f"A header declaring `{WITHDRAWN_EXAMPLE}`, which the "
+                "verifier's registry lists as `withdrawn`. Refused at §4 step "
+                "3, and refused for the **registry's** reason rather than a "
+                "local one: §6 makes withdrawal binding on every deployment, "
+                "so a verifier that continued to accept it would be the "
+                "downgrade the registry exists to prevent. The internal reason "
+                "separates it from a suite this deployment merely does not "
+                "accept; the wire value does not, because the difference is "
+                "the custodian's minimum acceptable policy."
+            ),
+            "operation": "verify_query",
+            "input": {
+                "verifier": {
+                    "suite_registry": suite_registry(
+                        extra=example_entry(WITHDRAWN_EXAMPLE, "withdrawn")),
+                    "acceptable_suites": [av.SUITE],
+                },
+                **envelope(av.jws_with_header(
+                    seed, {"key_id": REQUESTER, "suite": WITHDRAWN_EXAMPLE},
+                    dict(QUERY, signature=dict(QUERY["signature"],
+                                               profile=WITHDRAWN_EXAMPLE)))),
+            },
+            "expect": rejects("suite_withdrawn", "unsupported_suite", 3),
+        },
+        {
+            "id": "suite/downgrade/below-floor",
+            "section": "suite",
+            # Q2D-C-05's `conformance/suite-downgrade`, and the vector whose
+            # absence kept the claim uncited. *Verified by* still reads
+            # `planned`: a vector exists, and no implementation passes it.
+            "requirement": ["Q2D-C-05", "crypto-suites.md#4", "core-model.md#4",
+                            "core-model.md#5.2.1"],
+            "description": (
+                f"A header declaring `{UNACCEPTED_EXAMPLE}`, which the "
+                "verifier's registry lists as `active` and its "
+                "`acceptable_suites` does not name. Refused at §4 step 3. This "
+                "is the case P-003 §9 item 1 calls the entire downgrade "
+                "defence: registered is not accepted, and a verifier that "
+                "verified with whatever the header named would pass every "
+                "other vector in this section. Distinct from "
+                "`unregistered-suite`, where the registry had never heard of "
+                "it, and from `status/withdrawn-refuses`, where the registry "
+                "refused it — here only local configuration says no."
+            ),
+            "operation": "verify_query",
+            "input": {
+                "verifier": {
+                    "suite_registry": suite_registry(
+                        extra=example_entry(UNACCEPTED_EXAMPLE, "active")),
+                    "acceptable_suites": [av.SUITE],
+                },
+                **envelope(av.jws_with_header(
+                    seed, {"key_id": REQUESTER, "suite": UNACCEPTED_EXAMPLE},
+                    dict(QUERY, signature=dict(QUERY["signature"],
+                                               profile=UNACCEPTED_EXAMPLE)))),
+            },
+            "expect": rejects("suite_below_policy", "unsupported_suite", 3),
         },
     ]
 

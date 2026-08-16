@@ -26,4 +26,6 @@ routing_introduced_field  routing_mismatch  8
 routing_signed_mismatch  routing_mismatch  8
 signature_invalid  unauthenticated  4
 signature_segment_not_base64url  structurally_invalid  3
+suite_below_policy  unsupported_suite  3
 suite_unregistered  unsupported_suite  3
+suite_withdrawn  unsupported_suite  3

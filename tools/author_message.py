@@ -29,14 +29,19 @@ this protocol is what it refuses. The rejections wait on nothing now:
 [`core-model.md`](../spec/core-model.md) §5.2.1 enumerates the `external_reason`
 vocabulary, so a vector can say what a requester receives (E-33).
 
-**No vector here cites a claim, and that is deliberate.**
-[`claims.md`](../spec/claims.md) Q2D-C-05 — request binding — is the claim this
-section is closest to, and its own *Verified by* names three vectors:
-`field-tampering`, `routing-mismatch`, `suite-downgrade`. All three are
-rejections, none exists, and none of these is one of them. Citing the claim would
-make `harness coverage` report it as covered while everything that verifies it is
-unbuilt, which is the overstatement `claims.md` exists to prevent. These vectors
-cite the specification sections they exercise instead.
+**One vector here cites a claim, and for a while none did.**
+[`claims.md`](../spec/claims.md) Q2D-C-05 — request binding — names three
+vectors under its own *Verified by*: `field-tampering`, `routing-mismatch`,
+`suite-downgrade`. `routing/disagrees` is the second, and while the third could
+not be written — a suite below the verifier's floor is a fact about the verifier
+([E-48](../docs/open-escalations.md)) — citing the claim from the two that
+existed would have reported it covered on the strength of the parts that were
+easy, which is the overstatement `claims.md` exists to prevent.
+
+All three exist now, so each cites `Q2D-C-05` and the rest of this section cites
+the specification sections it exercises. **Citation is not demonstration:**
+*Verified by* still reads `planned`, because no implementation passes any of
+them.
 
 **Each rejection asserts both halves.** The internal reason is what an
 implementation records locally and the wire response is what a requester
@@ -847,7 +852,11 @@ def vectors() -> list[dict]:
         {
             "id": "message/routing/disagrees",
             "section": "message",
-            "requirement": ["core-model.md#2.1", "core-model.md#4",
+            # Q2D-C-05 names three checks under *Verified by*, and this is
+            # `conformance/routing-mismatch`. Cited only once the other two
+            # exist, which they now do -- a claim reported as covered by one of
+            # its three is a traceability matrix that overstates.
+            "requirement": ["Q2D-C-05", "core-model.md#2.1", "core-model.md#4",
                             "core-model.md#5.2.1"],
             "description": (
                 "A routing projection whose `expires_at` differs from the "

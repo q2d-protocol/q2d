@@ -125,6 +125,16 @@ implementation comparison a byte comparison. A runtime that calls a clock or an
 RNG internally cannot be pinned by a vector, so both are parameters of query
 construction rather than calls inside it.
 
+**So is the requester's own suite floor.** §6's `requester/verify/` group needs
+a below-floor vector, and a requester's acceptable set is configuration rather
+than anything in the response it is checking — the responder-side form of which
+was [E-48](../open-escalations.md). It closed as `input.verifier`, described in
+[P-001](P-001-conformance-corpus.md) §4.3, and the same key carries a
+requester's configuration; this PRD does not need a second mechanism and should
+not invent one. What `verifier` does **not** carry is accumulated state, which
+matters for `requester/retry/`: *configuration is declared, history is
+replayed*, and no mechanism for the second exists yet.
+
 ### 4.3 The response processing order
 
 [`core-model.md`](../../spec/core-model.md) §4 is the responder's order. The

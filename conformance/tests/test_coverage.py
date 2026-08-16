@@ -2,10 +2,11 @@
 
     python3 -m unittest discover -s conformance/tests
 
-P-001 §4.8: uncited claims are **reported, not silently absent**. The Stage 0
-answer is that all thirteen are uncovered, and that is correct rather than a
-failure -- so this also carries the expected-state assertion the workflow asks
-for in place of a permanently red check.
+P-001 §4.8: uncited claims are **reported, not silently absent**. Most of the
+thirteen are uncovered at Stage 0, and that is correct rather than a failure --
+so this also carries the expected-state assertion the workflow asks for in place
+of a permanently red check. `COVERED_TODAY` is the exact set, and the only place
+in the repository that should state it.
 """
 
 from __future__ import annotations
@@ -32,13 +33,24 @@ def coverage(corpus: Path) -> tuple[int, str]:
 
 
 # What the real corpus covers today, and nothing more. Issue 11 folded in
-# `registry/`, which cites these three. Issue 12 added `message/` and it cites
-# no claim at all: the claim it sits closest to, Q2D-C-05, names three rejection
-# vectors under *Verified by* and `message/` has none of them yet, so citing it
-# would report a claim as covered while everything verifying it is unbuilt.
+# `registry/`, which cites the first three.
+#
+# **Q2D-C-05 joined them when E-48 closed.** It names three checks under
+# *Verified by* -- `conformance/field-tampering`, `conformance/routing-mismatch`,
+# `conformance/suite-downgrade` -- and until then the corpus had two of them:
+# no vector could state that a suite sat outside the verifier's acceptable set,
+# because no vector could describe the verifier. `input.verifier` made
+# `suite/downgrade/below-floor` writable, so the claim is now cited from one
+# vector per check rather than from two of three, which would have reported a
+# claim as covered on the strength of the parts that were easy.
+#
+# Citation is not demonstration: no implementation passes any of them yet, and
+# `claims.md` still reads *planned* for all three. §4.8 defines coverage as
+# citation, and the report says so on its own last line.
+#
 # Every other claim is still uncovered, and stays named in the report for that
 # reason.
-COVERED_TODAY = ("Q2D-C-03", "Q2D-C-08", "Q2D-C-09")
+COVERED_TODAY = ("Q2D-C-03", "Q2D-C-05", "Q2D-C-08", "Q2D-C-09")
 
 
 class StageZeroExpectedStateTest(unittest.TestCase):
@@ -67,9 +79,12 @@ class StageZeroExpectedStateTest(unittest.TestCase):
             with self.subTest(claim=claim):
                 self.assertIn(f"UNCOVERED  {claim}", output)
 
-    def test_ten_claims_still_have_no_vector(self):
-        # The number is worth asserting on its own. Three of thirteen is the
-        # honest Stage 0 answer and reads very differently from "covered".
+    def test_the_remaining_claims_still_have_no_vector(self):
+        # The number is worth asserting on its own: four of thirteen is the
+        # honest Stage 0 answer and reads very differently from "covered". It is
+        # derived from COVERED_TODAY rather than written twice, because the
+        # count has moved twice already and the second move left it stale in
+        # four documents.
         _, output = coverage(CONFORMANCE / "corpus")
         self.assertEqual(output.count("UNCOVERED  Q2D-C-"), 13 - len(COVERED_TODAY))
 

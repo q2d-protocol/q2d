@@ -109,16 +109,28 @@ these vectors project `status` and `external_reason`, so comparing them across
 causes compares two constants. Uniformity of the whole response is `denial/`'s,
 which is the one section the schema forbids from projecting.
 
-Two cases are absent and each absence is asserted, so it turns red when its
-blocker goes: `suite/status/` and the below-floor downgrade, both waiting on
-[E-48](../docs/open-escalations.md) — a vector can describe a *message* and not
-the *verifier* that receives it, so neither can say what this verifier's registry
-or acceptable set contains.
+**`suite/status/` and the below-floor downgrade landed with
+[E-48](../docs/open-escalations.md)**, which was open because a vector could
+describe a *message* and not the *verifier* that receives it. It closed as
+`input.verifier` — the receiver's configuration, supplied by the vector like
+every other input P-001 §4.3 refuses to let a runner read from its
+surroundings — and the three vectors it unblocked carry a registry and an
+acceptable set of their own.
+
+They are worth reading together rather than one at a time. `unregistered-suite`,
+`status/withdrawn-refuses` and `downgrade/below-floor` are three different facts
+about a suite — never heard of it, the registry retired it, this deployment does
+not accept it — reaching one `external_reason`, and
+[`tests/test_suite_section.py`](tests/test_suite_section.py) asserts that across
+the three because each of them passes alone while the values diverge. As above,
+that is the **mapping** and not indistinguishability: three vectors projecting
+two fields cannot show two responses are the same length.
 
 An earlier reading had them waiting on a **second registered suite**, and that
-was the wrong diagnosis: with a second one registered there would still be no way
-to write *this verifier lists it as withdrawn*. A third case, `suite/rfc8032/`,
-is **retired** rather than absent — P-003 §6 records why.
+was the wrong diagnosis twice over: a vector still could not have said *this
+verifier lists it as withdrawn*, and a suite registered purely to be deprecated
+is refused as unimplemented one check before its status is read. A third case,
+`suite/rfc8032/`, is **retired** rather than absent — P-003 §6 records why.
 
 **`ordering/` asserts where a request is refused**, one vector per rejection step
 of [`core-model.md`](../spec/core-model.md) §4, every one using `process_query`.
@@ -213,8 +225,13 @@ convention"*, and a convention is what a check like this replaces.
 
 **Three expected-state assertions are in CI**, in place of jobs that would be
 red by design: no vector in the real corpus passes against the reference stub,
-exactly three claims are cited by a vector and ten are not, and the
-stub against itself compares nothing.
+exactly the claims `test_coverage.py` names are cited by a vector and the rest
+are not, and the stub against itself compares nothing.
+
+The count is deliberately not repeated here. It has moved twice — `registry/`
+took it off zero, Q2D-C-05 moved it again when [E-48](../docs/open-escalations.md)
+completed the third of that claim's three named checks — and a number written
+into prose is one more place to update and the place nobody checks.
 Each is green while true and red the day it stops being — which is the day
 someone should be adding a real assertion in its place.
 

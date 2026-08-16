@@ -108,13 +108,6 @@ here, which is what catches a typo in the list. The file names more than either
 implementation can produce: envelope, routing, expiry, registry and policy
 reasons belong to modules that are not built, and are checked when they are.
 
-Two gaps in the other direction, worth naming rather than leaving to be inferred
-from an absence. `suite_below_policy` is a reason both implementations *can*
-return and the fixture cannot carry — a vector supplies a message, and whether a
-registered suite is outside the acceptable set is a fact about the verifier. It
-is held by mirrored unit tests, which is the weaker thing this directory exists
-to replace.
-
 What the fixture does buy is agreement on every reason both sides list, which is
 what stops a vector passing in one implementation and failing in the other for a
 reason no runner reports usefully.
@@ -127,14 +120,18 @@ implementations had, which covered an unregistered suite *and* one outside the
 acceptable set. §5.2.1 collapses the two on the wire and an operator still needs
 to know which, so they are two internal reasons now.
 
-**Only the first of that pair is in this fixture**, and the second cannot be
-until the vector format can state the *verifier's* policy: whether a registered
-suite is outside the acceptable set is a fact about the verifier, not about the
-message, and a vector supplies a message. The same gap keeps `suite/status/`
-unwritten, and it is [P-001](../docs/prds/P-001-conformance-corpus.md)'s to
-close rather than P-003's. Until then `suite_below_policy` is asserted by
-mirrored unit tests, which is the weaker thing this directory exists to replace
-— said plainly rather than left to be inferred from a name that is absent.
+**For a while only the first of that pair was here.** The second is a fact
+about the verifier rather than about the message, and a vector could supply only
+a message — the gap [E-48](../docs/open-escalations.md) existed to close. It
+closed as `input.verifier`, and the fixture now carries three suite reasons
+rather than one.
+
+The third arrived with them. `suite_below_policy` had been covering two facts —
+the registry withdrew this suite, and this deployment does not accept it —
+and `crypto-suites.md` §6 makes the first binding on every deployment while the
+second is purely local. They are `suite_withdrawn` and `suite_below_policy` now,
+one wire value between them, and the split is visible here because the fixture
+is derived from the corpus rather than written alongside it.
 
 The `-` in the step column is a vector that asserts no step, which
 [P-001](../docs/prds/P-001-conformance-corpus.md) §4.8 permits: a step-less
