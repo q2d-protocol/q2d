@@ -43,6 +43,7 @@ fn every_reason_this_module_produces_matches_the_corpus() {
         ("key_unresolvable", Rejected::KeyUnresolvable),
         ("signature_invalid", Rejected::SignatureInvalid),
         ("core_object_unsupported_version", Rejected::UnsupportedVersion),
+        ("core_object_carries_signature_value", Rejected::CoreObjectCarriesSignatureValue),
         ("header_not_an_object", Rejected::HeaderNotAnObject),
         ("header_member_not_a_string", Rejected::HeaderMemberNotAString),
         ("payload_segment_not_base64url", Rejected::PayloadSegmentNotBase64url),

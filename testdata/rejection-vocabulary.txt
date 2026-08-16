@@ -1,5 +1,6 @@
 compact_segment_count  structurally_invalid  3
 constraint_violation_minimum_slot_duration  unavailable  11a
+core_object_carries_signature_value  malformed  5
 core_object_duplicate_key  malformed  5
 core_object_float  malformed  5
 core_object_missing_required_field  malformed  5

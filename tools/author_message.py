@@ -376,7 +376,24 @@ def reject_vectors() -> list[dict]:
     old_version = json.loads(json.dumps(QUERY))
     old_version["q2d_version"] = "0.2"
 
+    with_value = json.loads(json.dumps(QUERY))
+    with_value["signature"]["value"] = "A" * 86
+
     return [
+        reject_vector(
+            "signature-value-present",
+            ["crypto-suites.md#3", "core-model.md#5.2.1"],
+            "A payload carrying `signature.value`. Under `eddsa-jws-2026` the "
+            "value **is the third compact segment**, so it is not a member of "
+            "the object the suite serializes — an object containing the "
+            "signature over itself is not constructible ([E-31]"
+            "(../docs/open-escalations.md)). A verifier that returned this "
+            "would hand everything downstream a core object that cannot exist. "
+            "`malformed` rather than `structurally_invalid`: the fault is in "
+            "the **verified core object**, which is the half of §5.2.1's line "
+            "that `malformed` covers.",
+            av.jws_compact(seed, REQUESTER, with_value),
+            "core_object_carries_signature_value"),
         reject_vector(
             "duplicate-key",
             ["serialization.md#2"],

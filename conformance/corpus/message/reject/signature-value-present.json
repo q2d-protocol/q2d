@@ -1,0 +1,39 @@
+{
+  "id": "message/reject/signature-value-present",
+  "section": "message",
+  "requirement": [
+    "crypto-suites.md#3",
+    "core-model.md#5.2.1"
+  ],
+  "description": "A payload carrying `signature.value`. Under `eddsa-jws-2026` the value **is the third compact segment**, so it is not a member of the object the suite serializes — an object containing the signature over itself is not constructible ([E-31](../docs/open-escalations.md)). A verifier that returned this would hand everything downstream a core object that cannot exist. `malformed` rather than `structurally_invalid`: the fault is in the **verified core object**, which is the half of §5.2.1's line that `malformed` covers.",
+  "operation": "verify_query",
+  "input": {
+    "envelope": {
+      "signed": "eyJrZXlfaWQiOiJ0ZXN0LXJlcXVlc3Rlci0xIiwic3VpdGUiOiJlZGRzYS1qd3MtMjAyNiJ9.eyJhbnN3ZXJfY29udHJhY3QiOnsiYWxsb3dlZF9kZXRhaWxfZmllbGRzIjpbXSwiZG9tYWluIjpbZmFsc2UsdHJ1ZV0sInJlbGVhc2Vfc2hhcGUiOiJib29sZWFuIn0sImRlbGl2ZXJ5Ijp7ImFuc3dlcl9yZWNpcGllbnQiOiJkaWQ6a2V5Ono2TWtSZXF1ZXN0ZXJSdW50aW1lIiwicGVybWl0dGVkX3NpbmtzIjpbInVybjpxMmQ6c2luazptb2RlbDpsb2NhbCJdfSwiZXhwaXJlc19hdCI6IjIwMjYtMDctMzFUMDk6MDU6MDBaIiwiaXNzdWVkX2F0IjoiMjAyNi0wNy0zMVQwOTowMDowMFoiLCJub25jZSI6IlV4N2tGUTJtUzBhVnZKMWNQek40YnciLCJwcmVkaWNhdGUiOnsiaWQiOiJodHRwczovL3EyZC5kZXYvcHJlZGljYXRlcy9kaWV0YXJ5L21lbnUtY29tcGF0aWJsZSIsInB1YmxpY19jb250ZXh0Ijp7Im1lbnUiOlt7ImNvbnRhaW5zIjpbIm1pbGsiXSwiaXRlbV9pZCI6InJpc290dG8ifSx7ImNvbnRhaW5zIjpbXSwiaXRlbV9pZCI6InNhbGFkIn1dfSwicmVnaXN0cnlfZGlnZXN0Ijoic2hhMjU2OmJkMDhmZjIzMGRlMGQ4Y2UzNGRlOTk5NjdmN2E5MDk3OTg4YjQ5MDU4ZjBhMjFkZDM1Yjk0NDRjMjQwOThlMzUiLCJ2ZXJzaW9uIjoiMC4xIn0sInB1cnBvc2UiOnsiY29kZSI6InNvY2lhbC5tZWFsLXBsYW5uaW5nIiwiZGVzY3JpcHRpb24iOiJDaG9vc2UgYSBkaW5uZXIgdmVudWUgZm9yIDIwMjYtMDctMzEifSwicTJkX3ZlcnNpb24iOiIwLjEiLCJxdWVyeV9pZCI6InVybjp1dWlkOjBlMTgzMzg5LTBmMzctNGM1Zi04YzU2LTFlYTdlNTgxOGUxOCIsInJlcXVlc3RlciI6eyJhZ2VudCI6ImRpZDprZXk6ejZNa1JlcXVlc3RlckFnZW50IiwiZGVsZWdhdGlvbiI6eyJwcm9maWxlIjoibG9jYWwtcGFpcmluZy0wLjEiLCJyZWZlcmVuY2UiOiJzaGEyNTY6N2VmMSJ9LCJwcmluY2lwYWwiOiJkaWQ6a2V5Ono2TWtSZXF1ZXN0ZXJQcmluY2lwYWwifSwic2lnbmF0dXJlIjp7ImtleV9pZCI6InRlc3QtcmVxdWVzdGVyLTEiLCJwcm9maWxlIjoiZWRkc2EtandzLTIwMjYiLCJ2YWx1ZSI6IkFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBIn0sInRhcmdldCI6eyJjdXN0b2RpYW4iOiJodHRwczovL2ZyaWVuZC5leGFtcGxlLy53ZWxsLWtub3duL3EyZCJ9LCJ0eXBlIjoicXVlcnkifQ.wKuSRQ2eVompi936tcER5I0HUnh1TwMs0TYaLzja8fAiAKNIbUkE_UxcLezJmzPseNSlV89yBlLKRXFz3a7BBQ",
+      "routing": {
+        "q2d_version": "0.1",
+        "type": "query",
+        "target": {
+          "custodian": "https://friend.example/.well-known/q2d"
+        },
+        "predicate": {
+          "id": "https://q2d.dev/predicates/dietary/menu-compatible",
+          "version": "0.1"
+        },
+        "expires_at": "2026-07-31T09:05:00Z"
+      }
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "core_object_carries_signature_value",
+      "wire": {
+        "status": "deny",
+        "external_reason": "malformed"
+      },
+      "step": 5
+    },
+    "comparison": "bytes"
+  }
+}

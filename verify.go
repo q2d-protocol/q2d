@@ -84,6 +84,18 @@ const (
 	// missing a field §2 requires — which includes an absent or non-string
 	// q2d_version.
 	CoreObjectMalformed
+	// CoreObjectCarriesSignatureValue: the verified object carries
+	// signature.value.
+	//
+	// Under eddsa-jws-2026 the value is the third compact segment and is
+	// therefore not a member of the object the suite serializes — an object
+	// containing the signature over itself is not constructible (E-31). A payload
+	// carrying one is a shape no conforming producer emits, and returning it
+	// would let everything downstream see a core object that cannot exist.
+	//
+	// malformed rather than structurally_invalid: the fault is in the verified
+	// core object, which is the half of §5.2.1's line that malformed covers.
+	CoreObjectCarriesSignatureValue
 	// UnsupportedVersion: q2d_version is a string this build does not implement.
 	//
 	// Step 5 and not earlier: the authoritative version is inside the signed
@@ -109,7 +121,7 @@ func (r Rejected) ExternalReason() string {
 		return "unsupported_suite"
 	case KeyUnresolvable, SignatureInvalid:
 		return "unauthenticated"
-	case CoreObjectMalformed:
+	case CoreObjectMalformed, CoreObjectCarriesSignatureValue:
 		return "malformed"
 	case UnsupportedVersion:
 		return "unsupported_version"
@@ -127,7 +139,7 @@ func (r Rejected) Step() string {
 	switch r {
 	case KeyUnresolvable, SignatureInvalid:
 		return "4"
-	case CoreObjectMalformed, UnsupportedVersion:
+	case CoreObjectMalformed, CoreObjectCarriesSignatureValue, UnsupportedVersion:
 		return "5"
 	case HeaderPayloadSuiteMismatch, HeaderPayloadKeyMismatch:
 		return "5a"
@@ -163,6 +175,8 @@ func (r Rejected) Error() string {
 		return "the signature did not verify"
 	case CoreObjectMalformed:
 		return "the verified payload is not a core object"
+	case CoreObjectCarriesSignatureValue:
+		return "the verified object carries `signature.value`, which this suite puts in the third segment"
 	case UnsupportedVersion:
 		return "the verified object declares a version this build does not implement"
 	case HeaderPayloadSuiteMismatch:
@@ -327,6 +341,13 @@ func VerifyQuery(signed string, policy SuitePolicy, registry SuiteRegistry,
 		}
 		return string(s), nil
 	}
+	// E-31, before the comparisons: a payload carrying signature.value is a shape
+	// no conforming producer emits under this suite, and it must not reach a
+	// caller whatever else agrees.
+	if _, carries := signature["value"]; carries {
+		return nil, CoreObjectCarriesSignatureValue
+	}
+
 	profile, err := declared("profile")
 	if err != nil {
 		return nil, err

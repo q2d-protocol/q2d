@@ -91,6 +91,19 @@ pub enum Rejected {
     /// The verified payload is not a core object, or is missing a field §2
     /// requires — which includes an absent or non-string `q2d_version`.
     CoreObjectMalformed,
+    /// The verified object carries `signature.value`.
+    ///
+    /// Under `eddsa-jws-2026` the value **is the third compact segment** and is
+    /// therefore not a member of the object the suite serializes — an object
+    /// containing the signature over itself is not constructible (E-31). A
+    /// payload carrying one is a shape no conforming producer emits, and
+    /// returning it would let everything downstream see a core object that
+    /// cannot exist.
+    ///
+    /// `malformed` rather than `structurally_invalid`: the fault is in the
+    /// **verified core object**, which is the half of §5.2.1's line that
+    /// `malformed` covers.
+    CoreObjectCarriesSignatureValue,
     /// `q2d_version` is a string this build does not implement.
     ///
     /// Step 5 and not earlier: the authoritative version is inside the signed
@@ -123,7 +136,9 @@ impl Rejected {
             | Rejected::HeaderPayloadKeyMismatch => "structurally_invalid",
             Rejected::SuiteUnregistered | Rejected::SuiteBelowPolicy => "unsupported_suite",
             Rejected::KeyUnresolvable | Rejected::SignatureInvalid => "unauthenticated",
-            Rejected::CoreObjectMalformed => "malformed",
+            Rejected::CoreObjectMalformed | Rejected::CoreObjectCarriesSignatureValue => {
+                "malformed"
+            }
             Rejected::UnsupportedVersion => "unsupported_version",
         }
     }
@@ -145,7 +160,9 @@ impl Rejected {
             | Rejected::SuiteUnregistered
             | Rejected::SuiteBelowPolicy => "3",
             Rejected::KeyUnresolvable | Rejected::SignatureInvalid => "4",
-            Rejected::CoreObjectMalformed | Rejected::UnsupportedVersion => "5",
+            Rejected::CoreObjectMalformed
+            | Rejected::CoreObjectCarriesSignatureValue
+            | Rejected::UnsupportedVersion => "5",
             // **Lettered.** §4's query order names step `5a` for the two
             // comparisons, which E-35 added. A numeric type could not carry it,
             // and the corpus asserts the step as the specification writes it.
@@ -172,6 +189,9 @@ impl fmt::Display for Rejected {
             Rejected::KeyUnresolvable => "the key did not resolve",
             Rejected::SignatureInvalid => "the signature did not verify",
             Rejected::CoreObjectMalformed => "the verified payload is not a core object",
+            Rejected::CoreObjectCarriesSignatureValue => {
+                "the verified object carries `signature.value`, which this suite puts in the third segment"
+            }
             Rejected::UnsupportedVersion => "the verified object declares a version this build does not implement",
             Rejected::HeaderPayloadSuiteMismatch => "the header and payload declare different suites",
             Rejected::HeaderPayloadKeyMismatch => "the header and payload declare different keys",
@@ -324,6 +344,18 @@ pub fn verify_query(
         },
         _ => Err(Rejected::CoreObjectMalformed),
     };
+    // E-31, before the comparisons: a payload carrying `signature.value` is a
+    // shape no conforming producer emits under this suite, and it must not
+    // reach a caller whatever else agrees.
+    if matches!(signature, Some(Value::Object(members)) if members.contains_key("value")) {
+        return Err(Rejected::CoreObjectCarriesSignatureValue);
+    }
+    // E-31, before the comparisons: a payload carrying `signature.value` is a
+    // shape no conforming producer emits under this suite, and it must not
+    // reach a caller whatever else agrees.
+    if matches!(signature, Some(Value::Object(members)) if members.contains_key("value")) {
+        return Err(Rejected::CoreObjectCarriesSignatureValue);
+    }
     if declared("profile")? != header.suite {
         return Err(Rejected::HeaderPayloadSuiteMismatch);
     }
@@ -580,6 +612,8 @@ mod tests {
             (Rejected::KeyUnresolvable, "unauthenticated", "4"),
             (Rejected::SignatureInvalid, "unauthenticated", "4"),
             (Rejected::CoreObjectMalformed, "malformed", "5"),
+            (Rejected::CoreObjectCarriesSignatureValue, "malformed", "5"),
+            (Rejected::CoreObjectCarriesSignatureValue, "malformed", "5"),
             (Rejected::UnsupportedVersion, "unsupported_version", "5"),
             (Rejected::HeaderPayloadSuiteMismatch, "structurally_invalid", "5a"),
             (Rejected::HeaderPayloadKeyMismatch, "structurally_invalid", "5a"),

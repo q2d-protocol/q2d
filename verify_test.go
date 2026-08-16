@@ -214,6 +214,7 @@ func TestTheMappingToAWireValueIsManyToOneAndNotTheName(t *testing.T) {
 		{KeyUnresolvable, "unauthenticated", "4"},
 		{SignatureInvalid, "unauthenticated", "4"},
 		{CoreObjectMalformed, "malformed", "5"},
+		{CoreObjectCarriesSignatureValue, "malformed", "5"},
 		{UnsupportedVersion, "unsupported_version", "5"},
 		{HeaderPayloadSuiteMismatch, "structurally_invalid", "5a"},
 		{HeaderPayloadKeyMismatch, "structurally_invalid", "5a"},
