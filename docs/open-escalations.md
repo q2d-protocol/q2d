@@ -4346,13 +4346,17 @@ group for RFC 8032's known answers, which would have needed an operation for a
 **raw signature** — something that is not a Q2D operation at all, and so a change
 to P-001 §4.5's closed vocabulary.
 
-**Decided: retire the row.** The known answers are already gated three ways — a
-unit test in each implementation, reading the seeds from `conformance/keys/`
-rather than repeating them, plus `testdata/ed25519-acceptance.txt` for the ten
-cases RFC 8032 leaves open, which is the cross-implementation half. A corpus
-group would have added an operation to a closed vocabulary in order to re-assert
-what three tests already assert, and P-001 issue 17's remit is the **Stage 5–8**
-extension where this is Stage 1.
+**Decided: retire the row.** A corpus group would have asserted **the same three
+answers** the unit gates already assert — TEST 1, 2 and 3, the ones
+`conformance/keys/` commits — at the cost of extending a closed vocabulary, and
+P-001 issue 17's remit is the **Stage 5–8** extension where this is Stage 1.
+
+**It is not a claim about coverage.** §7.1 publishes five known answers and three
+are committed; TEST 1024 and TEST SHA(abc) are asserted nowhere, and P-003 §7's
+first criterion is unticked because of it. Retiring the group changes *where*
+three answers are checked, not how many. `testdata/ed25519-acceptance.txt` is a
+different question again — the ten cases RFC 8032 leaves **open** — and is not
+evidence about its published answers.
 
 P-003 §6 lists five groups now and records the reasoning; §7's first acceptance
 criterion is unchanged, because it asks that raw Ed25519 reproduces RFC 8032 in

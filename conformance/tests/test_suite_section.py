@@ -210,10 +210,11 @@ class ExpectedStateTest(unittest.TestCase):
     def test_rfc8032_stays_retired(self):
         # **Retired, not absent.** Signing a raw message needs an operation
         # P-001 §4.5's protocol-level vocabulary does not have, and the known
-        # answers are already gated three ways -- a unit test in each
-        # implementation and `testdata/ed25519-acceptance.txt`. A corpus group
-        # would re-assert what three tests assert, at the cost of extending a
-        # closed vocabulary. P-003 §6 records the decision.
+        # group would assert the same three answers the unit gates assert --
+        # TEST 1, 2 and 3, the ones `conformance/keys/` commits -- at the cost
+        # of extending a closed vocabulary. Not a claim about coverage: §7.1
+        # publishes five, and P-003 §7's first criterion is unticked because two
+        # of them are asserted nowhere. §6 records the decision.
         #
         # This assertion is not waiting for a blocker to lift: if the group
         # appears, that decision has been reversed and §6 should say so first.

@@ -31,11 +31,13 @@ reasons, and a message broken in two ways cannot establish which.
 
 **`suite/rfc8032/` is retired**, not owed. Signing a raw message needs an
 operation P-001 §4.5's protocol-level vocabulary does not have, and adding one
-is issue 17's Stage 5–8 change; the known answers are already gated three ways —
-a unit test in each implementation and `testdata/ed25519-acceptance.txt` — so a
-corpus group would re-assert what three tests assert. P-003 §6 records it.
-[`author_vectors.py`](author_vectors.py) also refuses to sign anything until it
-reproduces all three, so every byte this file emits already depends on them.
+is issue 17's Stage 5–8 change. A group would have asserted the same three
+answers the unit gates assert — TEST 1, 2 and 3, the ones `conformance/keys/`
+commits — at the cost of extending a closed vocabulary. It is not a claim about
+coverage: §7.1 publishes five and P-003 §7's first criterion is unticked because
+two are asserted nowhere. [`author_vectors.py`](author_vectors.py) refuses to
+sign anything until it reproduces the committed three, so every byte this file
+emits already depends on them.
 
 **`suite/status/`**, and `suite/downgrade/`'s below-floor case, wait on
 [E-48](../docs/open-escalations.md) rather than on a second registered suite.
