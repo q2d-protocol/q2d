@@ -217,8 +217,8 @@ or partially applied; one call cannot.
 
 | Group | Vectors |
 |---|---|
-| `replay/idempotent/` | Retry returns byte-identical response; no second debit |
-| `replay/id-reuse/` | Same `query_id`, different digest, rejects |
+| `replay/idempotent/` | Retry returns byte-identical response; no second debit. **Needs a sequence** — [E-51](../open-escalations.md) |
+| `replay/id-reuse/` | Same `query_id`, different digest, rejects. **Needs a sequence** — the first request is what makes the second a reuse |
 | `replay/nonce/` | A nonce below the **length floor** rejects; distinct nonces yield distinct digests. Not *below-minimum entropy*, which is what this row said and what no responder can detect — [`freshness.md`](../../spec/freshness.md) §3 |
 | `replay/expiry/` | Expired; issued-in-future; both skew boundaries; window above maximum |
 | `replay/ordering/` | Unauthenticated request never reaches the cache |
@@ -300,7 +300,7 @@ failure this PRD is most likely to actually have.
 | 5 | `record` — atomic debit and cache commit | Fault-injection test shows no under-charge |
 | 6 | Verbatim response storage and return | **Built**, and asserted as *two retries are equal* rather than as *the bytes are right* — the property is that nothing regenerates. Re-signing would remake `decided_at`, so two retries would differ, and that difference tells a requester the responder re-evaluated, which under opaque escalation is the transition [`core-model.md`](../../spec/core-model.md) §5.3 forbids revealing. Caching bytes rather than decisions makes it structural. Go copies on the way in and out (`CONVENTIONS-go.md`); Rust has it from the borrow checker |
 | 7 | Ordering assertion: cache unreachable before step 9 | **Blocked on [P-010](P-010-responder-pipeline.md), and not on anything here.** Ordering is a property of the pipeline: a vector must show that a bad-signature request left no entry, which needs `process_query` — every `ordering/` vector uses it, because a `verify_query` vector cannot show that one step ran before another. The store deliberately does **not** enforce the ordering itself and says so at the type: a caller could insert at any point, and the assertion that the pipeline does not is this issue's |
-| 8 | Author `replay/` corpus section | Five groups; `harness lint` clean |
+| 8 | Author `replay/` corpus section | **Not authorable yet, and not for one reason.** Checked group by group rather than assumed: `expiry/` asserts step 6 and `ordering/` asserts step 9, both of which need `process_query` — a `verify_query` vector cannot show one step ran before another, which is why every existing `ordering/` vector uses it. `nonce/` needs an operation that calls this module's floor check, and `verify_query` is not it: P-003's sequence must not depend on P-004, or the two PRDs' dependency runs both ways. All three therefore wait on [P-010](P-010-responder-pipeline.md). `idempotent/` and `id-reuse/` wait on something else entirely — **a vector cannot describe a sequence**, and no vector in the corpus does ([E-51](../open-escalations.md)) |
 | 9 | Cache-failure rejection, eviction semantics, and the window bound | A store failure produces a Tier C denial with no debit; an evicted entry does not suppress a debit; a configured window above [`freshness.md`](../../spec/freshness.md) §1's maximum fails at startup |
 
 Issue 5 is the one to schedule time for — the fault-injection harness is more

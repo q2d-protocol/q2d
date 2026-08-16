@@ -18,7 +18,12 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** **E-36** through **E-50** all closed.
+> **E-51 is open**, raised by P-004 issue 8 as [E-48](#e-48--a-vector-can-describe-a-message-but-not-the-verifier-that-receives-it)
+> said it would be: **a vector cannot describe a sequence.** Idempotency is a
+> property of a *second* request, and no vector in the corpus asserts one. It
+> blocks two of `replay/`'s five groups, and the same shape is queued in P-008.
+>
+> **E-36** through **E-50** all closed.
 >
 > **E-46:** §5.2.1 had no `external_reason` for a `signed` string that is not a
 > well-formed compact JWS. Closed as **B**: `structurally_invalid` is separated
@@ -207,6 +212,7 @@ question is still fresh than after the answer arrives.
 | **E-45** | The digest string form is defined only in P-002 | P-002 issue 10 | `serialization.md` §5 (new) · P-002 §4.7 · P-011 §4.2 · both implementations · `testdata/` · `message/digest/` | **Closed** |
 | **E-46** | Which `external_reason` for a `signed` string that is not a well-formed compact JWS? | P-003 issue 2 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, issues 6–8 · `suite/verify/` · both implementations | **Closed** |
 | **E-47** | Ed25519 in Rust needs a dependency policy, and there is no conventions document | P-003 issue 1 | `CONVENTIONS-rust.md`, `CONVENTIONS-go.md` (both new) · `Cargo.toml`, `go.mod` · both implementations · `testdata/ed25519-acceptance.txt` · CI | **Closed** |
+| **E-51** | A vector cannot describe a sequence, and idempotency is a property of the second request | P-004 issue 8 | `conformance/vector.schema.json` + served copy · P-001 §4.5, §4.6, issue 17 · P-004 §6, issue 8 · P-008 · P-012 | **Open** |
 | **E-50** | Does the replay check track nonces, or only `query_id`s? | P-004 issue 2 (review) | `freshness.md` §1, §3.1 (new) · `core-model.md` §5.2.1 unchanged · P-004 §4.2, §4.3, §9 item 2, §10, issues 2 and 3 · both implementations' `replay` | **Closed** |
 | **E-49** | Every freshness and replay constant lives in a PRD, not in `spec/` | P-004 issue 1 | `freshness.md` (new) · `core-model.md` §2.2, §4 steps 6 and 9, §5.2.1 · `claims.md` Q2D-C-07 · `conformance-classes.md` · P-004 §2, §4.3, §4.4, §6, §7, §8, §9, §10, issues 1, 4 and 9 · P-008 §4.5 · P-015 §4.2, §4.7 · both implementations' `timestamp` | **Closed** |
 | **E-48** | A vector can describe a message, but not the verifier that receives it | P-003 issue 11 | `conformance/vector.schema.json` + its served copy · P-001 §4.3, §6, RUNNER-CONTRACT · P-003 §6, §7, issues 8 and 11 · `suite/status/`, `suite/downgrade/below-floor` · both implementations · P-012 | **Closed** |
@@ -4409,6 +4415,83 @@ evidence about its published answers.
 P-003 §6 lists five groups now and records the reasoning; §7's first acceptance
 criterion is unchanged, because it asks that raw Ed25519 reproduces RFC 8032 in
 both implementations and says nothing about where that is asserted.
+
+---
+
+## E-51 — A vector cannot describe a sequence
+
+**Raised by** P-004 issue 8. **Open.** [E-48](#e-48--a-vector-can-describe-a-message-but-not-the-verifier-that-receives-it)
+said this would be raised here rather than answered by `input.verifier`:
+*"configuration is declared; history is replayed."*
+
+**Idempotency is a property of the second request.** `replay/idempotent/` must
+show that a retry returns byte-identical bytes and debits nothing further —
+which requires a first request to have happened. `replay/id-reuse/` is the same
+shape: what makes a `query_id` a *reuse* is that it was used. No vector in the
+corpus asserts a sequence; every one is a single operation over a single input.
+
+**Why the obvious answer is already closed.** Declaring the prior state — a cache
+pre-loaded with an entry — is what E-48 refused, and for a reason that has not
+weakened: it would assert the very thing the corpus exists to demonstrate. A
+vector could claim a nonce was seen without any vector having presented it, and
+the idempotency claim would rest on the fixture rather than on the
+implementation.
+
+### What is actually blocked
+
+Two of `replay/`'s five groups. The other three — `nonce/`, `expiry/`,
+`ordering/` — wait on [P-010](prds/P-010-responder-pipeline.md) instead, for
+reasons P-004 issue 8's row now states. **The same shape is queued in
+[P-008](prds/P-008-capacity-accounting.md)**, whose whole subject is a running
+total, and in [P-012](prds/P-012-requester-runtime.md)'s `requester/retry/`.
+
+### Options
+
+**A — a vector carries an ordered `steps` array**, each step its own operation,
+input and expectation. Most expressive.
+*Against:* it changes what a vector *is* for every section, and the projection's
+allowlist and `VectorInput`'s shape with it. The one-vector-one-result contract
+in P-001 §4.6 becomes one-vector-many-results.
+
+**B — a vector names a prior vector by id**, and the harness runs them in order.
+*Against:* runners become stateful **between invocations**, which the runner
+contract forbids in its first line — one vector per invocation, the runner reads
+nothing else. It also makes the corpus order-dependent, so a vector's result
+depends on which other files exist.
+
+**C — one operation whose input is a list of requests**, returning a list of
+outcomes. The sequence lives inside `input`, where the projection already passes
+it through untouched.
+*For:* the vector format does not change at all, one vector is still one
+invocation and one result, and the runner stays stateless between invocations.
+It is the shape `ordering/` already uses — one operation for the whole pipeline,
+because composition across vectors cannot show ordering.
+*Against:* needs a new operation name, and P-001 §4.5's vocabulary is **closed**.
+
+**D — accept it**, and state that idempotency is demonstrated by mirrored unit
+tests rather than by the shared corpus.
+*Against:* Q2D-C-07's *"an identical retry returns the cached outcome"* and
+Q2D-C-09's debit-once half would both rest on tests that cannot disagree across
+implementations, which is what the corpus exists to prevent.
+
+### Recommendation — C, decided together with P-001 issue 17
+
+C is the only option that leaves the format, the projection and the runner
+contract untouched, and the reason is the same one that made E-48 land inside
+`input`: a sequence is an *input* to one operation, not a new kind of file.
+
+**It should not be decided alone.** P-001 issue 17 is *"settle the §4.5 operation
+vocabulary for Stages 5–8, as one coordinated change"*, and C is exactly a new
+operation — so deciding C separately is the unilateral naming that issue exists
+to prevent. Issue 17 is already waiting on you and already lists a
+sequence-shaped need on the requester side (`requester/order/`, which must assert
+*which step* rejected). These are one decision.
+
+**Where it stops being right.** C is right for a sequence a *single responder*
+processes. It is wrong for anything needing two parties' state to interleave —
+an escalation approved out of band between two queries (P-015 §5.3) is a
+sequence with an external event in the middle, and no list of requests expresses
+that. P-015 should expect to raise its own.
 
 ---
 
