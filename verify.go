@@ -140,6 +140,35 @@ const (
 	HeaderPayloadSuiteMismatch
 	HeaderPayloadKeyMismatch
 
+	// ---- Beyond this file's sequence. ---------------------------------------
+	//
+	// Rejected is the responder's whole internal vocabulary, not this file's —
+	// testdata/rejection-vocabulary.txt is derived from the corpus across every
+	// section, and one type is what lets that fixture check the mapping in one
+	// place. The constants below are caught after VerifyQuery returns, and they
+	// live here because splitting the type would split the mapping.
+	//
+	// CoreObjectNonceNotBase64URL and CoreObjectNonceTooShort: two mistakes in a
+	// requester's own message — an encoding fault, and a generator asked for too
+	// few bytes. malformed for both, at step 5: the floor is a bound
+	// core-model.md §2 places on a core-object field, so it is caught with the
+	// other core-object faults rather than at step 6 with freshness or step 9
+	// with the cache.
+	CoreObjectNonceNotBase64URL
+	CoreObjectNonceTooShort
+
+	// RequestExpired, RequestFutureDated and RequestWindowOutOfRange: freshness.md
+	// §2's three conditions, at core-model.md §4 step 6.
+	//
+	// Three internal reasons and one wire value. An operator needs to know
+	// whether a requester's clock is behind, ahead, or building windows the
+	// deployment will not accept — three different conversations. A requester
+	// learns only `expired`, which is enough: every one is visible in the two
+	// timestamps it signed itself.
+	RequestExpired
+	RequestFutureDated
+	RequestWindowOutOfRange
+
 	// rejectedCount is not a reason. It is the number of them, and it is here
 	// rather than written down because a hand-written count stops being the
 	// count the moment someone adds a constant above it — silently. The mapping
@@ -165,11 +194,19 @@ func (r Rejected) ExternalReason() string {
 		return "unauthenticated"
 	case CoreObjectMalformed, CoreObjectCarriesSignatureValue,
 		CoreObjectDuplicateKey, CoreObjectFloat, CoreObjectTooDeep,
-		CoreObjectTooManyMembers, CoreObjectStringTooLong:
+		CoreObjectTooManyMembers, CoreObjectStringTooLong,
+		CoreObjectNonceNotBase64URL, CoreObjectNonceTooShort:
 		return "malformed"
 	case UnsupportedVersion:
 		return "unsupported_version"
+	case RequestExpired, RequestFutureDated, RequestWindowOutOfRange:
+		return "expired"
 	default:
+		// structurally_invalid, and the default rather than a listed case
+		// because it is the largest group. That makes a reason added without a
+		// case land here silently — safe only because the mapping test walks
+		// 0..rejectedCount against a hand-written table, which is what caught
+		// the three freshness reasons arriving as structurally_invalid.
 		return "structurally_invalid"
 	}
 }
@@ -185,10 +222,13 @@ func (r Rejected) Step() string {
 		return "4"
 	case CoreObjectMalformed, CoreObjectCarriesSignatureValue, UnsupportedVersion,
 		CoreObjectDuplicateKey, CoreObjectFloat, CoreObjectTooDeep,
-		CoreObjectTooManyMembers, CoreObjectStringTooLong:
+		CoreObjectTooManyMembers, CoreObjectStringTooLong,
+		CoreObjectNonceNotBase64URL, CoreObjectNonceTooShort:
 		return "5"
 	case HeaderPayloadSuiteMismatch, HeaderPayloadKeyMismatch:
 		return "5a"
+	case RequestExpired, RequestFutureDated, RequestWindowOutOfRange:
+		return "6"
 	default:
 		return "3"
 	}
@@ -211,6 +251,16 @@ func (r Rejected) Error() string {
 		return "a protected header member is not a string"
 	case HeaderMemberNotPermitted:
 		return "the protected header carries a member crypto-suites.md §3 does not permit"
+	case CoreObjectNonceNotBase64URL:
+		return "the nonce is not base64url"
+	case CoreObjectNonceTooShort:
+		return "the nonce is below the length floor"
+	case RequestExpired:
+		return "the request has expired"
+	case RequestFutureDated:
+		return "the request was issued in the future"
+	case RequestWindowOutOfRange:
+		return "the request's validity window is outside the permitted range"
 	case SuiteUnregistered:
 		return "the declared suite is not registered"
 	case SuiteWithdrawnByRegistry:

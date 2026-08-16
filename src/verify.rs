@@ -150,6 +150,37 @@ pub enum Rejected {
     /// The header and the payload disagree.
     HeaderPayloadSuiteMismatch,
     HeaderPayloadKeyMismatch,
+
+    // ---- Beyond this module's sequence. -------------------------------------
+    //
+    // `Rejected` is the responder's whole internal vocabulary, not this module's
+    // — `testdata/rejection-vocabulary.txt` is derived from the corpus across
+    // every section, and one type is what lets that fixture check the mapping in
+    // one place. The variants below are caught after `verify_query` returns, and
+    // they live here because splitting the type would split the mapping.
+    /// The `nonce` is not base64url, or decodes to fewer bytes than
+    /// `freshness.md` §1's floor.
+    ///
+    /// Two variants because they are different mistakes in a requester's own
+    /// message: one is an encoding fault, the other a generator asked for too
+    /// few bytes. `malformed` for both — the floor is a bound
+    /// `core-model.md` §2 places on a core-object field, so it is caught at
+    /// step 5 with the other core-object faults rather than at step 6 with
+    /// freshness or step 9 with the cache.
+    CoreObjectNonceNotBase64url,
+    CoreObjectNonceTooShort,
+
+    /// `freshness.md` §2's three conditions, at `core-model.md` §4 step 6.
+    ///
+    /// Three internal reasons and one wire value. An operator debugging a
+    /// deployment needs to know whether a requester's clock is behind, ahead, or
+    /// building windows the deployment will not accept — those are three
+    /// different conversations. A requester learns only `expired`, which is all
+    /// three of them and is enough: every one is visible in the two timestamps
+    /// it signed itself.
+    RequestExpired,
+    RequestFutureDated,
+    RequestWindowOutOfRange,
 }
 
 impl Rejected {
@@ -180,8 +211,13 @@ impl Rejected {
             | Rejected::CoreObjectFloat
             | Rejected::CoreObjectTooDeep
             | Rejected::CoreObjectTooManyMembers
-            | Rejected::CoreObjectStringTooLong => "malformed",
+            | Rejected::CoreObjectStringTooLong
+            | Rejected::CoreObjectNonceNotBase64url
+            | Rejected::CoreObjectNonceTooShort => "malformed",
             Rejected::UnsupportedVersion => "unsupported_version",
+            Rejected::RequestExpired
+            | Rejected::RequestFutureDated
+            | Rejected::RequestWindowOutOfRange => "expired",
         }
     }
 
@@ -210,11 +246,16 @@ impl Rejected {
             | Rejected::CoreObjectTooDeep
             | Rejected::CoreObjectTooManyMembers
             | Rejected::CoreObjectStringTooLong
+            | Rejected::CoreObjectNonceNotBase64url
+            | Rejected::CoreObjectNonceTooShort
             | Rejected::UnsupportedVersion => "5",
             // **Lettered.** §4's query order names step `5a` for the two
             // comparisons, which E-35 added. A numeric type could not carry it,
             // and the corpus asserts the step as the specification writes it.
             Rejected::HeaderPayloadSuiteMismatch | Rejected::HeaderPayloadKeyMismatch => "5a",
+            Rejected::RequestExpired
+            | Rejected::RequestFutureDated
+            | Rejected::RequestWindowOutOfRange => "6",
         }
     }
 }
@@ -231,6 +272,13 @@ impl fmt::Display for Rejected {
             Rejected::HeaderMemberNotAString => "a protected header member is not a string",
             Rejected::HeaderMemberNotPermitted => {
                 "the protected header carries a member crypto-suites.md §3 does not permit"
+            }
+            Rejected::CoreObjectNonceNotBase64url => "the nonce is not base64url",
+            Rejected::CoreObjectNonceTooShort => "the nonce is below the length floor",
+            Rejected::RequestExpired => "the request has expired",
+            Rejected::RequestFutureDated => "the request was issued in the future",
+            Rejected::RequestWindowOutOfRange => {
+                "the request's validity window is outside the permitted range"
             }
             Rejected::SuiteUnregistered => "the declared suite is not registered",
             Rejected::SuiteWithdrawn => "the declared suite is withdrawn",
@@ -700,7 +748,12 @@ mod tests {
                     Rejected::CoreObjectStringTooLong => Some(Rejected::UnsupportedVersion),
                     Rejected::UnsupportedVersion => Some(Rejected::HeaderPayloadSuiteMismatch),
                     Rejected::HeaderPayloadSuiteMismatch => Some(Rejected::HeaderPayloadKeyMismatch),
-                    Rejected::HeaderPayloadKeyMismatch => None,
+                    Rejected::HeaderPayloadKeyMismatch => Some(Rejected::CoreObjectNonceNotBase64url),
+                    Rejected::CoreObjectNonceNotBase64url => Some(Rejected::CoreObjectNonceTooShort),
+                    Rejected::CoreObjectNonceTooShort => Some(Rejected::RequestExpired),
+                    Rejected::RequestExpired => Some(Rejected::RequestFutureDated),
+                    Rejected::RequestFutureDated => Some(Rejected::RequestWindowOutOfRange),
+                    Rejected::RequestWindowOutOfRange => None,
                 }
             }
             let mut all = vec![Rejected::CompactSegmentCount];
@@ -727,6 +780,11 @@ mod tests {
             (Rejected::HeaderNotAnObject, "structurally_invalid", "3"),
             (Rejected::HeaderMemberNotAString, "structurally_invalid", "3"),
             (Rejected::HeaderMemberNotPermitted, "structurally_invalid", "3"),
+            (Rejected::CoreObjectNonceNotBase64url, "malformed", "5"),
+            (Rejected::CoreObjectNonceTooShort, "malformed", "5"),
+            (Rejected::RequestExpired, "expired", "6"),
+            (Rejected::RequestFutureDated, "expired", "6"),
+            (Rejected::RequestWindowOutOfRange, "expired", "6"),
             (Rejected::SuiteUnregistered, "unsupported_suite", "3"),
             (Rejected::SuiteWithdrawn, "unsupported_suite", "3"),
             (Rejected::SuiteBelowPolicy, "unsupported_suite", "3"),
@@ -777,6 +835,9 @@ mod tests {
             values.len() < MAPPING.len(),
             "every internal reason has its own wire value, which is the leak"
         );
-        assert_eq!(values.len(), 5);
+        // Six of §5.2.1's eight values. `routing_mismatch` is step 8's and
+        // `unavailable` is the normalized class from step 9 onward; neither is
+        // reachable from the reasons this type carries yet.
+        assert_eq!(values.len(), 6);
     }
 }
