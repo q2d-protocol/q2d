@@ -391,11 +391,16 @@ func TestEveryResolutionFailureSharesAStepAndIsToldApartInternally(t *testing.T)
 	}
 }
 
-func TestATamperedEntryIsRefusedEvenWithAMatchingStoredDigest(t *testing.T) {
-	// Issue 12. The manifest would otherwise vouch for itself: a publisher editing
-	// an entry and updating its stored digest to match would pass every check,
-	// which is what §4.5 closes on the requester's side and this closes on the
-	// custodian's.
+func TestAnEntryEditedWithoutUpdatingItsDigestIsRefused(t *testing.T) {
+	// Issue 12, and only this half. Recomputation catches an entry whose stored
+	// digest has gone stale — an edit someone forgot to re-digest, or a splice into
+	// a manifest.
+	//
+	// It does not catch a publisher who edits an entry and updates its digest to
+	// match: that manifest is self-consistent and recomputation agrees with it.
+	// What catches that is the pin — §4.1's digest over the whole manifest, which a
+	// custodian changes only after reading the diff. The test name said otherwise
+	// until review pointed it out.
 	raw, err := os.ReadFile("registry/manifest.json")
 	if err != nil {
 		t.Fatal(err)
@@ -407,5 +412,25 @@ func TestATamperedEntryIsRefusedEvenWithAMatchingStoredDigest(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "stores entry digest") {
 		t.Errorf("%v", err)
+	}
+}
+
+func TestAMalformedDateFailsTheLoad(t *testing.T) {
+	// Resolve compares dates as text, and text comparison is exact only over
+	// well-formed ones: 0000-00-00 sorts before everything and zzzz after it, so a
+	// malformed date in a pinned manifest would resolve rather than fail.
+	for _, bad := range []string{`"0000-00-00"`, `"zzzz"`, `"2026-02-30"`, `"2026-8-3"`} {
+		_, err := manifestWithRevocation(`"capacity":{"unit":"millibits","millibits":1}`, bad)
+		if err == nil || !strings.Contains(err.Error(), "YYYY-MM-DD") {
+			t.Errorf("%s: %v", bad, err)
+		}
+	}
+	if _, err := manifestWithRevocation(
+		`"capacity":{"unit":"millibits","millibits":1}`, `"2026-02-29"`); err == nil {
+		t.Error("2026 is not a leap year")
+	}
+	if _, err := manifestWithRevocation(
+		`"capacity":{"unit":"millibits","millibits":1}`, `"2024-02-29"`); err != nil {
+		t.Errorf("2024 is a leap year: %v", err)
 	}
 }

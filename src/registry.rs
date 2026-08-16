@@ -347,10 +347,10 @@ impl Manifest {
         }
 
         let provenance = member(value, "provenance")?;
-        let effective_from = text(provenance, "effective_from")?;
+        let effective_from = Self::date(&text(provenance, "effective_from")?, "effective_from")?;
         let revoked_from = match member(provenance, "revoked_from")? {
             Value::Null => None,
-            Value::String(s) => Some(s.clone()),
+            Value::String(s) => Some(Self::date(s, "revoked_from")?),
             _ => {
                 return Err(LoadError(
                     "`provenance.revoked_from` is neither a date nor null".into(),
@@ -459,6 +459,28 @@ impl Manifest {
             assurance_profiles,
             entry_digest: stored,
         })
+    }
+
+    /// A `YYYY-MM-DD` date that is a real day.
+    ///
+    /// Checked at **load**, because `resolve` compares dates as text and text
+    /// comparison is only exact over well-formed ones — `0000-00-00` sorts
+    /// before everything and `zzzz` after it, so a malformed date in a pinned
+    /// manifest would resolve rather than fail. Review found that.
+    ///
+    /// Validated by appending a midnight time and asking
+    /// [`crate::timestamp::is_q2d_timestamp`], rather than by a second date
+    /// parser here. §2.2 already decides what a real day is, and two answers to
+    /// that question is one more than the protocol has.
+    fn date(value: &str, field: &str) -> Result<String, LoadError> {
+        if value.len() != DATE_LENGTH
+            || !crate::timestamp::is_q2d_timestamp(&format!("{value}T00:00:00Z"))
+        {
+            return Err(LoadError(format!(
+                "`provenance.{field}` is `{value}`, which is not a YYYY-MM-DD date"
+            )));
+        }
+        Ok(value.to_string())
     }
 
     /// sha256 over the entry with `entry_digest` removed, serialized under
@@ -877,11 +899,16 @@ mod tests {
     }
 
     #[test]
-    fn a_tampered_entry_is_refused_even_with_a_matching_stored_digest() {
-        // Issue 12. The manifest would otherwise vouch for itself: a publisher
-        // editing an entry and updating its stored digest to match would pass
-        // every check, which is what §4.5 exists to close on the requester's
-        // side and this closes on the custodian's.
+    fn an_entry_edited_without_updating_its_digest_is_refused() {
+        // Issue 12, and **only this half**. Recomputation catches an entry whose
+        // stored digest has gone stale — an edit someone forgot to re-digest, or
+        // a splice into a manifest.
+        //
+        // It does **not** catch a publisher who edits an entry *and* updates its
+        // digest to match: that manifest is self-consistent and recomputation
+        // agrees with it. What catches that is the pin — §4.1's digest over the
+        // whole manifest, which a custodian changes only after reading the diff.
+        // The test name said otherwise until review pointed it out.
         let raw = std::fs::read(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("registry")
@@ -892,6 +919,33 @@ mod tests {
             String::from_utf8(raw).unwrap().replace(r#""release_shape": "boolean""#, r#""release_shape": "enum""#);
         let error = Manifest::parse(tampered.as_bytes()).unwrap_err();
         assert!(error.to_string().contains("stores entry digest"), "{error}");
+    }
+
+    #[test]
+    fn a_malformed_date_fails_the_load() {
+        // `resolve` compares dates as text, and text comparison is exact only
+        // over well-formed ones: `0000-00-00` sorts before everything and `zzzz`
+        // after it, so a malformed date in a pinned manifest would resolve
+        // rather than fail.
+        for bad in [r#""0000-00-00""#, r#""zzzz""#, r#""2026-02-30""#, r#""2026-8-3""#] {
+            let error = manifest_with_revocation(
+                r#""capacity":{"unit":"millibits","millibits":1}"#,
+                bad,
+            )
+            .unwrap_err();
+            assert!(error.to_string().contains("YYYY-MM-DD"), "{bad}: {error}");
+        }
+        // And a real date loads.
+        assert!(manifest_with_revocation(
+            r#""capacity":{"unit":"millibits","millibits":1}"#,
+            r#""2026-02-29""#
+        )
+        .is_err(), "2026 is not a leap year");
+        assert!(manifest_with_revocation(
+            r#""capacity":{"unit":"millibits","millibits":1}"#,
+            r#""2024-02-29""#
+        )
+        .is_ok(), "2024 is");
     }
 
     #[test]

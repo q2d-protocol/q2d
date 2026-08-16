@@ -341,7 +341,11 @@ func parsePredicateEntry(value Value) (PredicateEntry, error) {
 	if err != nil {
 		return PredicateEntry{}, err
 	}
-	effectiveFrom, err := manifestText(provenance, "effective_from")
+	effectiveFromText, err := manifestText(provenance, "effective_from")
+	if err != nil {
+		return PredicateEntry{}, err
+	}
+	effectiveFrom, err := manifestDate(effectiveFromText, "effective_from")
 	if err != nil {
 		return PredicateEntry{}, err
 	}
@@ -353,7 +357,10 @@ func parsePredicateEntry(value Value) (PredicateEntry, error) {
 	switch v := revokedValue.(type) {
 	case Null:
 	case String:
-		revokedFrom = string(v)
+		revokedFrom, err = manifestDate(string(v), "revoked_from")
+		if err != nil {
+			return PredicateEntry{}, err
+		}
 	default:
 		return PredicateEntry{}, fmt.Errorf("`provenance.revoked_from` is neither a date nor null")
 	}
@@ -481,6 +488,24 @@ func parsePredicateEntry(value Value) (PredicateEntry, error) {
 		assuranceProfiles: assuranceProfiles,
 		entryDigest:       entryDigest,
 	}, nil
+}
+
+// manifestDate checks a YYYY-MM-DD date that is a real day.
+//
+// Checked at load, because Resolve compares dates as text and text comparison is
+// only exact over well-formed ones — 0000-00-00 sorts before everything and zzzz
+// after it, so a malformed date in a pinned manifest would resolve rather than
+// fail. Review found that.
+//
+// Validated by appending a midnight time and asking isQ2DTimestamp, rather than
+// by a second date parser here. §2.2 already decides what a real day is, and two
+// answers to that question is one more than the protocol has.
+func manifestDate(value, field string) (string, error) {
+	if len(value) != dateLength || !isQ2DTimestamp(value+"T00:00:00Z") {
+		return "", fmt.Errorf(
+			"`provenance.%s` is `%s`, which is not a YYYY-MM-DD date", field, value)
+	}
+	return value, nil
 }
 
 // recomputeEntryDigest is sha256 over the entry with entry_digest removed,
