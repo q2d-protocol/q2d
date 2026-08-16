@@ -284,7 +284,7 @@ there is nothing for a requester-asserted debit to be read from.
 2. **A cardinality absent from the table rejects.** Computing it hides a registry
    defect.
 3. **Check reserves; the reservation is what `settle` consumes.**
-4. **Reservations expire at `expires_at + skew`** — the same bound as the replay
+4. **Reservations expire at `expires_at + skew`** — [`freshness.md`](../../spec/freshness.md) §1's skew, and the same bound as the replay
    cache.
 5. **Rolling windows, never calendar.** A predictable reset is a probing schedule.
 6. **The module reports `Exhausted`; policy decides `deny` or `escalate`.**

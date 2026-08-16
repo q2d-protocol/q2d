@@ -465,7 +465,7 @@ show that.
 | A grant consumed at policy time rather than at release | An exchange that fails output validation or the budget check still burns the approval |
 | **An opaque escalation's receipt carrying `decision_class: escalate`** | `escalation/receipt/` fails. The response bodies match, so no other check catches it |
 | The approval prompt showing an evaluation result | Policy runs at step 14; a result at prompt time means evaluation moved |
-| Replay-cache retention extended to cover a grant | Retention beyond window + 2×skew |
+| Replay-cache retention extended to cover a grant | An entry retained past [`freshness.md`](../../spec/freshness.md) §1's instant, `expires_at + skew` |
 | An approval API, notification transport, or web surface | Present at all — §4.8 |
 | Text describing explicit escalation as denial-normalized | Grep; [`core-model.md`](../../spec/core-model.md) §5.3 forbids it |
 | Text claiming MVP closes any §4.9 channel | Grep across docs and comments |
