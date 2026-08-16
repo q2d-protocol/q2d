@@ -86,8 +86,15 @@ pub enum Rejected {
     /// The signature did not verify.
     SignatureInvalid,
     /// The verified payload is not a core object, or is missing a field §2
-    /// requires.
+    /// requires — which includes an absent or non-string `q2d_version`.
     CoreObjectMalformed,
+    /// `q2d_version` is a string this build does not implement.
+    ///
+    /// Step 5 and not earlier: the authoritative version is inside the signed
+    /// object, so it cannot be read before verification. `routing` may carry a
+    /// copy and §4 step 2 may shed on it, but that is load shedding and never a
+    /// rejection reason.
+    UnsupportedVersion,
     /// The header and the payload disagree.
     HeaderPayloadSuiteMismatch,
     HeaderPayloadKeyMismatch,
@@ -113,6 +120,7 @@ impl Rejected {
             Rejected::SuiteUnregistered | Rejected::SuiteBelowPolicy => "unsupported_suite",
             Rejected::KeyUnresolvable | Rejected::SignatureInvalid => "unauthenticated",
             Rejected::CoreObjectMalformed => "malformed",
+            Rejected::UnsupportedVersion => "unsupported_version",
         }
     }
 
@@ -132,7 +140,7 @@ impl Rejected {
             | Rejected::SuiteUnregistered
             | Rejected::SuiteBelowPolicy => "3",
             Rejected::KeyUnresolvable | Rejected::SignatureInvalid => "4",
-            Rejected::CoreObjectMalformed => "5",
+            Rejected::CoreObjectMalformed | Rejected::UnsupportedVersion => "5",
             // **Lettered.** §4's query order names step `5a` for the two
             // comparisons, which E-35 added. A numeric type could not carry it,
             // and the corpus asserts the step as the specification writes it.
@@ -158,6 +166,7 @@ impl fmt::Display for Rejected {
             Rejected::KeyUnresolvable => "the key did not resolve",
             Rejected::SignatureInvalid => "the signature did not verify",
             Rejected::CoreObjectMalformed => "the verified payload is not a core object",
+            Rejected::UnsupportedVersion => "the verified object declares a version this build does not implement",
             Rejected::HeaderPayloadSuiteMismatch => "the header and payload declare different suites",
             Rejected::HeaderPayloadKeyMismatch => "the header and payload declare different keys",
         };
@@ -273,6 +282,15 @@ pub fn verify_query(
 
     // Step 5 — parse the verified object. Not before: §2.1 is explicit.
     let core = crate::parse(&payload).map_err(|_| Rejected::CoreObjectMalformed)?;
+
+    // Still step 5: `q2d_version` is a field §2 requires, and a version this
+    // build does not implement is read **before anything else in the object
+    // is**. A 0.2 message may have moved or retyped any field, so interpreting
+    // one to build a better diagnostic would be a guess presented as fact.
+    crate::check_version(&core).map_err(|problem| match problem {
+        crate::VersionProblem::Unsupported => Rejected::UnsupportedVersion,
+        crate::VersionProblem::Malformed => Rejected::CoreObjectMalformed,
+    })?;
 
     // Step 5a — the two comparisons. After parsing, because neither can be made
     // before it.
@@ -492,6 +510,37 @@ mod tests {
     }
 
     #[test]
+    fn a_version_this_build_does_not_implement_is_refused_at_step_5() {
+        // `message/reject/unknown-version` in miniature. The version is inside
+        // the signed object, so this is reachable only after verification —
+        // which is why it is step 5 and why `routing`'s copy is load shedding
+        // rather than a rejection reason.
+        let key = PrivateKey::from_seed(&seed("test-requester-1")).unwrap();
+        let query = crate::parse(&std::fs::read(repo(&["testdata", "canonical-query.json"])).unwrap())
+            .unwrap();
+        let mut members = match query {
+            Value::Object(m) => m,
+            _ => panic!("query"),
+        };
+        members.insert("q2d_version".into(), Value::String("0.2".into()));
+        let payload = crate::serialize(&Value::Object(members)).unwrap();
+
+        let header = br#"{"key_id":"test-requester-1","suite":"eddsa-jws-2026"}"#;
+        let signing_input = format!(
+            "{}.{}",
+            crate::base64url::encode(header),
+            crate::base64url::encode(&payload)
+        );
+        let signature = key.sign(signing_input.as_bytes());
+        let compact = format!("{signing_input}.{}", crate::base64url::encode(&signature));
+
+        let rejected = verify(&compact).unwrap_err();
+        assert_eq!(rejected, Rejected::UnsupportedVersion);
+        assert_eq!(rejected.external_reason(), "unsupported_version");
+        assert_eq!(rejected.step(), "5");
+    }
+
+    #[test]
     fn the_mapping_to_a_wire_value_is_many_to_one_and_not_the_name() {
         // §5.2's separation. The check is not that the two *spell* differently
         // — `SignatureInvalid` and `signature_invalid` coincide, and §5.2.1 names
@@ -511,6 +560,7 @@ mod tests {
             (Rejected::KeyUnresolvable, "unauthenticated", "4"),
             (Rejected::SignatureInvalid, "unauthenticated", "4"),
             (Rejected::CoreObjectMalformed, "malformed", "5"),
+            (Rejected::UnsupportedVersion, "unsupported_version", "5"),
             (Rejected::HeaderPayloadSuiteMismatch, "structurally_invalid", "5a"),
             (Rejected::HeaderPayloadKeyMismatch, "structurally_invalid", "5a"),
         ];
@@ -535,6 +585,6 @@ mod tests {
             values.len() < MAPPING.len(),
             "every internal reason has its own wire value, which is the leak"
         );
-        assert_eq!(values.len(), 4);
+        assert_eq!(values.len(), 5);
     }
 }

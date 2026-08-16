@@ -77,8 +77,17 @@ const (
 	// the wire value and was applied to the wrong half.
 	KeyUnresolvable
 	SignatureInvalid
-	// CoreObjectMalformed: the verified payload is not a core object.
+	// CoreObjectMalformed: the verified payload is not a core object, or is
+	// missing a field §2 requires — which includes an absent or non-string
+	// q2d_version.
 	CoreObjectMalformed
+	// UnsupportedVersion: q2d_version is a string this build does not implement.
+	//
+	// Step 5 and not earlier: the authoritative version is inside the signed
+	// object, so it cannot be read before verification. routing may carry a copy
+	// and §4 step 2 may shed on it, but that is load shedding and never a
+	// rejection reason.
+	UnsupportedVersion
 	// HeaderPayloadSuiteMismatch, HeaderPayloadKeyMismatch: the header and the
 	// payload disagree.
 	HeaderPayloadSuiteMismatch
@@ -99,6 +108,8 @@ func (r Rejected) ExternalReason() string {
 		return "unauthenticated"
 	case CoreObjectMalformed:
 		return "malformed"
+	case UnsupportedVersion:
+		return "unsupported_version"
 	default:
 		return "structurally_invalid"
 	}
@@ -113,7 +124,7 @@ func (r Rejected) Step() string {
 	switch r {
 	case KeyUnresolvable, SignatureInvalid:
 		return "4"
-	case CoreObjectMalformed:
+	case CoreObjectMalformed, UnsupportedVersion:
 		return "5"
 	case HeaderPayloadSuiteMismatch, HeaderPayloadKeyMismatch:
 		return "5a"
@@ -147,6 +158,8 @@ func (r Rejected) Error() string {
 		return "the signature did not verify"
 	case CoreObjectMalformed:
 		return "the verified payload is not a core object"
+	case UnsupportedVersion:
+		return "the verified object declares a version this build does not implement"
 	case HeaderPayloadSuiteMismatch:
 		return "the header and payload declare different suites"
 	default:
@@ -266,6 +279,17 @@ func VerifyQuery(signed string, policy SuitePolicy, registry SuiteRegistry,
 	// Step 5 — parse the verified object. Not before: §2.1 is explicit.
 	core, err := Parse(payload)
 	if err != nil {
+		return nil, CoreObjectMalformed
+	}
+
+	// Still step 5: q2d_version is a field §2 requires, and a version this build
+	// does not implement is read before anything else in the object is. A 0.2
+	// message may have moved or retyped any field, so interpreting one to build a
+	// better diagnostic would be a guess presented as fact.
+	if problem := CheckVersion(core); problem != nil {
+		if problem == error(VersionUnsupported) {
+			return nil, UnsupportedVersion
+		}
 		return nil, CoreObjectMalformed
 	}
 

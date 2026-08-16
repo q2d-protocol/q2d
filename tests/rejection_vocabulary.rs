@@ -42,6 +42,7 @@ fn every_reason_this_module_produces_matches_the_corpus() {
         ("suite_unregistered", Rejected::SuiteUnregistered),
         ("key_unresolvable", Rejected::KeyUnresolvable),
         ("signature_invalid", Rejected::SignatureInvalid),
+        ("unsupported_version", Rejected::UnsupportedVersion),
         ("header_payload_suite_mismatch", Rejected::HeaderPayloadSuiteMismatch),
         ("header_payload_key_mismatch", Rejected::HeaderPayloadKeyMismatch),
     ];

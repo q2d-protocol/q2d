@@ -213,6 +213,7 @@ func TestTheMappingToAWireValueIsManyToOneAndNotTheName(t *testing.T) {
 		{KeyUnresolvable, "unauthenticated", "4"},
 		{SignatureInvalid, "unauthenticated", "4"},
 		{CoreObjectMalformed, "malformed", "5"},
+		{UnsupportedVersion, "unsupported_version", "5"},
 		{HeaderPayloadSuiteMismatch, "structurally_invalid", "5a"},
 		{HeaderPayloadKeyMismatch, "structurally_invalid", "5a"},
 	}
@@ -238,7 +239,44 @@ func TestTheMappingToAWireValueIsManyToOneAndNotTheName(t *testing.T) {
 	if len(values) >= len(mapping) {
 		t.Error("every internal reason has its own wire value, which is the leak")
 	}
-	if len(values) != 4 {
+	if len(values) != 5 {
 		t.Errorf("%d distinct wire values", len(values))
+	}
+}
+
+func TestAVersionThisBuildDoesNotImplementIsRefusedAtStep5(t *testing.T) {
+	// message/reject/unknown-version in miniature. The version is inside the
+	// signed object, so this is reachable only after verification — which is why
+	// it is step 5 and why routing's copy is load shedding rather than a
+	// rejection reason.
+	raw, err := os.ReadFile("testdata/canonical-query.json")
+	if err != nil {
+		t.Fatalf("the canonical query: %v", err)
+	}
+	query, err := Parse(raw)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	members := query.(Object)
+	members["q2d_version"] = String("0.2")
+	payload, err := Serialize(members)
+	if err != nil {
+		t.Fatalf("serialize: %v", err)
+	}
+
+	key := keyFor(t, "test-requester-1")
+	signingInput := EncodeBase64URL([]byte(`{"key_id":"test-requester-1","suite":"eddsa-jws-2026"}`)) +
+		"." + EncodeBase64URL(payload)
+	compact := signingInput + "." + EncodeBase64URL(key.Sign([]byte(signingInput)))
+
+	_, err = verifyIt(t, compact)
+	if err != UnsupportedVersion {
+		t.Fatalf("%v", err)
+	}
+	if got := err.(Rejected).ExternalReason(); got != "unsupported_version" {
+		t.Errorf("external reason %q", got)
+	}
+	if got := err.(Rejected).Step(); got != "5" {
+		t.Errorf("step %q", got)
 	}
 }

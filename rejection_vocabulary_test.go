@@ -49,6 +49,7 @@ func TestEveryReasonThisPackageProducesMatchesTheCorpus(t *testing.T) {
 		{"suite_unregistered", SuiteUnregistered},
 		{"key_unresolvable", KeyUnresolvable},
 		{"signature_invalid", SignatureInvalid},
+		{"unsupported_version", UnsupportedVersion},
 		{"header_payload_suite_mismatch", HeaderPayloadSuiteMismatch},
 		{"header_payload_key_mismatch", HeaderPayloadKeyMismatch},
 	}
