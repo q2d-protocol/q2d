@@ -1,4 +1,4 @@
-"""Neither implementation can reach the network (P-005 issue 9).
+"""No networking package is linked into either implementation (P-005 issue 9).
 
     python3 -m unittest discover -s conformance/tests
 
@@ -46,9 +46,15 @@ So the claims are split to match:
   [P-002](../../docs/prds/P-002-message-envelope.md) §8 states about `Routing`:
   what it removes is the accident rather than the determined bypass.
 
-Go has no equivalent of the allowlist half, because its networking is in the
-standard library and always linked. For Go the tripwire is all there is, and
-saying so is better than implying otherwise.
+**Go has an equivalent, and an earlier version of this file said it did not.**
+`go list -deps ./...` enumerates the transitive package closure actually linked —
+112 packages here — so a networking package absent from that list is absent from
+the binary. That is absence established, not a tripwire. The claim that Go's half
+was *unachievable because networking is in the standard library* was wrong, and
+review caught it: always-available is not the same as always-linked.
+
+So both implementations have a complete check and a tripwire, and this file says
+which is which rather than averaging them.
 
 ## This will need scoping when P-013 lands
 
@@ -224,6 +230,31 @@ class ImplementationTest(unittest.TestCase):
             "the locked crate set changed; CONVENTIONS-rust.md §2's posture is one "
             "dependency, so read what arrived before updating this list",
         )
+
+    def test_the_linked_go_package_closure_carries_no_network(self):
+        # The complete statement for Go, and the counterpart to the Rust lock
+        # allowlist: `go list -deps` is the transitive closure actually linked,
+        # so a package absent from it is absent from the binary.
+        #
+        # A denylist over that closure rather than an allowlist, and the reason is
+        # not laziness: the closure is ~112 packages, most of them `internal/…`
+        # that change with the Go release, so an allowlist would fail on every
+        # toolchain upgrade and be updated without being read. Over a set that is
+        # *the actual closure*, a denylist still establishes absence — which is
+        # not true of the source scans below.
+        import subprocess
+
+        result = subprocess.run(
+            ["go", "list", "-deps", "./..."],
+            cwd=REPO, capture_output=True, text=True, check=True,
+        )
+        packages = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+        self.assertGreater(len(packages), 20, "go list returned almost nothing")
+        for package in packages:
+            self.assertIsNone(
+                reaches_network_go(package),
+                f"the linked package closure carries {package}",
+            )
 
     def test_the_go_module_requires_no_network_package(self):
         # Weaker than the Rust half by construction and worth saying so: Go's
