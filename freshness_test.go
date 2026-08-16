@@ -178,27 +178,26 @@ func TestANonceThatIsNotBase64URLIsADifferentReason(t *testing.T) {
 }
 
 func TestConfigurationMayOnlyMakeAResponderStricter(t *testing.T) {
-	if _, err := NewFreshnessPolicy(30, 120, 32); err != nil {
+	if _, err := NewFreshnessPolicy(FreshnessConfig{
+		Skew: seconds(30), Window: seconds(120), MinNonceBytes: count(32),
+	}); err != nil {
 		t.Errorf("a stricter configuration was refused: %v", err)
 	}
 	// Each direction, because getting one backwards reads as tightening.
-	for _, c := range []struct {
-		skew, window int64
-		nonce        int
-	}{
-		{SkewSeconds + 1, 0, 0},
-		{0, MaxWindowSeconds + 1, 0},
-		{0, 0, MinNonceBytes - 1},
+	for _, c := range []FreshnessConfig{
+		{Skew: seconds(SkewSeconds + 1)},
+		{Window: seconds(MaxWindowSeconds + 1)},
+		{MinNonceBytes: count(MinNonceBytes - 1)},
 	} {
-		if _, err := NewFreshnessPolicy(c.skew, c.window, c.nonce); err == nil {
-			t.Errorf("%d %d %d was accepted", c.skew, c.window, c.nonce)
+		if _, err := NewFreshnessPolicy(c); err == nil {
+			t.Errorf("%+v was accepted", c)
 		}
 	}
 }
 
 func TestALaxerConfigurationFailsStartupRatherThanBeingClamped(t *testing.T) {
 	// The important half. A clamped misconfiguration reads as success.
-	_, err := NewFreshnessPolicy(0, 600, 0)
+	_, err := NewFreshnessPolicy(FreshnessConfig{Window: seconds(600)})
 	if err == nil {
 		t.Fatal("a 600s window was accepted")
 	}
@@ -231,3 +230,24 @@ func TestCheckTextAgreesWithCheck(t *testing.T) {
 		t.Errorf("%v, want RequestExpired", err)
 	}
 }
+
+func TestAnExplicitZeroIsNotAnAbsentValue(t *testing.T) {
+	// The divergence review found. A zero window is not "configured nothing" —
+	// it is a configuration that rejects every request — and a zero nonce floor
+	// is below the specification's. A sentinel-based signature would silently
+	// substitute the default for both, accepting what the Rust side refuses,
+	// because Option<i64> tells None from Some(0).
+	if _, err := NewFreshnessPolicy(FreshnessConfig{Window: seconds(0)}); err == nil {
+		t.Error("an explicit zero window was accepted")
+	}
+	if _, err := NewFreshnessPolicy(FreshnessConfig{MinNonceBytes: count(0)}); err == nil {
+		t.Error("an explicit zero nonce floor was accepted")
+	}
+	// And an explicit zero skew is legal: it is stricter, not laxer.
+	if _, err := NewFreshnessPolicy(FreshnessConfig{Skew: seconds(0)}); err != nil {
+		t.Errorf("an explicit zero skew was refused: %v", err)
+	}
+}
+
+func seconds(v int64) *int64 { return &v }
+func count(v int) *int       { return &v }

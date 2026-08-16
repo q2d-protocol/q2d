@@ -124,6 +124,15 @@ range.
   rule [`serialization.md`](spec/serialization.md) §1 states — which is UTF-16
   code unit order, and **not** Go's byte-wise string comparison. That difference
   has already caused one divergence in this repository.
+- **Optional configuration is a pointer, never a zero-value sentinel.**
+  `FreshnessConfig`'s fields are `*int64` because Rust's `Option<i64>`
+  distinguishes *unset* from *explicitly zero* and a Go zero value does not — and
+  the difference is a real one: a zero validity window is not "configured
+  nothing", it is a configuration that rejects every request, and
+  [`freshness.md`](spec/freshness.md) §1 requires a value on the wrong side of a
+  bound to fail at startup. The first version of that constructor took plain
+  `int64` and silently substituted the default for an explicit zero, accepting
+  a misconfiguration the Rust side refused. Both suites now carry the case.
 - **Where a flat package forces a different identifier from Rust's, the shared
   name is the one on the wire.** `Rejected`'s withdrawn-suite reason is
   `SuiteWithdrawnByRegistry` here and `Rejected::SuiteWithdrawn` in Rust, because

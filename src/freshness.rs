@@ -374,6 +374,20 @@ mod tests {
     }
 
     #[test]
+    fn an_explicit_zero_is_not_an_absent_value() {
+        // The divergence review found on the Go side, mirrored here so both
+        // suites carry the case. A zero window is not "configured nothing" — it
+        // is a configuration that rejects every request — and a zero nonce floor
+        // is below the specification's. `Option` distinguishes them for free;
+        // Go needed pointers to say the same thing, and had silently
+        // substituted the default for both.
+        assert!(FreshnessPolicy::from_config(None, Some(0), None).is_err());
+        assert!(FreshnessPolicy::from_config(None, None, Some(0)).is_err());
+        // And an explicit zero skew is legal: it is stricter, not laxer.
+        assert!(FreshnessPolicy::from_config(Some(0), None, None).is_ok());
+    }
+
+    #[test]
     fn a_laxer_configuration_fails_startup_rather_than_being_clamped() {
         // The important half. A clamped misconfiguration reads as success.
         let error = FreshnessPolicy::from_config(None, Some(600), None).unwrap_err();

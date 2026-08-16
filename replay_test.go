@@ -121,7 +121,7 @@ func TestAShorterConfiguredWindowShortensRetention(t *testing.T) {
 	// Configuration may only make a responder stricter, and retention is derived —
 	// so a tighter skew produces a shorter retention without this file knowing
 	// anything about configuration.
-	strict, err := NewFreshnessPolicy(5, 0, 0)
+	strict, err := NewFreshnessPolicy(FreshnessConfig{Skew: seconds(5)})
 	if err != nil {
 		t.Fatal(err)
 	}

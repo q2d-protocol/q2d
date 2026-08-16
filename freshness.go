@@ -63,24 +63,40 @@ func DefaultFreshnessPolicy() FreshnessPolicy {
 	}
 }
 
+// FreshnessConfig is what an operator wrote, with absent distinguished from
+// zero.
+//
+// Pointers rather than zero-value sentinels, and the difference is not
+// cosmetic: a zero window is not "configured nothing", it is a configuration
+// that rejects every request, and freshness.md §1 requires a value on the wrong
+// side of a bound to fail at startup. With a sentinel this file would silently
+// substitute the default for it — accepting a misconfiguration the Rust side
+// refuses, since Option<i64> tells None from Some(0). Review found exactly that
+// divergence.
+type FreshnessConfig struct {
+	Skew          *int64
+	Window        *int64
+	MinNonceBytes *int
+}
+
 // NewFreshnessPolicy builds from configuration, refusing anything laxer than the
 // specification.
 //
-// A zero argument means the operator configured nothing. The directions differ
-// per bound and they are not arbitrary: a smaller skew or window is stricter, and
-// a larger nonce floor is. That is the shape freshness.md §1's table states, and
+// A nil field means the operator configured nothing. The directions differ per
+// bound and they are not arbitrary: a smaller skew or window is stricter, and a
+// larger nonce floor is. That is the shape freshness.md §1's table states, and
 // getting one backwards would let configuration widen the interval a captured
 // envelope stays replayable in while looking like tightening.
-func NewFreshnessPolicy(skew, window int64, minNonceBytes int) (FreshnessPolicy, error) {
+func NewFreshnessPolicy(config FreshnessConfig) (FreshnessPolicy, error) {
 	policy := DefaultFreshnessPolicy()
-	if skew != 0 {
-		policy.skew = skew
+	if config.Skew != nil {
+		policy.skew = *config.Skew
 	}
-	if window != 0 {
-		policy.window = window
+	if config.Window != nil {
+		policy.window = *config.Window
 	}
-	if minNonceBytes != 0 {
-		policy.minNonceBytes = minNonceBytes
+	if config.MinNonceBytes != nil {
+		policy.minNonceBytes = *config.MinNonceBytes
 	}
 
 	// Named values, because this is the operator's own configuration file and
