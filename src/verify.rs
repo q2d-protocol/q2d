@@ -286,9 +286,13 @@ pub fn verify_query(
     base64url::decode(payload_segment).map_err(|_| Rejected::PayloadSegmentNotBase64url)?;
     base64url::decode(signature_segment).map_err(|_| Rejected::SignatureSegmentNotBase64url)?;
 
-    // Step 2 — the whole defence. Registry first, then policy — the order the two internal reasons need, since a suite that is not registered cannot also be below a floor. Both reach one wire value: §5.2.1's `unsupported_suite` being one value for two causes so that a
-    // requester cannot learn whether the custodian *knows* the suite it
-    // declined.
+    // Step 2 — the whole defence.
+    //
+    // Registry first, then policy, which is the order the two internal reasons
+    // need: a suite that is not registered cannot also be below a floor. Both
+    // reach one wire value — §5.2.1's `unsupported_suite` is one value for two
+    // causes, so a requester cannot learn whether the custodian *knows* the
+    // suite it declined.
     let entry = registry
         .resolve(&header.suite)
         .map_err(|_| Rejected::SuiteUnregistered)?;
@@ -340,17 +344,21 @@ pub fn verify_query(
         },
         _ => Err(Rejected::CoreObjectMalformed),
     };
-    // E-31, before the comparisons: a payload carrying `signature.value` is a
-    // shape no conforming producer emits under this suite, and it must not
-    // reach a caller whatever else agrees.
-    if matches!(signature, Some(Value::Object(members)) if members.contains_key("value")) {
-        return Err(Rejected::CoreObjectCarriesSignatureValue);
-    }
     if declared("profile")? != header.suite {
         return Err(Rejected::HeaderPayloadSuiteMismatch);
     }
     if declared("key_id")? != header.key_id {
         return Err(Rejected::HeaderPayloadKeyMismatch);
+    }
+
+    // E-31, and **after** the comparisons for the same reason the version check
+    // is: `signature.value` is a payload field, and §3 puts 5a before any step
+    // that acts on one. A payload that both carries a value and disagrees with
+    // its header answers with the disagreement.
+    if matches!(&core, Value::Object(m) if matches!(m.get("signature"),
+        Some(Value::Object(s)) if s.contains_key("value")))
+    {
+        return Err(Rejected::CoreObjectCarriesSignatureValue);
     }
 
     // **After 5a, not before.** `crypto-suites.md` §3 puts the two comparisons

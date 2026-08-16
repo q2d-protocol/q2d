@@ -353,13 +353,6 @@ func VerifyQuery(signed string, policy SuitePolicy, registry SuiteRegistry,
 		}
 		return string(s), nil
 	}
-	// E-31, before the comparisons: a payload carrying signature.value is a shape
-	// no conforming producer emits under this suite, and it must not reach a
-	// caller whatever else agrees.
-	if _, carries := signature["value"]; carries {
-		return nil, CoreObjectCarriesSignatureValue
-	}
-
 	profile, err := declared("profile")
 	if err != nil {
 		return nil, err
@@ -373,6 +366,14 @@ func VerifyQuery(signed string, policy SuitePolicy, registry SuiteRegistry,
 	}
 	if keyID != header.keyID {
 		return nil, HeaderPayloadKeyMismatch
+	}
+
+	// E-31, and after the comparisons for the same reason the version check is:
+	// signature.value is a payload field, and §3 puts 5a before any step that
+	// acts on one. A payload that both carries a value and disagrees with its
+	// header answers with the disagreement.
+	if _, carries := signature["value"]; carries {
+		return nil, CoreObjectCarriesSignatureValue
 	}
 
 	// After 5a, not before. crypto-suites.md §3 puts the two comparisons
