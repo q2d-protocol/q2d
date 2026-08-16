@@ -4513,8 +4513,15 @@ a request stays replayable exactly as long as it stays valid.
 ### Resolution — C
 
 [`freshness.md`](../spec/freshness.md), carrying the four bounds, the three
-freshness conditions, the leap-second rule, and the boundary in §4 above. P-004
-§4.3 and §4.4 now cite it and state nothing.
+freshness conditions, the leap-second rule, and the boundary in §4 above.
+
+**P-004 carries no constant anywhere**, which took two passes: §4.3 and §4.4
+were the sections that stated them, and §7's acceptance, §8's negative
+acceptance, §10's open questions and §11's issue 9 each restated one in its own
+words. Review found the second set after the first was declared done — the
+propagation failure this repository's checklist exists for, arriving inside the
+fix for a propagation failure. The one place a constant still appears is §4.3's
+quotation of its own superseded text, in the past tense and marked as such.
 
 **Writing it found a fourth thing, and this one is a defect rather than a
 relocation.** P-004 §4.4's window rule was a **ceiling** — *reject if
@@ -4525,6 +4532,12 @@ length is above no ceiling, and the other two conditions do not catch it: with
 condition as a range, `(0, window]`, and the interval is gone. The counterexample
 is in the document because a rule with a hole in it reads exactly like one
 without.
+
+**The nonce encoding was never stated either**, which review found: §3 says the
+floor is on the **decoded bytes** and names base64url without padding. Sixteen
+bytes is twenty-two base64url characters, so an implementation measuring the
+string against sixteen accepts a twelve-byte nonce — a disagreement two
+implementations reach independently and neither notices.
 
 **The nonce requirement is split rather than moved**, which is the part that
 changes what gets built. A responder holds one nonce and no distribution, so it

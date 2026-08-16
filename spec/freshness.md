@@ -108,9 +108,20 @@ cryptographically secure source.** This is what
 [`claims.md`](claims.md) Q2D-C-07 names under *Holds when*, and it is a
 requester-side obligation.
 
-**A responder must reject a `nonce` that decodes to fewer than 16 bytes.** That
-is a length floor and it is all a responder can check: it holds one nonce and no
-distribution, so it cannot measure entropy. Sixteen zero bytes have none and
+**`nonce` is base64url without padding**, as every other binary value the
+protocol carries in a JSON string is — the alphabet and the refusal of padding
+are RFC 4648 §5's, and a value that does not decode under it is a malformed core
+object.
+
+**A responder must reject a `nonce` that decodes to fewer than 16 bytes.** The
+floor is on the **decoded bytes** and not on the string, which is a distinction
+worth stating because the two differ: 16 bytes is 22 base64url characters, so a
+responder measuring the string against 16 would accept a 12-byte nonce. That is
+the kind of disagreement two implementations reach independently and neither
+notices.
+
+It is a length floor, and it is all a responder can check: it holds one nonce and
+no distribution, so it cannot measure entropy. Sixteen zero bytes have none and
 satisfy this rule.
 
 **These are not two statements of one requirement.** The floor is necessary and
