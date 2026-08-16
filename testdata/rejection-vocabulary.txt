@@ -8,7 +8,7 @@ core_object_string_too_long  malformed  5
 core_object_too_deep  malformed  5
 core_object_too_many_members  malformed  5
 core_object_unsupported_version  unsupported_version  5
-envelope_malformed  malformed  1
+envelope_signed_not_a_string  malformed  1
 envelope_string_too_long  malformed  1
 envelope_too_large  malformed  1
 envelope_unknown_member  malformed  1
