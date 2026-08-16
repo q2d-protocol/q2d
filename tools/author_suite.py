@@ -6,8 +6,10 @@
 
 [P-001](../docs/prds/P-001-conformance-corpus.md) §5 gives `suite/` as *"suite
 resolution, downgrade rejection, unknown suite"*, and issue 13 authors it.
-[P-003](../docs/prds/P-003-crypto-suites.md) §6 names five groups. Four are here
-in full; the fifth is not, and its absence is not about this tool — see below.
+[P-003](../docs/prds/P-003-crypto-suites.md) §6 names five groups. Three are here
+in full — `sign/`, `verify/`, `keys/` — `downgrade/` has every case but the
+below-floor one, and `status/` has none. Neither gap is about this tool; both
+wait on [E-48](../docs/open-escalations.md), and the section below says why.
 
 Generated with a `--check`, for the reason
 [`author_message.py`](author_message.py) is. The bytes come from
