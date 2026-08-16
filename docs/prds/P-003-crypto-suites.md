@@ -226,15 +226,20 @@ in a message. There is no code path that derives it from received data.
 a raw Ed25519 signature is not a Q2D operation, [P-001](P-001-conformance-corpus.md)
 §4.5's vocabulary has no name for one, and adding a name is issue 17's Stage 5–8
 change rather than this PRD's. Retiring it was the alternative to extending that
-vocabulary, and it is the right trade because the known answers are **already
-gated three ways** — a unit test in each implementation reading the committed key
-material, and `testdata/ed25519-acceptance.txt` for the ten cases RFC 8032 leaves
-open, which is the cross-implementation half. A corpus group would have added an
-operation to a closed vocabulary to re-assert what three tests already assert.
+vocabulary, and it is the right trade because a corpus group would have asserted
+**the same three answers** the unit gates already assert — TEST 1, 2 and 3, the
+ones `conformance/keys/` commits — at the cost of extending a closed vocabulary.
+It would not have added the two that are missing.
 
-§7's first acceptance criterion is unchanged and unaffected: it asks that raw
-Ed25519 reproduces RFC 8032 §7.1 in both implementations, and says nothing about
-where that is asserted.
+**Retiring the group is not a claim about coverage.** §7's first criterion asks
+for *every* §7.1 vector and is **unticked**: TEST 1024 and TEST SHA(abc) are
+neither committed nor asserted anywhere, by a vector or otherwise. What a corpus
+group would have changed is where three answers are checked, not how many.
+
+The cross-implementation half is separate and does exist:
+`testdata/ed25519-acceptance.txt` holds both implementations to the same answers
+on the ten cases RFC 8032 leaves open, which is a different question from its
+published known answers.
 
 | Group | Vectors |
 |---|---|
