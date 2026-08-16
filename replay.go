@@ -235,6 +235,95 @@ func (c *ReplayCache) Evict(now int64) int {
 	return len(stale) + len(staleNonces)
 }
 
+// ReplayOutcome is what step 9 concluded — P-004 §4.2, extended to four cases by
+// E-50.
+type ReplayOutcome int
+
+const (
+	// ReplayFresh: no record of this exchange. Proceed.
+	ReplayFresh ReplayOutcome = iota
+	// ReplayReplayed: the same request arriving again. The stored bytes,
+	// verbatim — P-004 §4.5, and issue 6: not re-evaluated and not re-signed,
+	// because re-signing regenerates decided_at and two retries would differ.
+	// That difference tells a requester the responder re-evaluated, which under
+	// opaque escalation is the state transition core-model.md §5.3 forbids
+	// revealing.
+	ReplayReplayed
+	// ReplayQueryIDReuse: same query_id, different content — P-004 §4.2's third
+	// row.
+	//
+	// A decision rather than a fallout: it could be a requester retrying after
+	// correcting a contract, or an attacker probing for cache confusion.
+	// Rejecting makes one query_id mean one exchange, and a requester needing to
+	// correct a request issues a new identifier.
+	ReplayQueryIDReuse
+	// ReplayNonceReuse: same nonce, different content, under a different
+	// query_id — E-50.
+	ReplayNonceReuse
+)
+
+// InternalReason is the corpus's name for a rejecting outcome, and empty for the
+// two that are not rejections.
+//
+// There is deliberately no ExternalReason here, and the reason is not tidiness.
+// Every reason in the Rejected type maps to a wire value fixed by core-model.md
+// §5.2.1's table. These two do not: §5.2.1 gives everything from step 9 onward
+// the value the responder's pinned registry declares — denial_normalization,
+// which is unavailable in the reference manifest and is data. A constant here
+// would be one deployment's configuration compiled into every deployment. P-009
+// builds the response and reads the registry.
+func (o ReplayOutcome) InternalReason() string {
+	switch o {
+	case ReplayQueryIDReuse:
+		return "query_id_reuse"
+	case ReplayNonceReuse:
+		return "nonce_reuse"
+	default:
+		return ""
+	}
+}
+
+// Step is core-model.md §4's step. Always 9 for a rejecting outcome, empty
+// otherwise.
+func (o ReplayOutcome) Step() string {
+	if o == ReplayQueryIDReuse || o == ReplayNonceReuse {
+		return "9"
+	}
+	return ""
+}
+
+// Check is core-model.md §4 step 9, over both indexes.
+//
+// The second return carries the stored response, and is non-nil only for
+// ReplayReplayed.
+//
+// # Order, and why it is this one
+//
+// The query_id index first. A genuine retry matches there, and its nonce record
+// necessarily matches too — so consulting the nonce index first would have to
+// special-case the retry to avoid rejecting it, and a rule with an exception
+// carved out for the common case is a rule waiting to be got wrong.
+//
+// # The case that cannot happen, and is handled anyway
+//
+// A nonce record whose digest equals the request's, reached after the query_id
+// index found nothing, is a contradiction: equal digests mean equal signed bytes,
+// and query_id is inside those bytes, so the primary index would have found it.
+// It is treated as a rejection rather than waved through, because the alternative
+// is deciding that an impossible state is safe.
+func (c *ReplayCache) Check(principal, queryID, nonce, requestDigest string, now int64) (ReplayOutcome, []byte) {
+	if entry, ok := c.Get(principal, queryID, now); ok {
+		if entry.RequestDigest == requestDigest {
+			return ReplayReplayed, entry.ResponseBytes
+		}
+		return ReplayQueryIDReuse, nil
+	}
+	if _, ok := c.NonceUsed(principal, nonce, now); ok {
+		return ReplayNonceReuse, nil
+	}
+	return ReplayFresh, nil
+}
+
 // Len returns how many entries are held, for tests and operator tooling.
 //
 // Counts entries that are still stored, including any past their retention

@@ -244,3 +244,96 @@ func TestReplacingAnEntryRetiresTheNonceItReplaced(t *testing.T) {
 		t.Errorf("%+v %v", use, ok)
 	}
 }
+
+func TestTheFourOutcomes(t *testing.T) {
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	if got, _ := cache.Check("p", "q1", "n1", "sha256:aa", replayExpires); got != ReplayFresh {
+		t.Errorf("nothing recorded: %v, want fresh", got)
+	}
+
+	cache.Insert(policy, "p", "q1", "sha256:aa", []byte("answer"), "n1", replayExpires)
+
+	got, response := cache.Check("p", "q1", "n1", "sha256:aa", replayExpires)
+	if got != ReplayReplayed || !bytes.Equal(response, []byte("answer")) {
+		t.Errorf("retry: %v %q", got, response)
+	}
+	if got, _ := cache.Check("p", "q1", "n1", "sha256:bb", replayExpires); got != ReplayQueryIDReuse {
+		t.Errorf("same query_id, different content: %v", got)
+	}
+	// E-50's case, and the one the primary index alone cannot see.
+	if got, _ := cache.Check("p", "q2", "n1", "sha256:bb", replayExpires); got != ReplayNonceReuse {
+		t.Errorf("nonce reused under a new identifier: %v", got)
+	}
+	if got, _ := cache.Check("p", "q2", "n2", "sha256:bb", replayExpires); got != ReplayFresh {
+		t.Errorf("a wholly new request: %v", got)
+	}
+}
+
+func TestARetryIsAReplayAndNotANonceReuse(t *testing.T) {
+	// Why the query_id index is consulted first. A genuine retry matches both
+	// indexes, so a nonce-first order would have to special-case it — and a rule
+	// with an exception carved out for the common case is a rule waiting to be got
+	// wrong.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	cache.Insert(policy, "p", "q", "sha256:aa", []byte("answer"), "n", replayExpires)
+	if _, ok := cache.NonceUsed("p", "n", replayExpires); !ok {
+		t.Fatal("both indexes should match")
+	}
+	if got, _ := cache.Check("p", "q", "n", "sha256:aa", replayExpires); got != ReplayReplayed {
+		t.Errorf("%v, want replayed", got)
+	}
+}
+
+func TestAReplayReturnsTheBytesThatWereStored(t *testing.T) {
+	// Issue 6. Not re-evaluated and not re-signed: re-signing regenerates
+	// decided_at, two retries would differ, and that difference tells a requester
+	// the responder re-evaluated — which under opaque escalation is what §5.3
+	// forbids revealing.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	cache.Insert(policy, "p", "q", "sha256:aa", []byte("exactly these"), "n", replayExpires)
+	_, first := cache.Check("p", "q", "n", "sha256:aa", replayExpires)
+	_, second := cache.Check("p", "q", "n", "sha256:aa", replayExpires)
+	if !bytes.Equal(first, second) {
+		t.Errorf("two retries differ: %q %q", first, second)
+	}
+	if !bytes.Equal(first, []byte("exactly these")) {
+		t.Errorf("%q", first)
+	}
+}
+
+func TestAnExpiredEntryMakesTheRequestFreshAgain(t *testing.T) {
+	// Both indexes stop answering at the same instant, so a request past retention
+	// is fresh rather than half-remembered. It cannot actually reach step 9 — §2
+	// rejects it at step 6 — and the store does not rely on that, because a store
+	// that depended on a caller checking first would be a store with an
+	// undocumented precondition.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	cache.Insert(policy, "p", "q", "sha256:aa", nil, "n", replayExpires)
+	after := policy.RetainThrough(replayExpires) + 1
+	if got, _ := cache.Check("p", "q", "n", "sha256:aa", after); got != ReplayFresh {
+		t.Errorf("%v, want fresh", got)
+	}
+}
+
+func TestTheTwoRejectionsAreToldApartInternallyAndShareAStep(t *testing.T) {
+	// The wire value is deliberately absent from this type: §5.2.1 gives
+	// everything from step 9 onward the value the responder's pinned registry
+	// declares, which is data. A constant here would compile one deployment's
+	// configuration into every deployment.
+	seen := map[string]struct{}{}
+	for _, o := range []ReplayOutcome{ReplayQueryIDReuse, ReplayNonceReuse} {
+		seen[o.InternalReason()] = struct{}{}
+		if o.Step() != "9" {
+			t.Errorf("%v at step %q", o, o.Step())
+		}
+	}
+	if len(seen) != 2 {
+		t.Error("an operator cannot tell the two rejections apart")
+	}
+	// And the two non-rejections name no reason and no step.
+	for _, o := range []ReplayOutcome{ReplayFresh, ReplayReplayed} {
+		if o.InternalReason() != "" || o.Step() != "" {
+			t.Errorf("%v reports %q at %q", o, o.InternalReason(), o.Step())
+		}
+	}
+}
