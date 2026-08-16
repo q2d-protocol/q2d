@@ -426,6 +426,25 @@ impl Manifest {
             _ => return Err(LoadError("`assurance_profiles` is not an array".into())),
         };
 
+        // **Issue 12: the stored digest is recomputed, never trusted.** A
+        // manifest whose entry says what its own digest is would be vouching for
+        // itself, which is the same mistake as reading verification parameters
+        // out of a protected header. `entry_digest_rule` in the manifest states
+        // the rule by citation: sha256 over the entry with `entry_digest`
+        // removed, serialized under `serialization.md` §1.
+        //
+        // Done here, while the parsed value is still in hand. Recomputing later
+        // would mean either keeping every entry's `Value` alongside its typed
+        // form — two representations that can disagree — or re-reading the file.
+        let stored = text(value, "entry_digest")?;
+        let recomputed = Self::recompute_entry_digest(value, &id)?;
+        if recomputed != stored {
+            return Err(LoadError(format!(
+                "`{id}` version `{version}` stores entry digest {stored} and computes \
+                 {recomputed}; a stored digest is data, not evidence"
+            )));
+        }
+
         Ok(Entry {
             id,
             version,
@@ -438,8 +457,25 @@ impl Manifest {
             effective_from,
             revoked_from,
             assurance_profiles,
-            entry_digest: text(value, "entry_digest")?,
+            entry_digest: stored,
         })
+    }
+
+    /// sha256 over the entry with `entry_digest` removed, serialized under
+    /// `serialization.md` §1 — the manifest's own `entry_digest_rule`.
+    fn recompute_entry_digest(value: &Value, id: &str) -> Result<String, LoadError> {
+        let Value::Object(fields) = value else {
+            return Err(LoadError(format!("`{id}` is not an object")));
+        };
+        let mut without = fields.clone();
+        // Removed rather than blanked. A digest over an entry carrying an empty
+        // `entry_digest` would be a different rule from the one the manifest
+        // states, and would still be self-referential in shape.
+        without.remove("entry_digest");
+        let bytes = crate::value::serialize(&Value::Object(without)).map_err(|e| {
+            LoadError(format!("`{id}` cannot be serialized for its digest: {e}"))
+        })?;
+        Ok(crate::digest::digest(&bytes))
     }
 
     /// Look an entry up by identifier and version.
@@ -488,6 +524,133 @@ impl Manifest {
         self.entries.is_empty()
     }
 }
+
+/// Why resolution refused — P-005 §4.7 items 5 to 8, plus §4.5's digest.
+///
+/// **Not a wire value, for the reason [`crate::replay::ReplayRejection`] is
+/// not.** `core-model.md` §5.2.1 gives everything from step 9 onward the value
+/// the responder's **pinned registry** declares, and resolution is step 10. The
+/// value is [`Manifest::denial_normalization`] — data this custodian pinned —
+/// so a constant here would compile one deployment's configuration into every
+/// deployment.
+///
+/// §4.7 requires all of these to be indistinguishable on the wire. They are told
+/// apart **only** in a local audit event, which is what the separate internal
+/// reasons are for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResolveError {
+    /// No entry with this identifier, at any version.
+    UnknownPredicate,
+    /// The identifier is known and this version is not.
+    ///
+    /// Separate from [`Self::UnknownPredicate`] for the operator, and identical
+    /// to it on the wire: distinguishing them would tell a requester that the
+    /// predicate exists, which is exactly the custodian-private policy §4.7
+    /// withholds.
+    UnknownVersion,
+    /// `deprecated` or `revoked` — §4.6.
+    NotResolvable,
+    /// `effective_from` is in the future.
+    NotYetEffective,
+    /// `revoked_from` has passed.
+    ///
+    /// Distinct from [`Self::NotResolvable`] because a manifest may carry a
+    /// revocation date on an entry still marked active — the date is what
+    /// governs, and an operator needs to know which of the two refused.
+    RevokedByDate,
+    /// The requester's `predicate.registry_digest` is not this entry's — §4.5.
+    EntryDigestMismatch,
+}
+
+impl ResolveError {
+    /// The corpus's name for this reason.
+    pub fn internal_reason(&self) -> &'static str {
+        match self {
+            ResolveError::UnknownPredicate => "unknown_predicate",
+            ResolveError::UnknownVersion => "unknown_predicate_version",
+            ResolveError::NotResolvable => "predicate_not_resolvable",
+            ResolveError::NotYetEffective => "predicate_not_yet_effective",
+            ResolveError::RevokedByDate => "predicate_revoked",
+            ResolveError::EntryDigestMismatch => "entry_digest_mismatch",
+        }
+    }
+
+    /// `core-model.md` §4's step. Always 10.
+    pub fn step(&self) -> &'static str {
+        "10"
+    }
+}
+
+impl Manifest {
+    /// `core-model.md` §4 step 10 — P-005 §4.5 and §4.6.
+    ///
+    /// ## The declared digest is a parameter, not a second call
+    ///
+    /// §5: *"a separate comparison call could be skipped; a parameter cannot."*
+    /// A caller holding an [`Entry`] has already passed the comparison, which is
+    /// why [`Manifest::entry_for`] is named as a lookup and this is named as the
+    /// resolution.
+    ///
+    /// ## Order
+    ///
+    /// Existence, then status, then dates, then the declared digest. The digest
+    /// is last because it is the only one that depends on what the *requester*
+    /// said — the others are facts about the entry, and an operator reading an
+    /// audit event wants the entry's own problem named before the requester's.
+    ///
+    /// ## What is not here
+    ///
+    /// §4.7 item 9 — an entry requiring an assurance profile the responder does
+    /// not support. That needs the responder's supported set, which is neither
+    /// in the manifest nor in a message, and the module that knows it is the
+    /// pipeline's. It shares this wire value when it lands.
+    pub fn resolve(
+        &self,
+        id: &str,
+        version: &str,
+        declared_entry_digest: &str,
+        now: &str,
+    ) -> Result<&Entry, ResolveError> {
+        let Some(entry) = self.entry_for(id, version) else {
+            // Which of the two it is costs an extra lookup and is worth it: an
+            // operator debugging a requester's integration needs to know whether
+            // the predicate is unknown or the version is, and §4.7 makes both
+            // identical on the wire regardless.
+            let known = self.entries.keys().any(|(known_id, _)| known_id == id);
+            return Err(if known {
+                ResolveError::UnknownVersion
+            } else {
+                ResolveError::UnknownPredicate
+            });
+        };
+        if !entry.status.resolvable() {
+            return Err(ResolveError::NotResolvable);
+        }
+        // Dates compare as text, which is exact rather than convenient:
+        // `YYYY-MM-DD` sorts identically as a string and as a date, and a §2.2
+        // timestamp begins with exactly that. So a date is compared against the
+        // date part of `now` with no parsing and no timezone question.
+        let today = &now[..DATE_LENGTH.min(now.len())];
+        if today < entry.effective_from.as_str() {
+            return Err(ResolveError::NotYetEffective);
+        }
+        if let Some(revoked_from) = &entry.revoked_from {
+            // On the day itself the entry is already revoked. A revocation that
+            // took effect at the end of its own date would leave a day in which
+            // an entry a publisher has withdrawn still answers.
+            if today >= revoked_from.as_str() {
+                return Err(ResolveError::RevokedByDate);
+            }
+        }
+        if declared_entry_digest != entry.entry_digest {
+            return Err(ResolveError::EntryDigestMismatch);
+        }
+        Ok(entry)
+    }
+}
+
+/// `YYYY-MM-DD`.
+const DATE_LENGTH: usize = 10;
 
 #[cfg(test)]
 mod tests {
@@ -562,18 +725,45 @@ mod tests {
         assert!(crate::suites::SuiteStatus::Deprecated.may_verify());
     }
 
+    /// A one-entry manifest whose entry digest is **correct by construction**.
+    ///
+    /// The rule is restated here, which is a duplication worth naming: the
+    /// fixture has to be valid for the tests that are about something else, and
+    /// a fixture carrying a wrong digest would fail every one of them for the
+    /// wrong reason.
+    ///
+    /// What checks the rule itself is not this. It is the **reference
+    /// manifest**, whose three stored digests were authored by
+    /// `registry/validate.py` in Python and now recompute in Rust and in Go —
+    /// three readings of `entry_digest_rule` that have to agree.
     fn manifest_with(entry_patch: &str) -> Result<Manifest, LoadError> {
-        let raw = format!(
-            r#"{{"capacity_unit":{{"name":"millibits"}},
-                 "denial_normalization":{{"external_reason":"unavailable"}},
-                 "predicates":[{{"id":"p","version":"0.1","status":"active",
+        manifest_with_revocation(entry_patch, "null")
+    }
+
+    fn manifest_with_revocation(
+        entry_patch: &str,
+        revoked_from: &str,
+    ) -> Result<Manifest, LoadError> {
+        let body = format!(
+            r#"{{"id":"p","version":"0.1","status":"active",
                  "release_shape":"boolean",
                  "public_context_schema":{{}},"private_input_schema":{{}},
                  "output_schema":{{}},"answer_domain":{{}},"freshness":{{}},
                  "test_vectors":[],"assurance_profiles":["a"],
                  "sensitivity":{{"class":"low"}},
-                 "provenance":{{"effective_from":"2026-01-01","revoked_from":null}},
-                 "entry_digest":"sha256:aa",{entry_patch}}}]}}"#
+                 "provenance":{{"effective_from":"2026-01-01","revoked_from":{revoked_from}}},
+                 {entry_patch}}}"#
+        );
+        // Digest the entry as the rule says — without `entry_digest` — then put
+        // the result in and wrap it in a manifest.
+        let entry = parse::parse(body.as_bytes())
+            .map_err(|e| LoadError(format!("the fixture does not parse: {e}")))?;
+        let digest = crate::digest::digest(&crate::value::serialize(&entry).unwrap());
+        let raw = format!(
+            r#"{{"capacity_unit":{{"name":"millibits"}},
+                 "denial_normalization":{{"external_reason":"unavailable"}},
+                 "predicates":[{}, "entry_digest":"{digest}"}}]}}"#,
+            &body[..body.len() - 1]
         );
         Manifest::parse(raw.as_bytes())
     }
@@ -585,6 +775,132 @@ mod tests {
         let error = manifest_with(r#""capacity":{"unit":"millibits","millibits":1000.5}"#)
             .unwrap_err();
         assert!(error.to_string().contains("integer"), "{error}");
+    }
+
+    const MENU: &str = "https://q2d.dev/predicates/dietary/menu-compatible";
+
+    #[test]
+    fn a_known_entry_resolves_when_the_declared_digest_matches() {
+        let manifest = reference();
+        let entry = manifest
+            .resolve(MENU, "0.1", DIGEST, "2026-08-31T09:00:00Z")
+            .expect("resolves");
+        assert_eq!(entry.id(), MENU);
+    }
+
+    #[test]
+    fn a_declared_digest_that_differs_rejects() {
+        // §4.5. The failure this closes is **semantic mutation without shape
+        // change**: a predicate edited from *is any item compatible* to *does
+        // any item conflict* keeps its release shape, domain, capacity and
+        // schema, so every other check passes and the answer means the opposite
+        // of what the requester believes.
+        let manifest = reference();
+        let wrong = "sha256:0000000000000000000000000000000000000000000000000000000000000000";
+        assert_eq!(
+            manifest.resolve(MENU, "0.1", wrong, "2026-08-31T09:00:00Z"),
+            Err(ResolveError::EntryDigestMismatch)
+        );
+    }
+
+    #[test]
+    fn an_unknown_predicate_and_an_unknown_version_are_told_apart_only_locally() {
+        // Two internal reasons, and §4.7 makes them one wire value: telling them
+        // apart on the wire would say the predicate exists, which is the
+        // custodian-private policy the uniformity rule withholds.
+        let manifest = reference();
+        let now = "2026-08-31T09:00:00Z";
+        assert_eq!(
+            manifest.resolve("https://q2d.dev/predicates/nope", "0.1", DIGEST, now),
+            Err(ResolveError::UnknownPredicate)
+        );
+        assert_eq!(
+            manifest.resolve(MENU, "9.9", DIGEST, now),
+            Err(ResolveError::UnknownVersion)
+        );
+    }
+
+    #[test]
+    fn an_entry_that_is_not_yet_effective_rejects() {
+        // The reference entries are effective from 2026-08-03, so a `now` before
+        // that is the case. Text comparison on the date part, which is exact.
+        let manifest = reference();
+        assert_eq!(
+            manifest.resolve(MENU, "0.1", DIGEST, "2026-08-02T23:59:59Z"),
+            Err(ResolveError::NotYetEffective)
+        );
+        // And the first day it is effective resolves.
+        assert!(manifest.resolve(MENU, "0.1", DIGEST, "2026-08-03T00:00:00Z").is_ok());
+    }
+
+    #[test]
+    fn a_revocation_date_takes_effect_on_the_day_itself() {
+        // A revocation that began at the *end* of its own date would leave a
+        // whole day in which an entry the publisher has withdrawn still answers.
+        //
+        // Built as a fixture rather than by editing the reference manifest,
+        // which is what the first version of this test did — and the digest
+        // recomputation refused it, correctly: changing `revoked_from` changes
+        // the entry, so the stored digest no longer describes it.
+        let manifest = manifest_with_revocation(
+            r#""capacity":{"unit":"millibits","millibits":1}"#,
+            r#""2026-09-01""#,
+        )
+        .expect("parses");
+        let digest = manifest.entry_for("p", "0.1").unwrap().stored_entry_digest().to_string();
+        assert!(manifest.resolve("p", "0.1", &digest, "2026-08-31T23:59:59Z").is_ok());
+        assert_eq!(
+            manifest.resolve("p", "0.1", &digest, "2026-09-01T00:00:00Z"),
+            Err(ResolveError::RevokedByDate)
+        );
+    }
+
+    #[test]
+    fn every_resolution_failure_shares_a_step_and_is_told_apart_internally() {
+        // §4.7's uniformity, in the half this module can assert: distinct
+        // internal reasons, one step, and **no wire value on the type at all**
+        // — §5.2.1 makes that the pinned registry's `denial_normalization`,
+        // which is why it is read from the manifest and not from a constant.
+        let reasons = [
+            ResolveError::UnknownPredicate,
+            ResolveError::UnknownVersion,
+            ResolveError::NotResolvable,
+            ResolveError::NotYetEffective,
+            ResolveError::RevokedByDate,
+            ResolveError::EntryDigestMismatch,
+        ];
+        let internal: std::collections::BTreeSet<_> =
+            reasons.iter().map(|r| r.internal_reason()).collect();
+        assert_eq!(internal.len(), reasons.len(), "two share an internal reason");
+        assert!(reasons.iter().all(|r| r.step() == "10"));
+        assert_eq!(reference().denial_normalization(), "unavailable");
+    }
+
+    #[test]
+    fn a_tampered_entry_is_refused_even_with_a_matching_stored_digest() {
+        // Issue 12. The manifest would otherwise vouch for itself: a publisher
+        // editing an entry and updating its stored digest to match would pass
+        // every check, which is what §4.5 exists to close on the requester's
+        // side and this closes on the custodian's.
+        let raw = std::fs::read(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("registry")
+                .join("manifest.json"),
+        )
+        .unwrap();
+        let tampered =
+            String::from_utf8(raw).unwrap().replace(r#""release_shape": "boolean""#, r#""release_shape": "enum""#);
+        let error = Manifest::parse(tampered.as_bytes()).unwrap_err();
+        assert!(error.to_string().contains("stores entry digest"), "{error}");
+    }
+
+    #[test]
+    fn the_reference_manifests_stored_digests_recompute() {
+        // The check on the *rule* rather than on a fixture. These three digests
+        // were authored by `registry/validate.py` in Python; recomputing them
+        // here is a second reading of `entry_digest_rule`, and Go's is a third.
+        // A disagreement would be a specification ambiguity found.
+        assert_eq!(reference().len(), 3, "all three recomputed, or parse failed");
     }
 
     #[test]
