@@ -282,3 +282,20 @@ func TestAVersionThisBuildDoesNotImplementIsRefusedAtStep5(t *testing.T) {
 		t.Errorf("step %q", got)
 	}
 }
+
+func TestAHeaderWrongInTwoWaysReachesOneReasonEveryTime(t *testing.T) {
+	// Go randomizes map iteration and Rust walks a BTreeMap in key order, so a
+	// header carrying an extra member *and* a member of the wrong type could
+	// otherwise reach a different internal reason on different runs — and a
+	// different one from Rust. The wire value collapses them; the corpus asserts
+	// the internal reason.
+	header := `{"alg":"none","key_id":"test-requester-1","suite":1}`
+	first, _ := verifyIt(t, signedHeader(t, header, keyFor(t, "test-requester-1")))
+	_ = first
+	for i := 0; i < 200; i++ {
+		_, err := verifyIt(t, signedHeader(t, header, keyFor(t, "test-requester-1")))
+		if err != HeaderMemberNotPermitted {
+			t.Fatalf("run %d reached %v", i, err)
+		}
+	}
+}

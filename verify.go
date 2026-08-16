@@ -31,7 +31,10 @@
 // rather than by a rule about the parameters it carries.
 package q2d
 
-import "strings"
+import (
+	"sort"
+	"strings"
+)
 
 // Rejected is why a message was rejected, as a responder records it locally.
 //
@@ -216,7 +219,18 @@ func readHeader(segment string) (protectedHeaderFields, error) {
 	// naming it — and so is any parameter that would weaken verification, which
 	// is issue 12's vector. No special case exists for either, and none may be
 	// added.
+	//
+	// Sorted, because Go randomizes map iteration and Rust walks a BTreeMap in
+	// key order. A header that is wrong in two ways at once — an extra member
+	// and a member of the wrong type — would otherwise reach a different
+	// internal reason on different runs, and a different one from Rust. The wire
+	// value collapses them; the corpus asserts the internal reason.
+	names := make([]string, 0, len(members))
 	for name := range members {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
 		if name != "suite" && name != "key_id" {
 			return protectedHeaderFields{}, HeaderMemberNotPermitted
 		}
