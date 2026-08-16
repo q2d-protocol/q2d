@@ -1,0 +1,27 @@
+{
+  "id": "suite/verify/payload-not-base64url",
+  "section": "suite",
+  "requirement": [
+    "crypto-suites.md#3",
+    "core-model.md#5.2.1"
+  ],
+  "description": "Three segments, and the **payload** is not base64url. The sibling of `header-not-base64url`, and it exists because a verifier reaches the header and the signature on its own account — it reads one and checks the other — while the payload is only decoded after verification succeeds. An implementation that checked the two it touches and left this one to the parse at step 5 would reject it as `malformed` instead, which sends the requester to its serializer for a fault in its JWS construction.",
+  "operation": "verify_query",
+  "input": {
+    "envelope": {
+      "signed": "eyJrZXlfaWQiOiJ0ZXN0LXJlcXVlc3Rlci0xIiwic3VpdGUiOiJlZGRzYS1qd3MtMjAyNiJ9.not base64url!.Rri6l0QSySqk8duLn7SqV69QLT2PNPjctjeoAOhWf1gkfvAQETDBuBgXgT2Xerd_AtIdizWbtqlOQq6BSaehCg"
+    }
+  },
+  "expect": {
+    "outcome": "rejected",
+    "rejection": {
+      "internal_reason": "payload_segment_not_base64url",
+      "wire": {
+        "status": "deny",
+        "external_reason": "structurally_invalid"
+      },
+      "step": 3
+    },
+    "comparison": "bytes"
+  }
+}

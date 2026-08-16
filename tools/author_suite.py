@@ -208,6 +208,46 @@ def vectors() -> list[dict]:
             "expect": rejects("compact_segment_count", "structurally_invalid", 3),
         },
         {
+            "id": "suite/verify/payload-not-base64url",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#5.2.1"],
+            "description": (
+                "Three segments, and the **payload** is not base64url. The "
+                "sibling of `header-not-base64url`, and it exists because a "
+                "verifier reaches the header and the signature on its own "
+                "account — it reads one and checks the other — while the "
+                "payload is only decoded after verification succeeds. An "
+                "implementation that checked the two it touches and left this "
+                "one to the parse at step 5 would reject it as `malformed` "
+                "instead, which sends the requester to its serializer for a "
+                "fault in its JWS construction."
+            ),
+            "operation": "verify_query",
+            "input": envelope(f"{valid.split('.')[0]}.not base64url!.{valid.split('.')[2]}"),
+            "expect": rejects("payload_segment_not_base64url", "structurally_invalid", 3),
+        },
+        {
+            "id": "suite/verify/header-not-an-object",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#5.2.1"],
+            "description": (
+                "A header segment that decodes, and decodes to a JSON string "
+                "rather than an object. §3 says the header has exactly two "
+                "members, which presupposes it is an object at all — and the "
+                "case is worth its own vector because it is the one that gets "
+                "*past* the base64url check and still has no suite to read. "
+                "`structurally_invalid` for the same reason as the rest of the "
+                "container: the fault is in what §3 defines."
+            ),
+            "operation": "verify_query",
+            "input": envelope(".".join([
+                av.base64url(b'"not an object"'),
+                valid.split(".")[1],
+                valid.split(".")[2],
+            ])),
+            "expect": rejects("header_not_an_object", "structurally_invalid", 3),
+        },
+        {
             "id": "suite/verify/header-not-base64url",
             "section": "suite",
             "requirement": ["crypto-suites.md#3", "core-model.md#5.2.1"],

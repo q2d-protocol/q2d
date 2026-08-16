@@ -42,18 +42,23 @@ fn every_reason_this_module_produces_matches_the_corpus() {
         ("suite_unregistered", Rejected::SuiteUnregistered),
         ("key_unresolvable", Rejected::KeyUnresolvable),
         ("signature_invalid", Rejected::SignatureInvalid),
-        ("unsupported_version", Rejected::UnsupportedVersion),
+        ("core_object_unsupported_version", Rejected::UnsupportedVersion),
+        ("header_not_an_object", Rejected::HeaderNotAnObject),
+        ("payload_segment_not_base64url", Rejected::PayloadSegmentNotBase64url),
         ("header_payload_suite_mismatch", Rejected::HeaderPayloadSuiteMismatch),
         ("header_payload_key_mismatch", Rejected::HeaderPayloadKeyMismatch),
     ];
 
     let mut checked = 0;
     for (name, rejected) in ours {
-        let Some((external, step)) = corpus.get(name) else {
-            // A reason with no vector yet is not a failure — it is a vector
-            // this section still owes, and P-003's issue rows say which.
-            continue;
-        };
+        // **Not a skip.** Every name listed above is claimed to be the
+        // corpus's, so one that is not found is a typo in this list — and a
+        // typo here makes the test pass while checking nothing, which is how
+        // `core_object_unsupported_version` went unchecked under the name
+        // `unsupported_version` until review found it.
+        let (external, step) = corpus
+            .get(name)
+            .unwrap_or_else(|| panic!("`{name}` is not an internal reason the corpus uses"));
         assert_eq!(
             rejected.external_reason(),
             *external,

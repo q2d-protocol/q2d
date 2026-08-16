@@ -57,8 +57,11 @@ pub enum Rejected {
     HeaderSegmentNotBase64url,
     PayloadSegmentNotBase64url,
     SignatureSegmentNotBase64url,
-    /// The header is not an object, or carries a member §3 does not permit.
-    HeaderMalformed,
+    /// The header decoded and is not an object.
+    HeaderNotAnObject,
+    /// The header is an object and a member is not a string.
+    HeaderMemberNotAString,
+    /// The header carries a member §3 does not permit.
     HeaderMemberNotPermitted,
     /// The suite is unregistered, or outside the verifier's acceptable set.
     ///
@@ -113,7 +116,8 @@ impl Rejected {
             | Rejected::HeaderSegmentNotBase64url
             | Rejected::PayloadSegmentNotBase64url
             | Rejected::SignatureSegmentNotBase64url
-            | Rejected::HeaderMalformed
+            | Rejected::HeaderNotAnObject
+            | Rejected::HeaderMemberNotAString
             | Rejected::HeaderMemberNotPermitted
             | Rejected::HeaderPayloadSuiteMismatch
             | Rejected::HeaderPayloadKeyMismatch => "structurally_invalid",
@@ -135,7 +139,8 @@ impl Rejected {
             | Rejected::HeaderSegmentNotBase64url
             | Rejected::PayloadSegmentNotBase64url
             | Rejected::SignatureSegmentNotBase64url
-            | Rejected::HeaderMalformed
+            | Rejected::HeaderNotAnObject
+            | Rejected::HeaderMemberNotAString
             | Rejected::HeaderMemberNotPermitted
             | Rejected::SuiteUnregistered
             | Rejected::SuiteBelowPolicy => "3",
@@ -157,7 +162,8 @@ impl fmt::Display for Rejected {
             Rejected::HeaderSegmentNotBase64url => "the header segment is not base64url",
             Rejected::PayloadSegmentNotBase64url => "the payload segment is not base64url",
             Rejected::SignatureSegmentNotBase64url => "the signature segment is not base64url",
-            Rejected::HeaderMalformed => "the protected header is not an object",
+            Rejected::HeaderNotAnObject => "the protected header is not an object",
+            Rejected::HeaderMemberNotAString => "a protected header member is not a string",
             Rejected::HeaderMemberNotPermitted => {
                 "the protected header carries a member crypto-suites.md §3 does not permit"
             }
@@ -198,10 +204,10 @@ fn read_header(segment: &str) -> Result<Header, Rejected> {
     let bytes = base64url::decode(segment).map_err(|_| Rejected::HeaderSegmentNotBase64url)?;
     // The crate's own parser: duplicate keys are refused rather than resolved,
     // so a header carrying `suite` twice is not a header with one of them.
-    let value = crate::parse(&bytes).map_err(|_| Rejected::HeaderMalformed)?;
+    let value = crate::parse(&bytes).map_err(|_| Rejected::HeaderNotAnObject)?;
     let members = match value {
         Value::Object(members) => members,
-        _ => return Err(Rejected::HeaderMalformed),
+        _ => return Err(Rejected::HeaderNotAnObject),
     };
 
     // Closed. An `alg` member is rejected here, by the set rather than by a
@@ -215,7 +221,7 @@ fn read_header(segment: &str) -> Result<Header, Rejected> {
     }
     let text = |name: &str| match members.get(name) {
         Some(Value::String(s)) => Ok(s.clone()),
-        _ => Err(Rejected::HeaderMalformed),
+        _ => Err(Rejected::HeaderMemberNotAString),
     };
     Ok(Header {
         suite: text("suite")?,
@@ -553,7 +559,8 @@ mod tests {
             (Rejected::HeaderSegmentNotBase64url, "structurally_invalid", "3"),
             (Rejected::PayloadSegmentNotBase64url, "structurally_invalid", "3"),
             (Rejected::SignatureSegmentNotBase64url, "structurally_invalid", "3"),
-            (Rejected::HeaderMalformed, "structurally_invalid", "3"),
+            (Rejected::HeaderNotAnObject, "structurally_invalid", "3"),
+            (Rejected::HeaderMemberNotAString, "structurally_invalid", "3"),
             (Rejected::HeaderMemberNotPermitted, "structurally_invalid", "3"),
             (Rejected::SuiteUnregistered, "unsupported_suite", "3"),
             (Rejected::SuiteBelowPolicy, "unsupported_suite", "3"),

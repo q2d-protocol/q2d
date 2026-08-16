@@ -12,10 +12,12 @@ envelope_string_too_long  malformed  1
 envelope_too_large  malformed  1
 envelope_unknown_member  malformed  1
 header_member_not_permitted  structurally_invalid  3
+header_not_an_object  structurally_invalid  3
 header_payload_key_mismatch  structurally_invalid  5a
 header_payload_suite_mismatch  structurally_invalid  5a
 header_segment_not_base64url  structurally_invalid  3
 key_unresolvable  unauthenticated  4
+payload_segment_not_base64url  structurally_invalid  3
 public_context_schema_violation  unavailable  11
 request_expired  expired  6
 routing_introduced_field  routing_mismatch  8

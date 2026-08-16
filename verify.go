@@ -51,8 +51,11 @@ const (
 	HeaderSegmentNotBase64URL
 	PayloadSegmentNotBase64URL
 	SignatureSegmentNotBase64URL
-	// HeaderMalformed: the header is not an object, or a member is not a string.
-	HeaderMalformed
+	// HeaderNotAnObject: the header decoded and is not an object.
+	HeaderNotAnObject
+	// HeaderMemberNotAString: the header is an object and a member is not a
+	// string.
+	HeaderMemberNotAString
 	// HeaderMemberNotPermitted: the header carries a member §3 does not permit.
 	HeaderMemberNotPermitted
 	// SuiteUnregistered and SuiteBelowPolicy: two constants, one wire value.
@@ -144,8 +147,10 @@ func (r Rejected) Error() string {
 		return "the payload segment is not base64url"
 	case SignatureSegmentNotBase64URL:
 		return "the signature segment is not base64url"
-	case HeaderMalformed:
+	case HeaderNotAnObject:
 		return "the protected header is not an object"
+	case HeaderMemberNotAString:
+		return "a protected header member is not a string"
 	case HeaderMemberNotPermitted:
 		return "the protected header carries a member crypto-suites.md §3 does not permit"
 	case SuiteUnregistered:
@@ -186,11 +191,11 @@ func readHeader(segment string) (protectedHeaderFields, error) {
 	// so a header carrying suite twice is not a header with one of them.
 	value, err := Parse(raw)
 	if err != nil {
-		return protectedHeaderFields{}, HeaderMalformed
+		return protectedHeaderFields{}, HeaderNotAnObject
 	}
 	members, ok := value.(Object)
 	if !ok {
-		return protectedHeaderFields{}, HeaderMalformed
+		return protectedHeaderFields{}, HeaderNotAnObject
 	}
 
 	// Closed. An alg member is rejected here, by the set rather than by a rule
@@ -205,7 +210,7 @@ func readHeader(segment string) (protectedHeaderFields, error) {
 	text := func(name string) (string, error) {
 		s, ok := members[name].(String)
 		if !ok {
-			return "", HeaderMalformed
+			return "", HeaderMemberNotAString
 		}
 		return string(s), nil
 	}

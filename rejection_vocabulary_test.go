@@ -49,18 +49,23 @@ func TestEveryReasonThisPackageProducesMatchesTheCorpus(t *testing.T) {
 		{"suite_unregistered", SuiteUnregistered},
 		{"key_unresolvable", KeyUnresolvable},
 		{"signature_invalid", SignatureInvalid},
-		{"unsupported_version", UnsupportedVersion},
+		{"core_object_unsupported_version", UnsupportedVersion},
+		{"header_not_an_object", HeaderNotAnObject},
+		{"payload_segment_not_base64url", PayloadSegmentNotBase64URL},
 		{"header_payload_suite_mismatch", HeaderPayloadSuiteMismatch},
 		{"header_payload_key_mismatch", HeaderPayloadKeyMismatch},
 	}
 
 	checked := 0
 	for _, c := range ours {
+		// Not a skip. Every name listed above is claimed to be the corpus's, so
+		// one that is not found is a typo in this list — and a typo here makes
+		// the test pass while checking nothing, which is how
+		// core_object_unsupported_version went unchecked under the name
+		// unsupported_version until review found it.
 		expected, ok := corpus[c.name]
 		if !ok {
-			// A reason with no vector yet is not a failure — it is a vector this
-			// section still owes, and P-003's issue rows say which.
-			continue
+			t.Fatalf("`%s` is not an internal reason the corpus uses", c.name)
 		}
 		if got := c.rejected.ExternalReason(); got != expected[0] {
 			t.Errorf("%s: wire value %q, corpus says %q", c.name, got, expected[0])
