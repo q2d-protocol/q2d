@@ -370,21 +370,45 @@ func parsePredicateEntry(value Value) (PredicateEntry, error) {
 		return PredicateEntry{}, fmt.Errorf(
 			"`%s`'s capacity is in `%s`; core-model.md §3.1 fixes millibits", id, unit)
 	}
-	// Absent where the entry's capacity is a table rather than a constant, which
-	// the scheduling predicate's is. Present-and-not-an-integer is a different
-	// thing and is refused: a float here is the arithmetic §3.1 keeps out of budget
-	// accounting.
+	// Exactly one of millibits and table, and neither is optional in the sense of
+	// may be absent. A constant capacity carries millibits; one that depends on the
+	// public context carries table, which the scheduling predicate's does.
+	//
+	// Absent-means-table is what this first did, and review found it: an entry with
+	// neither loaded as a table capacity nobody could evaluate, and an entry with
+	// both silently used millibits while a table said otherwise. Both reach P-008
+	// as a debit that is missing or wrong, which is Q2D-C-09's whole subject.
 	var capacityMillibits *int64
 	capacityObject, ok := capacity.(Object)
 	if !ok {
 		return PredicateEntry{}, fmt.Errorf("`%s`'s `capacity` is not an object", id)
 	}
-	if raw, present := capacityObject["millibits"]; present {
+	raw, hasMillibits := capacityObject["millibits"]
+	_, hasTable := capacityObject["table"]
+	switch {
+	case hasMillibits && hasTable:
+		return PredicateEntry{}, fmt.Errorf(
+			"`%s`'s capacity carries both `millibits` and `table`, so which one a debit "+
+				"comes from is undecided", id)
+	case !hasMillibits && !hasTable:
+		return PredicateEntry{}, fmt.Errorf(
+			"`%s`'s capacity carries neither `millibits` nor `table`, so nothing could "+
+				"be debited for it", id)
+	case hasMillibits:
 		n, ok := raw.(Int)
 		if !ok {
 			return PredicateEntry{}, fmt.Errorf(
 				"`%s`'s `capacity.millibits` is not an integer; core-model.md §3.1 keeps "+
 					"floating point out of budget accounting", id)
+		}
+		// Negative is not a small debit, it is a credit — no cardinality yields
+		// one, and an entry carrying one would return budget on every answer. Zero
+		// is legal: a domain of one value is degenerate rather than malformed, and
+		// refusing it would be a rule invented here.
+		if int64(n) < 0 {
+			return PredicateEntry{}, fmt.Errorf(
+				"`%s`'s `capacity.millibits` is %d; a negative capacity would credit "+
+					"the budget rather than debit it", id, int64(n))
 		}
 		millibits := int64(n)
 		capacityMillibits = &millibits

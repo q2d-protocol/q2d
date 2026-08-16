@@ -365,22 +365,54 @@ impl Manifest {
                 "`{id}`'s capacity is in `{unit}`; core-model.md §3.1 fixes millibits"
             )));
         }
-        // Absent where the entry's capacity is a table rather than a constant,
-        // which the scheduling predicate's is. Present-and-not-an-integer is a
-        // different thing and is refused: a float here is the arithmetic §3.1
-        // keeps out of budget accounting.
-        let capacity_millibits = match capacity {
-            Value::Object(fields) => match fields.get("millibits") {
-                None => None,
-                Some(Value::Integer(n)) => Some(*n),
-                Some(_) => {
+        // **Exactly one of `millibits` and `table`**, and neither is optional in
+        // the sense of *may be absent*. A constant capacity carries `millibits`;
+        // one that depends on the public context carries `table`, which the
+        // scheduling predicate's does.
+        //
+        // Absent-means-table is what this first did, and review found it: an
+        // entry with *neither* loaded as a table capacity nobody could evaluate,
+        // and an entry with *both* silently used `millibits` while a table said
+        // otherwise. Both reach P-008 as a debit that is missing or wrong, which
+        // is Q2D-C-09's whole subject.
+        let Value::Object(fields) = capacity else {
+            return Err(LoadError(format!("`{id}`'s `capacity` is not an object")));
+        };
+        let has_table = fields.contains_key("table");
+        let capacity_millibits = match (fields.get("millibits"), has_table) {
+            (Some(_), true) => {
+                return Err(LoadError(format!(
+                    "`{id}`'s capacity carries both `millibits` and `table`, so which \
+                     one a debit comes from is undecided"
+                )))
+            }
+            (None, false) => {
+                return Err(LoadError(format!(
+                    "`{id}`'s capacity carries neither `millibits` nor `table`, so \
+                     nothing could be debited for it"
+                )))
+            }
+            (None, true) => None,
+            (Some(Value::Integer(n)), false) => {
+                // Negative is not a small debit, it is a credit — no cardinality
+                // yields one, and an entry carrying one would *return* budget on
+                // every answer. Zero is legal: a domain of one value is
+                // degenerate rather than malformed, and refusing it would be a
+                // rule invented here.
+                if *n < 0 {
                     return Err(LoadError(format!(
-                        "`{id}`'s `capacity.millibits` is not an integer; core-model.md \
-                         §3.1 keeps floating point out of budget accounting"
-                    )))
+                        "`{id}`'s `capacity.millibits` is {n}; a negative capacity \
+                         would credit the budget rather than debit it"
+                    )));
                 }
-            },
-            _ => return Err(LoadError(format!("`{id}`'s `capacity` is not an object"))),
+                Some(*n)
+            }
+            (Some(_), false) => {
+                return Err(LoadError(format!(
+                    "`{id}`'s `capacity.millibits` is not an integer; core-model.md \
+                     §3.1 keeps floating point out of budget accounting"
+                )))
+            }
         };
 
         let assurance_profiles = match member(value, "assurance_profiles")? {
@@ -553,6 +585,34 @@ mod tests {
         let error = manifest_with(r#""capacity":{"unit":"millibits","millibits":1000.5}"#)
             .unwrap_err();
         assert!(error.to_string().contains("integer"), "{error}");
+    }
+
+    #[test]
+    fn a_capacity_must_carry_exactly_one_of_millibits_and_table() {
+        // Review found both halves. Neither is a shape a publisher writes on
+        // purpose, and both reach P-008 as a debit that is missing or wrong.
+        let neither = manifest_with(r#""capacity":{"unit":"millibits"}"#).unwrap_err();
+        assert!(neither.to_string().contains("neither"), "{neither}");
+        let both = manifest_with(
+            r#""capacity":{"unit":"millibits","millibits":1000,"table":{"2":1000}}"#,
+        )
+        .unwrap_err();
+        assert!(both.to_string().contains("both"), "{both}");
+        // And each alone loads.
+        assert!(manifest_with(r#""capacity":{"unit":"millibits","millibits":1000}"#).is_ok());
+        assert!(manifest_with(r#""capacity":{"unit":"millibits","table":{"2":1000}}"#).is_ok());
+    }
+
+    #[test]
+    fn a_negative_capacity_is_refused_and_zero_is_not() {
+        // A negative capacity is not a small debit, it is a credit: an entry
+        // carrying one would return budget on every answer. Zero is legal — a
+        // domain of one value is degenerate rather than malformed, and refusing
+        // it would be a rule invented here rather than read from §3.1.
+        let error =
+            manifest_with(r#""capacity":{"unit":"millibits","millibits":-1000}"#).unwrap_err();
+        assert!(error.to_string().contains("credit"), "{error}");
+        assert!(manifest_with(r#""capacity":{"unit":"millibits","millibits":0}"#).is_ok());
     }
 
     #[test]

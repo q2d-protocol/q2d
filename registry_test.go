@@ -122,6 +122,39 @@ func TestACapacityThatIsNotAnIntegerIsRefused(t *testing.T) {
 	}
 }
 
+func TestACapacityMustCarryExactlyOneOfMillibitsAndTable(t *testing.T) {
+	// Review found both halves. Neither is a shape a publisher writes on purpose,
+	// and both reach P-008 as a debit that is missing or wrong.
+	_, neither := manifestWith(`"capacity":{"unit":"millibits"}`)
+	if neither == nil || !strings.Contains(neither.Error(), "neither") {
+		t.Errorf("capacity with no source: %v", neither)
+	}
+	_, both := manifestWith(`"capacity":{"unit":"millibits","millibits":1000,"table":{"2":1000}}`)
+	if both == nil || !strings.Contains(both.Error(), "both") {
+		t.Errorf("capacity with two sources: %v", both)
+	}
+	if _, err := manifestWith(`"capacity":{"unit":"millibits","millibits":1000}`); err != nil {
+		t.Errorf("a constant capacity was refused: %v", err)
+	}
+	if _, err := manifestWith(`"capacity":{"unit":"millibits","table":{"2":1000}}`); err != nil {
+		t.Errorf("a table capacity was refused: %v", err)
+	}
+}
+
+func TestANegativeCapacityIsRefusedAndZeroIsNot(t *testing.T) {
+	// A negative capacity is not a small debit, it is a credit: an entry carrying
+	// one would return budget on every answer. Zero is legal — a domain of one
+	// value is degenerate rather than malformed, and refusing it would be a rule
+	// invented here rather than read from §3.1.
+	_, err := manifestWith(`"capacity":{"unit":"millibits","millibits":-1000}`)
+	if err == nil || !strings.Contains(err.Error(), "credit") {
+		t.Errorf("%v", err)
+	}
+	if _, err := manifestWith(`"capacity":{"unit":"millibits","millibits":0}`); err != nil {
+		t.Errorf("a zero capacity was refused: %v", err)
+	}
+}
+
 func TestACapacityInAnotherUnitIsRefused(t *testing.T) {
 	// Guessing is how a capacity in bits gets debited as millibits.
 	if _, err := manifestWith(`"capacity":{"unit":"bits","millibits":1}`); err == nil {
