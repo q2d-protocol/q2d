@@ -145,13 +145,20 @@ class StructurallyInvalidTest(unittest.TestCase):
     protocol's".
     """
 
-    CASES = ("suite/downgrade/header-carries-alg",
+    # Every cause §5.2.1 gives `structurally_invalid` for. E-46 added the first
+    # three: the line moved from *did the message parse* to *what is wrong with
+    # it*, and a container that will not split is the suite implementation's
+    # fault rather than the envelope's.
+    CASES = ("suite/verify/not-three-segments",
+             "suite/verify/header-not-base64url",
+             "suite/verify/respelled-signature-segment",
+             "suite/downgrade/header-carries-alg",
              "suite/downgrade/header-payload-suite-mismatch",
              "suite/downgrade/header-payload-key-mismatch")
 
-    def test_all_three_share_one_class(self):
-        # §5.2.1 gives one value for all three: which part disagreed is visible
-        # in the message the requester itself produced, so putting it on the
+    def test_they_all_share_one_class(self):
+        # §5.2.1 gives one value for every one of them: each is visible in the
+        # message the requester itself produced, so putting the detail on the
         # wire would tell the receiver what it already holds -- at the cost of a
         # mapping both implementations must get identically right.
         self.assertEqual(
@@ -222,3 +229,56 @@ class ExpectedStateTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RejectionVocabularyTest(unittest.TestCase):
+    """`testdata/rejection-vocabulary.txt` is the corpus's own mapping, extracted.
+
+    Every rejection vector names an internal reason and the wire value a
+    requester receives. Both implementations have to agree on that mapping or a
+    vector passes in one and fails in the other for a reason no runner reports
+    usefully -- so it is a fixture, read by all three.
+
+    Derived rather than authored: this test rebuilds it from the corpus and
+    fails if the committed file differs, which is what stops the fixture and the
+    vectors drifting apart.
+    """
+
+    def mapping(self):
+        rows = {}
+        for path in sorted((REPO / "conformance" / "corpus").rglob("*.json")):
+            vector = json.loads(path.read_text("utf-8"))
+            rejection = vector.get("expect", {}).get("rejection")
+            if not rejection:
+                continue
+            step = rejection.get("step")
+            rows[rejection["internal_reason"]] = (
+                rejection["wire"]["external_reason"],
+                str(step) if step is not None else "-")
+        return rows
+
+    def test_no_internal_reason_has_two_wire_values(self):
+        # The direction that would be a defect. Many internal reasons share one
+        # wire value, which is correct; one reason with two values means a
+        # requester can tell two causes apart through a value that is supposed
+        # to collapse them.
+        seen = {}
+        for path in sorted((REPO / "conformance" / "corpus").rglob("*.json")):
+            vector = json.loads(path.read_text("utf-8"))
+            rejection = vector.get("expect", {}).get("rejection")
+            if not rejection:
+                continue
+            reason = rejection["internal_reason"]
+            wire = rejection["wire"]["external_reason"]
+            if reason in seen:
+                self.assertEqual(seen[reason], wire, f"{reason} in {vector['id']}")
+            seen[reason] = wire
+
+    def test_the_fixture_matches_the_corpus(self):
+        expected = "\n".join(
+            f"{reason}  {wire}  {step}"
+            for reason, (wire, step) in sorted(self.mapping().items())) + "\n"
+        self.assertEqual(
+            (REPO / "testdata" / "rejection-vocabulary.txt").read_text("utf-8"),
+            expected,
+            "regenerate testdata/rejection-vocabulary.txt from the corpus")

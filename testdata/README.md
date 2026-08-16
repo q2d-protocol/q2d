@@ -93,6 +93,30 @@ ties them to the vector. **Three readings of one string**, by tests that share n
 code — Python being the authoring tool rather than a third implementation of the
 protocol.
 
+## `rejection-vocabulary.txt`
+
+Every internal reason the corpus names, with the wire value a requester receives
+and the [`core-model.md`](../spec/core-model.md) §4 step it is caught at.
+
+**Derived, not authored.** A Python test rebuilds it from the corpus and fails if
+the committed file differs, so the fixture cannot drift from the vectors. Each
+implementation asserts its own mapping agrees for every reason it produces —
+which is what stops a vector passing in one and failing in the other for a
+reason no runner reports usefully.
+
+It found two disagreements the moment it existed. §4's steps are not all
+numbers — the header/payload comparison is step **5a**, lettered by E-35 so the
+steps below it did not renumber — and both implementations had typed the step as
+an integer. And the corpus distinguishes `suite_unregistered` from a suite
+outside the acceptable set, where both implementations had one internal reason
+for two causes; §5.2.1 collapses them on the wire *and* an operator still needs
+to know which.
+
+The `-` in the step column is a vector that asserts no step, which
+[P-001](../docs/prds/P-001-conformance-corpus.md) §4.8 permits: a step-less
+vector asserts no ordering, which is weaker and true, where a guessed step is
+stronger and wrong.
+
 ## `ed25519-acceptance.txt`
 
 Ten rows, each a case where "Ed25519" alone does not decide the answer. RFC

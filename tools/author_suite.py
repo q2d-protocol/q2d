@@ -181,7 +181,45 @@ def vectors() -> list[dict]:
             ),
             "operation": "verify_query",
             "input": envelope(f"{head}.{payload}.{respelled(signature)}"),
-            "expect": rejects("signature_not_canonical", "unauthenticated", 4),
+            # E-46 closed as B: the fault is in the container `crypto-suites.md`
+            # §3 defines, so it is `structurally_invalid` at step 3 rather than
+            # `unauthenticated` at step 4. This vector said the latter for one
+            # commit, while the header cases had nowhere to go at all.
+            "expect": rejects("signature_segment_not_base64url", "structurally_invalid", 3),
+        },
+        {
+            "id": "suite/verify/not-three-segments",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#5.2.1"],
+            "description": (
+                "A `signed` string of two segments. §3 fixes the compact form "
+                "at three, and §4 step 3 has to split it to read the suite — so "
+                "the count is checked where it is already being counted. "
+                "`structurally_invalid` rather than `malformed`: the envelope "
+                "parsed and is correct, and it is the requester's **suite "
+                "implementation** that is wrong, which is the half of its code "
+                "§5.2.1's line sends it to ([E-46](../docs/open-escalations.md))."
+            ),
+            "operation": "verify_query",
+            "input": envelope(".".join(valid.split(".")[:2])),
+            "expect": rejects("compact_segment_count", "structurally_invalid", 3),
+        },
+        {
+            "id": "suite/verify/header-not-base64url",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#5.2.1"],
+            "description": (
+                "Three segments, and the first is not base64url. **This is the "
+                "case that had no value in the vocabulary at all** before "
+                "[E-46](../docs/open-escalations.md): `malformed` names steps 1 "
+                "and 5, `structurally_invalid` required that the message "
+                "parsed, and `unsupported_suite` cannot apply to a header that "
+                "will not decode. E-46 moved the line from *did it parse* to "
+                "*what is wrong*, and a header is `crypto-suites.md` §3's."
+            ),
+            "operation": "verify_query",
+            "input": envelope("not base64url!." + ".".join(valid.split(".")[1:])),
+            "expect": rejects("header_segment_not_base64url", "structurally_invalid", 3),
         },
         {
             "id": "suite/sign/second-key",

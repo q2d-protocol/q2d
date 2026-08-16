@@ -901,32 +901,43 @@ bytes, so precision here costs nothing and makes the protocol debuggable.
 | `unsupported_suite` | Suite unregistered, **or** below the verifier's minimum acceptable policy | step 3 |
 | `routing_mismatch` | `routing` disagrees with the verified object | step 8 |
 | `expired` | Request expired or future-dated | step 6 |
-| `structurally_invalid` | The message parses, and what is wrong with it is neither a parse failure nor an authentication one: a protected header carrying a member [`crypto-suites.md`](crypto-suites.md) §3 does not permit, or a header whose `suite` or `key_id` disagrees with the payload's `signature.profile` or `signature.key_id` | step 3 for the header alone, which needs no signature; step **5a** for a disagreement, which needs the parsed payload |
+| `structurally_invalid` | The fault is in how the message was **built** — in its signed container or its protected header, which [`crypto-suites.md`](crypto-suites.md) §3 defines — rather than in the envelope §2.1 defines or in the verified core object. Four causes: `signed` is not a well-formed compact serialization; the header carries a member §3 does not permit; the header's `suite` disagrees with the payload's `signature.profile`; the header's `key_id` disagrees with `signature.key_id` | step 3 for the first two, which need no signature; step **5a** for the two disagreements, which need the parsed payload |
 
 `unsupported_suite` is one value for two causes on purpose. Separating them would
 tell a requester whether the custodian *knows* a suite it declined, which is the
 custodian's minimum acceptable policy — a fact about the custodian, not about the
 request, and so on the wrong side of the line this group is drawn along.
 
-**`structurally_invalid` is one value for three causes for a different reason.**
-Nothing is withheld: which part disagreed is visible in the message the requester
-itself produced, so putting it on the wire would tell the receiver what it
-already holds. What it costs is a mapping both implementations must get
+**`structurally_invalid` is one value for four causes for a different reason.**
+Nothing is withheld: every one of them is visible in the message the requester
+itself produced, so putting the detail on the wire would tell the receiver what
+it already holds. What it costs is a mapping both implementations must get
 identically right, and a mismatch there is a divergence in the one place this
 vocabulary exists to prevent one.
 
-It is separate from `malformed` rather than folded into it because the two send a
-requester to different code. A `malformed` message did not parse — the serializer
-is where to look. A `structurally_invalid` one parsed, and is wrong in how its
-header was built or in how it agrees with its payload. Collapsing them would name
-the larger class and lose the only thing the value is for.
+**It is separated from `malformed` by *what* is wrong, not by whether the message
+parsed.** The two send a requester to different code, and the line is which
+document defines the thing at fault. A `malformed` message is wrong in its
+**envelope** (§2.1) or in its **verified core object** (§2) — the requester's
+serializer is where to look. A `structurally_invalid` one is wrong in its
+**signed container or protected header**, which
+[`crypto-suites.md`](crypto-suites.md) §3 defines — the requester's suite
+implementation is where to look.
 
-**Two of its three causes are caught after verification and one before**, and
-that asymmetry is not a defect. A header carrying `alg` is visible in the header
-alone, and §4 step 3 reads the header — so rejecting it there is the *least*
-work, not extra work done ahead of authentication. The two disagreements need the
-parsed payload, which §2.1 forbids reading until the bytes verify, so they cannot
-be seen before step 5. Nothing in this class licenses reading a payload early.
+That line, rather than "did it parse", is what admits the first cause. A `signed`
+string that is not three base64url segments has not parsed either, and folding it
+into `malformed` would send a requester to the wrong half of its own code — its
+envelope is fine, and its JWS construction is not. An earlier draft of this table
+drew the line at parsing and left that cause with no value at all, which is how
+the gap was found.
+
+**Two causes are caught before verification and two after**, and the asymmetry is
+not a defect. A container that will not split into three decodable segments, and
+a header carrying `alg`, are both visible in what §4 step 3 already reads — so
+rejecting them there is the *least* work, not extra work done ahead of
+authentication. The two disagreements need the parsed payload, which §2.1 forbids
+reading until the bytes verify, so they cannot be seen before step 5. Nothing in
+this class licenses reading a payload early.
 
 §4's query order names step **5a** for the comparison, which E-35 added — the
 response order had gained 4a for the same check and the query side had never been
@@ -936,7 +947,7 @@ enumerated, so the requirement existed with no slot in the order that cites it.
 added after the list was closed and the next one will need the same test: it
 tells a requester **where to look**. A value earns a place by sending a requester
 somewhere a neighbouring value would not — not by naming a cause precisely.
-That is why three structural failures share one value, and why this one is not
+That is why four structural failures share one value, and why this one is not
 `malformed`.
 
 **One class — authentication.**

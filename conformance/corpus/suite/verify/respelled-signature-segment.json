@@ -16,12 +16,12 @@
   "expect": {
     "outcome": "rejected",
     "rejection": {
-      "internal_reason": "signature_not_canonical",
+      "internal_reason": "signature_segment_not_base64url",
       "wire": {
         "status": "deny",
-        "external_reason": "unauthenticated"
+        "external_reason": "structurally_invalid"
       },
-      "step": 4
+      "step": 3
     },
     "comparison": "bytes"
   }

@@ -116,6 +116,17 @@ func verifyCompact(compact string, key PublicKey) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	return verifyCompactParts(compact, header, payload, signature, key)
+}
+
+// verifyCompactParts is the same, for a caller that has already split the
+// string.
+//
+// VerifyQuery splits it to read the header, and re-splitting here would mean two
+// places that decide what a segment is — the arrangement two implementations
+// drift in, one file apart.
+func verifyCompactParts(compact, header, payload, signature string,
+	key PublicKey) ([]byte, error) {
 	// All three segments must be base64url, including the one this function does
 	// not read. crypto-suites.md §3 defines the form as BASE64URL(header) "."
 	// BASE64URL(payload) "." BASE64URL(signature), and a producer chooses its own

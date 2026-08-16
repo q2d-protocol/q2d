@@ -199,6 +199,16 @@ can conclude nothing from the difference, which is how this went unnoticed until
 the first payload was serialized ([`open-escalations.md`](../docs/open-escalations.md)
 E-31).
 
+**A `signed` string that is not this shape is rejected at
+[`core-model.md`](core-model.md) §4 step 3**, with `structurally_invalid`
+(§5.2.1) — not three segments, or a segment that is not base64url. Step 3 has to
+split and decode the header to read the suite, so the check costs nothing extra;
+and the fault is in the container this section defines rather than in the
+envelope §2.1 defines, which is the line §5.2.1 draws. All three segments are
+checked, including the signature: a decoder that accepted a second spelling of
+the same 64 bytes would leave one exchange with two `signed` strings and two
+`request_digest` values (§6).
+
 **`alg` is not a member of a Q2D protected header, and `alg: none` is not a
 state one can express.** A header carrying one is rejected at
 [`core-model.md`](core-model.md) §4 step 3, where the header is read, and the
