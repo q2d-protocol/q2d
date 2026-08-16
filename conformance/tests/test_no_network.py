@@ -111,11 +111,24 @@ def go_imports(path: Path) -> set[str]:
 
     Import blocks and single-line imports only, so a quoted string in a comment
     or a message is not mistaken for one.
+
+    **Both string literal forms.** Go's grammar makes an import path a
+    `string_lit`, which is a raw literal in backticks as readily as an
+    interpreted one in quotes — `import ` + "`net/http`" + ` compiles. Review
+    raised it and it was checked against the compiler rather than taken on
+    faith, because a reader that misses a legal spelling is the quiet failure
+    this file exists to avoid.
     """
     text = path.read_text(encoding="utf-8")
-    found = set(re.findall(r'^import (?:[\w.]+\s+)?"([^"]+)"', text, re.M))
+    literal = r'(?:"([^"]+)"|`([^`]+)`)'
+    found = {
+        quoted or raw
+        for quoted, raw in re.findall(r"^import (?:[\w.]+\s+)?" + literal, text, re.M)
+    }
     for block in re.finditer(r"^import \(\n(.*?)^\)", text, re.S | re.M):
-        found |= set(re.findall(r'"([^"]+)"', block.group(1)))
+        found |= {
+            quoted or raw for quoted, raw in re.findall(literal, block.group(1))
+        }
     return found
 
 
@@ -285,6 +298,27 @@ class ReaderTest(unittest.TestCase):
             imported = go_imports(path)
             self.assertIn("fmt", imported)
             self.assertIn("net/http", imported)
+
+    def test_the_go_reader_finds_a_raw_string_import(self):
+        # Go's grammar makes an import path a `string_lit`, so backticks are as
+        # legal as quotes — checked against the compiler, not assumed. A reader
+        # that misses a legal spelling passes while the capability is present.
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "fake.go"
+            path.write_text(
+                "package q2d\n\nimport (\n\t`net/http`\n\t\"fmt\"\n)\n",
+                encoding="utf-8",
+            )
+            imported = go_imports(path)
+            self.assertIn("net/http", imported)
+            self.assertIn("fmt", imported)
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "single.go"
+            path.write_text("package q2d\n\nimport `net/http`\n", encoding="utf-8")
+            self.assertIn("net/http", go_imports(path))
 
     def test_the_go_reader_ignores_a_quoted_string_outside_an_import(self):
         # Otherwise every file mentioning "net/http" in a comment or a message
