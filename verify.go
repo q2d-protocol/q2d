@@ -83,9 +83,15 @@ const (
 	// the wire value and was applied to the wrong half.
 	KeyUnresolvable
 	SignatureInvalid
-	// CoreObjectMalformed: the verified payload is not a core object, or is
-	// missing a field §2 requires — which includes an absent or non-string
-	// q2d_version.
+	// CoreObjectMalformed: the verified payload does not parse, is not an object,
+	// or has no usable signature member.
+	//
+	// It does NOT yet cover every field §2 requires. §5.2.1's row says a core
+	// object missing one is malformed, and checking that is core-object
+	// validation rather than suite verification — P-005's, and the corpus's
+	// core_object_missing_required_field vector belongs to whoever builds it.
+	// Named here because the gap is easier to find at the constant than in a
+	// PRD.
 	CoreObjectMalformed
 	// CoreObjectCarriesSignatureValue: the verified object carries
 	// signature.value.
@@ -327,17 +333,6 @@ func VerifyQuery(signed string, policy SuitePolicy, registry SuiteRegistry,
 		return nil, CoreObjectMalformed
 	}
 
-	// Still step 5: q2d_version is a field §2 requires, and a version this build
-	// does not implement is read before anything else in the object is. A 0.2
-	// message may have moved or retyped any field, so interpreting one to build a
-	// better diagnostic would be a guess presented as fact.
-	if problem := CheckVersion(core); problem != nil {
-		if problem == error(VersionUnsupported) {
-			return nil, UnsupportedVersion
-		}
-		return nil, CoreObjectMalformed
-	}
-
 	// Step 5a — the two comparisons. After parsing, because neither can be made
 	// before it.
 	members, ok := core.(Object)
@@ -375,6 +370,22 @@ func VerifyQuery(signed string, policy SuitePolicy, registry SuiteRegistry,
 	}
 	if keyID != header.keyID {
 		return nil, HeaderPayloadKeyMismatch
+	}
+
+	// After 5a, not before. crypto-suites.md §3 puts the two comparisons
+	// "immediately after the payload is parsed… and before any step that acts on
+	// a payload field", and q2d_version is a payload field. A message that is
+	// both a version this build does not implement and a header/payload
+	// disagreement answers with the disagreement.
+	//
+	// Beyond that ordering, the version is read before anything else in the
+	// object: a 0.2 message may have moved or retyped any field, so interpreting
+	// one to build a better diagnostic would be a guess presented as fact.
+	if problem := CheckVersion(core); problem != nil {
+		if problem == error(VersionUnsupported) {
+			return nil, UnsupportedVersion
+		}
+		return nil, CoreObjectMalformed
 	}
 
 	return core, nil

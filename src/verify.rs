@@ -88,8 +88,15 @@ pub enum Rejected {
     KeyUnresolvable,
     /// The signature did not verify.
     SignatureInvalid,
-    /// The verified payload is not a core object, or is missing a field §2
-    /// requires — which includes an absent or non-string `q2d_version`.
+    /// The verified payload does not parse, is not an object, or has no usable
+    /// `signature` member.
+    ///
+    /// It does **not** yet cover every field §2 requires. §5.2.1's row says a
+    /// core object missing one is `malformed`, and checking that is core-object
+    /// validation rather than suite verification — P-005's, and the corpus's
+    /// `core_object_missing_required_field` vector belongs to whoever builds
+    /// it. Named here because the gap is easier to find at the variant than in
+    /// a PRD.
     CoreObjectMalformed,
     /// The verified object carries `signature.value`.
     ///
@@ -322,15 +329,6 @@ pub fn verify_query(
     // five fail on the internal reason with the wire value correct.
     let core = crate::parse(&payload).map_err(|_| Rejected::CoreObjectMalformed)?;
 
-    // Still step 5: `q2d_version` is a field §2 requires, and a version this
-    // build does not implement is read **before anything else in the object
-    // is**. A 0.2 message may have moved or retyped any field, so interpreting
-    // one to build a better diagnostic would be a guess presented as fact.
-    crate::check_version(&core).map_err(|problem| match problem {
-        crate::VersionProblem::Unsupported => Rejected::UnsupportedVersion,
-        crate::VersionProblem::Malformed => Rejected::CoreObjectMalformed,
-    })?;
-
     // Step 5a — the two comparisons. After parsing, because neither can be made
     // before it.
     let signature = match &core {
@@ -350,18 +348,27 @@ pub fn verify_query(
     if matches!(signature, Some(Value::Object(members)) if members.contains_key("value")) {
         return Err(Rejected::CoreObjectCarriesSignatureValue);
     }
-    // E-31, before the comparisons: a payload carrying `signature.value` is a
-    // shape no conforming producer emits under this suite, and it must not
-    // reach a caller whatever else agrees.
-    if matches!(signature, Some(Value::Object(members)) if members.contains_key("value")) {
-        return Err(Rejected::CoreObjectCarriesSignatureValue);
-    }
     if declared("profile")? != header.suite {
         return Err(Rejected::HeaderPayloadSuiteMismatch);
     }
     if declared("key_id")? != header.key_id {
         return Err(Rejected::HeaderPayloadKeyMismatch);
     }
+
+    // **After 5a, not before.** `crypto-suites.md` §3 puts the two comparisons
+    // *"immediately after the payload is parsed… and before any step that acts
+    // on a payload field"*, and `q2d_version` is a payload field. A message
+    // that is both a version this build does not implement and a
+    // header/payload disagreement answers with the disagreement.
+    //
+    // Beyond that ordering, the version is read before anything **else** in the
+    // object: a 0.2 message may have moved or retyped any field, so
+    // interpreting one to build a better diagnostic would be a guess presented
+    // as fact.
+    crate::check_version(&core).map_err(|problem| match problem {
+        crate::VersionProblem::Unsupported => Rejected::UnsupportedVersion,
+        crate::VersionProblem::Malformed => Rejected::CoreObjectMalformed,
+    })?;
 
     Ok(core)
 }
