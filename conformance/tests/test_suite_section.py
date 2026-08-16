@@ -207,31 +207,44 @@ class ExpectedStateTest(unittest.TestCase):
     assertion.
     """
 
-    def test_rfc8032_has_no_group_yet(self):
-        # It needs an operation for signing a raw message, and P-001 §4.5's
-        # vocabulary is protocol-level. Adding one is issue 17's, which settles
-        # vocabulary additions as a single change.
+    def test_rfc8032_stays_retired(self):
+        # **Retired, not absent.** Signing a raw message needs an operation
+        # P-001 §4.5's protocol-level vocabulary does not have, and the known
+        # answers are already gated three ways -- a unit test in each
+        # implementation and `testdata/ed25519-acceptance.txt`. A corpus group
+        # would re-assert what three tests assert, at the cost of extending a
+        # closed vocabulary. P-003 §6 records the decision.
+        #
+        # This assertion is not waiting for a blocker to lift: if the group
+        # appears, that decision has been reversed and §6 should say so first.
         self.assertFalse((SECTION / "rfc8032").exists(),
-                         "suite/rfc8032/ landed — issue 17 has presumably added "
-                         "a raw-signing operation, so delete this assertion")
+                         "suite/rfc8032/ landed — P-003 §6 retired it, so either "
+                         "that decision changed or this is a mistake")
 
     def test_no_below_floor_downgrade_vector_yet(self):
-        # A vector asserting that a suite below the verifier's floor is rejected
-        # needs a second registered suite to be below it. With one registered
-        # and active, such a vector could only assert a floor nobody can
-        # configure -- and it would look like coverage while testing nothing.
+        # Waiting on E-48, not on a second registered suite. A vector supplies a
+        # *message*, and whether a suite sits below the verifier's floor is a
+        # fact about the verifier -- so a second registered suite would not make
+        # this writable either. The internal reason `suite_below_policy` is held
+        # by mirrored unit tests meanwhile.
         premature = [name for name in by_id()
                      if name.startswith("suite/downgrade/below-floor")]
         self.assertEqual(premature, [],
-                         "a below-floor vector landed — a second suite has "
-                         "presumably been registered, so delete this assertion")
+                         "a below-floor vector landed — E-48 has presumably "
+                         "given a vector a way to state the verifier's policy, "
+                         "so delete this assertion")
 
     def test_status_has_no_group_yet(self):
-        # It needs a deprecated or withdrawn suite to assert against, and
-        # crypto-suites.md §3 registers exactly one, active.
+        # Waiting on E-48 for the same reason: `deprecated` and `withdrawn` are
+        # what the *verifier's registry* says about a suite, and no vector can
+        # say it. An earlier reading had this waiting on a second registered
+        # suite, which was the wrong diagnosis -- and registering one nobody
+        # implements purely to deprecate it is the shape `policy`'s floor exists
+        # to refuse.
         self.assertFalse((SECTION / "status").exists(),
-                         "suite/status/ landed — a second suite has presumably "
-                         "been registered, so delete this assertion")
+                         "suite/status/ landed — E-48 has presumably given a "
+                         "vector a way to state the verifier's registry, so "
+                         "delete this assertion")
 
 class RejectionVocabularyTest(unittest.TestCase):
     """`testdata/rejection-vocabulary.txt` is the corpus's own mapping, extracted.

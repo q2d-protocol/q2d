@@ -30,19 +30,22 @@ reasons, and a message broken in two ways cannot establish which.
 
 ## What is not here
 
-**`suite/rfc8032/`** — raw Ed25519 against RFC 8032 §7.1's known answers. There
-is no operation for signing a raw message: P-001 §4.5's vocabulary is
-protocol-level, and adding one is issue 17's, which settles vocabulary additions
-as a single change. The known answers are not unchecked meanwhile —
-[`author_vectors.py`](author_vectors.py) refuses to sign anything until it
+**`suite/rfc8032/` is retired**, not owed. Signing a raw message needs an
+operation P-001 §4.5's protocol-level vocabulary does not have, and adding one
+is issue 17's Stage 5–8 change; the known answers are already gated three ways —
+a unit test in each implementation and `testdata/ed25519-acceptance.txt` — so a
+corpus group would re-assert what three tests assert. P-003 §6 records it.
+[`author_vectors.py`](author_vectors.py) also refuses to sign anything until it
 reproduces all three, so every byte this file emits already depends on them.
 
-**`suite/status/`**, and `suite/downgrade/`'s below-floor case — both need a
-second registered suite. [`crypto-suites.md`](../spec/crypto-suites.md) §3
-registers exactly one, `eddsa-jws-2026`, and it is `active`: nothing is
-deprecated to verify-but-not-produce, nothing is withdrawn, and no suite sits
-below a plausible floor. These land when a second suite does, and the
-unregistered-suite vector below covers the part that does not need one.
+**`suite/status/`**, and `suite/downgrade/`'s below-floor case, wait on
+[E-48](../docs/open-escalations.md) rather than on a second registered suite.
+This file used to say they land when a second suite does, and that was the wrong
+diagnosis: a vector cannot state what the **verifier's** registry says about a
+suite, so even with a second one registered there would be no way to write *this
+verifier lists it as withdrawn*. Registering a suite nobody implements purely to
+be deprecated is also the shape `policy`'s floor exists to refuse. The
+unregistered-suite vector below covers the part that needs neither.
 """
 
 from __future__ import annotations

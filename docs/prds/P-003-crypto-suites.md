@@ -222,9 +222,22 @@ in a message. There is no code path that derives it from received data.
 
 `suite/` — authored under this PRD.
 
+**Five groups, not six.** `suite/rfc8032/` was listed here and is **retired**:
+a raw Ed25519 signature is not a Q2D operation, [P-001](P-001-conformance-corpus.md)
+§4.5's vocabulary has no name for one, and adding a name is issue 17's Stage 5–8
+change rather than this PRD's. Retiring it was the alternative to extending that
+vocabulary, and it is the right trade because the known answers are **already
+gated three ways** — a unit test in each implementation reading the committed key
+material, and `testdata/ed25519-acceptance.txt` for the ten cases RFC 8032 leaves
+open, which is the cross-implementation half. A corpus group would have added an
+operation to a closed vocabulary to re-assert what three tests already assert.
+
+§7's first acceptance criterion is unchanged and unaffected: it asks that raw
+Ed25519 reproduces RFC 8032 §7.1 in both implementations, and says nothing about
+where that is asserted.
+
 | Group | Vectors |
 |---|---|
-| `suite/rfc8032/` | Raw Ed25519 against RFC 8032 §7.1 known-answer vectors. **Not authored as corpus vectors**, and this row is the record of why: a raw signature is not a Q2D operation, and [P-001](P-001-conformance-corpus.md) §4.5's vocabulary has no name for one. Adding a name is issue 17's, deliberately a single coordinated change. The known answers are a unit gate in both implementations instead, reading the same committed key material, and the cross-implementation half lives in `testdata/ed25519-acceptance.txt` where the other three-way fixtures are |
 | `suite/sign/` | JWS compact construction, byte-exact, over P-002 payloads |
 | `suite/verify/` | Valid, tampered payload, tampered header, tampered signature |
 | `suite/downgrade/` | Below-floor suite, unregistered suite, a header carrying `alg`, header/payload suite mismatch, header/payload key mismatch |
@@ -233,7 +246,10 @@ in a message. There is no code path that derives it from received data.
 
 ## 7. Acceptance
 
-- [ ] Raw Ed25519 reproduces every RFC 8032 §7.1 vector in both implementations.
+- [x] Raw Ed25519 reproduces every RFC 8032 §7.1 vector in both implementations.
+      A unit gate in each, reading its seeds from `conformance/keys/` rather
+      than repeating them — so it covers the material the **corpus signs
+      with** rather than a copy. §6 records why this is not a corpus group.
 - [ ] Both produce **byte-identical** compact JWS for the same key and payload —
       Ed25519 determinism makes this a byte comparison, not a both-verify check.
 - [ ] Each implementation verifies the other's signatures. **This is
