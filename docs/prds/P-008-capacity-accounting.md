@@ -256,7 +256,11 @@ the pipeline — that ordering is what makes a retry unable to debit twice.
       `+1` millibit is exhausted, identically in both implementations.
 - [ ] Two concurrent checks that would together exceed the limit result in one
       `Exhausted`.
-- [ ] A reservation whose request never settles expires at `expires_at + skew`.
+- [ ] A reservation whose request never settles is held **through**
+      `expires_at + skew` and released only after it — the inclusive boundary
+      [`freshness.md`](../../spec/freshness.md) §1 states for a replay-cache
+      entry, for the same reason: §2's comparison is strict, so the request is
+      still acceptable at that instant.
 - [ ] A retry produces one settlement, verified against the budget total rather
       than a call count.
 
@@ -272,6 +276,7 @@ the pipeline — that ordering is what makes a retry unable to debit twice.
 | Two requests differing only in declared sinks sharing a budget | Spend splits across sink sets |
 | Concurrent overspend | Both concurrent requests succeed past the limit |
 | A crashed request holding budget forever | Reservation outlives `expires_at + skew` |
+| A reservation released while its request is still acceptable | Released **at** `expires_at + skew` rather than after it, so a concurrent request passes on capacity the first one may still settle |
 | A calendar-boundary budget reset | Window vectors show restoration at a predictable time |
 
 Row 4 is enforced by the signature: `capacity_for` cannot see the request, so
@@ -284,7 +289,7 @@ there is nothing for a requester-asserted debit to be read from.
 2. **A cardinality absent from the table rejects.** Computing it hides a registry
    defect.
 3. **Check reserves; the reservation is what `settle` consumes.**
-4. **Reservations expire at `expires_at + skew`** — [`freshness.md`](../../spec/freshness.md) §1's skew, and the same bound as the replay
+4. **Reservations are held through `expires_at + skew` and released after it** — [`freshness.md`](../../spec/freshness.md) §1's skew and its inclusive boundary, and the same bound as the replay
    cache.
 5. **Rolling windows, never calendar.** A predictable reset is a probing schedule.
 6. **The module reports `Exhausted`; policy decides `deny` or `escalate`.**
