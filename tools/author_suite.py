@@ -249,6 +249,27 @@ def vectors() -> list[dict]:
             "expect": rejects("header_not_an_object", "structurally_invalid", 3),
         },
         {
+            "id": "suite/verify/header-member-not-a-string",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#5.2.1"],
+            "description": (
+                "A header that is an object with the two members §3 names, and "
+                "`suite` is a number. The member set is right and the *types* "
+                "are not — which is a different fault from a header carrying an "
+                "extra member, and reaches a different internal reason so an "
+                "operator can tell them apart. Both are `structurally_invalid` "
+                "at step 3: §5.2.1 collapses them on the wire because each is "
+                "visible in the message the requester itself produced."
+            ),
+            "operation": "verify_query",
+            "input": envelope(".".join([
+                av.base64url(b'{"key_id":"test-requester-1","suite":1}'),
+                valid.split(".")[1],
+                valid.split(".")[2],
+            ])),
+            "expect": rejects("header_member_not_a_string", "structurally_invalid", 3),
+        },
+        {
             "id": "suite/verify/header-not-base64url",
             "section": "suite",
             "requirement": ["crypto-suites.md#3", "core-model.md#5.2.1"],

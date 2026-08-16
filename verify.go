@@ -282,6 +282,18 @@ func VerifyQuery(signed string, policy SuitePolicy, registry SuiteRegistry,
 	}
 
 	// Step 5 — parse the verified object. Not before: §2.1 is explicit.
+	//
+	// Every parse failure collapses to one internal reason here, and the corpus
+	// distinguishes five. message/reject/ expects core_object_duplicate_key,
+	// core_object_float, core_object_too_deep, core_object_too_many_members and
+	// core_object_string_too_long — all malformed on the wire, which this gets
+	// right, and each a different fact for an operator, which this does not.
+	//
+	// Closing it means Parse reporting a typed cause rather than a message,
+	// which is P-002's error surface in both languages rather than something
+	// this file can do alone. P-003 issue 6's row records it. No runner answers
+	// a vector yet, so nothing fails today; the day one does, those five fail on
+	// the internal reason with the wire value correct.
 	core, err := Parse(payload)
 	if err != nil {
 		return nil, CoreObjectMalformed

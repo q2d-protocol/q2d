@@ -44,6 +44,7 @@ fn every_reason_this_module_produces_matches_the_corpus() {
         ("signature_invalid", Rejected::SignatureInvalid),
         ("core_object_unsupported_version", Rejected::UnsupportedVersion),
         ("header_not_an_object", Rejected::HeaderNotAnObject),
+        ("header_member_not_a_string", Rejected::HeaderMemberNotAString),
         ("payload_segment_not_base64url", Rejected::PayloadSegmentNotBase64url),
         ("header_payload_suite_mismatch", Rejected::HeaderPayloadSuiteMismatch),
         ("header_payload_key_mismatch", Rejected::HeaderPayloadKeyMismatch),

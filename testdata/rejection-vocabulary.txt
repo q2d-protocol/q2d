@@ -11,6 +11,7 @@ envelope_malformed  malformed  1
 envelope_string_too_long  malformed  1
 envelope_too_large  malformed  1
 envelope_unknown_member  malformed  1
+header_member_not_a_string  structurally_invalid  3
 header_member_not_permitted  structurally_invalid  3
 header_not_an_object  structurally_invalid  3
 header_payload_key_mismatch  structurally_invalid  5a
