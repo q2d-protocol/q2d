@@ -4163,9 +4163,17 @@ is now `structurally_invalid` at step 3 with the rest of the container — the
 uniform rule is easier to hold and the old one drew a second line inside one
 check.
 
-`structurally_invalid` now has **four** causes, and §5.2.1 says so: a container
-that is not well-formed, a header carrying a member §3 does not permit, and the
-two header/payload disagreements.
+`structurally_invalid` now covers **three kinds**, and §5.2.1 states kinds
+rather than a count: a container that is not a well-formed compact
+serialization, a protected header that is not the object §3 defines, and a
+header/payload disagreement.
+
+Kinds rather than a count deliberately. This entry said "four causes" for one
+commit and was wrong by the next, twice: implementations found more ways for a
+header to be wrong — one that decodes to a string, one whose `suite` is a number
+— and each is *the header is not §3's object* rather than a new kind. The
+internal reasons stay separate, because an operator wants to know which; the
+value does not multiply, because a requester does nothing differently.
 
 ### What was built
 
