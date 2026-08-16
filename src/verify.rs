@@ -286,9 +286,7 @@ pub fn verify_query(
     base64url::decode(payload_segment).map_err(|_| Rejected::PayloadSegmentNotBase64url)?;
     base64url::decode(signature_segment).map_err(|_| Rejected::SignatureSegmentNotBase64url)?;
 
-    // Step 2 — the whole defence. Policy first, then the registry: an
-    // unregistered suite and one below the floor produce the same value, which
-    // is §5.2.1's `unsupported_suite` being one value for two causes so that a
+    // Step 2 — the whole defence. Registry first, then policy — the order the two internal reasons need, since a suite that is not registered cannot also be below a floor. Both reach one wire value: §5.2.1's `unsupported_suite` being one value for two causes so that a
     // requester cannot learn whether the custodian *knows* the suite it
     // declined.
     let entry = registry

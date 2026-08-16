@@ -151,9 +151,9 @@ func TestASuiteOutsideTheAcceptableSetIsRefusedBeforeVerification(t *testing.T) 
 }
 
 func TestAnUnresolvableKeyIsIndistinguishableFromABadSignature(t *testing.T) {
-	// §4.6's second invariant, at the sequence level rather than the resolver's:
-	// both reach the same internal reason, so there is no way for a response to
-	// differ.
+	// §4.6's second invariant, at the sequence level. The two reach *different*
+	// internal reasons — an operator needs to know which — and the same wire
+	// value, which is where the requester's view is collapsed.
 	unresolvable := signedHeader(t,
 		`{"key_id":"nobody-we-know","suite":"eddsa-jws-2026"}`, keyFor(t, "test-requester-1"))
 

@@ -290,10 +290,13 @@ func VerifyQuery(signed string, policy SuitePolicy, registry SuiteRegistry,
 		return nil, SignatureSegmentNotBase64URL
 	}
 
-	// Step 2 — the whole defence. Policy first, then the registry: an
-	// unregistered suite and one below the floor produce the same value, which is
-	// §5.2.1's unsupported_suite being one value for two causes so that a
-	// requester cannot learn whether the custodian knows the suite it declined.
+	// Step 2 — the whole defence.
+	//
+	// Registry first, then policy, which is the order the two internal reasons
+	// need: a suite that is not registered cannot also be below a floor. Both
+	// reach one wire value — §5.2.1's unsupported_suite is one value for two
+	// causes, so a requester cannot learn whether the custodian knows the suite
+	// it declined.
 	entry, err := registry.Resolve(header.suite)
 	if err != nil {
 		return nil, SuiteUnregistered
