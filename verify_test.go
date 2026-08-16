@@ -150,7 +150,7 @@ func TestASuiteOutsideTheAcceptableSetIsRefusedBeforeVerification(t *testing.T) 
 	}
 }
 
-func TestAnUnresolvableKeyIsIndistinguishableFromABadSignature(t *testing.T) {
+func TestAnUnresolvableKeyIsIndistinguishableOnTheWireFromABadSignature(t *testing.T) {
 	// §4.6's second invariant, at the sequence level. The two reach *different*
 	// internal reasons — an operator needs to know which — and the same wire
 	// value, which is where the requester's view is collapsed.

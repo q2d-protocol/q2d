@@ -401,14 +401,6 @@ func VerifyQuery(signed string, policy SuitePolicy, registry SuiteRegistry,
 		return nil, HeaderPayloadKeyMismatch
 	}
 
-	// E-31, and after the comparisons for the same reason the version check is:
-	// signature.value is a payload field, and §3 puts 5a before any step that
-	// acts on one. A payload that both carries a value and disagrees with its
-	// header answers with the disagreement.
-	if _, carries := signature["value"]; carries {
-		return nil, CoreObjectCarriesSignatureValue
-	}
-
 	// After 5a, not before. crypto-suites.md §3 puts the two comparisons
 	// "immediately after the payload is parsed… and before any step that acts on
 	// a payload field", and q2d_version is a payload field. A message that is
@@ -423,6 +415,14 @@ func VerifyQuery(signed string, policy SuitePolicy, registry SuiteRegistry,
 			return nil, UnsupportedVersion
 		}
 		return nil, CoreObjectMalformed
+	}
+
+	// E-31, last: signature.value is one of the fields the version check above
+	// means when it says anything else in the object. A payload that is both an
+	// unimplemented version and carries a value answers with the version, because
+	// under 0.2 the member might not mean what it means here.
+	if _, carries := signature["value"]; carries {
+		return nil, CoreObjectCarriesSignatureValue
 	}
 
 	return core, nil

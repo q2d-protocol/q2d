@@ -381,15 +381,6 @@ pub fn verify_query(
         return Err(Rejected::HeaderPayloadKeyMismatch);
     }
 
-    // E-31, and **after** the comparisons for the same reason the version check
-    // is: `signature.value` is a payload field, and §3 puts 5a before any step
-    // that acts on one. A payload that both carries a value and disagrees with
-    // its header answers with the disagreement.
-    if matches!(&core, Value::Object(m) if matches!(m.get("signature"),
-        Some(Value::Object(s)) if s.contains_key("value")))
-    {
-        return Err(Rejected::CoreObjectCarriesSignatureValue);
-    }
 
     // **After 5a, not before.** `crypto-suites.md` §3 puts the two comparisons
     // *"immediately after the payload is parsed… and before any step that acts
@@ -405,6 +396,16 @@ pub fn verify_query(
         crate::VersionProblem::Unsupported => Rejected::UnsupportedVersion,
         crate::VersionProblem::Malformed => Rejected::CoreObjectMalformed,
     })?;
+
+    // E-31, **last**: `signature.value` is one of the fields the version check
+    // above means when it says *anything else in the object*. A payload that is
+    // both an unimplemented version and carries a value answers with the
+    // version, because under 0.2 the member might not mean what it means here.
+    if matches!(&core, Value::Object(m) if matches!(m.get("signature"),
+        Some(Value::Object(s)) if s.contains_key("value")))
+    {
+        return Err(Rejected::CoreObjectCarriesSignatureValue);
+    }
 
     Ok(core)
 }
@@ -557,10 +558,10 @@ mod tests {
     }
 
     #[test]
-    fn an_unresolvable_key_is_indistinguishable_from_a_bad_signature() {
-        // §4.6's second invariant, at the sequence level rather than the
-        // resolver's: both reach the same internal reason, so there is no way
-        // for a response to differ.
+    fn an_unresolvable_key_is_indistinguishable_on_the_wire_from_a_bad_signature() {
+        // §4.6's second invariant, at the sequence level. The two reach
+        // *different* internal reasons — an operator needs to know which — and
+        // the same wire value, which is where the requester's view collapses.
         let key = PrivateKey::from_seed(&seed("test-requester-1")).unwrap();
         let payload = signed();
         let payload = payload.split('.').nth(1).unwrap();

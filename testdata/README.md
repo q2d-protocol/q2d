@@ -100,7 +100,11 @@ and the [`core-model.md`](../spec/core-model.md) §4 step it is caught at.
 
 **Derived, not authored.** A Python test rebuilds it from the corpus and fails if
 the committed file differs, so the fixture cannot drift from the vectors. Each
-implementation asserts its own mapping agrees for every reason it produces —
+implementation asserts its own mapping agrees for **every reason the fixture
+names**, and fails rather than skips on a name it cannot find. That is narrower
+than every reason it can *return*: `suite_below_policy` is one it can and the
+fixture cannot carry — see below — so that pair is held by mirrored unit tests
+instead, which is the weaker thing. What the fixture does cover is
 which is what stops a vector passing in one and failing in the other for a
 reason no runner reports usefully.
 
