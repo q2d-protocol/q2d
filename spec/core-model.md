@@ -901,14 +901,19 @@ bytes, so precision here costs nothing and makes the protocol debuggable.
 | `unsupported_suite` | Suite unregistered, **or** below the verifier's minimum acceptable policy | step 3 |
 | `routing_mismatch` | `routing` disagrees with the verified object | step 8 |
 | `expired` | Request expired or future-dated | step 6 |
-| `structurally_invalid` | The fault is in how the message was **built** — in its signed container or its protected header, which [`crypto-suites.md`](crypto-suites.md) §3 defines — rather than in the envelope §2.1 defines or in the verified core object. Four causes: `signed` is not a well-formed compact serialization; the header carries a member §3 does not permit; the header's `suite` disagrees with the payload's `signature.profile`; the header's `key_id` disagrees with `signature.key_id` | step 3 for the first two, which need no signature; step **5a** for the two disagreements, which need the parsed payload |
+| `structurally_invalid` | The fault is in how the message was **built** — in its signed container or its protected header, which [`crypto-suites.md`](crypto-suites.md) §3 defines — rather than in the envelope §2.1 defines or in the verified core object. Three kinds: `signed` is not a well-formed compact serialization; the protected header is not the object §3 defines; the header and the payload disagree about the suite or the key | step 3 for the first two, which need no signature; step **5a** for a disagreement, which needs the parsed payload |
 
 `unsupported_suite` is one value for two causes on purpose. Separating them would
 tell a requester whether the custodian *knows* a suite it declined, which is the
 custodian's minimum acceptable policy — a fact about the custodian, not about the
 request, and so on the wrong side of the line this group is drawn along.
 
-**`structurally_invalid` is one value for four causes for a different reason.**
+**`structurally_invalid` is one value for several causes for a different
+reason.** Kinds rather than a count, deliberately: an earlier draft enumerated
+them and the number went stale twice as implementations found more ways for a
+header to be wrong — a header that decodes to a string rather than an object, a
+header whose `suite` is a number. Each is *the protected header is not the object
+§3 defines*, and none of them changes what a requester does.
 Nothing is withheld: every one of them is visible in the message the requester
 itself produced, so putting the detail on the wire would tell the receiver what
 it already holds. What it costs is a mapping both implementations must get
@@ -931,9 +936,10 @@ envelope is fine, and its JWS construction is not. An earlier draft of this tabl
 drew the line at parsing and left that cause with no value at all, which is how
 the gap was found.
 
-**Two causes are caught before verification and two after**, and the asymmetry is
-not a defect. A container that will not split into three decodable segments, and
-a header carrying `alg`, are both visible in what §4 step 3 already reads — so
+**The first two kinds are caught before verification and the third after**, and
+the asymmetry is not a defect. A container that will not split into three
+decodable segments, and a header that is not §3's object, are both visible in
+what §4 step 3 already reads — so
 rejecting them there is the *least* work, not extra work done ahead of
 authentication. The two disagreements need the parsed payload, which §2.1 forbids
 reading until the bytes verify, so they cannot be seen before step 5. Nothing in
@@ -947,7 +953,7 @@ enumerated, so the requirement existed with no slot in the order that cites it.
 added after the list was closed and the next one will need the same test: it
 tells a requester **where to look**. A value earns a place by sending a requester
 somewhere a neighbouring value would not — not by naming a cause precisely.
-That is why four structural failures share one value, and why this one is not
+That is why every structural failure shares one value, and why this one is not
 `malformed`.
 
 **One class — authentication.**

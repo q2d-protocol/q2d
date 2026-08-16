@@ -151,7 +151,10 @@ class StructurallyInvalidTest(unittest.TestCase):
     # fault rather than the envelope's.
     CASES = ("suite/verify/not-three-segments",
              "suite/verify/header-not-base64url",
+             "suite/verify/payload-not-base64url",
              "suite/verify/respelled-signature-segment",
+             "suite/verify/header-not-an-object",
+             "suite/verify/header-member-not-a-string",
              "suite/downgrade/header-carries-alg",
              "suite/downgrade/header-payload-suite-mismatch",
              "suite/downgrade/header-payload-key-mismatch")
