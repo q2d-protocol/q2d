@@ -75,6 +75,89 @@ func isQ2DTimestamp(value string) bool {
 		hour <= 23 && minute <= 59 && second <= 59
 }
 
+// TimestampToEpochSeconds is §2.2's timestamp as a count of seconds, for the
+// arithmetic P-004 §4.4 needs.
+//
+// The second return is false for anything isQ2DTimestamp refuses, so there is
+// one definition of what a Q2D timestamp is and this is not a second one. A
+// caller comparing two instants therefore cannot accidentally accept a spelling
+// the serializer would not have written.
+//
+// # Why a count rather than a comparison
+//
+// Ordering alone would be enough for "is this expired", and §4.4 also needs "is
+// expires_at - issued_at above five minutes" and "is now within sixty seconds of
+// it". Those are subtraction, so the conversion has to exist; making it the only
+// primitive means the ordering and the arithmetic cannot disagree.
+//
+// # Leap seconds
+//
+// 23:59:60 at a month end is a valid §2.2 timestamp — RFC 3339 §5.7, and
+// isQ2DTimestamp accepts it — and this collapses it onto :59, which is the same
+// thing that function already does before it range-checks. The alternative is a
+// leap-second table: which seconds were actually inserted is IERS data, it is
+// not statically decidable, and two implementations carrying different vintages
+// of it would disagree about an instant. Collapsing costs the ability to
+// distinguish a leap second from the second before it, at instants that have
+// occurred twenty-seven times in fifty years, and buys an arithmetic both
+// implementations can be held to.
+//
+// The epoch is 1970-01-01T00:00:00Z. Nothing in the protocol serializes this
+// value — it exists inside a comparison and no further — so the choice of epoch
+// is arbitrary and only has to be the same in both implementations.
+//
+// time.Parse is not used. It accepts spellings §2.2 refuses, so reaching for it
+// would put a second definition of a Q2D timestamp in this file — and the Rust
+// side has no equivalent to reach for, which is exactly when the two drift.
+func TimestampToEpochSeconds(value string) (int64, bool) {
+	if !isQ2DTimestamp(value) {
+		return 0, false
+	}
+	year := int64(number(value, 0, 4))
+	month := int64(number(value, 5, 7))
+	day := int64(number(value, 8, 10))
+	hour := int64(number(value, 11, 13))
+	minute := int64(number(value, 14, 16))
+	second := int64(number(value, 17, 19))
+	// The same collapse isQ2DTimestamp applies, restated because this reads the
+	// text again rather than receiving that function's parsed fields.
+	if second == 60 {
+		second = 59
+	}
+	return daysFromCivil(year, month, day)*86400 + hour*3600 + minute*60 + second, true
+}
+
+// daysFromCivil returns days from 1970-01-01 to year-month-day, proleptic
+// Gregorian.
+//
+// Howard Hinnant's days_from_civil, which is exact integer arithmetic over the
+// 400-year cycle rather than a loop over years — a loop would be correct too and
+// would take a different amount of time for different inputs, which is a
+// property this repository would then have to reason about.
+//
+// Integer throughout. No floating point anywhere near a protocol decision.
+func daysFromCivil(year, month, day int64) int64 {
+	// March-based years, so a leap day is the last day rather than one in the
+	// middle, and February needs no special case below.
+	if month <= 2 {
+		year--
+	}
+	era := year
+	if era < 0 {
+		era -= 399
+	}
+	era /= 400
+	yearOfEra := year - era*400
+	shift := int64(9)
+	if month > 2 {
+		shift = -3
+	}
+	dayOfYear := (153*(month+shift)+2)/5 + day - 1
+	dayOfEra := yearOfEra*365 + yearOfEra/4 - yearOfEra/100 + dayOfYear
+	// 719468 is the number of days from 0000-03-01 to 1970-01-01.
+	return era*146097 + dayOfEra - 719468
+}
+
 // looksLikeRFC3339 reports whether a string has some RFC 3339 §5.6 spelling.
 //
 // Nothing in the serializer calls this. §2.2 binds the fields it names and
