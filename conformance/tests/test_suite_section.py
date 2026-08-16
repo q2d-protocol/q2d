@@ -226,11 +226,6 @@ class ExpectedStateTest(unittest.TestCase):
                          "suite/status/ landed — a second suite has presumably "
                          "been registered, so delete this assertion")
 
-
-if __name__ == "__main__":
-    unittest.main()
-
-
 class RejectionVocabularyTest(unittest.TestCase):
     """`testdata/rejection-vocabulary.txt` is the corpus's own mapping, extracted.
 
@@ -282,3 +277,6 @@ class RejectionVocabularyTest(unittest.TestCase):
             (REPO / "testdata" / "rejection-vocabulary.txt").read_text("utf-8"),
             expected,
             "regenerate testdata/rejection-vocabulary.txt from the corpus")
+
+if __name__ == "__main__":
+    unittest.main()

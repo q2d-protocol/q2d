@@ -213,14 +213,15 @@ def vectors() -> list[dict]:
             "requirement": ["crypto-suites.md#3", "core-model.md#5.2.1"],
             "description": (
                 "Three segments, and the **payload** is not base64url. The "
-                "sibling of `header-not-base64url`, and it exists because a "
-                "verifier reaches the header and the signature on its own "
-                "account — it reads one and checks the other — while the "
-                "payload is only decoded after verification succeeds. An "
-                "implementation that checked the two it touches and left this "
-                "one to the parse at step 5 would reject it as `malformed` "
-                "instead, which sends the requester to its serializer for a "
-                "fault in its JWS construction."
+                "sibling of `header-not-base64url`. **All three segments are "
+                "checked at step 3** — §3 defines the form and step 3 is where "
+                "the form is read — and this vector exists because the payload "
+                "is the segment an implementation is most likely to leave out "
+                "of that check: it reads the header on its own account and "
+                "checks the signature to verify, while the payload is not "
+                "needed until step 5. One that left it to the parse there "
+                "would answer `malformed`, sending the requester to its "
+                "serializer for a fault in its JWS construction."
             ),
             "operation": "verify_query",
             "input": envelope(f"{valid.split('.')[0]}.not base64url!.{valid.split('.')[2]}"),
