@@ -18,13 +18,7 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-50 is open**, raised by review of P-004 issue 2: `core-model.md` §5.2.1
-> says step 9 rejects a `query_id` **or nonce** reused over different content,
-> and P-004 §4.2 keys the replay cache on `(principal, query_id)` alone. Either
-> the specification means the nonce *of* that identifier — already covered — or
-> it requires a second index no PRD describes. It blocks P-004 issue 3.
->
-> **E-36** through **E-49** all closed.
+> **Nothing is open.** **E-36** through **E-50** all closed.
 >
 > **E-46:** §5.2.1 had no `external_reason` for a `signed` string that is not a
 > well-formed compact JWS. Closed as **B**: `structurally_invalid` is separated
@@ -213,7 +207,7 @@ question is still fresh than after the answer arrives.
 | **E-45** | The digest string form is defined only in P-002 | P-002 issue 10 | `serialization.md` §5 (new) · P-002 §4.7 · P-011 §4.2 · both implementations · `testdata/` · `message/digest/` | **Closed** |
 | **E-46** | Which `external_reason` for a `signed` string that is not a well-formed compact JWS? | P-003 issue 2 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, issues 6–8 · `suite/verify/` · both implementations | **Closed** |
 | **E-47** | Ed25519 in Rust needs a dependency policy, and there is no conventions document | P-003 issue 1 | `CONVENTIONS-rust.md`, `CONVENTIONS-go.md` (both new) · `Cargo.toml`, `go.mod` · both implementations · `testdata/ed25519-acceptance.txt` · CI | **Closed** |
-| **E-50** | Does the replay check track nonces, or only `query_id`s? | P-004 issue 2 (review) | `core-model.md` §5.2.1 · P-004 §4.2, §9 item 2, §10, issue 3 · both implementations' `replay` | **Open** |
+| **E-50** | Does the replay check track nonces, or only `query_id`s? | P-004 issue 2 (review) | `freshness.md` §1, §3.1 (new) · `core-model.md` §5.2.1 unchanged · P-004 §4.2, §4.3, §9 item 2, §10, issues 2 and 3 · both implementations' `replay` | **Closed** |
 | **E-49** | Every freshness and replay constant lives in a PRD, not in `spec/` | P-004 issue 1 | `freshness.md` (new) · `core-model.md` §2.2, §4 steps 6 and 9, §5.2.1 · `claims.md` Q2D-C-07 · `conformance-classes.md` · P-004 §2, §4.3, §4.4, §6, §7, §8, §9, §10, issues 1, 4 and 9 · P-008 §4.5 · P-015 §4.2, §4.7 · both implementations' `timestamp` | **Closed** |
 | **E-48** | A vector can describe a message, but not the verifier that receives it | P-003 issue 11 | `conformance/vector.schema.json` + its served copy · P-001 §4.3, §6, RUNNER-CONTRACT · P-003 §6, §7, issues 8 and 11 · `suite/status/`, `suite/downgrade/below-floor` · both implementations · P-012 | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
@@ -4415,6 +4409,82 @@ evidence about its published answers.
 P-003 §6 lists five groups now and records the reasoning; §7's first acceptance
 criterion is unchanged, because it asks that raw Ed25519 reproduces RFC 8032 in
 both implementations and says nothing about where that is asserted.
+
+---
+
+## E-50 — Does the replay check track nonces, or only `query_id`s?
+
+**Raised by** Codex review of P-004 issue 2. **Closed — B, against the
+recommendation.**
+
+[`core-model.md`](../spec/core-model.md) §5.2.1 rejects at step 9 *"a `query_id`
+**or nonce** reused over different content"*. P-004 §4.2 keyed the replay cache
+on `(principal, query_id)` and compared the digest — so the `query_id` half was
+covered and the **nonce** half was not: a nonce reused under a *new* identifier
+shares no key with its first use and proceeded as fresh.
+
+**Options.** **A** read §5.2.1 loosely and amend it to describe the mechanism ·
+**B** add a nonce index · **C** A's amendment plus nonce uniqueness stated as a
+requester obligation, on the split §3 had just made for entropy.
+
+**Recommended C. Peter chose B, and the challenge exposed a bad argument.**
+
+The recommendation leaned on being unable to construct a 0.1 attack from nonce
+reuse across identifiers — no bypass exists, both exchanges are decided, both
+debit, both are audited under distinct identifiers. It also asserted that **B
+would be needed at CC-5 anyway**, which was more than could be supported: CC-5
+binds a presentation to the query nonce, the nonce here is **requester-chosen**,
+and a challenge the prover picks is weak freshness whoever indexes it — so CC-5
+may need a *responder-issued* challenge, in which case a requester-nonce index is
+not its mechanism.
+
+What carried B is neither of those:
+
+- **The specification governs.** *"The implementation does not do this"* is not
+  evidence the specification is wrong, and C amended `spec/` to match code. That
+  is backwards from the context hierarchy, and it outweighs a failure to find an
+  exploit.
+- **B refuses only bugs.** §3 requires 128 bits from a CSPRNG, so a collision is
+  negligible and a deliberate reuse is a defect. There is no legitimate traffic
+  the index rejects, which makes *cost with no attacker* a much weaker objection
+  than the recommendation made it.
+
+**A fourth option died on inspection.** *Reject any nonce reuse at all* is a
+cleaner rule to state and collapses into B: a byte-identical retry carries the
+same nonce by construction, so a rule without the *different content* qualifier
+would reject the retry idempotency exists to serve.
+
+### Resolution — B
+
+`freshness.md` §3.1 states the rule, and §1 carries the index's retention by the
+same derivation as the primary one. **`core-model.md` §5.2.1 is unchanged**,
+which is the point: it was right and the implementation was short of it.
+
+**Scoped to the requester**, decided here rather than escalated: a global index
+would let any requester exhaust another's nonce values and deny them service — a
+denial-of-service handed to every peer in exchange for a collision probability
+already negligible at 128 bits.
+
+**Both indexes are written in one call and evicted in one sweep**, so no state
+exists in which a request is remembered by one and not the other, and neither is
+left unbounded when the other is swept.
+
+**The store takes no view.** It reports what a nonce was last attached to; the
+caller draws §5.2.1's distinction, because an equal digest is the same request
+arriving again and a different one is the reuse. Issue 3 owns that outcome, and a
+store with an opinion would be a second place the rule lives.
+
+### It also corrected the reason the nonce exists
+
+`freshness.md` §3 ended *"the nonce is what makes second-precision timestamps
+sufficient […] uniqueness comes from it and not from the clock"*, inherited from
+P-004 §4.3 and carried into `spec/` by E-49 four days earlier. **It is wrong.**
+Two distinct exchanges of the same question carry different `query_id`s, so they
+produce different bytes and different digests with or without the nonce —
+distinctness comes from the identifier. The nonce's own work is to make a request
+digest **unpredictable in advance**, and to be the value CC-5 and CC-6 bind
+evidence to. §3.1 says so, and says plainly that the old sentence justified the
+field by a property another field supplies.
 
 ---
 

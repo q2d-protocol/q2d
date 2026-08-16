@@ -12,7 +12,7 @@ const replayExpires int64 = 1000300
 const replayPrincipal = "did:key:z6MkRequesterPrincipal"
 
 func insertReplay(cache *ReplayCache, policy FreshnessPolicy, queryID string) {
-	cache.Insert(policy, replayPrincipal, queryID, "sha256:aa", []byte("response"), replayExpires)
+	cache.Insert(policy, replayPrincipal, queryID, "sha256:aa", []byte("response"), "nonce-for-"+queryID, replayExpires)
 }
 
 func TestAnEntryIsReturnedVerbatim(t *testing.T) {
@@ -66,7 +66,7 @@ func TestTheCacheNeverHidesAnEntryTheFreshnessCheckWouldAccept(t *testing.T) {
 	for window := int64(1); window <= 300; window++ {
 		issued, expires := int64(1000000), int64(1000000)+window
 		cache := NewReplayCache()
-		cache.Insert(policy, "p", "q", "sha256:aa", nil, expires)
+		cache.Insert(policy, "p", "q", "sha256:aa", nil, "n", expires)
 		for now := issued - 120; now <= expires+120; now++ {
 			acceptable := policy.Check(issued, expires, now) == nil
 			_, visible := cache.Get("p", "q", now)
@@ -91,11 +91,13 @@ func TestEvictionIsObservableAndStrictlyPastTheInstant(t *testing.T) {
 	if cache.Len() != 2 {
 		t.Errorf("len %d", cache.Len())
 	}
-	if n := cache.Evict(through + 1); n != 2 {
-		t.Errorf("evicted %d, want 2", n)
+	// Four: two entries and their two nonce records, which expire together
+	// because they were written together.
+	if n := cache.Evict(through + 1); n != 4 {
+		t.Errorf("evicted %d, want 4", n)
 	}
-	if cache.Len() != 0 {
-		t.Errorf("len %d after eviction", cache.Len())
+	if cache.Len() != 0 || cache.NonceLen() != 0 {
+		t.Errorf("len %d, nonces %d after eviction", cache.Len(), cache.NonceLen())
 	}
 }
 
@@ -126,7 +128,7 @@ func TestAShorterConfiguredWindowShortensRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	cache := NewReplayCache()
-	cache.Insert(strict, "p", "q", "sha256:aa", nil, replayExpires)
+	cache.Insert(strict, "p", "q", "sha256:aa", nil, "n", replayExpires)
 	if _, ok := cache.Get("p", "q", replayExpires+5); !ok {
 		t.Error("evicted inside the configured skew")
 	}
@@ -143,7 +145,7 @@ func TestAStoredResponseCannotBeMutatedThroughTheCallersSlice(t *testing.T) {
 	// sent.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
 	response := []byte("answer")
-	cache.Insert(policy, "p", "q", "sha256:aa", response, replayExpires)
+	cache.Insert(policy, "p", "q", "sha256:aa", response, "n", replayExpires)
 	response[0] = 'X'
 	entry, _ := cache.Get("p", "q", replayExpires)
 	if !bytes.Equal(entry.ResponseBytes, []byte("answer")) {
@@ -153,5 +155,66 @@ func TestAStoredResponseCannotBeMutatedThroughTheCallersSlice(t *testing.T) {
 	again, _ := cache.Get("p", "q", replayExpires)
 	if !bytes.Equal(again.ResponseBytes, []byte("answer")) {
 		t.Errorf("the cached response changed through a returned entry: %q", again.ResponseBytes)
+	}
+}
+
+func TestANonceIsFoundUnderADifferentQueryID(t *testing.T) {
+	// The case the primary index cannot see, and the whole of E-50. A nonce reused
+	// under a new identifier shares no key with its first use, so without this
+	// index the second request is fresh.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	cache.Insert(policy, "p", "urn:uuid:one", "sha256:aa", nil, "N", replayExpires)
+	if _, ok := cache.Get("p", "urn:uuid:two", replayExpires); ok {
+		t.Error("the primary index saw it, which it cannot")
+	}
+	use, ok := cache.NonceUsed("p", "N", replayExpires)
+	if !ok {
+		t.Fatal("the nonce index did not")
+	}
+	if use.RequestDigest != "sha256:aa" {
+		t.Errorf("digest %q", use.RequestDigest)
+	}
+}
+
+func TestTheNonceIndexIsScopedToTheRequester(t *testing.T) {
+	// A global index would let any requester exhaust another's nonce values and
+	// deny them service.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	cache.Insert(policy, "p", "q", "sha256:aa", nil, "N", replayExpires)
+	if _, ok := cache.NonceUsed("someone-else", "N", replayExpires); ok {
+		t.Error("one requester's nonce reached another's index")
+	}
+}
+
+func TestTheStoreReportsTheDigestAndTakesNoView(t *testing.T) {
+	// §5.2.1's distinction is the caller's to draw: an equal digest is the same
+	// request arriving again, a different one is the reuse. A store that decided
+	// would be a second place the rule lives — which is why this returns what it
+	// recorded rather than a verdict.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	cache.Insert(policy, "p", "q", "sha256:aa", nil, "N", replayExpires)
+	use, _ := cache.NonceUsed("p", "N", replayExpires)
+	if use.RequestDigest != "sha256:aa" {
+		t.Errorf("digest %q", use.RequestDigest)
+	}
+}
+
+func TestBothIndexesExpireAtTheSameInstant(t *testing.T) {
+	// Written together and evicted together, so no state exists in which a request
+	// is remembered by one and not the other.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	cache.Insert(policy, "p", "q", "sha256:aa", nil, "N", replayExpires)
+	through := policy.RetainThrough(replayExpires)
+	if _, ok := cache.Get("p", "q", through); !ok {
+		t.Error("entry gone at the instant")
+	}
+	if _, ok := cache.NonceUsed("p", "N", through); !ok {
+		t.Error("nonce record gone at the instant")
+	}
+	if _, ok := cache.Get("p", "q", through+1); ok {
+		t.Error("entry visible after the instant")
+	}
+	if _, ok := cache.NonceUsed("p", "N", through+1); ok {
+		t.Error("nonce record visible after the instant")
 	}
 }

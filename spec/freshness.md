@@ -27,6 +27,7 @@ Terms: [`terminology.md`](terminology.md). Exchange:
 | Maximum validity window, `expires_at − issued_at` | 300 s | downward |
 | Replay-cache retention, per entry | through `expires_at + skew` **inclusive** | derived, not set |
 | Minimum `nonce` length | 16 bytes | upward |
+| Nonce-index retention, per entry | through `expires_at + skew` **inclusive** | derived, not set |
 
 **Configuration may only make a responder stricter, and a value on the wrong
 side of a bound fails at startup rather than being clamped.** A clamped
@@ -160,10 +161,36 @@ core-object faults — not at step 6 with
 freshness, and not at step 9 with the replay cache. It is a property of the
 message rather than of the moment or of any prior exchange.
 
-The nonce is what makes second-precision timestamps sufficient. Two semantically
-identical questions asked in the same second still produce distinct bytes and
-distinct digests, because the nonce differs; uniqueness comes from it and not
-from the clock.
+### 3.1 A nonce is used once
+
+**A requester must not reuse a nonce.** A responder must reject a request whose
+nonce it has already recorded for that requester over *different* content —
+[`core-model.md`](core-model.md) §5.2.1's step 9, which names a `query_id` **or
+nonce** reused that way.
+
+**Scoped to the requester**, exactly as the replay cache's own key is. A global
+index would let any requester exhaust another's nonce values and deny them
+service, which is a denial-of-service handed to every peer in exchange for a
+collision probability that is already negligible at 128 bits.
+
+The check is over *different content* and not over any reuse, because a
+byte-identical retry carries the same nonce by construction: rejecting all reuse
+would reject the retry the idempotency rule exists to serve.
+
+Retention is §1's, per entry and by the same derivation: a nonce must be
+remembered exactly as long as a request carrying it is still acceptable, which is
+through `expires_at + skew` inclusive.
+
+**What this is not.** It is not what makes second-precision timestamps
+sufficient, and an earlier draft of this section said it was. Two distinct
+exchanges of the same question carry different `query_id`s, so they produce
+different bytes and different digests with or without the nonce — **distinctness
+comes from the identifier.** The nonce's own work is to make a request digest
+**unpredictable in advance**, and to be the value a future credential-backed or
+verifiable-computation profile binds evidence to
+([`conformance-classes.md`](conformance-classes.md) CC-5, CC-6). Uniqueness
+matters to the second of those: evidence bound to a nonce that appears twice is
+evidence that satisfies two exchanges.
 
 ## 4. What this document does not fix
 

@@ -12,18 +12,23 @@
 // an opinion: a store that decided whether a digest matched would be a second
 // place the idempotency rule lives.
 //
-// # The key is (principal, query_id) — and the specification may want more
+// # Two indexes, because §5.2.1 names two identifiers
 //
-// P-004 §4.2 fixes that key and §9 item 2 makes it escalate-if-changed. But
-// core-model.md §5.2.1 says step 9 rejects "a query_id or nonce reused over
-// different content", and nothing here tracks nonces: a nonce reused under a new
-// query_id is invisible to this store and proceeds as fresh.
+// core-model.md §5.2.1 rejects "a query_id or nonce reused over different
+// content". The query_id half is the primary key and the digest comparison; the
+// nonce half needs its own index, because a nonce reused under a new query_id
+// shares no key with its first use.
 //
-// The two documents may agree — §5.2.1 may mean the nonce of that identifier,
-// which the digest comparison already covers — or the specification may require a
-// second index. That is E-50 in docs/open-escalations.md, open, and the store is
-// built to P-004 §4.2 meanwhile rather than to a guess. It bites at issue 3,
-// which is where the three-way outcome is decided and is not built.
+// E-50 settled that, against a recommendation to read the sentence loosely and
+// amend it. Two arguments carried it: the specification governs, so "the
+// implementation does not do this" is not evidence the specification is wrong —
+// and at 128 bits from a CSPRNG a collision is negligible, so the only traffic
+// this index refuses is a requester bug.
+//
+// The nonce index is scoped to the requester, exactly as the primary key is. A
+// global index would let any requester exhaust another's nonce values and deny
+// them service — a denial-of-service handed to every peer in exchange for
+// nothing.
 //
 // # Only authenticated requests reach it
 //
@@ -56,19 +61,42 @@ type ReplayEntry struct {
 // RetainThrough returns the retention instant, for tests and operator tooling.
 func (e ReplayEntry) RetainThrough() int64 { return e.retainThrough }
 
+// NonceUse is what a nonce this requester has already used was attached to.
+//
+// Only the digest and the retention instant: this index answers "has this
+// requester used this nonce, and over what content", and a response body here
+// would be a second copy of one the primary index already holds.
+type NonceUse struct {
+	// RequestDigest is the digest of the request that used it.
+	RequestDigest string
+	retainThrough int64
+}
+
+// RetainThrough returns the retention instant.
+func (n NonceUse) RetainThrough() int64 { return n.retainThrough }
+
 type replayKey struct {
 	principal string
 	queryID   string
 }
 
+type nonceKey struct {
+	principal string
+	nonce     string
+}
+
 // ReplayCache is the store.
 type ReplayCache struct {
 	entries map[replayKey]ReplayEntry
+	nonces  map[nonceKey]NonceUse
 }
 
 // NewReplayCache returns an empty store.
 func NewReplayCache() *ReplayCache {
-	return &ReplayCache{entries: map[replayKey]ReplayEntry{}}
+	return &ReplayCache{
+		entries: map[replayKey]ReplayEntry{},
+		nonces:  map[nonceKey]NonceUse{},
+	}
 }
 
 // Insert records an exchange.
@@ -78,17 +106,43 @@ func NewReplayCache() *ReplayCache {
 // already present is replaced, which is the caller's decision to have made: issue
 // 3 decides whether a second request under one query_id is a replay or a
 // rejection, and by the time it inserts it has already decided.
-func (c *ReplayCache) Insert(policy FreshnessPolicy, principal, queryID, requestDigest string, responseBytes []byte, expiresAt int64) {
+func (c *ReplayCache) Insert(policy FreshnessPolicy, principal, queryID, requestDigest string, responseBytes []byte, nonce string, expiresAt int64) {
 	// The response is copied. A caller retaining the slice it passed could
 	// otherwise mutate a cached response after the fact, and §4.5's whole point
 	// is that the bytes returned on a replay are the bytes that were sent.
 	stored := make([]byte, len(responseBytes))
 	copy(stored, responseBytes)
+	retainThrough := policy.RetainThrough(expiresAt)
 	c.entries[replayKey{principal, queryID}] = ReplayEntry{
 		RequestDigest: requestDigest,
 		ResponseBytes: stored,
-		retainThrough: policy.RetainThrough(expiresAt),
+		retainThrough: retainThrough,
 	}
+	// Both indexes are written in one call and expire at one instant, so there is
+	// no state in which a request is remembered by one and not the other. Two
+	// insert functions would make that state reachable.
+	c.nonces[nonceKey{principal, nonce}] = NonceUse{
+		RequestDigest: requestDigest,
+		retainThrough: retainThrough,
+	}
+}
+
+// NonceUsed reports what this requester last used nonce for, as of now.
+//
+// The second return is false where it has not used it inside the retention
+// window. A caller comparing the returned digest against the request in hand gets
+// §5.2.1's distinction: equal is the same request arriving again, which the
+// primary index will report as a retry, and different is the nonce reused over
+// different content, which is a rejection.
+//
+// This deliberately does not make that decision. Issue 3 owns the outcome, and a
+// store with an opinion about it would be a second place the rule lives.
+func (c *ReplayCache) NonceUsed(principal, nonce string, now int64) (NonceUse, bool) {
+	use, ok := c.nonces[nonceKey{principal, nonce}]
+	if !ok || now > use.retainThrough {
+		return NonceUse{}, false
+	}
+	return use, true
 }
 
 // Get looks up an exchange, as of now.
@@ -140,7 +194,26 @@ func (c *ReplayCache) Evict(now int64) int {
 	for _, key := range stale {
 		delete(c.entries, key)
 	}
-	return len(stale)
+
+	// Both indexes, because both are bounded by the same instant and an eviction
+	// that swept one would leave the other unbounded — which is the memory
+	// argument spec/freshness.md §1 makes, applied to the index added after it.
+	var staleNonces []nonceKey
+	for key, use := range c.nonces {
+		if now > use.retainThrough {
+			staleNonces = append(staleNonces, key)
+		}
+	}
+	sort.Slice(staleNonces, func(i, j int) bool {
+		if staleNonces[i].principal != staleNonces[j].principal {
+			return staleNonces[i].principal < staleNonces[j].principal
+		}
+		return staleNonces[i].nonce < staleNonces[j].nonce
+	})
+	for _, key := range staleNonces {
+		delete(c.nonces, key)
+	}
+	return len(stale) + len(staleNonces)
 }
 
 // Len returns how many entries are held, for tests and operator tooling.
@@ -149,3 +222,10 @@ func (c *ReplayCache) Evict(now int64) int {
 // instant that Evict has not yet swept. Get will not return those, and the
 // difference is deliberate: this is a memory question and Get is a protocol one.
 func (c *ReplayCache) Len() int { return len(c.entries) }
+
+// NonceLen returns how many nonce records are held.
+//
+// Separate from Len rather than summed into it: they are written together and
+// evicted together, so a test that could only see a total could not tell a store
+// that dropped one index from a store that dropped both.
+func (c *ReplayCache) NonceLen() int { return len(c.nonces) }

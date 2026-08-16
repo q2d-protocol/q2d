@@ -67,6 +67,9 @@ An attacker *with* a valid key can, which is why §4.4 bounds retention.
 ```
 key   = (requester_principal, query_id)
 value = (request_digest, response_bytes, expires_at)
+
+key   = (requester_principal, nonce)          // E-50
+value = (request_digest, expires_at)
 ```
 
 On lookup:
@@ -88,10 +91,17 @@ distinct request requiring a new decision.
 
 ### 4.3 What the nonce is for
 
-`query_id` is the audit handle. The **nonce** supplies entropy so that two
-semantically identical questions asked in the same second still produce distinct
-bytes and distinct digests, and so a request's digest is not predictable in
-advance.
+`query_id` is the audit handle. The **nonce** makes a request digest
+unpredictable in advance, and is the value
+[`conformance-classes.md`](../../spec/conformance-classes.md) CC-5 and CC-6 bind
+evidence to.
+
+**This paragraph used to say more, and the extra part was wrong.** It said the
+nonce is what makes two semantically identical questions in the same second
+produce distinct bytes — but two distinct exchanges carry different `query_id`s
+and so already differ. Distinctness comes from the identifier;
+[E-50](../open-escalations.md) found it while settling the index, and
+[`freshness.md`](../../spec/freshness.md) §3.1 records the correction.
 
 The rule is [`freshness.md`](../../spec/freshness.md) §3 and this PRD does not
 restate it. **This section used to**, which was [E-49](../open-escalations.md):
@@ -109,9 +119,9 @@ two parties, and **this module implements the responder's half only** — the
 length floor. The entropy requirement is real and is not this module's to
 enforce.
 
-This resolves [P-002](P-002-message-envelope.md)'s open question: **second-precision
-timestamps are sufficient**, because uniqueness comes from the nonce and not from
-the clock.
+P-002's open question stays resolved — **second-precision timestamps are
+sufficient** — but on the identifier rather than on the nonce, which is the
+correction above.
 
 ### 4.4 Expiry, skew, and the window bound
 
@@ -237,6 +247,12 @@ failure this PRD is most likely to actually have.
 1. **The replay check runs after verification.** Moving it earlier lets
    unauthenticated traffic fill the cache.
 2. **Cache key is (principal, query_id); the digest is compared, not keyed on.**
+   **A second index on (principal, nonce) carries the other half** —
+   [`core-model.md`](../../spec/core-model.md) §5.2.1 rejects a `query_id`
+   **or nonce** reused over different content, and a nonce reused under a new
+   identifier shares no key with its first use ([E-50](../open-escalations.md)).
+   Both indexes are written together and evicted together, and the nonce index is
+   scoped to the requester so no peer can exhaust another's values.
 3. **`query_id` reuse with a different digest rejects.** One identifier, one
    exchange.
 4. **Response bytes are cached and returned verbatim.** Never re-signed, never
@@ -252,7 +268,7 @@ failure this PRD is most likely to actually have.
 
 | Question | Belongs to |
 |---|---|
-| **Does step 9 track nonces as well as `query_id`s?** | **Open — [E-50](../open-escalations.md).** §4.2 keys the cache on `(principal, query_id)` and compares the digest, and §9 item 2 makes that escalate-if-changed. [`core-model.md`](../../spec/core-model.md) §5.2.1 says step 9 rejects *"a `query_id` **or nonce** reused over different content"*, which either means the nonce *of* that identifier — already covered by the digest comparison — or requires a second index this PRD does not describe. Raised by review of issue 2; the store is built to §4.2 meanwhile. It bites at **issue 3**, where the three-way outcome is decided |
+| ~~Does step 9 track nonces as well as `query_id`s?~~ | **Resolved: yes — a second index on `(principal, nonce)`** ([E-50](../open-escalations.md)). §4.2 covered the `query_id` half and not the nonce half, since a nonce reused under a new identifier shares no key with its first use. The recommendation was to read [`core-model.md`](../../spec/core-model.md) §5.2.1 loosely and amend it; that was refused, and rightly — the specification governs, and *the implementation does not do this* is not evidence the specification is wrong. §5.2.1 is **unchanged**. The rule is [`freshness.md`](../../spec/freshness.md) §3.1 and it refuses only requester bugs, since a collision at 128 bits is negligible |
 | ~~What happens when the cache cannot accept an entry — memory pressure, store failure?~~ | **Resolved: reject the request**, as a Tier C denial. A responder that cannot guarantee idempotency must not answer: the alternative is answering while unable to recognise the retry, which double-debits and can turn a normalized outcome into an answer. The rejection happens **before** the debit, so a cache failure costs the requester its request and the custodian nothing. It is a Tier C cause like any other — a distinguishable "cache unavailable" response would report custodian internal state |
 | ~~Multi-instance responders sharing a cache~~ | **Answered:** single instance. Atomic debit-and-cache does not survive horizontal scaling without a distributed transaction. [P-013](P-013-https-binding.md) §4.6 |
 | ~~Does an expired-but-cached entry still suppress a duplicate debit after eviction?~~ | **Resolved: no.** Once evicted, the entry is gone and a resubmission is a new request. This is safe only because [`freshness.md`](../../spec/freshness.md) §1 retains an entry **through `expires_at + skew` inclusive**, which is exactly as long as §2 still accepts the request — §2's comparison is strict, so that instant is inside the window and eviction is permitted only from the first instant §2 would reject. Eviction and expiry therefore cannot leave an interval in which a retry is accepted by a cache that has forgotten it. **The reason stated here was wrong until review caught it**: it said a resubmission cannot reach the debit because expiry rejects it at step 6, which is false for the skew tail after `expires_at`. The two bounds are one mechanism and neither may be relaxed alone |
@@ -263,8 +279,8 @@ failure this PRD is most likely to actually have.
 | # | Issue | Done when |
 |---|---|---|
 | 1 | Nonce length floor | **Built** — [`src/freshness.rs`](../../src/freshness.rs) and [`freshness.go`](../../freshness.go); `replay/nonce/` waits on issue 8. **Renamed from *minimum entropy***: [`freshness.md`](../../spec/freshness.md) §3 splits the requirement, and the half a responder can enforce is a length floor. The floor is on the **decoded bytes**, and a test asserts the 22-character length a string check would have compared instead. A second test passes thirty-two zero bytes and expects success — it exists so nobody later reads the floor as an entropy check, since a responder holds one nonce and no distribution and there is nothing to measure. Two internal reasons, because a nonce that will not decode and one that is too short are different mistakes in a requester's own serializer; one wire value, `malformed`, at step 5 |
-| 2 | Replay cache store with retention and eviction | **Built** — [`src/replay.rs`](../../src/replay.rs) and [`replay.go`](../../replay.go). Eviction reports a count, so it is observable rather than inferred: a sweep that silently did nothing looks identical to one that worked. **Retention is applied on read as well as by the sweep**, so idempotency does not depend on when a timer last fired, and the boundary is inclusive at [`freshness.md`](../../spec/freshness.md) §1's instant — an entry hidden one second early lets a retry through as fresh and debits twice. The store holds no opinion about whether a digest matches; that is issue 3, and a store with one would be a second place the idempotency rule lives. **Open question 1's cache-failure path is issue 9** and is not built |
-| 3 | `check_replay` with the three-way outcome | `replay/idempotent/` and `replay/id-reuse/` pass |
+| 2 | Replay cache store with retention and eviction | **Built** — [`src/replay.rs`](../../src/replay.rs) and [`replay.go`](../../replay.go). Eviction reports a count, so it is observable rather than inferred: a sweep that silently did nothing looks identical to one that worked. **Retention is applied on read as well as by the sweep**, so idempotency does not depend on when a timer last fired, and the boundary is inclusive at [`freshness.md`](../../spec/freshness.md) §1's instant — an entry hidden one second early lets a retry through as fresh and debits twice. The store holds no opinion about whether a digest matches; that is issue 3, and a store with one would be a second place the idempotency rule lives. **Open question 1's cache-failure path is issue 9** and is not built. The **nonce index** landed with [E-50](../open-escalations.md): written and evicted with the primary one, scoped to the requester, and reporting what a nonce was last attached to without drawing a conclusion from it |
+| 3 | `check_replay` with the **four**-way outcome | `replay/idempotent/` and `replay/id-reuse/` pass, and a nonce reused under a different `query_id` rejects. [E-50](../open-escalations.md) added the fourth case and issue 2 built the index it reads. **One thing this issue must settle**: a step-9 rejection's `external_reason` is the responder's *pinned registry* value ([`core-model.md`](../../spec/core-model.md) §5.2.1), not a constant, so `Rejected` cannot carry it the way the earlier steps' values are carried |
 | 4 | `check_freshness` with skew and window bound | **Built**; `replay/expiry/` waits on issue 8. Both boundaries asserted **at** the tolerance, not near it, in both implementations. The window is a range and a test walks the interval [`freshness.md`](../../spec/freshness.md) §2's counterexample describes — 111 values of `now` for which a ceiling-only implementation calls a negative window fresh — so the lower bound cannot be dropped silently. A timestamp §2.2 refuses is reported `malformed` rather than `expired`: the fault is in the requester's serializer, and `expired` would send them to their clock |
 | 5 | `record` — atomic debit and cache commit | Fault-injection test shows no under-charge |
 | 6 | Verbatim response storage and return | Two retries byte-identical |

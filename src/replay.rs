@@ -13,18 +13,24 @@
 //! give the store an opinion: a store that decided whether a digest matched
 //! would be a second place the idempotency rule lives.
 //!
-//! ## The key is `(principal, query_id)` — and the specification may want more
+//! ## Two indexes, because §5.2.1 names two identifiers
 //!
-//! P-004 §4.2 fixes that key and §9 item 2 makes it escalate-if-changed. But
-//! `core-model.md` §5.2.1 says step 9 rejects *"a `query_id` **or nonce** reused
-//! over different content"*, and nothing here tracks nonces: a nonce reused
-//! under a new `query_id` is invisible to this store and proceeds as fresh.
+//! `core-model.md` §5.2.1 rejects *"a `query_id` **or nonce** reused over
+//! different content"*. The `query_id` half is the primary key and the digest
+//! comparison; the **nonce** half needs its own index, because a nonce reused
+//! under a *new* `query_id` shares no key with its first use.
 //!
-//! The two documents may agree — §5.2.1 may mean the nonce *of* that identifier,
-//! which the digest comparison already covers — or the specification may require
-//! a second index. That is [E-50](../docs/open-escalations.md), open, and the
-//! store is built to P-004 §4.2 meanwhile rather than to a guess. It bites at
-//! issue 3, which is where the three-way outcome is decided and is not built.
+//! [E-50](../docs/open-escalations.md) settled that, against a recommendation to
+//! read the sentence loosely and amend it. Two arguments carried it: the
+//! specification governs, so *"the implementation does not do this"* is not
+//! evidence the specification is wrong — and at 128 bits from a CSPRNG a
+//! collision is negligible, so the only traffic this index refuses is a
+//! requester bug.
+//!
+//! **The nonce index is scoped to the requester**, exactly as the primary key
+//! is. A global index would let any requester exhaust another's nonce values and
+//! deny them service — a denial-of-service handed to every peer in exchange for
+//! nothing.
 //!
 //! ## Only authenticated requests reach it
 //!
@@ -61,15 +67,34 @@ impl Entry {
     }
 }
 
+/// What a nonce this requester has already used was attached to.
+///
+/// Only the digest and the retention instant: this index answers *has this
+/// requester used this nonce, and over what content*, and a response body here
+/// would be a second copy of one the primary index already holds.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NonceUse {
+    /// The digest of the request that used it.
+    pub request_digest: String,
+    retain_through: i64,
+}
+
+impl NonceUse {
+    pub fn retain_through(&self) -> i64 {
+        self.retain_through
+    }
+}
+
 /// The store.
 ///
-/// A `BTreeMap` rather than a `HashMap`: nothing here reaches an output today,
-/// and the day something enumerates entries — an operator command, a metric, a
-/// test — a hash order would make it depend on a seed. The cost is a comparison
-/// per level and the benefit is that the question never arises.
+/// `BTreeMap` rather than `HashMap`: nothing here reaches an output today, and
+/// the day something enumerates entries — an operator command, a metric, a test
+/// — a hash order would make it depend on a seed. The cost is a comparison per
+/// level and the benefit is that the question never arises.
 #[derive(Debug, Default)]
 pub struct ReplayCache {
     entries: BTreeMap<(String, String), Entry>,
+    nonces: BTreeMap<(String, String), NonceUse>,
 }
 
 impl ReplayCache {
@@ -92,16 +117,45 @@ impl ReplayCache {
         query_id: &str,
         request_digest: &str,
         response_bytes: Vec<u8>,
+        nonce: &str,
         expires_at: i64,
     ) {
+        let retain_through = policy.retain_through(expires_at);
         self.entries.insert(
             (principal.to_string(), query_id.to_string()),
             Entry {
                 request_digest: request_digest.to_string(),
                 response_bytes,
-                retain_through: policy.retain_through(expires_at),
+                retain_through,
             },
         );
+        // Both indexes are written in one call and expire at one instant, so
+        // there is no state in which a request is remembered by one and not the
+        // other. Two insert functions would make that state reachable.
+        self.nonces.insert(
+            (principal.to_string(), nonce.to_string()),
+            NonceUse {
+                request_digest: request_digest.to_string(),
+                retain_through,
+            },
+        );
+    }
+
+    /// What this requester last used `nonce` for, as of `now`.
+    ///
+    /// `None` means it has not used it inside the retention window. A caller
+    /// comparing the returned digest against the request in hand gets §5.2.1's
+    /// distinction: **equal** is the same request arriving again, which the
+    /// primary index will report as a retry, and **different** is the nonce
+    /// reused over different content, which is a rejection.
+    ///
+    /// This deliberately does not make that decision. Issue 3 owns the outcome,
+    /// and a store with an opinion about it would be a second place the rule
+    /// lives.
+    pub fn nonce_use(&self, principal: &str, nonce: &str, now: i64) -> Option<&NonceUse> {
+        self.nonces
+            .get(&(principal.to_string(), nonce.to_string()))
+            .filter(|use_| now <= use_.retain_through)
     }
 
     /// Look up an exchange, as of `now`.
@@ -127,10 +181,15 @@ impl ReplayCache {
     /// many were removed, so that eviction is **observable in a test rather
     /// than inferred** — P-004 issue 2 asks for exactly that, because a sweep
     /// that silently did nothing looks identical to one that worked.
+    /// Both indexes, because both are bounded by the same instant and an
+    /// eviction that swept one would leave the other unbounded — which is the
+    /// memory argument `freshness.md` §1 makes, applied to the index that was
+    /// added after it.
     pub fn evict(&mut self, now: i64) -> usize {
-        let before = self.entries.len();
+        let before = self.entries.len() + self.nonces.len();
         self.entries.retain(|_, entry| now <= entry.retain_through);
-        before - self.entries.len()
+        self.nonces.retain(|_, use_| now <= use_.retain_through);
+        before - (self.entries.len() + self.nonces.len())
     }
 
     /// How many entries are held. For tests and operator tooling.
@@ -143,8 +202,18 @@ impl ReplayCache {
         self.entries.len()
     }
 
+    /// How many nonce records are held.
+    ///
+    /// Separate from [`Self::len`] rather than summed into it: they are written
+    /// together and evicted together, so a test that could only see a total
+    /// could not tell a store that dropped one index from a store that dropped
+    /// both.
+    pub fn nonce_len(&self) -> usize {
+        self.nonces.len()
+    }
+
     pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
+        self.entries.is_empty() && self.nonces.is_empty()
     }
 }
 
@@ -159,7 +228,15 @@ mod tests {
     }
 
     fn insert(cache: &mut ReplayCache, policy: &FreshnessPolicy, query_id: &str) {
-        cache.insert(policy, "did:key:z6MkRequesterPrincipal", query_id, "sha256:aa", b"response".to_vec(), EXPIRES);
+        cache.insert(
+            policy,
+            "did:key:z6MkRequesterPrincipal",
+            query_id,
+            "sha256:aa",
+            b"response".to_vec(),
+            &format!("nonce-for-{query_id}"),
+            EXPIRES,
+        );
     }
 
     #[test]
@@ -210,7 +287,7 @@ mod tests {
         for window in 1..=300 {
             let (issued, expires) = (1_000_000, 1_000_000 + window);
             let mut cache = ReplayCache::new();
-            cache.insert(&policy, "p", "q", "sha256:aa", vec![], expires);
+            cache.insert(&policy, "p", "q", "sha256:aa", vec![], "n", expires);
             for now in (issued - 120)..=(expires + 120) {
                 let acceptable = policy.check(issued, expires, now).is_ok();
                 let visible = cache.get("p", "q", now).is_some();
@@ -233,8 +310,11 @@ mod tests {
         let through = policy.retain_through(EXPIRES);
         assert_eq!(cache.evict(through), 0, "still acceptable at the instant");
         assert_eq!(cache.len(), 2);
-        assert_eq!(cache.evict(through + 1), 2);
+        // Four: two entries and their two nonce records, which expire together
+        // because they were written together.
+        assert_eq!(cache.evict(through + 1), 4);
         assert_eq!(cache.len(), 0);
+        assert_eq!(cache.nonce_len(), 0);
         assert!(cache.is_empty());
     }
 
@@ -252,13 +332,63 @@ mod tests {
     }
 
     #[test]
+    fn a_nonce_is_found_under_a_different_query_id() {
+        // The case the primary index cannot see, and the whole of E-50. A nonce
+        // reused under a new identifier shares no key with its first use, so
+        // without this index the second request is fresh.
+        let (mut cache, policy) = cache();
+        cache.insert(&policy, "p", "urn:uuid:one", "sha256:aa", vec![], "N", EXPIRES);
+        assert!(
+            cache.get("p", "urn:uuid:two", EXPIRES).is_none(),
+            "the primary index cannot see it"
+        );
+        let reuse = cache.nonce_use("p", "N", EXPIRES).expect("the nonce index can");
+        assert_eq!(reuse.request_digest, "sha256:aa");
+    }
+
+    #[test]
+    fn the_nonce_index_is_scoped_to_the_requester() {
+        // A global index would let any requester exhaust another's nonce values
+        // and deny them service.
+        let (mut cache, policy) = cache();
+        cache.insert(&policy, "p", "q", "sha256:aa", vec![], "N", EXPIRES);
+        assert!(cache.nonce_use("someone-else", "N", EXPIRES).is_none());
+    }
+
+    #[test]
+    fn the_store_reports_the_digest_and_takes_no_view() {
+        // §5.2.1's distinction is the caller's to draw: an equal digest is the
+        // same request arriving again, a different one is the reuse. A store
+        // that decided would be a second place the rule lives — which is why
+        // this returns what it recorded rather than a verdict.
+        let (mut cache, policy) = cache();
+        cache.insert(&policy, "p", "q", "sha256:aa", vec![], "N", EXPIRES);
+        let recorded = cache.nonce_use("p", "N", EXPIRES).unwrap();
+        assert_eq!(recorded.request_digest, "sha256:aa");
+        assert_ne!(recorded.request_digest, "sha256:bb");
+    }
+
+    #[test]
+    fn both_indexes_expire_at_the_same_instant() {
+        // Written together and evicted together, so no state exists in which a
+        // request is remembered by one and not the other.
+        let (mut cache, policy) = cache();
+        cache.insert(&policy, "p", "q", "sha256:aa", vec![], "N", EXPIRES);
+        let through = policy.retain_through(EXPIRES);
+        assert!(cache.get("p", "q", through).is_some());
+        assert!(cache.nonce_use("p", "N", through).is_some());
+        assert!(cache.get("p", "q", through + 1).is_none());
+        assert!(cache.nonce_use("p", "N", through + 1).is_none());
+    }
+
+    #[test]
     fn a_shorter_configured_window_shortens_retention() {
         // Configuration may only make a responder stricter, and retention is
         // derived — so a tighter skew produces a shorter retention without this
         // module knowing anything about configuration.
         let strict = FreshnessPolicy::from_config(Some(5), None, None).unwrap();
         let mut cache = ReplayCache::new();
-        cache.insert(&strict, "p", "q", "sha256:aa", vec![], EXPIRES);
+        cache.insert(&strict, "p", "q", "sha256:aa", vec![], "n", EXPIRES);
         assert!(cache.get("p", "q", EXPIRES + 5).is_some());
         assert!(cache.get("p", "q", EXPIRES + 6).is_none());
     }
