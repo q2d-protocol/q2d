@@ -6,9 +6,12 @@ counts what exists cannot tell you what is missing, which is the only thing it
 is for.
 
 This is the instrument by which `claims.md`'s `Verified by: planned` entries
-close. Today it reports ten uncovered and three cited -- the three the folded
-`registry/` section points at -- which is the correct Stage 0 answer and not a
-failure. Saying it precisely is more useful than a number that could be read as
+close. Today it reports nine uncovered and four cited -- three the folded
+`registry/` section points at, and Q2D-C-05, whose three named checks were
+completed by [E-48](../../docs/open-escalations.md) -- which is the correct
+Stage 0 answer and not a failure. `conformance/tests/test_coverage.py` holds the
+exact set, so a vector that starts citing a claim without anyone revisiting it
+turns red rather than moving a number here. Saying it precisely is more useful than a number that could be read as
 progress, and *cited* is the word for the same reason: §4.8 defines coverage as
 citation, a claim rests on more than any one vector shows, and a count of cited
 claims read as a count of verified ones would be the overstatement this whole

@@ -335,18 +335,17 @@ pub fn verify_query(
 
     // Step 2 — the whole defence.
     //
-    // Registry first, then policy, which is the order the two internal reasons
-    // need: a suite that is not registered cannot also be below a floor. Both
-    // reach one wire value — §5.2.1's `unsupported_suite` is one value for two
-    // causes, so a requester cannot learn whether the custodian *knows* the
-    // suite it declined.
+    // Registry, then status, then policy — the order the three internal reasons
+    // can be told apart in. A suite that is not registered has no status to
+    // read, and one the registry has withdrawn is refused whatever a deployment
+    // configured, so reading policy first would report a local decision for a
+    // refusal that was not local. All three reach one wire value — §5.2.1's
+    // `unsupported_suite`, which is one value for its two causes so that a
+    // requester cannot learn whether the custodian *knows* the suite it
+    // declined.
     let entry = registry
         .resolve(&header.suite)
         .map_err(|_| Rejected::SuiteUnregistered)?;
-    // Status before policy, which is the order they can be told apart in: a
-    // suite the registry has withdrawn is refused whatever a deployment
-    // configured, so reading policy first would report a local decision for a
-    // refusal that was not local. All three reach §5.2.1's `unsupported_suite`.
     if !entry.status().may_verify() {
         return Err(Rejected::SuiteWithdrawn);
     }
