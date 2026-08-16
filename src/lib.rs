@@ -18,6 +18,7 @@ pub mod jws;
 pub mod keys;
 pub mod parse;
 pub mod policy;
+pub mod registry;
 pub mod replay;
 pub mod routing;
 pub mod suites;
