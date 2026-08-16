@@ -62,10 +62,21 @@ const (
 	// which, so the internal reasons differ and the mapping collapses them.
 	SuiteUnregistered
 	SuiteBelowPolicy
-	// Unauthenticated: the key did not resolve, or the signature did not verify.
-	// One value, because §5.2.1 gives one class for the whole of authentication
-	// and two values here would invite two responses.
-	Unauthenticated
+	// KeyUnresolvable and SignatureInvalid: separate internal reasons, and the
+	// wire value is not.
+	//
+	// §5.2.1 gives one class for the whole of authentication because
+	// distinguishing them tells a requester whether a key is known, which is
+	// relationship existence. An operator debugging still needs to know which,
+	// and the corpus asserts the internal reason — so this is the same shape as
+	// the two suite reasons: two causes, one value, and the collapse happens in
+	// the mapping rather than in the type.
+	//
+	// An earlier version of this file had one constant here, on the reasoning
+	// that "two values would invite two responses". That reasoning applies to
+	// the wire value and was applied to the wrong half.
+	KeyUnresolvable
+	SignatureInvalid
 	// CoreObjectMalformed: the verified payload is not a core object.
 	CoreObjectMalformed
 	// HeaderPayloadSuiteMismatch, HeaderPayloadKeyMismatch: the header and the
@@ -84,7 +95,7 @@ func (r Rejected) ExternalReason() string {
 	switch r {
 	case SuiteUnregistered, SuiteBelowPolicy:
 		return "unsupported_suite"
-	case Unauthenticated:
+	case KeyUnresolvable, SignatureInvalid:
 		return "unauthenticated"
 	case CoreObjectMalformed:
 		return "malformed"
@@ -100,7 +111,7 @@ func (r Rejected) ExternalReason() string {
 // E-35 added it.
 func (r Rejected) Step() string {
 	switch r {
-	case Unauthenticated:
+	case KeyUnresolvable, SignatureInvalid:
 		return "4"
 	case CoreObjectMalformed:
 		return "5"
@@ -130,8 +141,10 @@ func (r Rejected) Error() string {
 		return "the declared suite is not registered"
 	case SuiteBelowPolicy:
 		return "the declared suite is outside the acceptable set"
-	case Unauthenticated:
-		return "the message is not authenticated"
+	case KeyUnresolvable:
+		return "the key did not resolve"
+	case SignatureInvalid:
+		return "the signature did not verify"
 	case CoreObjectMalformed:
 		return "the verified payload is not a core object"
 	case HeaderPayloadSuiteMismatch:
@@ -242,12 +255,12 @@ func VerifyQuery(signed string, policy SuitePolicy, registry SuiteRegistry,
 	// build implements exactly one suite, which step 2 has already established.
 	key, err := resolver.Resolve(header.keyID)
 	if err != nil {
-		return nil, Unauthenticated
+		return nil, KeyUnresolvable
 	}
 	payload, err := verifyCompactParts(signed, headerSegment, payloadSegment,
 		signatureSegment, key)
 	if err != nil {
-		return nil, Unauthenticated
+		return nil, SignatureInvalid
 	}
 
 	// Step 5 — parse the verified object. Not before: §2.1 is explicit.

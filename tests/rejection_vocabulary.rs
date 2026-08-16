@@ -40,7 +40,8 @@ fn every_reason_this_module_produces_matches_the_corpus() {
         ("signature_segment_not_base64url", Rejected::SignatureSegmentNotBase64url),
         ("header_member_not_permitted", Rejected::HeaderMemberNotPermitted),
         ("suite_unregistered", Rejected::SuiteUnregistered),
-        ("signature_invalid", Rejected::Unauthenticated),
+        ("key_unresolvable", Rejected::KeyUnresolvable),
+        ("signature_invalid", Rejected::SignatureInvalid),
         ("header_payload_suite_mismatch", Rejected::HeaderPayloadSuiteMismatch),
         ("header_payload_key_mismatch", Rejected::HeaderPayloadKeyMismatch),
     ];

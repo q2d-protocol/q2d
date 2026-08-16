@@ -164,10 +164,15 @@ func TestAnUnresolvableKeyIsIndistinguishableFromABadSignature(t *testing.T) {
 	}
 	tampered := signed[:len(signed)-1] + last
 
-	for _, compact := range []string{unresolvable, tampered} {
-		if _, err := verifyIt(t, compact); err != Unauthenticated {
-			t.Errorf("%v", err)
-		}
+	// Different internal reasons, and the same wire value — which is the
+	// separation §5.2 requires, in the direction that matters.
+	_, a := verifyIt(t, unresolvable)
+	_, b := verifyIt(t, tampered)
+	if a != KeyUnresolvable || b != SignatureInvalid {
+		t.Fatalf("%v, %v", a, b)
+	}
+	if a.(Rejected).ExternalReason() != b.(Rejected).ExternalReason() {
+		t.Error("the two are distinguishable on the wire")
 	}
 }
 
@@ -205,7 +210,8 @@ func TestTheMappingToAWireValueIsManyToOneAndNotTheName(t *testing.T) {
 		{HeaderMemberNotPermitted, "structurally_invalid", "3"},
 		{SuiteUnregistered, "unsupported_suite", "3"},
 		{SuiteBelowPolicy, "unsupported_suite", "3"},
-		{Unauthenticated, "unauthenticated", "4"},
+		{KeyUnresolvable, "unauthenticated", "4"},
+		{SignatureInvalid, "unauthenticated", "4"},
 		{CoreObjectMalformed, "malformed", "5"},
 		{HeaderPayloadSuiteMismatch, "structurally_invalid", "5a"},
 		{HeaderPayloadKeyMismatch, "structurally_invalid", "5a"},

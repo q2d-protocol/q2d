@@ -175,9 +175,12 @@ def vectors() -> list[dict]:
                 "fails on its own; re-spelling the signature changes no input "
                 "to anything, and leaves a valid message whose `signed` string "
                 "differs from the one that was sent — a different "
-                "`request_digest` for one exchange (§6). Rejected at step 4: a "
-                "signature that does not decode is not a valid signature, and "
-                "§5.2.1 gives one class for the whole of authentication."
+                "`request_digest` for one exchange (§6). Rejected at **step 3**, "
+                "with the rest of the container: "
+                "[E-46](../docs/open-escalations.md) put a fault in the signed "
+                "form `crypto-suites.md` §3 defines under "
+                "`structurally_invalid`, and all three segments are checked "
+                "there rather than one of them being left to verification."
             ),
             "operation": "verify_query",
             "input": envelope(f"{head}.{payload}.{respelled(signature)}"),

@@ -69,10 +69,22 @@ pub enum Rejected {
     /// internal reasons differ and the mapping collapses them.
     SuiteUnregistered,
     SuiteBelowPolicy,
-    /// The key did not resolve, or the signature did not verify. One value,
-    /// because §5.2.1 gives one class for the whole of authentication and two
-    /// values here would invite two responses.
-    Unauthenticated,
+    /// The key did not resolve.
+    ///
+    /// **Separate from [`Self::SignatureInvalid`], and the wire value is not.**
+    /// §5.2.1 gives one class for the whole of authentication because
+    /// distinguishing them tells a requester whether a key is *known*, which is
+    /// relationship existence. An operator debugging still needs to know which,
+    /// and the corpus asserts the internal reason — so this is the same shape as
+    /// the two suite reasons: two causes, one value, and the collapse happens in
+    /// the mapping rather than in the type.
+    ///
+    /// An earlier version of this enum had one variant here, on the reasoning
+    /// that "two values would invite two responses". That reasoning applies to
+    /// the *wire* value and was applied to the wrong half.
+    KeyUnresolvable,
+    /// The signature did not verify.
+    SignatureInvalid,
     /// The verified payload is not a core object, or is missing a field §2
     /// requires.
     CoreObjectMalformed,
@@ -99,7 +111,7 @@ impl Rejected {
             | Rejected::HeaderPayloadSuiteMismatch
             | Rejected::HeaderPayloadKeyMismatch => "structurally_invalid",
             Rejected::SuiteUnregistered | Rejected::SuiteBelowPolicy => "unsupported_suite",
-            Rejected::Unauthenticated => "unauthenticated",
+            Rejected::KeyUnresolvable | Rejected::SignatureInvalid => "unauthenticated",
             Rejected::CoreObjectMalformed => "malformed",
         }
     }
@@ -119,7 +131,7 @@ impl Rejected {
             | Rejected::HeaderMemberNotPermitted
             | Rejected::SuiteUnregistered
             | Rejected::SuiteBelowPolicy => "3",
-            Rejected::Unauthenticated => "4",
+            Rejected::KeyUnresolvable | Rejected::SignatureInvalid => "4",
             Rejected::CoreObjectMalformed => "5",
             // **Lettered.** §4's query order names step `5a` for the two
             // comparisons, which E-35 added. A numeric type could not carry it,
@@ -143,7 +155,8 @@ impl fmt::Display for Rejected {
             }
             Rejected::SuiteUnregistered => "the declared suite is not registered",
             Rejected::SuiteBelowPolicy => "the declared suite is outside the acceptable set",
-            Rejected::Unauthenticated => "the message is not authenticated",
+            Rejected::KeyUnresolvable => "the key did not resolve",
+            Rejected::SignatureInvalid => "the signature did not verify",
             Rejected::CoreObjectMalformed => "the verified payload is not a core object",
             Rejected::HeaderPayloadSuiteMismatch => "the header and payload declare different suites",
             Rejected::HeaderPayloadKeyMismatch => "the header and payload declare different keys",
@@ -154,7 +167,10 @@ impl fmt::Display for Rejected {
 
 impl From<SignatureInvalid> for Rejected {
     fn from(_: SignatureInvalid) -> Self {
-        Rejected::Unauthenticated
+        // Only ever from the signature check — key resolution maps its own
+        // failure explicitly, because the two are different facts and this
+        // conversion cannot tell them apart.
+        Rejected::SignatureInvalid
     }
 }
 
@@ -244,7 +260,9 @@ pub fn verify_query(
     // identifier and nothing else; `entry` is what says how to verify, and this
     // build implements exactly one suite (`policy::IMPLEMENTED`), which step 2
     // has already established.
-    let key = resolver.resolve(&header.key_id)?;
+    let key = resolver
+        .resolve(&header.key_id)
+        .map_err(|_| Rejected::KeyUnresolvable)?;
     let payload = jws::verify_compact_parts(
         signed,
         header_segment,
@@ -444,8 +462,15 @@ mod tests {
         tampered.pop();
         tampered.push(if signed().ends_with('A') { 'B' } else { 'A' });
 
-        assert_eq!(verify(&unresolvable).unwrap_err(), Rejected::Unauthenticated);
-        assert_eq!(verify(&tampered).unwrap_err(), Rejected::Unauthenticated);
+        // Different internal reasons, and the **same wire value** — which is
+        // the separation §5.2 requires, in the direction that matters.
+        let a = verify(&unresolvable).unwrap_err();
+        let b = verify(&tampered).unwrap_err();
+        assert_eq!(a, Rejected::KeyUnresolvable);
+        assert_eq!(b, Rejected::SignatureInvalid);
+        assert_ne!(a, b);
+        assert_eq!(a.external_reason(), b.external_reason());
+        assert_eq!(a.step(), b.step());
     }
 
     #[test]
@@ -469,7 +494,7 @@ mod tests {
     #[test]
     fn the_mapping_to_a_wire_value_is_many_to_one_and_not_the_name() {
         // §5.2's separation. The check is not that the two *spell* differently
-        // — `Unauthenticated` and `unauthenticated` coincide, and §5.2.1 names
+        // — `SignatureInvalid` and `signature_invalid` coincide, and §5.2.1 names
         // that class after its value on purpose. It is that the wire value is a
         // **mapping** rather than the variant's name in lower case: an
         // implementation deriving one from the other gets six of these nine
@@ -483,7 +508,8 @@ mod tests {
             (Rejected::HeaderMemberNotPermitted, "structurally_invalid", "3"),
             (Rejected::SuiteUnregistered, "unsupported_suite", "3"),
             (Rejected::SuiteBelowPolicy, "unsupported_suite", "3"),
-            (Rejected::Unauthenticated, "unauthenticated", "4"),
+            (Rejected::KeyUnresolvable, "unauthenticated", "4"),
+            (Rejected::SignatureInvalid, "unauthenticated", "4"),
             (Rejected::CoreObjectMalformed, "malformed", "5"),
             (Rejected::HeaderPayloadSuiteMismatch, "structurally_invalid", "5a"),
             (Rejected::HeaderPayloadKeyMismatch, "structurally_invalid", "5a"),

@@ -47,7 +47,8 @@ func TestEveryReasonThisPackageProducesMatchesTheCorpus(t *testing.T) {
 		{"signature_segment_not_base64url", SignatureSegmentNotBase64URL},
 		{"header_member_not_permitted", HeaderMemberNotPermitted},
 		{"suite_unregistered", SuiteUnregistered},
-		{"signature_invalid", Unauthenticated},
+		{"key_unresolvable", KeyUnresolvable},
+		{"signature_invalid", SignatureInvalid},
 		{"header_payload_suite_mismatch", HeaderPayloadSuiteMismatch},
 		{"header_payload_key_mismatch", HeaderPayloadKeyMismatch},
 	}
