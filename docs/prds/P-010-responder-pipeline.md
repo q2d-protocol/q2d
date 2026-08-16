@@ -199,7 +199,7 @@ here rather than discovered later.
 
 | Interrupted after | State | Resolution |
 |---|---|---|
-| Budget reserved, evaluation faults | Reservation held | Released at §4.5; expires anyway at `expires_at + skew` |
+| Budget reserved, evaluation faults | Reservation held | Released at §4.5; expires anyway at `expires_at + skew`, which is [`freshness.md`](../../spec/freshness.md) §1's skew and the same instant a replay-cache entry is retained to |
 | Evaluated, validation fails | Nothing debited | Reservation released; the request becomes a Tier C denial and **carries the reduced receipt like any other denial** ([P-011](P-011-receipts-audit.md) §4.1) — the exchange happened and Q2D-C-10 binds it, whatever the internal cause |
 | Validated, signing fails | Nothing debited, nothing cached | Reservation released; request fails; a retry is a fresh exchange |
 | Signed, cache write fails | Debit and cache commit atomically ([P-004](P-004-replay-idempotency.md) §4.6) | Both or neither |

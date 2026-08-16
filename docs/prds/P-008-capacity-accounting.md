@@ -135,8 +135,9 @@ request.
 
 An unsettled reservation that outlives its request must expire, or a crashed
 request permanently consumes budget. Expiry is the request's `expires_at` plus
-skew — the same bound [P-004](P-004-replay-idempotency.md) §4.4 uses, and for the
-same reason: a request cannot affect state for longer than it can be valid.
+skew — [`freshness.md`](../../spec/freshness.md) §1's skew, the same value the
+replay cache's retention is derived from, and for the same reason: a request
+cannot affect state for longer than it can be valid.
 
 **Reservations make the budget conservative under concurrency.** Two concurrent
 requests that would together exceed the limit result in one being refused, not
@@ -255,7 +256,11 @@ the pipeline — that ordering is what makes a retry unable to debit twice.
       `+1` millibit is exhausted, identically in both implementations.
 - [ ] Two concurrent checks that would together exceed the limit result in one
       `Exhausted`.
-- [ ] A reservation whose request never settles expires at `expires_at + skew`.
+- [ ] A reservation whose request never settles is held **through**
+      `expires_at + skew` and released only after it — the inclusive boundary
+      [`freshness.md`](../../spec/freshness.md) §1 states for a replay-cache
+      entry, for the same reason: §2's comparison is strict, so the request is
+      still acceptable at that instant.
 - [ ] A retry produces one settlement, verified against the budget total rather
       than a call count.
 
@@ -271,6 +276,7 @@ the pipeline — that ordering is what makes a retry unable to debit twice.
 | Two requests differing only in declared sinks sharing a budget | Spend splits across sink sets |
 | Concurrent overspend | Both concurrent requests succeed past the limit |
 | A crashed request holding budget forever | Reservation outlives `expires_at + skew` |
+| A reservation released while its request is still acceptable | Released **at** `expires_at + skew` rather than after it, so a concurrent request passes on capacity the first one may still settle |
 | A calendar-boundary budget reset | Window vectors show restoration at a predictable time |
 
 Row 4 is enforced by the signature: `capacity_for` cannot see the request, so
@@ -283,7 +289,7 @@ there is nothing for a requester-asserted debit to be read from.
 2. **A cardinality absent from the table rejects.** Computing it hides a registry
    defect.
 3. **Check reserves; the reservation is what `settle` consumes.**
-4. **Reservations expire at `expires_at + skew`** — the same bound as the replay
+4. **Reservations are held through `expires_at + skew` and released after it** — [`freshness.md`](../../spec/freshness.md) §1's skew and its inclusive boundary, and the same bound as the replay
    cache.
 5. **Rolling windows, never calendar.** A predictable reset is a probing schedule.
 6. **The module reports `Exhausted`; policy decides `deny` or `escalate`.**
@@ -296,7 +302,7 @@ there is nothing for a requester-asserted debit to be read from.
 | ~~**§4.7** — do `deny` and `escalate` debit?~~ | **Resolved: neither debits.** A required rate limit bounds probing instead. [`core-model.md`](../../spec/core-model.md) §9.1; see §4.7 |
 | ~~Does a rejected reservation appear in audit, or only settled debits?~~ | **Resolved: both.** Exhaustion is a fact an operator needs — a budget silently refusing traffic with no local record is indistinguishable from an outage. The audit is local and never disclosed to the requester, so recording it costs nothing externally; [P-011](P-011-receipts-audit.md) §4.3 already keeps budget state out of receipts for the separate reason that it reveals other requesters' activity |
 | ~~Where does the budget store live — same store as the replay cache, or separate?~~ | **Resolved: the same store.** §4.5 requires the debit and the cache entry to commit atomically, and two stores means a distributed transaction — the same problem [P-013](P-013-https-binding.md) §4.6 declines to solve for two daemons, arriving inside one process. One store, one transaction, and the atomicity is a local property rather than a protocol |
-| ~~Do reservations survive a restart?~~ | **Resolved: no.** A reservation is released at `expires_at + skew`, which is shorter than a restart takes to complete, so persisting them would add a recovery path for state that is already gone by the time it could be read. Dropping them is also the safe direction: a lost reservation under-reserves briefly, never under-charges, because a debit only exists after §4.2's step-18 settle |
+| ~~Do reservations survive a restart?~~ | **Resolved: no.** A reservation is released just after `expires_at + skew`, which is shorter than a restart takes to complete, so persisting them would add a recovery path for state that is already gone by the time it could be read. Dropping them is also the safe direction: a lost reservation under-reserves briefly, never under-charges, because a debit only exists after §4.2's step-18 settle |
 
 ## 11. Issues
 
@@ -309,7 +315,7 @@ there is nothing for a requester-asserted debit to be read from.
 | 5 | `check` with reservation, and the exhaustion boundary | `budget/exhaustion/` and `budget/reserve/` pass |
 | 5a | **Rate limiter**, keyed on the **relationship component only** — never the full `BudgetKey` — checked at [`core-model.md`](../../spec/core-model.md) §4 step 9a; required configuration with no default | Startup fails when unconfigured; the limiter is reachable without registry resolution, so a request naming an unknown predicate counts identically to one naming a known predicate; `budget/ratelimit/` shows a rejection byte-identical to a Tier C denial, with no retry metadata and no distinguishing header |
 | 6 | `settle` / `release` wired into P-004's atomic commit | `budget/idempotent/` passes |
-| 7 | Reservation expiry | Unsettled reservation released at `expires_at + skew` |
+| 7 | Reservation expiry | Unsettled reservation held **through** `expires_at + skew` and released after it — [`freshness.md`](../../spec/freshness.md) §1's inclusive boundary |
 | 8 | Accumulation order-independence | P-001 cross-vector permutation assertion passes |
 | 9 | Author `budget/` corpus section | Six groups; `harness lint` clean |
 | 10 | ~~Escalate §4.7 and record the outcome~~ — **done** | Resolved: neither debits; `core-model.md` §9.1 written; §4.7 rewritten; issue 5a added |

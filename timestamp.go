@@ -85,10 +85,11 @@ func isQ2DTimestamp(value string) bool {
 //
 // # Why a count rather than a comparison
 //
-// Ordering alone would be enough for "is this expired", and §4.4 also needs "is
-// expires_at - issued_at above five minutes" and "is now within sixty seconds of
-// it". Those are subtraction, so the conversion has to exist; making it the only
-// primitive means the ordering and the arithmetic cannot disagree.
+// Ordering alone would be enough for "is this expired", and spec/freshness.md
+// §2's other two conditions are a window length and a skew tolerance. Those are
+// subtraction, so the conversion has to exist; making it the only primitive means
+// the ordering and the arithmetic cannot disagree. The values are that document's
+// and are deliberately not repeated here.
 //
 // # Leap seconds
 //
@@ -102,14 +103,13 @@ func isQ2DTimestamp(value string) bool {
 // occurred twenty-seven times in fifty years, and buys an arithmetic both
 // implementations can be held to.
 //
-// This follows a decision isQ2DTimestamp already made; it does not make one, and
-// it is not in spec/. §2.2 fixes the spelling and says nothing about how an
-// accepted :60 participates in arithmetic, and P-004 §4.4 specifies the
-// subtraction without saying either. A third implementation could count it,
-// collapse it, or refuse it, and disagree with both of these at a leap boundary.
-// That is E-49 in docs/open-escalations.md, raised with the other freshness
-// constants that have no normative home, and this paragraph is what stops the
-// code being read as the answer.
+// The rule is spec/freshness.md §2.1, which states it for every comparison and
+// subtraction the protocol makes. This is not the place it is decided: E-49 found
+// that §2.2 fixes the timestamp spelling and said nothing about how an accepted
+// :60 participates in arithmetic, so a third implementation could have counted
+// it, collapsed it, or refused it and disagreed with both of these at a leap
+// boundary. It closed by giving the rule a normative home, and this function
+// follows it rather than being it.
 //
 // The epoch is 1970-01-01T00:00:00Z. Nothing in the protocol serializes this
 // value — it exists inside a comparison and no further — so the choice of epoch

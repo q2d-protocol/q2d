@@ -166,9 +166,16 @@ true. This is origin and integrity only. See Q2D-NC-01 and Q2D-NC-10.
 An identical retry returns the cached outcome and does not debit the disclosure
 budget again.
 **Holds when.** The replay cache covers the expiry window and nonces have
-sufficient entropy.
+sufficient entropy. **Both halves are supplied by different parties.** The
+first is a responder's and [`freshness.md`](freshness.md) §1 makes it structural
+— retention is derived from the window rather than set beside it, so a cache that
+covers the window is the only cache the rule admits. The second is a
+**requester's**, and no responder-side check establishes it: a responder holds
+one nonce and no distribution, so it can enforce a length floor and nothing more
+(§3 there). Sixteen zero bytes clear every check a responder can make.
 **Enforced by.** Nonce, issue time, expiry, and query identifier under
-signature; responder replay cache; idempotent retry handling.
+signature; responder replay cache; idempotent retry handling; the bounds in
+[`freshness.md`](freshness.md) §1.
 **Fails if.** Clock skew exceeds tolerance; the cache is evicted early; keys are
 compromised.
 **Not.** Prevention of fresh repeated queries by a legitimate requester — that

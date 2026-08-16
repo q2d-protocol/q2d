@@ -301,7 +301,10 @@ Before any class can be claimed:
 - a positive and a negative test for each `must` and `must not` above;
 - property tests for the fail-closed invariants in CC-3;
 - parser and schema fuzzing;
-- replay, expiry, nonce, and idempotency tests;
+- replay, expiry, nonce, and idempotency tests — where the nonce tests are of
+  the **length floor** [`freshness.md`](freshness.md) §3 states, since no
+  responder-side test can establish entropy and one described as doing so
+  would be reporting the floor under a name that overstates it;
 - malicious-registry and domain-understatement tests;
 - a traceability matrix from each claim in [`claims.md`](claims.md) to the tests
   that exercise it.

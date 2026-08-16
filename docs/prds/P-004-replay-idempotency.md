@@ -36,6 +36,9 @@ charge twice.
 | [`spec/core-model.md`](../../spec/core-model.md) §7 | Idempotency; what constitutes a distinct request |
 | [`spec/core-model.md`](../../spec/core-model.md) §5.3 | An identical retry never becomes an answer after approval |
 | [`spec/claims.md`](../../spec/claims.md) Q2D-C-07 | Nonce, expiry, query identifier, replay cache |
+| [`spec/freshness.md`](../../spec/freshness.md) §1 | Skew, validity window, retention, nonce length floor — every value this PRD used to state |
+| [`spec/freshness.md`](../../spec/freshness.md) §2 | The three freshness conditions, and the exact boundary |
+| [`spec/freshness.md`](../../spec/freshness.md) §3 | What a responder checks about a nonce, and what it cannot |
 
 ## 3. Module boundary
 
@@ -90,30 +93,44 @@ semantically identical questions asked in the same second still produce distinct
 bytes and distinct digests, and so a request's digest is not predictable in
 advance.
 
-Minimum 128 bits, base64url, supplied by the requester. A nonce below the minimum
-rejects.
+The rule is [`freshness.md`](../../spec/freshness.md) §3 and this PRD does not
+restate it. **This section used to**, which was [E-49](../open-escalations.md):
+it read *"minimum 128 bits, base64url, supplied by the requester — a nonce below
+the minimum rejects"*, and that was a normative interoperability requirement
+living in a PRD. It also did not say what the minimum was measured on, which §3
+now does: the **decoded bytes**, not the string, since the two differ by a factor
+this module would otherwise have got to choose.
+
+What the escalation found is worth carrying here, because it changes what this
+module builds: **a responder cannot check entropy.** It holds one nonce and no
+distribution, and a nonce of the right length made entirely of zero bytes
+satisfies every check available to it. So §3 splits the requirement between the
+two parties, and **this module implements the responder's half only** — the
+length floor. The entropy requirement is real and is not this module's to
+enforce.
 
 This resolves [P-002](P-002-message-envelope.md)'s open question: **second-precision
 timestamps are sufficient**, because uniqueness comes from the nonce and not from
 the clock.
 
-### 4.4 Expiry, skew, and why the window is bounded
+### 4.4 Expiry, skew, and the window bound
 
-| Rule | Value |
-|---|---|
-| Reject if `now > expires_at + skew` | expired |
-| Reject if `now < issued_at - skew` | issued in the future |
-| Clock skew tolerance | ±60 s |
-| Maximum validity window (`expires_at - issued_at`) | 5 min |
-| Cache retention | window + 2×skew = 7 min |
+The three conditions, every value, and the reasoning behind each are
+[`freshness.md`](../../spec/freshness.md) §1 and §2.
 
-The last two rows are one decision. **A request stays replayable for exactly as
-long as it stays valid, so the cache must retain it for exactly that long.** An
-unbounded validity window would mean unbounded cache retention, which is a
-memory-exhaustion vector reachable by any holder of a valid key. Bounding the
-window bounds the cache.
+This section used to state them, which is how [E-49](../open-escalations.md) was
+found: two implementations reading only `spec/` would have chosen different
+numbers and both passed their own tests. Writing §2 also corrected the rule this
+section had — the window bound is a **range and not a ceiling** — and the
+correction is in §2 with the counterexample that motivates it, rather than
+repeated here where it would be a second copy of the reasoning as well as of the
+number.
 
-Five minutes matches the worked example in the technical report's Appendix A.
+What it means for this module is that `check_freshness` has three conditions and
+the third is two-sided.
+
+Leap seconds are §2.1's: `23:59:60` is evaluated as `23:59:59` throughout, which
+is what `timestamp` already does and now has a normative home.
 
 ### 4.5 The response is cached, not the decision
 
@@ -177,7 +194,7 @@ or partially applied; one call cannot.
 |---|---|
 | `replay/idempotent/` | Retry returns byte-identical response; no second debit |
 | `replay/id-reuse/` | Same `query_id`, different digest, rejects |
-| `replay/nonce/` | Below-minimum entropy rejects; distinct nonces yield distinct digests |
+| `replay/nonce/` | A nonce below the **length floor** rejects; distinct nonces yield distinct digests. Not *below-minimum entropy*, which is what this row said and what no responder can detect — [`freshness.md`](../../spec/freshness.md) §3 |
 | `replay/expiry/` | Expired; issued-in-future; both skew boundaries; window above maximum |
 | `replay/ordering/` | Unauthenticated request never reaches the cache |
 
@@ -187,9 +204,13 @@ or partially applied; one call cannot.
 - [ ] A retry produces no second debit — asserted against the budget total, not
       against a call count.
 - [ ] `query_id` reuse with a differing digest rejects.
-- [ ] Both skew boundaries behave identically in both implementations, including
-      at exactly ±60 s.
-- [ ] A validity window above 5 minutes rejects.
+- [ ] Both skew boundaries behave identically in both implementations, **at
+      exactly the tolerance** — [`freshness.md`](../../spec/freshness.md) §2 makes
+      the comparison strict, so a request at exactly `expires_at + skew` is
+      within it.
+- [ ] A validity window outside [`freshness.md`](../../spec/freshness.md) §2's
+      range rejects — above the maximum, and also zero or negative, which the
+      other two conditions do not catch.
 - [ ] No cache entry exists for any request rejected before step 9.
 - [ ] Cache entries are evicted at retention expiry, and eviction is observable
       in a test rather than inferred.
@@ -204,7 +225,8 @@ or partially applied; one call cannot.
 | An unauthenticated request creating a cache entry | `replay/ordering/` vector shows an entry after a bad-signature request |
 | `query_id` reuse silently accepted | Second request with differing digest returns the first response |
 | Expiry evaluated from `routing` rather than the signed object | Vector with disagreeing routing expiry is decided on the signed value |
-| Cache growth beyond retention | Entry survives past window + 2×skew |
+| Cache growth beyond retention | Entry survives past [`freshness.md`](../../spec/freshness.md) §1's retention instant |
+| An entry evicted while its request is still acceptable | A retry within the skew tail after `expires_at` is treated as fresh and debits again |
 | Under-charging after a partial failure | Injected fault between debit and cache leaves the budget short |
 
 The last row needs a fault-injection test, not an ordinary vector. It is the
@@ -220,7 +242,8 @@ failure this PRD is most likely to actually have.
 4. **Response bytes are cached and returned verbatim.** Never re-signed, never
    re-evaluated.
 5. **The maximum validity window bounds cache retention.** Relaxing the window
-   relaxes memory bounds.
+   relaxes memory bounds. Both are [`freshness.md`](../../spec/freshness.md) §1's
+   now, so changing either is a specification change and not this PRD's to make.
 6. **Debit and cache entry commit atomically; debit first if they cannot.**
    Over-charging is safe, under-charging is not.
 7. **Outcomes at or after step 9 are cached, including rejections.**
@@ -231,22 +254,22 @@ failure this PRD is most likely to actually have.
 |---|---|
 | ~~What happens when the cache cannot accept an entry — memory pressure, store failure?~~ | **Resolved: reject the request**, as a Tier C denial. A responder that cannot guarantee idempotency must not answer: the alternative is answering while unable to recognise the retry, which double-debits and can turn a normalized outcome into an answer. The rejection happens **before** the debit, so a cache failure costs the requester its request and the custodian nothing. It is a Tier C cause like any other — a distinguishable "cache unavailable" response would report custodian internal state |
 | ~~Multi-instance responders sharing a cache~~ | **Answered:** single instance. Atomic debit-and-cache does not survive horizontal scaling without a distributed transaction. [P-013](P-013-https-binding.md) §4.6 |
-| ~~Does an expired-but-cached entry still suppress a duplicate debit after eviction?~~ | **Resolved: no.** Once evicted, the entry is gone and a resubmission is a new request. This is safe only because §4.2 bounds the window: retention is `window + 2×skew`, and a query whose `expires_at` has passed is rejected at step 6 before the cache is consulted at step 9 — so a resubmission after eviction cannot reach the debit, because it cannot get past expiry. The two bounds are one mechanism and neither may be relaxed alone |
-| ~~Should the 5-minute window be configurable downward?~~ | **Resolved: downward only.** Five minutes is the ceiling, configuration may lower it, and startup fails on a configured value above it rather than clamping. A longer window widens the interval in which a captured envelope is still replayable; a shorter one only costs a requester the ability to retry late, which is a local inconvenience rather than a protocol weakening |
+| ~~Does an expired-but-cached entry still suppress a duplicate debit after eviction?~~ | **Resolved: no.** Once evicted, the entry is gone and a resubmission is a new request. This is safe only because [`freshness.md`](../../spec/freshness.md) §1 retains an entry **through `expires_at + skew` inclusive**, which is exactly as long as §2 still accepts the request — §2's comparison is strict, so that instant is inside the window and eviction is permitted only from the first instant §2 would reject. Eviction and expiry therefore cannot leave an interval in which a retry is accepted by a cache that has forgotten it. **The reason stated here was wrong until review caught it**: it said a resubmission cannot reach the debit because expiry rejects it at step 6, which is false for the skew tail after `expires_at`. The two bounds are one mechanism and neither may be relaxed alone |
+| ~~Should the validity window be configurable downward?~~ | **Resolved: downward only, and it is now [`freshness.md`](../../spec/freshness.md) §1's rule** rather than this PRD's — configuration may only make a responder stricter, and a value on the wrong side of a bound fails at startup rather than being clamped. A longer window widens the interval in which a captured envelope is still replayable; a shorter one only costs a requester the ability to retry late, which is a local inconvenience rather than a protocol weakening |
 
 ## 11. Issues
 
 | # | Issue | Done when |
 |---|---|---|
-| 1 | Nonce validation, minimum entropy | `replay/nonce/` passes |
+| 1 | Nonce length floor | `replay/nonce/` passes. **Renamed from *minimum entropy*** — [`freshness.md`](../../spec/freshness.md) §3 splits the requirement, and the half a responder can enforce is a length floor |
 | 2 | Replay cache store with retention and eviction | Eviction observable in test; open question 1 resolved |
 | 3 | `check_replay` with the three-way outcome | `replay/idempotent/` and `replay/id-reuse/` pass |
-| 4 | `check_freshness` with skew and window bound | `replay/expiry/` passes, both boundaries exact |
+| 4 | `check_freshness` with skew and window bound | `replay/expiry/` passes, both boundaries exact, and a zero or negative window rejects |
 | 5 | `record` — atomic debit and cache commit | Fault-injection test shows no under-charge |
 | 6 | Verbatim response storage and return | Two retries byte-identical |
 | 7 | Ordering assertion: cache unreachable before step 9 | `replay/ordering/` passes |
 | 8 | Author `replay/` corpus section | Five groups; `harness lint` clean |
-| 9 | Cache-failure rejection, eviction semantics, and the window bound | A store failure produces a Tier C denial with no debit; an evicted entry does not suppress a debit; a configured window above five minutes fails at startup |
+| 9 | Cache-failure rejection, eviction semantics, and the window bound | A store failure produces a Tier C denial with no debit; an evicted entry does not suppress a debit; a configured window above [`freshness.md`](../../spec/freshness.md) §1's maximum fails at startup |
 
 Issue 5 is the one to schedule time for — the fault-injection harness is more
 work than the logic it tests, and issue 9's cache-failure path is tested through
