@@ -4362,11 +4362,13 @@ state carried between vectors. P-004 and P-008 must raise it rather than reach
 for `verifier` because it is the nearest thing available; §4.3 says so where
 they will read it.
 
-**Three vectors landed**, and with them a property no single vector could hold:
-`suite/downgrade/unregistered-suite`, `suite/status/withdrawn-refuses` and
-`suite/downgrade/below-floor` are three different internal reasons behind one
-byte-identical wire response. `test_suite_section.py` asserts that across the
-three, because each passes on its own while the wire values diverge.
+**Three vectors landed**, and with them an assertion no single vector could
+carry: `suite/downgrade/unregistered-suite`, `suite/status/withdrawn-refuses`
+and `suite/downgrade/below-floor` are three different internal reasons reaching
+one `external_reason`, checked across the three because each passes alone while
+the values diverge. That is the **mapping** — these vectors project `status` and
+`external_reason`, so they cannot show two responses are the same length, and
+whole-response uniformity stays `denial/`'s.
 
 **It also split an internal reason.** `suite_below_policy` had been covering two
 facts — the registry withdrew this suite, and this deployment does not accept it

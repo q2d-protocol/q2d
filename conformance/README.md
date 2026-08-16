@@ -120,9 +120,11 @@ acceptable set of their own.
 They are worth reading together rather than one at a time. `unregistered-suite`,
 `status/withdrawn-refuses` and `downgrade/below-floor` are three different facts
 about a suite — never heard of it, the registry retired it, this deployment does
-not accept it — behind one byte-identical response, and
+not accept it — reaching one `external_reason`, and
 [`tests/test_suite_section.py`](tests/test_suite_section.py) asserts that across
-the three because each of them passes alone while the wire values diverge.
+the three because each of them passes alone while the values diverge. As above,
+that is the **mapping** and not indistinguishability: three vectors projecting
+two fields cannot show two responses are the same length.
 
 An earlier reading had them waiting on a **second registered suite**, and that
 was the wrong diagnosis twice over: a vector still could not have said *this

@@ -65,12 +65,20 @@ pub enum Rejected {
     HeaderMemberNotPermitted,
     /// The suite is not in the registry at all.
     ///
-    /// **Three variants, one wire value.** §5.2.1 gives `unsupported_suite` for
-    /// all of them on purpose — separating them would tell a requester whether
-    /// the custodian *knows* a suite it declined, and whether it was the
-    /// registry or this deployment that declined it. Together those are the
-    /// custodian's minimum acceptable policy. An operator still needs to know
-    /// which, so the internal reasons differ and the mapping collapses them.
+    /// **Three variants, one wire value**, and §5.2.1 names *two causes* — the
+    /// suite unregistered, or below the verifier's minimum acceptable policy.
+    /// This is not a third cause. A withdrawn suite is below **every**
+    /// conforming verifier's acceptable policy, because `crypto-suites.md` §6
+    /// requires verification to stop accepting it; the second cause already
+    /// covers it, and nothing here adds to §5.2.1's table.
+    ///
+    /// What is split is the **internal reason**, which §5.2 makes a separate
+    /// value from the wire response precisely so it can be finer. The registry
+    /// withdrawing a suite binds every deployment; an acceptable set is local.
+    /// An operator needs to know which of those refused a message, and a
+    /// requester must not — separating them on the wire would say whether the
+    /// custodian *knows* a suite it declined, which is its minimum acceptable
+    /// policy.
     SuiteUnregistered,
     /// Registered, and its status forbids verifying — `crypto-suites.md` §6's
     /// `withdrawn`.

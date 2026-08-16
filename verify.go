@@ -62,18 +62,22 @@ const (
 	// HeaderMemberNotPermitted: the header carries a member §3 does not permit.
 	HeaderMemberNotPermitted
 	// SuiteUnregistered, SuiteWithdrawnByRegistry and SuiteBelowPolicy: three
-	// constants, one wire value. §5.2.1 gives unsupported_suite for all of them
-	// on purpose — separating them would tell a requester whether the custodian
-	// knows a suite it declined, and whether it was the registry or this
-	// deployment that declined it. Together those are the custodian's minimum
-	// acceptable policy. An operator still needs to know which, so the internal
-	// reasons differ and the mapping collapses them.
+	// constants, one wire value. §5.2.1 names *two causes* — the suite
+	// unregistered, or below the verifier's minimum acceptable policy — and this
+	// is not a third. A withdrawn suite is below every conforming verifier's
+	// acceptable policy, because crypto-suites.md §6 requires verification to
+	// stop accepting it; the second cause already covers it, and nothing here
+	// adds to §5.2.1's table.
 	//
-	// SuiteWithdrawnByRegistry is crypto-suites.md §6's withdrawal, which every
-	// deployment must honour, and is a different fact from SuiteBelowPolicy,
-	// which is local configuration. It is named for the registry rather than
-	// called SuiteWithdrawn because suites.go already has that identifier for
-	// the status itself — see CONVENTIONS-go.md.
+	// What is split is the internal reason, which §5.2 makes a separate value
+	// from the wire response precisely so it can be finer. The registry
+	// withdrawing a suite binds every deployment; an acceptable set is local. An
+	// operator needs to know which of those refused a message, and a requester
+	// must not — separating them on the wire would say whether the custodian
+	// knows a suite it declined, which is its minimum acceptable policy.
+	//
+	// Named for the registry rather than called SuiteWithdrawn because suites.go
+	// already has that identifier for the status itself — CONVENTIONS-go.md.
 	SuiteUnregistered
 	SuiteWithdrawnByRegistry
 	SuiteBelowPolicy
@@ -342,8 +346,8 @@ func VerifyQuery(signed string, policy SuitePolicy, registry SuiteRegistry,
 	// read, and one the registry has withdrawn is refused whatever a deployment
 	// configured, so reading policy first would report a local decision for a
 	// refusal that was not local. All three reach one wire value — §5.2.1's
-	// unsupported_suite is one value for three causes, so a requester cannot
-	// learn whether the custodian knows the suite it declined.
+	// unsupported_suite, which is one value for its two causes so that a
+	// requester cannot learn whether the custodian knows the suite it declined.
 	entry, err := registry.Resolve(header.suite)
 	if err != nil {
 		return nil, SuiteUnregistered

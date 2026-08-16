@@ -239,15 +239,21 @@ class ExpectedStateTest(unittest.TestCase):
                     "does not say which verifier")
                 self.assertIn("suite_registry", verifier)
 
-    def test_the_three_suite_refusals_differ_inside_and_agree_on_the_wire(self):
-        # The property `unsupported_suite` exists for, asserted across causes
-        # rather than per cause. Three different facts -- the registry has never
-        # heard of it, the registry withdrew it, this deployment does not accept
-        # it -- and a requester must not be able to tell which, because together
-        # they are the custodian's minimum acceptable policy (§5.2.1).
+    def test_the_three_suite_refusals_map_to_one_external_class(self):
+        # Three different facts -- the registry has never heard of it, the
+        # registry withdrew it, this deployment does not accept it -- reaching
+        # one `external_reason`. Per-vector assertions cannot catch a divergence
+        # here: each of the three passes on its own while the values differ.
         #
-        # Per-vector assertions cannot catch this. Each of the three would pass
-        # on its own while the wire values diverged.
+        # **This is the mapping, not indistinguishability.** These vectors
+        # project `status` and `external_reason` (P-001 §4.4), so what is
+        # compared across the three is two fields, and a receipt-level or
+        # length-level difference is invisible to it. Whole-response uniformity
+        # is `denial/`'s -- the one section the schema forbids from projecting
+        # -- and the README says the same thing about this section generally.
+        # The mapping is still worth asserting: it is the half that lives in
+        # each implementation's rejection table rather than in its response
+        # builder, and it is the half these vectors can see.
         vectors = [by_id()[name] for name in (
             "suite/downgrade/unregistered-suite",
             "suite/status/withdrawn-refuses",
