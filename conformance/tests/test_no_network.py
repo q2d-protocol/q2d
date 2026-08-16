@@ -146,13 +146,19 @@ class ImplementationTest(unittest.TestCase):
 
     def test_no_go_source_file_imports_the_network(self):
         checked = 0
-        for path in sorted(REPO.glob("*.go")):
+        # `rglob`, not `glob`. The first version read only the package root and
+        # missed `cmd/q2d-conform/main.go` — a Go binary in this repository, and
+        # exactly the kind of place a fetch would be written. Review found it.
+        for path in sorted(REPO.rglob("*.go")):
             for import_path in go_imports(path):
                 self.assertIsNone(
                     reaches_network_go(import_path), f"{path.name} imports {import_path}"
                 )
             checked += 1
-        self.assertGreater(checked, 10, "the sweep found almost no files, so it proves little")
+        # Higher than the package root alone holds, so the day someone narrows
+        # this back to `glob` the count says so rather than the sweep going
+        # quietly shallow.
+        self.assertGreater(checked, 30, "the sweep found too few files, so it proves little")
 
     def test_the_locked_crate_set_is_exactly_what_is_expected(self):
         # **An allowlist, not a denylist**, which is what lets the claim be about
