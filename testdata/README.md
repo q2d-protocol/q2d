@@ -107,10 +107,19 @@ reason no runner reports usefully.
 It found two disagreements the moment it existed. §4's steps are not all
 numbers — the header/payload comparison is step **5a**, lettered by E-35 so the
 steps below it did not renumber — and both implementations had typed the step as
-an integer. And the corpus distinguishes `suite_unregistered` from a suite
-outside the acceptable set, where both implementations had one internal reason
-for two causes; §5.2.1 collapses them on the wire *and* an operator still needs
-to know which.
+an integer. And the corpus's `suite_unregistered` is narrower than the single reason both
+implementations had, which covered an unregistered suite *and* one outside the
+acceptable set. §5.2.1 collapses the two on the wire and an operator still needs
+to know which, so they are two internal reasons now.
+
+**Only the first of that pair is in this fixture**, and the second cannot be
+until the vector format can state the *verifier's* policy: whether a registered
+suite is outside the acceptable set is a fact about the verifier, not about the
+message, and a vector supplies a message. The same gap keeps `suite/status/`
+unwritten, and it is [P-001](../docs/prds/P-001-conformance-corpus.md)'s to
+close rather than P-003's. Until then `suite_below_policy` is asserted by
+mirrored unit tests, which is the weaker thing this directory exists to replace
+— said plainly rather than left to be inferred from a name that is absent.
 
 The `-` in the step column is a vector that asserts no step, which
 [P-001](../docs/prds/P-001-conformance-corpus.md) §4.8 permits: a step-less
