@@ -1,6 +1,9 @@
 package q2d
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 // These mirror src/timestamp.rs's tests case for case. Two readings of
 // core-model.md §2.2 that disagree would be a specification ambiguity found, so
@@ -123,5 +126,117 @@ func TestOnlyAnASCIIDigitIsADigit(t *testing.T) {
 	}
 	if looksLikeRFC3339("202x-07-31T09:00:00Z") {
 		t.Error("treated a non-digit year as an RFC 3339 spelling")
+	}
+}
+
+func TestEpochKnownInstants(t *testing.T) {
+	// Values anyone can check against a published table, rather than against
+	// this function's own output.
+	for _, c := range []struct {
+		text    string
+		seconds int64
+	}{
+		{"1970-01-01T00:00:00Z", 0},
+		{"1970-01-02T00:00:00Z", 86400},
+		{"2000-01-01T00:00:00Z", 946684800},
+		{"2001-09-09T01:46:40Z", 1000000000},
+		{"2026-07-31T09:00:00Z", 1785488400},
+		{"1969-12-31T23:59:59Z", -1},
+		{"1900-01-01T00:00:00Z", -2208988800},
+	} {
+		got, ok := TimestampToEpochSeconds(c.text)
+		if !ok || got != c.seconds {
+			t.Errorf("%s: %d %v, want %d true", c.text, got, ok, c.seconds)
+		}
+	}
+}
+
+func TestEpochLeapDayIsADay(t *testing.T) {
+	at := func(s string) int64 {
+		v, ok := TimestampToEpochSeconds(s)
+		if !ok {
+			t.Fatalf("%s did not parse", s)
+		}
+		return v
+	}
+	if at("2024-02-29T00:00:00Z")-at("2024-02-28T00:00:00Z") != 86400 {
+		t.Error("2024-02-29 is not one day after 2024-02-28")
+	}
+	if at("2024-03-01T00:00:00Z")-at("2024-02-29T00:00:00Z") != 86400 {
+		t.Error("2024-03-01 is not one day after 2024-02-29")
+	}
+	// And 2100 is not a leap year, which a rule of "divisible by four" gets
+	// wrong and the 400-year cycle gets right.
+	if at("2100-03-01T00:00:00Z")-at("2100-02-28T00:00:00Z") != 86400 {
+		t.Error("2100 was treated as a leap year")
+	}
+}
+
+func TestEpochLeapSecondCollapses(t *testing.T) {
+	// Documented rather than incidental: 23:59:60 is a valid §2.2 timestamp and
+	// this deliberately does not distinguish it from 23:59:59, because the
+	// alternative is an IERS table two implementations would carry different
+	// vintages of.
+	leap, _ := TimestampToEpochSeconds("2026-06-30T23:59:60Z")
+	before, _ := TimestampToEpochSeconds("2026-06-30T23:59:59Z")
+	if leap != before {
+		t.Errorf("leap second %d, second before it %d", leap, before)
+	}
+	// Still ordered against its neighbours, which is what a freshness
+	// comparison actually needs.
+	next, _ := TimestampToEpochSeconds("2026-07-01T00:00:00Z")
+	if leap >= next {
+		t.Errorf("leap second %d is not before the next day %d", leap, next)
+	}
+}
+
+func TestEpochRefusesWhatTheFormatCheckRefuses(t *testing.T) {
+	// One definition of a Q2D timestamp, not two. Every spelling here is a real
+	// instant that §2.2 does not permit, so a second parser written here would
+	// have accepted them.
+	for _, text := range []string{
+		"2026-07-31t09:00:00Z",
+		"2026-07-31T09:00:00z",
+		"2026-07-31T09:00:00+00:00",
+		"2026-07-31T09:00:00.5Z",
+		"2026-02-30T00:00:00Z",
+		"2026-07-31T09:00:60Z",
+		"",
+	} {
+		if _, ok := TimestampToEpochSeconds(text); ok {
+			t.Errorf("%q was accepted", text)
+		}
+	}
+}
+
+func TestEpochEveryDayOfAFourHundredYearCycle(t *testing.T) {
+	// The whole cycle, because the arithmetic's failure mode is an off-by-one at
+	// a century boundary that a handful of spot checks miss.
+	//
+	// The Rust side runs the same loop over the same range, which is two
+	// readings of the same algorithm rather than cross-implementation evidence:
+	// a shared vector is what would demonstrate agreement, and there is none for
+	// this yet because no operation in P-001 §4.5 converts a timestamp. Both
+	// sides being wrong identically is the case this does not catch.
+	previous, _ := TimestampToEpochSeconds("1600-01-01T00:00:00Z")
+	checked := 0
+	for year := 1600; year < 2000; year++ {
+		for month := 1; month <= 12; month++ {
+			for day := 1; day <= daysInMonth(year, month); day++ {
+				text := fmt.Sprintf("%04d-%02d-%02dT00:00:00Z", year, month, day)
+				seconds, ok := TimestampToEpochSeconds(text)
+				if !ok {
+					t.Fatalf("%s did not parse", text)
+				}
+				if checked > 0 && seconds-previous != 86400 {
+					t.Fatalf("%s is %d seconds after the day before", text, seconds-previous)
+				}
+				previous = seconds
+				checked++
+			}
+		}
+	}
+	if checked != 146097 {
+		t.Errorf("a 400-year cycle is 146097 days, walked %d", checked)
 	}
 }

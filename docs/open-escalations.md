@@ -18,7 +18,14 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** **E-36** through **E-48** all closed.
+> **E-49 is open**, raised on P-004's first issue: every number the freshness
+> and replay rules turn on — the ±60 s skew, the five-minute maximum validity
+> window, the seven-minute cache retention, the nonce minimum — lives in a PRD
+> and in no specification document. Two implementations reading only `spec/`
+> would pick different ones and both pass their own tests. It blocks four of
+> P-004's nine issues.
+>
+> **E-36** through **E-48** all closed.
 >
 > **E-46:** §5.2.1 had no `external_reason` for a `signed` string that is not a
 > well-formed compact JWS. Closed as **B**: `structurally_invalid` is separated
@@ -207,6 +214,7 @@ question is still fresh than after the answer arrives.
 | **E-45** | The digest string form is defined only in P-002 | P-002 issue 10 | `serialization.md` §5 (new) · P-002 §4.7 · P-011 §4.2 · both implementations · `testdata/` · `message/digest/` | **Closed** |
 | **E-46** | Which `external_reason` for a `signed` string that is not a well-formed compact JWS? | P-003 issue 2 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, issues 6–8 · `suite/verify/` · both implementations | **Closed** |
 | **E-47** | Ed25519 in Rust needs a dependency policy, and there is no conventions document | P-003 issue 1 | `CONVENTIONS-rust.md`, `CONVENTIONS-go.md` (both new) · `Cargo.toml`, `go.mod` · both implementations · `testdata/ed25519-acceptance.txt` · CI | **Closed** |
+| **E-49** | Every freshness and replay constant lives in a PRD, not in `spec/` | P-004 issue 1 | `core-model.md` §2.2, §4 step 6, §5.2.1 · `claims.md` Q2D-C-07 · P-004 §4.3, §4.4, issues 1, 2, 4, 8, 9 · both implementations · `replay/` | **Open** |
 | **E-48** | A vector can describe a message, but not the verifier that receives it | P-003 issue 11 | `conformance/vector.schema.json` + its served copy · P-001 §4.3, §6, RUNNER-CONTRACT · P-003 §6, §7, issues 8 and 11 · `suite/status/`, `suite/downgrade/below-floor` · both implementations · P-012 | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
@@ -4407,6 +4415,107 @@ evidence about its published answers.
 P-003 §6 lists five groups now and records the reasoning; §7's first acceptance
 criterion is unchanged, because it asks that raw Ed25519 reproduces RFC 8032 in
 both implementations and says nothing about where that is asserted.
+
+---
+
+## E-49 — Every freshness and replay constant lives in a PRD, not in `spec/`
+
+**Raised by** P-004 issue 1, on the first line of it. **Open.**
+
+[`core-model.md`](../spec/core-model.md) §4 step 6 is *"Expiry and clock-skew
+check — authoritative"*, and §2.2 gives `nonce` as *"High-entropy; replay
+context."* Neither carries a number. Every number the rule turns on is in
+[P-004](prds/P-004-replay-idempotency.md) §4.3 and §4.4 and nowhere else:
+
+| Constant | Stated in | Stated in `spec/` |
+|---|---|---|
+| Clock skew tolerance ±60 s | P-004 §4.4 | no |
+| Maximum validity window 5 min | P-004 §4.4 | no |
+| Cache retention `window + 2×skew` | P-004 §4.4 | no |
+| Nonce minimum 128 bits | P-004 §4.3 | no |
+
+These are not implementation choices. A requester whose custodian permits a
+ten-minute window builds queries this implementation rejects, and neither party
+is wrong about anything written down. **Two implementations reading only `spec/`
+would choose different values and both pass their own tests**, which is the
+condition the context hierarchy exists to prevent. It is E-43's shape — a
+normative rule living below `spec/` — with four instances instead of one.
+
+Three consequences make it more than a relocation.
+
+**A window above the maximum has no `external_reason` and no step.** §5.2.1 gives
+`expired` for *"Request expired or future-dated"*. A request with a ten-minute
+window that has not yet expired is neither, and §4's step table has no slot for
+the check. So the rule cannot be rejected in a way any document describes.
+
+**The nonce minimum is not enforceable as written, and a claim rests on it.**
+Q2D-C-07 *Holds when* **"nonces have sufficient entropy"**. A responder cannot
+measure entropy — it holds one nonce and no distribution. It can measure
+**length**, and a 128-bit nonce of all zeros passes every length check while
+having no entropy at all. So the responder-side rule can only ever be a length
+floor, entropy stays a **requester-side** assumption nothing verifies, and
+P-004 §6's planned vector *"below-minimum entropy rejects"* would assert
+something no implementation can do. Whatever else is decided, that vector has to
+be renamed to what it checks.
+
+**Leap-second arithmetic is undetermined, and both implementations have already
+had to choose.** §2.2 accepts `23:59:60` at a month end (RFC 3339 §5.7) and says
+nothing about how it participates in subtraction. `to_epoch_seconds` collapses it
+onto `:59`, following what `is_q2d_timestamp` already does before range-checking.
+A third implementation could count it, collapse it, or refuse it and disagree
+with both at a leap boundary. Both modules name this escalation at the point of
+the collapse so the code is not read as the answer.
+
+### Options
+
+**A — put the four constants in `core-model.md` §2.2 and §4 step 6, as
+normative values.** The rule and its number in the same document as the check
+that applies them. Adds a table to a specification that has so far stated
+mechanisms and left magnitudes to deployments.
+
+**B — put them in the registry**, as `registry/manifest.json` already carries
+predicate capacities. Values become data a deployment pins and a digest covers,
+which is the mechanism the project already uses for *"a file that decides what a
+verifier accepts"*. Costs a startup dependency for a check that runs before
+registry resolution at step 10.
+
+**C — a new `spec/freshness.md`**, as E-43 gave the serialization profile its own
+document. Cheap, and it puts the four constants, the missing `external_reason`,
+and the leap-second rule in one place with the reasoning that ties them
+together — retention *is* window plus twice skew, and that relationship is
+currently a sentence in a PRD.
+
+**D — leave them in P-004 and state that they are deployment-configurable, with
+no interoperable value.** Honest about where they are; makes Q2D-C-07 hold only
+between parties who have agreed out of band.
+
+### Recommendation — C, with the ceiling rule from B
+
+`spec/freshness.md`, stating the four constants, the step and
+`external_reason` for a window above the maximum, and the leap-second
+arithmetic. E-43 is the precedent and it was the right shape: the production
+serialization profile had exactly this problem, a new document fixed it, and
+nothing has needed to move since.
+
+Not A, because §2.2 is a field table and §4 is a step order; four constants and
+their relationship do not fit either, and splitting them across both is how the
+retention-equals-window-plus-skew relationship gets lost. Not B alone, because
+the check runs at step 6 and registry resolution is step 10 — a value needed
+before the registry is available cannot come from it. **But B's discipline
+belongs in C:** P-004 §10 already resolved that the window is configurable
+**downward only**, with startup failure above the ceiling rather than clamping,
+which is the same shape as P-003's suite floor. The spec states the ceiling; a
+deployment may be stricter.
+
+**Where it stops being right.** C is right for values that must be the *same*
+across implementations to interoperate. It is wrong for the cache retention
+*policy* — how many entries, what eviction discipline, what a store does under
+memory pressure — which is a deployment's and which P-004 §10 has already
+resolved as a Tier C denial. The line is **a value a requester's message must
+satisfy is normative; a value about the responder's own resources is not.**
+Retention sits on the line and belongs on the normative side only because §4.4
+derives it from the window: it is not a memory budget, it is the statement that
+a request stays replayable exactly as long as it stays valid.
 
 ---
 
