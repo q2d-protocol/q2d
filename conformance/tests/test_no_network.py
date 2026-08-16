@@ -25,13 +25,30 @@ source file. A networking crate in `Cargo.lock` is a capability linked into the
 binary whatever imports it; Go's standard library is always available, so
 `go.mod` can never show `net/http`, which is what the source sweep covers.
 
-The sweep is **conservative rather than implied**, and an earlier version of this
-paragraph said otherwise: it claimed a neighbouring file's import is available to
-`registry.go` because the implementation is one package. **Go imports are
-file-scoped**, so that was false — and `cmd/q2d-conform/main.go` is a separate
-`main` package besides. What the sweep actually establishes is the simpler and
-stronger thing: *no file in either implementation reaches for the network at
-all*, which is cheap to hold today and easy to check.
+## What each half is worth, which is not the same
+
+**The `Cargo.lock` allowlist is a complete statement and the source sweeps are
+not.** That distinction was learned the hard way: six review rounds on this file
+each produced another legal spelling the text scan missed — a brace-grouped
+`use`, a fully-qualified call, a raw-string import path, and finally
+`use std::{net as network}`, which contains neither banned pattern. There is
+always another one, and a macro, an `include!`, or an `extern "C"` block defeats
+the whole approach.
+
+So the claims are split to match:
+
+- **The allowlist over `Cargo.lock` establishes absence.** Nothing outside the
+  exact locked set is linked, full stop, and a network crate cannot arrive
+  without changing that list.
+- **The source sweeps are a tripwire**, not a proof. They catch the ordinary
+  spellings, which is what an accident looks like. They do not stop a determined
+  author, and they are not written as though they do — the same honest limit
+  [P-002](../../docs/prds/P-002-message-envelope.md) §8 states about `Routing`:
+  what it removes is the accident rather than the determined bypass.
+
+Go has no equivalent of the allowlist half, because its networking is in the
+standard library and always linked. For Go the tripwire is all there is, and
+saying so is better than implying otherwise.
 
 ## This will need scoping when P-013 lands
 
@@ -148,12 +165,11 @@ class RegistryClientTest(unittest.TestCase):
 
 
 class ImplementationTest(unittest.TestCase):
-    """The wider reading: nothing in either implementation reaches the network.
+    """The wider reading, in the two strengths the header separates.
 
-    A conservative sweep rather than a consequence of scoping — Go imports are
-    file-scoped and `cmd/q2d-conform` is its own package, so nothing here is
-    implied by `registry.go` alone. It is simply true today, and a stronger
-    property than the issue asked for.
+    The lock allowlist establishes what is linked. The source sweeps are a
+    tripwire for the ordinary spellings and cannot establish absence — aliasing
+    alone defeats them.
     """
 
     def test_no_rust_source_file_reaches_for_the_network(self):
