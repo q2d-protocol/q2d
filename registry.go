@@ -341,7 +341,11 @@ func parsePredicateEntry(value Value) (PredicateEntry, error) {
 	if err != nil {
 		return PredicateEntry{}, err
 	}
-	effectiveFrom, err := manifestText(provenance, "effective_from")
+	effectiveFromText, err := manifestText(provenance, "effective_from")
+	if err != nil {
+		return PredicateEntry{}, err
+	}
+	effectiveFrom, err := manifestDate(effectiveFromText, "effective_from")
 	if err != nil {
 		return PredicateEntry{}, err
 	}
@@ -353,7 +357,10 @@ func parsePredicateEntry(value Value) (PredicateEntry, error) {
 	switch v := revokedValue.(type) {
 	case Null:
 	case String:
-		revokedFrom = string(v)
+		revokedFrom, err = manifestDate(string(v), "revoked_from")
+		if err != nil {
+			return PredicateEntry{}, err
+		}
 	default:
 		return PredicateEntry{}, fmt.Errorf("`provenance.revoked_from` is neither a date nor null")
 	}
@@ -450,6 +457,25 @@ func parsePredicateEntry(value Value) (PredicateEntry, error) {
 		return PredicateEntry{}, err
 	}
 
+	// Issue 12: the stored digest is recomputed, never trusted. A manifest whose
+	// entry says what its own digest is would be vouching for itself, which is the
+	// same mistake as reading verification parameters out of a protected header.
+	// entry_digest_rule in the manifest states the rule by citation: sha256 over
+	// the entry with entry_digest removed, serialized under serialization.md §1.
+	//
+	// Done here, while the parsed value is still in hand. Recomputing later would
+	// mean either keeping every entry's Value alongside its typed form — two
+	// representations that can disagree — or re-reading the file.
+	recomputed, err := recomputeEntryDigest(value, id)
+	if err != nil {
+		return PredicateEntry{}, err
+	}
+	if recomputed != entryDigest {
+		return PredicateEntry{}, fmt.Errorf(
+			"`%s` version `%s` stores entry digest %s and computes %s; a stored digest "+
+				"is data, not evidence", id, version, entryDigest, recomputed)
+	}
+
 	return PredicateEntry{
 		id:                id,
 		version:           version,
@@ -462,6 +488,176 @@ func parsePredicateEntry(value Value) (PredicateEntry, error) {
 		assuranceProfiles: assuranceProfiles,
 		entryDigest:       entryDigest,
 	}, nil
+}
+
+// manifestDate checks a YYYY-MM-DD date that is a real day.
+//
+// Checked at load, because Resolve compares dates as text and text comparison is
+// only exact over well-formed ones — 0000-00-00 sorts before everything and zzzz
+// after it, so a malformed date in a pinned manifest would resolve rather than
+// fail. Review found that.
+//
+// Validated by appending a midnight time and asking isQ2DTimestamp, rather than
+// by a second date parser here. §2.2 already decides what a real day is, and two
+// answers to that question is one more than the protocol has.
+func manifestDate(value, field string) (string, error) {
+	if len(value) != dateLength || !isQ2DTimestamp(value+"T00:00:00Z") {
+		return "", fmt.Errorf(
+			"`provenance.%s` is `%s`, which is not a YYYY-MM-DD date", field, value)
+	}
+	return value, nil
+}
+
+// recomputeEntryDigest is sha256 over the entry with entry_digest removed,
+// serialized under serialization.md §1 — the manifest's own entry_digest_rule.
+func recomputeEntryDigest(value Value, id string) (string, error) {
+	object, ok := value.(Object)
+	if !ok {
+		return "", fmt.Errorf("`%s` is not an object", id)
+	}
+	// Removed rather than blanked. A digest over an entry carrying an empty
+	// entry_digest would be a different rule from the one the manifest states, and
+	// would still be self-referential in shape.
+	without := make(Object, len(object))
+	for key, member := range object {
+		if key != "entry_digest" {
+			without[key] = member
+		}
+	}
+	bytes, err := Serialize(without)
+	if err != nil {
+		return "", fmt.Errorf("`%s` cannot be serialized for its digest: %w", id, err)
+	}
+	return Digest(bytes), nil
+}
+
+// ResolveError is why resolution refused — P-005 §4.7 items 5 to 8, plus §4.5's
+// digest.
+//
+// Not a wire value, for the reason ReplayOutcome's rejections are not.
+// core-model.md §5.2.1 gives everything from step 9 onward the value the
+// responder's pinned registry declares, and resolution is step 10. The value is
+// PredicateManifest.DenialNormalization — data this custodian pinned — so a
+// constant here would compile one deployment's configuration into every
+// deployment.
+//
+// §4.7 requires all of these to be indistinguishable on the wire. They are told
+// apart only in a local audit event, which is what the separate internal reasons
+// are for.
+type ResolveError int
+
+const (
+	// ResolveUnknownPredicate: no entry with this identifier, at any version.
+	ResolveUnknownPredicate ResolveError = iota
+	// ResolveUnknownVersion: the identifier is known and this version is not.
+	//
+	// Separate from ResolveUnknownPredicate for the operator, and identical to it
+	// on the wire: distinguishing them would tell a requester that the predicate
+	// exists, which is exactly the custodian-private policy §4.7 withholds.
+	ResolveUnknownVersion
+	// ResolveNotResolvable: deprecated or revoked — §4.6.
+	ResolveNotResolvable
+	// ResolveNotYetEffective: effective_from is in the future.
+	ResolveNotYetEffective
+	// ResolveRevokedByDate: revoked_from has passed.
+	//
+	// Distinct from ResolveNotResolvable because a manifest may carry a revocation
+	// date on an entry still marked active — the date is what governs, and an
+	// operator needs to know which of the two refused.
+	ResolveRevokedByDate
+	// ResolveEntryDigestMismatch: the requester's predicate.registry_digest is not
+	// this entry's — §4.5.
+	ResolveEntryDigestMismatch
+)
+
+// Error makes ResolveError an error, and returns the corpus's internal reason.
+func (e ResolveError) Error() string { return e.InternalReason() }
+
+// InternalReason is the corpus's name for this reason.
+func (e ResolveError) InternalReason() string {
+	switch e {
+	case ResolveUnknownPredicate:
+		return "unknown_predicate"
+	case ResolveUnknownVersion:
+		return "unknown_predicate_version"
+	case ResolveNotResolvable:
+		return "predicate_not_resolvable"
+	case ResolveNotYetEffective:
+		return "predicate_not_yet_effective"
+	case ResolveRevokedByDate:
+		return "predicate_revoked"
+	case ResolveEntryDigestMismatch:
+		return "entry_digest_mismatch"
+	default:
+		return "unknown"
+	}
+}
+
+// Step is core-model.md §4's step. Always 10.
+func (e ResolveError) Step() string { return "10" }
+
+// dateLength is the length of YYYY-MM-DD.
+const dateLength = 10
+
+// Resolve is core-model.md §4 step 10 — P-005 §4.5 and §4.6.
+//
+// # The declared digest is a parameter, not a second call
+//
+// §5: "a separate comparison call could be skipped; a parameter cannot." A caller
+// holding a PredicateEntry has already passed the comparison, which is why
+// EntryFor is named as a lookup and this is named as the resolution.
+//
+// # Order
+//
+// Existence, then status, then dates, then the declared digest. The digest is
+// last because it is the only one that depends on what the requester said — the
+// others are facts about the entry, and an operator reading an audit event wants
+// the entry's own problem named before the requester's.
+//
+// # What is not here
+//
+// §4.7 item 9 — an entry requiring an assurance profile the responder does not
+// support. That needs the responder's supported set, which is neither in the
+// manifest nor in a message, and the module that knows it is the pipeline's. It
+// shares this wire value when it lands.
+func (m PredicateManifest) Resolve(id, version, declaredEntryDigest, now string) (PredicateEntry, error) {
+	entry, ok := m.EntryFor(id, version)
+	if !ok {
+		// Which of the two it is costs an extra scan and is worth it: an operator
+		// debugging a requester's integration needs to know whether the predicate
+		// is unknown or the version is, and §4.7 makes both identical on the wire
+		// regardless.
+		for key := range m.entries {
+			if key.id == id {
+				return PredicateEntry{}, ResolveUnknownVersion
+			}
+		}
+		return PredicateEntry{}, ResolveUnknownPredicate
+	}
+	if !entry.status.Resolvable() {
+		return PredicateEntry{}, ResolveNotResolvable
+	}
+	// Dates compare as text, which is exact rather than convenient: YYYY-MM-DD
+	// sorts identically as a string and as a date, and a §2.2 timestamp begins with
+	// exactly that. So a date is compared against the date part of now with no
+	// parsing and no timezone question.
+	today := now
+	if len(today) > dateLength {
+		today = today[:dateLength]
+	}
+	if today < entry.effectiveFrom {
+		return PredicateEntry{}, ResolveNotYetEffective
+	}
+	// On the day itself the entry is already revoked. A revocation that took
+	// effect at the end of its own date would leave a day in which an entry a
+	// publisher has withdrawn still answers.
+	if entry.revokedFrom != "" && today >= entry.revokedFrom {
+		return PredicateEntry{}, ResolveRevokedByDate
+	}
+	if declaredEntryDigest != entry.entryDigest {
+		return PredicateEntry{}, ResolveEntryDigestMismatch
+	}
+	return entry, nil
 }
 
 // EntryFor looks an entry up by identifier and version.
