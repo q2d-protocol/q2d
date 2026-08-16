@@ -20,12 +20,18 @@ cannot be forgotten the way a convention can.
 **Per file**, for `src/registry.rs` and `registry.go`: what the registry client
 itself reaches for. This is the direct reading of the issue.
 
-**Whole implementation**, for the dependency sets: a networking crate in
-`Cargo.lock`, or a module in `go.mod`, is a capability linked into the binary
-whatever imports it. Go's standard library is always available, so `go.mod`
-cannot show `net/http` — which is exactly why the per-file import check exists
-alongside it, and why the package-wide sweep below is the one that would catch
-a helper added in a neighbouring file.
+**Whole implementation**, for the dependency sets and for a sweep of every
+source file. A networking crate in `Cargo.lock` is a capability linked into the
+binary whatever imports it; Go's standard library is always available, so
+`go.mod` can never show `net/http`, which is what the source sweep covers.
+
+The sweep is **conservative rather than implied**, and an earlier version of this
+paragraph said otherwise: it claimed a neighbouring file's import is available to
+`registry.go` because the implementation is one package. **Go imports are
+file-scoped**, so that was false — and `cmd/q2d-conform/main.go` is a separate
+`main` package besides. What the sweep actually establishes is the simpler and
+stronger thing: *no file in either implementation reaches for the network at
+all*, which is cheap to hold today and easy to check.
 
 ## This will need scoping when P-013 lands
 
@@ -129,11 +135,12 @@ class RegistryClientTest(unittest.TestCase):
 
 
 class ImplementationTest(unittest.TestCase):
-    """The wider reading: a capability linked in is reachable from anywhere.
+    """The wider reading: nothing in either implementation reaches the network.
 
-    Package-wide for Go because the whole implementation is one package, so a
-    neighbouring file's import is available to the registry client without an
-    import of its own. Crate-wide for Rust for the same reason.
+    A conservative sweep rather than a consequence of scoping — Go imports are
+    file-scoped and `cmd/q2d-conform` is its own package, so nothing here is
+    implied by `registry.go` alone. It is simply true today, and a stronger
+    property than the issue asked for.
     """
 
     def test_no_rust_source_file_reaches_for_the_network(self):
