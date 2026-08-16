@@ -36,6 +36,9 @@ charge twice.
 | [`spec/core-model.md`](../../spec/core-model.md) §7 | Idempotency; what constitutes a distinct request |
 | [`spec/core-model.md`](../../spec/core-model.md) §5.3 | An identical retry never becomes an answer after approval |
 | [`spec/claims.md`](../../spec/claims.md) Q2D-C-07 | Nonce, expiry, query identifier, replay cache |
+| [`spec/freshness.md`](../../spec/freshness.md) §1 | Skew, validity window, retention, nonce length floor — every value this PRD used to state |
+| [`spec/freshness.md`](../../spec/freshness.md) §2 | The three freshness conditions, and the exact boundary |
+| [`spec/freshness.md`](../../spec/freshness.md) §3 | What a responder checks about a nonce, and what it cannot |
 
 ## 3. Module boundary
 
@@ -90,8 +93,18 @@ semantically identical questions asked in the same second still produce distinct
 bytes and distinct digests, and so a request's digest is not predictable in
 advance.
 
-Minimum 128 bits, base64url, supplied by the requester. A nonce below the minimum
-rejects.
+The rule is [`freshness.md`](../../spec/freshness.md) §3 and this PRD does not
+restate it. **This section used to**, which was [E-49](../open-escalations.md):
+it read *"minimum 128 bits, base64url, supplied by the requester — a nonce below
+the minimum rejects"*, and that was a normative interoperability requirement
+living in a PRD.
+
+What the escalation found is worth carrying here, because it changes what this
+module builds. **A responder cannot check entropy.** It holds one nonce and no
+distribution; sixteen zero bytes have none and satisfy any length check. So §3
+splits the requirement in two — 128 bits of entropy is a **requester's**
+obligation, a 16-byte length floor is what a **responder** enforces — and this
+module implements the second only.
 
 This resolves [P-002](P-002-message-envelope.md)'s open question: **second-precision
 timestamps are sufficient**, because uniqueness comes from the nonce and not from
@@ -99,21 +112,27 @@ the clock.
 
 ### 4.4 Expiry, skew, and why the window is bounded
 
-| Rule | Value |
-|---|---|
-| Reject if `now > expires_at + skew` | expired |
-| Reject if `now < issued_at - skew` | issued in the future |
-| Clock skew tolerance | ±60 s |
-| Maximum validity window (`expires_at - issued_at`) | 5 min |
-| Cache retention | window + 2×skew = 7 min |
+The conditions and every value are
+[`freshness.md`](../../spec/freshness.md) §1 and §2. This section stated them
+until [E-49](../open-escalations.md), which is how the escalation was found: two
+implementations reading only `spec/` would have chosen different numbers and both
+passed their own tests.
 
-The last two rows are one decision. **A request stays replayable for exactly as
-long as it stays valid, so the cache must retain it for exactly that long.** An
-unbounded validity window would mean unbounded cache retention, which is a
-memory-exhaustion vector reachable by any holder of a valid key. Bounding the
-window bounds the cache.
+Two things that landed with it change what this module builds:
 
-Five minutes matches the worked example in the technical report's Appendix A.
+- **The window bound is a range, not a ceiling.** §2's third condition rejects a
+  window outside `(0, window]`, because a *negative* window is above no maximum
+  and the other two conditions do not catch it — with `expires_at` ten seconds
+  before `issued_at` and sixty seconds of skew, there is a seventy-second
+  interval in which such a message is fresh. This PRD's table had the ceiling
+  alone.
+- **The boundary is exact and stated as such.** A request at exactly
+  `expires_at + skew` is within tolerance. §7's acceptance already asked for
+  identical behaviour at ±60 s; §2 is now where the answer is, rather than in
+  whichever implementation was written first.
+
+Leap seconds are §2.1's: `23:59:60` is evaluated as `23:59:59` throughout, which
+is what `timestamp` already does and now has a normative home.
 
 ### 4.5 The response is cached, not the decision
 
@@ -177,7 +196,7 @@ or partially applied; one call cannot.
 |---|---|
 | `replay/idempotent/` | Retry returns byte-identical response; no second debit |
 | `replay/id-reuse/` | Same `query_id`, different digest, rejects |
-| `replay/nonce/` | Below-minimum entropy rejects; distinct nonces yield distinct digests |
+| `replay/nonce/` | A nonce below the **length floor** rejects; distinct nonces yield distinct digests. Not *below-minimum entropy*, which is what this row said and what no responder can detect — [`freshness.md`](../../spec/freshness.md) §3 |
 | `replay/expiry/` | Expired; issued-in-future; both skew boundaries; window above maximum |
 | `replay/ordering/` | Unauthenticated request never reaches the cache |
 
@@ -189,7 +208,9 @@ or partially applied; one call cannot.
 - [ ] `query_id` reuse with a differing digest rejects.
 - [ ] Both skew boundaries behave identically in both implementations, including
       at exactly ±60 s.
-- [ ] A validity window above 5 minutes rejects.
+- [ ] A validity window outside [`freshness.md`](../../spec/freshness.md) §2's
+      range rejects — above the maximum, and also zero or negative, which the
+      other two conditions do not catch.
 - [ ] No cache entry exists for any request rejected before step 9.
 - [ ] Cache entries are evicted at retention expiry, and eviction is observable
       in a test rather than inferred.
@@ -220,7 +241,8 @@ failure this PRD is most likely to actually have.
 4. **Response bytes are cached and returned verbatim.** Never re-signed, never
    re-evaluated.
 5. **The maximum validity window bounds cache retention.** Relaxing the window
-   relaxes memory bounds.
+   relaxes memory bounds. Both are [`freshness.md`](../../spec/freshness.md) §1's
+   now, so changing either is a specification change and not this PRD's to make.
 6. **Debit and cache entry commit atomically; debit first if they cannot.**
    Over-charging is safe, under-charging is not.
 7. **Outcomes at or after step 9 are cached, including rejections.**
@@ -238,10 +260,10 @@ failure this PRD is most likely to actually have.
 
 | # | Issue | Done when |
 |---|---|---|
-| 1 | Nonce validation, minimum entropy | `replay/nonce/` passes |
+| 1 | Nonce length floor | `replay/nonce/` passes. **Renamed from *minimum entropy*** — [`freshness.md`](../../spec/freshness.md) §3 splits the requirement, and the half a responder can enforce is a length floor |
 | 2 | Replay cache store with retention and eviction | Eviction observable in test; open question 1 resolved |
 | 3 | `check_replay` with the three-way outcome | `replay/idempotent/` and `replay/id-reuse/` pass |
-| 4 | `check_freshness` with skew and window bound | `replay/expiry/` passes, both boundaries exact |
+| 4 | `check_freshness` with skew and window bound | `replay/expiry/` passes, both boundaries exact, and a zero or negative window rejects |
 | 5 | `record` — atomic debit and cache commit | Fault-injection test shows no under-charge |
 | 6 | Verbatim response storage and return | Two retries byte-identical |
 | 7 | Ordering assertion: cache unreachable before step 9 | `replay/ordering/` passes |

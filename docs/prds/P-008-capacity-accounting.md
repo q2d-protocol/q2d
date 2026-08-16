@@ -135,8 +135,9 @@ request.
 
 An unsettled reservation that outlives its request must expire, or a crashed
 request permanently consumes budget. Expiry is the request's `expires_at` plus
-skew — the same bound [P-004](P-004-replay-idempotency.md) §4.4 uses, and for the
-same reason: a request cannot affect state for longer than it can be valid.
+skew — [`freshness.md`](../../spec/freshness.md) §1's skew, the same value the
+replay cache's retention is derived from, and for the same reason: a request
+cannot affect state for longer than it can be valid.
 
 **Reservations make the budget conservative under concurrency.** Two concurrent
 requests that would together exceed the limit result in one being refused, not

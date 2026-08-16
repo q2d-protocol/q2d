@@ -124,7 +124,7 @@ escalation can reach it.
 | Property | Value |
 |---|---|
 | Content | None. Encodes no `query_id`, principal, or predicate |
-| Entropy | **Minimum 128 bits**, from a cryptographic source — the same floor [P-004](P-004-replay-idempotency.md) §4.3 sets for the nonce, and for the same reason: it is the only thing standing between a guesser and the outcome |
+| Entropy | **Minimum 128 bits**, from a cryptographic source — the same floor [`freshness.md`](../../spec/freshness.md) §3 sets for the nonce, and for the same reason: it is the only thing standing between a guesser and the outcome. **The parallel stops at one place**: a nonce is the requester's and a responder can only check its length, where this token is the *responder's own* — so here the entropy requirement is on the party that also builds the check, and is enforceable rather than assumed |
 | Encoding | base64url, unpadded, fixed length |
 | Under the corpus | **Supplied by the vector**, never generated. [P-001](P-001-conformance-corpus.md) §4.3 — a token the runtime invents appears inside a signed response, so two implementations would produce different bytes for one vector and the comparison would fail on entropy rather than on behaviour |
 | Lifetime | The `expires_at` on the escalate response |
@@ -327,9 +327,10 @@ is its beneficiary.
 The part worth stating is what happens **after** the cache entry goes:
 
 > An identical retry stops returning the cached outcome when the query expires,
-> not when the grant appears. [P-004](P-004-replay-idempotency.md) §4.4 bounds
-> validity at five minutes and retention at seven, so the cache always outlives
-> the request. Past expiry an identical retry is rejected as expired — Tier A,
+> not when the grant appears. [`freshness.md`](../../spec/freshness.md) §1 derives
+> retention from the validity window rather than setting it beside one, so the
+> cache always outlives the request — not by arithmetic that happens to work out,
+> but because that is what the derivation is for. Past expiry an identical retry is rejected as expired — Tier A,
 > per [P-009](P-009-denial-normalization.md) §4.2 — and never reaches policy at
 > all.
 

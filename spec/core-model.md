@@ -123,7 +123,7 @@ implementations from the start.
 | `query_id` | yes | Identifies this exchange. |
 | `issued_at` | yes | Issue time. |
 | `expires_at` | yes | After this, the responder rejects. |
-| `nonce` | yes | High-entropy; replay context. |
+| `nonce` | yes | High-entropy; replay context. Minimum length, and what a responder can and cannot check: [`freshness.md`](freshness.md) §3. |
 | `correlation_id` | no | For asynchronous escalation. |
 
 **Every timestamp in Q2D — in the core object, in `routing`, and in a receipt —
@@ -698,10 +698,10 @@ A conforming responder processes in this order:
 | 4 | Resolve the key; **verify the signature over the exact signed bytes** | **Nothing below this line runs for an unauthenticated request.** |
 | 5 | Parse the verified core object | Parsing happens *after* verification, so parser behaviour is outside the security boundary. |
 | 5a | Confirm the protected header's `suite` and `key_id` equal the payload's `signature.profile` and `signature.key_id` | The header is untrusted and the payload's copies are authoritative ([`crypto-suites.md`](crypto-suites.md) §3). It needs the parsed object, so it cannot precede step 5, and it precedes every step that *acts* on a payload field. Symmetric with the response order's step 4a. |
-| 6 | Expiry and clock-skew check — authoritative | The signed value governs; step 2 was advisory. |
+| 6 | Expiry and clock-skew check — authoritative | The signed value governs; step 2 was advisory. Skew, the validity-window bound, and the three conditions: [`freshness.md`](freshness.md) §2. |
 | 7 | Delegation verification | Establishes the agent acts for the principal. |
 | 8 | `routing` / `signed` consistency | Each projected field must equal the verified object's **exactly, with no coercion** — same type, same value, and for a string the same characters. No normalizing, no re-parsing a value into another form to decide it matches. §2.2's single timestamp spelling is what makes that decidable for `expires_at`, which would otherwise be two spellings of one instant and a disagreement about whether they disagree. Any difference is tampering. Reject; do not reconcile. |
-| 9 | Replay-cache check | After signature, so unauthenticated traffic cannot pollute the cache. |
+| 9 | Replay-cache check | After signature, so unauthenticated traffic cannot pollute the cache — which is what makes [`freshness.md`](freshness.md) §1's retention bound sufficient to bound the cache. |
 | 9a | **Rate-limit check** (§9.1) | After the replay check, so an idempotent retry returns its cached outcome without consuming rate budget. Before registry resolution, so **every** authenticated request counts identically — see below. |
 | 10 | Registry: predicate known, version known, not revoked, digest pinned | Fails closed on anything unrecognized. |
 | 11 | Public context validated against the entry's **input schema** | Schema comes from the registry, not the request. |
@@ -896,11 +896,11 @@ bytes, so precision here costs nothing and makes the protocol debuggable.
 
 | `external_reason` | Cause | Rejected at |
 |---|---|---|
-| `malformed` | Envelope malformed or oversized (step 1); or the **verified** core object malformed, or missing a field §2 requires (step 5) | steps 1 and 5 |
+| `malformed` | Envelope malformed or oversized (step 1); or the **verified** core object malformed, missing a field §2 requires, or carrying one outside a bound §2 states (step 5) | steps 1 and 5 |
 | `unsupported_version` | Unknown `q2d_version` | step 5 — the authoritative value is inside the signed object, so it cannot be read before verification. `routing` may carry a copy, and §4 step 2 may shed on it, but that is load shedding and never a rejection reason |
 | `unsupported_suite` | Suite unregistered, **or** below the verifier's minimum acceptable policy | step 3 |
 | `routing_mismatch` | `routing` disagrees with the verified object | step 8 |
-| `expired` | Request expired or future-dated | step 6 |
+| `expired` | Request expired, future-dated, or carrying a validity window outside the permitted range ([`freshness.md`](freshness.md) §2) | step 6 |
 | `structurally_invalid` | The fault is in how the message was **built** — in its signed container or its protected header, which [`crypto-suites.md`](crypto-suites.md) §3 defines — rather than in the envelope §2.1 defines or in the verified core object. Three kinds: `signed` is not a well-formed compact serialization; the protected header is not the object §3 defines; the header and the payload disagree about the suite or the key | step 3 for the first two, which need no signature; step **5a** for a disagreement, which needs the parsed payload |
 
 `unsupported_suite` is one value for two causes on purpose. Separating them would
