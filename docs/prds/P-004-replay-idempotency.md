@@ -189,7 +189,7 @@ check_replay(principal, query_id, nonce, request_digest)
    -> Fresh | Replay(response_bytes) | QueryIdReuse | NonceReuse
    // four outcomes since E-50; the `query_id` index is read before the nonce
    // index, because a genuine retry matches both
-record(principal, query_id, request_digest, response_bytes, expires_at, debit) -> Result
+record(principal, query_id, nonce, request_digest, response_bytes, expires_at, debit) -> Result
    // commits the cache entry and the debit atomically
 
 check_freshness(issued_at, expires_at, now, skew) -> Result
