@@ -13,6 +13,19 @@
 //! give the store an opinion: a store that decided whether a digest matched
 //! would be a second place the idempotency rule lives.
 //!
+//! ## The key is `(principal, query_id)` — and the specification may want more
+//!
+//! P-004 §4.2 fixes that key and §9 item 2 makes it escalate-if-changed. But
+//! `core-model.md` §5.2.1 says step 9 rejects *"a `query_id` **or nonce** reused
+//! over different content"*, and nothing here tracks nonces: a nonce reused
+//! under a new `query_id` is invisible to this store and proceeds as fresh.
+//!
+//! The two documents may agree — §5.2.1 may mean the nonce *of* that identifier,
+//! which the digest comparison already covers — or the specification may require
+//! a second index. That is [E-50](../docs/open-escalations.md), open, and the
+//! store is built to P-004 §4.2 meanwhile rather than to a guess. It bites at
+//! issue 3, which is where the three-way outcome is decided and is not built.
+//!
 //! ## Only authenticated requests reach it
 //!
 //! `core-model.md` §4 places the replay check at step 9, after signature

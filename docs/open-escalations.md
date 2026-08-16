@@ -18,7 +18,13 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** **E-36** through **E-49** all closed.
+> **E-50 is open**, raised by review of P-004 issue 2: `core-model.md` §5.2.1
+> says step 9 rejects a `query_id` **or nonce** reused over different content,
+> and P-004 §4.2 keys the replay cache on `(principal, query_id)` alone. Either
+> the specification means the nonce *of* that identifier — already covered — or
+> it requires a second index no PRD describes. It blocks P-004 issue 3.
+>
+> **E-36** through **E-49** all closed.
 >
 > **E-46:** §5.2.1 had no `external_reason` for a `signed` string that is not a
 > well-formed compact JWS. Closed as **B**: `structurally_invalid` is separated
@@ -207,6 +213,7 @@ question is still fresh than after the answer arrives.
 | **E-45** | The digest string form is defined only in P-002 | P-002 issue 10 | `serialization.md` §5 (new) · P-002 §4.7 · P-011 §4.2 · both implementations · `testdata/` · `message/digest/` | **Closed** |
 | **E-46** | Which `external_reason` for a `signed` string that is not a well-formed compact JWS? | P-003 issue 2 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, issues 6–8 · `suite/verify/` · both implementations | **Closed** |
 | **E-47** | Ed25519 in Rust needs a dependency policy, and there is no conventions document | P-003 issue 1 | `CONVENTIONS-rust.md`, `CONVENTIONS-go.md` (both new) · `Cargo.toml`, `go.mod` · both implementations · `testdata/ed25519-acceptance.txt` · CI | **Closed** |
+| **E-50** | Does the replay check track nonces, or only `query_id`s? | P-004 issue 2 (review) | `core-model.md` §5.2.1 · P-004 §4.2, §9 item 2, §10, issue 3 · both implementations' `replay` | **Open** |
 | **E-49** | Every freshness and replay constant lives in a PRD, not in `spec/` | P-004 issue 1 | `freshness.md` (new) · `core-model.md` §2.2, §4 steps 6 and 9, §5.2.1 · `claims.md` Q2D-C-07 · `conformance-classes.md` · P-004 §2, §4.3, §4.4, §6, §7, §8, §9, §10, issues 1, 4 and 9 · P-008 §4.5 · P-015 §4.2, §4.7 · both implementations' `timestamp` | **Closed** |
 | **E-48** | A vector can describe a message, but not the verifier that receives it | P-003 issue 11 | `conformance/vector.schema.json` + its served copy · P-001 §4.3, §6, RUNNER-CONTRACT · P-003 §6, §7, issues 8 and 11 · `suite/status/`, `suite/downgrade/below-floor` · both implementations · P-012 | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
