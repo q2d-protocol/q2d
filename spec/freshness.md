@@ -25,7 +25,7 @@ Terms: [`terminology.md`](terminology.md). Exchange:
 |---|---|---|
 | Clock skew tolerance | 60 s | downward |
 | Maximum validity window, `expires_at − issued_at` | 300 s | downward |
-| Replay-cache retention, per entry | until `expires_at + skew` | derived, not set |
+| Replay-cache retention, per entry | through `expires_at + skew` **inclusive** | derived, not set |
 | Minimum `nonce` length | 16 bytes | upward |
 
 **Configuration may only make a responder stricter, and a value on the wrong
@@ -43,13 +43,19 @@ retain entries that cannot, which is memory spent on nothing. Both directions ar
 wrong, so it is derived.
 
 **It is derived per entry, and from `expires_at + skew` rather than from a
-duration.** §2 accepts a request until that instant, so an entry evicted at the
-signed `expires_at` leaves a **skew-length interval in which a retry is still
-accepted and the cache no longer recognises it** — which double-debits and can
-turn a normalized outcome into an answer, the two failures this whole mechanism
-exists to prevent. Stating retention as a duration invites exactly that
-off-by-one, because the natural instant to measure a duration from is the one
-the message names.
+duration.** §2's first condition rejects only when `now` is *strictly* greater
+than `expires_at + skew`, so a request is still acceptable **at** that instant
+and an entry must be retained through it. Eviction is permitted from the first
+instant §2 would reject the request and not before.
+
+The inclusive boundary is not pedantry: it is the same strictness §2 states for
+its comparisons, and the two have to agree or the cache and the freshness check
+disagree at exactly one second. An entry evicted at the signed `expires_at`
+disagrees for a **whole skew-length interval**, in which a retry is accepted by a
+cache that no longer recognises it — which debits twice and can turn a normalized
+outcome into an answer, the two failures this mechanism exists to prevent.
+Stating retention as a duration invites that off-by-one, because the natural
+instant to measure a duration from is the one the message names.
 
 `window + 2 × skew` is what that derivation **bounds** any single entry to, and
 it is the memory argument rather than the rule: a request is acceptable over
@@ -147,9 +153,10 @@ than under *Enforced by*. A conformance vector may assert the floor; none can
 assert the entropy, and a suite describing itself as testing the latter would be
 testing the former under a name that overstates it.
 
-The floor is a requirement §2 places on a core-object field, so a nonce below it
-is rejected at [`core-model.md`](core-model.md) §4 step 5 with `external_reason`
-`malformed`, alongside the other core-object faults — not at step 6 with
+The floor is stated here and applies to a field
+[`core-model.md`](core-model.md) §2 requires, so a nonce below it is rejected at
+that document's §4 step 5 with `external_reason` `malformed`, alongside the other
+core-object faults — not at step 6 with
 freshness, and not at step 9 with the replay cache. It is a property of the
 message rather than of the moment or of any prior exchange.
 
