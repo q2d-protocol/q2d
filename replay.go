@@ -6,11 +6,14 @@
 //
 // # What is here and what is not
 //
-// The store: insert, look up, evict. The three-way outcome — replay, fresh,
-// identifier reuse — is P-004 issue 3, and the atomic commit with the capacity
-// debit is issue 5. Both sit above this and neither is a reason to give the store
-// an opinion: a store that decided whether a digest matched would be a second
-// place the idempotency rule lives.
+// The two indexes, and Check — step 9's four-way outcome over them: fresh,
+// replay, query_id reuse, nonce reuse. The decision lives with the indexes rather
+// than above them because it is a reading of both, and a caller assembling it
+// from Get and NonceUsed would be the second place the order of those two lookups
+// is decided — which is the part §5.2.1 constrains.
+//
+// Not here: the atomic commit with the capacity debit, which is P-004 issue 5,
+// and when step 9 runs, which is the pipeline's and is issue 7.
 //
 // # Two indexes, because §5.2.1 names two identifiers
 //
@@ -154,8 +157,9 @@ func (c *ReplayCache) Insert(policy FreshnessPolicy, principal, queryID, request
 // primary index will report as a retry, and different is the nonce reused over
 // different content, which is a rejection.
 //
-// This deliberately does not make that decision. Issue 3 owns the outcome, and a
-// store with an opinion about it would be a second place the rule lives.
+// It reports rather than concludes, and Check is what draws the conclusion — kept
+// separate so that a caller needing to know whether a nonce has been seen does not
+// have to run the whole of step 9 to find out.
 func (c *ReplayCache) NonceUsed(principal, nonce string, now int64) (NonceUse, bool) {
 	use, ok := c.nonces[nonceKey{principal, nonce}]
 	if !ok || now > use.retainThrough {
