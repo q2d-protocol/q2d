@@ -113,26 +113,21 @@ This resolves [P-002](P-002-message-envelope.md)'s open question: **second-preci
 timestamps are sufficient**, because uniqueness comes from the nonce and not from
 the clock.
 
-### 4.4 Expiry, skew, and why the window is bounded
+### 4.4 Expiry, skew, and the window bound
 
-The conditions and every value are
-[`freshness.md`](../../spec/freshness.md) §1 and §2. This section stated them
-until [E-49](../open-escalations.md), which is how the escalation was found: two
-implementations reading only `spec/` would have chosen different numbers and both
-passed their own tests.
+The three conditions, every value, and the reasoning behind each are
+[`freshness.md`](../../spec/freshness.md) §1 and §2.
 
-Two things that landed with it change what this module builds:
+This section used to state them, which is how [E-49](../open-escalations.md) was
+found: two implementations reading only `spec/` would have chosen different
+numbers and both passed their own tests. Writing §2 also corrected the rule this
+section had — the window bound is a **range and not a ceiling** — and the
+correction is in §2 with the counterexample that motivates it, rather than
+repeated here where it would be a second copy of the reasoning as well as of the
+number.
 
-- **The window bound is a range, not a ceiling.** §2's third condition rejects a
-  window outside `(0, window]`, because a *negative* window is above no maximum
-  and the other two conditions do not catch it — with `expires_at` ten seconds
-  before `issued_at` and sixty seconds of skew, there is a seventy-second
-  interval in which such a message is fresh. This PRD's table had the ceiling
-  alone.
-- **The boundary is exact and stated as such.** A request at exactly
-  `expires_at + skew` is within tolerance. §7's acceptance already asked for
-  identical behaviour at the boundary; §2 is now where the answer is, rather than
-  in whichever implementation was written first.
+What it means for this module is that `check_freshness` has three conditions and
+the third is two-sided.
 
 Leap seconds are §2.1's: `23:59:60` is evaluated as `23:59:59` throughout, which
 is what `timestamp` already does and now has a normative home.
