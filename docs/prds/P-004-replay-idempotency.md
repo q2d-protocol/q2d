@@ -225,7 +225,8 @@ or partially applied; one call cannot.
 | An unauthenticated request creating a cache entry | `replay/ordering/` vector shows an entry after a bad-signature request |
 | `query_id` reuse silently accepted | Second request with differing digest returns the first response |
 | Expiry evaluated from `routing` rather than the signed object | Vector with disagreeing routing expiry is decided on the signed value |
-| Cache growth beyond retention | Entry survives past [`freshness.md`](../../spec/freshness.md) §1's retention |
+| Cache growth beyond retention | Entry survives past [`freshness.md`](../../spec/freshness.md) §1's retention instant |
+| An entry evicted while its request is still acceptable | A retry within the skew tail after `expires_at` is treated as fresh and debits again |
 | Under-charging after a partial failure | Injected fault between debit and cache leaves the budget short |
 
 The last row needs a fault-injection test, not an ordinary vector. It is the
@@ -253,7 +254,7 @@ failure this PRD is most likely to actually have.
 |---|---|
 | ~~What happens when the cache cannot accept an entry — memory pressure, store failure?~~ | **Resolved: reject the request**, as a Tier C denial. A responder that cannot guarantee idempotency must not answer: the alternative is answering while unable to recognise the retry, which double-debits and can turn a normalized outcome into an answer. The rejection happens **before** the debit, so a cache failure costs the requester its request and the custodian nothing. It is a Tier C cause like any other — a distinguishable "cache unavailable" response would report custodian internal state |
 | ~~Multi-instance responders sharing a cache~~ | **Answered:** single instance. Atomic debit-and-cache does not survive horizontal scaling without a distributed transaction. [P-013](P-013-https-binding.md) §4.6 |
-| ~~Does an expired-but-cached entry still suppress a duplicate debit after eviction?~~ | **Resolved: no.** Once evicted, the entry is gone and a resubmission is a new request. This is safe only because [`freshness.md`](../../spec/freshness.md) §1 **derives** retention from the window rather than setting it beside one, and a query whose `expires_at` has passed is rejected at step 6 before the cache is consulted at step 9 — so a resubmission after eviction cannot reach the debit, because it cannot get past expiry. The two bounds are one mechanism and neither may be relaxed alone |
+| ~~Does an expired-but-cached entry still suppress a duplicate debit after eviction?~~ | **Resolved: no.** Once evicted, the entry is gone and a resubmission is a new request. This is safe only because [`freshness.md`](../../spec/freshness.md) §1 retains an entry **until `expires_at + skew`**, which is the same instant §2 stops accepting the request — so eviction and expiry happen together and there is no interval in which a retry is accepted by a cache that has forgotten it. **The reason stated here was wrong until review caught it**: it said a resubmission cannot reach the debit because expiry rejects it at step 6, which is false for the skew tail after `expires_at`. The two bounds are one mechanism and neither may be relaxed alone |
 | ~~Should the validity window be configurable downward?~~ | **Resolved: downward only, and it is now [`freshness.md`](../../spec/freshness.md) §1's rule** rather than this PRD's — configuration may only make a responder stricter, and a value on the wrong side of a bound fails at startup rather than being clamped. A longer window widens the interval in which a captured envelope is still replayable; a shorter one only costs a requester the ability to retry late, which is a local inconvenience rather than a protocol weakening |
 
 ## 11. Issues

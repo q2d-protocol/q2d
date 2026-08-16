@@ -25,7 +25,7 @@ Terms: [`terminology.md`](terminology.md). Exchange:
 |---|---|---|
 | Clock skew tolerance | 60 s | downward |
 | Maximum validity window, `expires_at − issued_at` | 300 s | downward |
-| Replay-cache retention | `window + 2 × skew` | derived, not set |
+| Replay-cache retention, per entry | until `expires_at + skew` | derived, not set |
 | Minimum `nonce` length | 16 bytes | upward |
 
 **Configuration may only make a responder stricter, and a value on the wrong
@@ -37,16 +37,30 @@ floor, for the same reason.
 
 Retention has no independent value because it is not an independent decision. **A
 request stays replayable for exactly as long as it stays valid, so the cache must
-retain it for exactly that long** — the window plus skew at each end. Setting
-retention separately would either evict entries that can still be replayed, which
-readmits a replay, or retain entries that cannot, which is memory spent on
-nothing. Both directions are wrong, so it is computed.
+retain its entry for exactly that long.** Setting retention separately would
+either evict entries that can still be replayed, which readmits a replay, or
+retain entries that cannot, which is memory spent on nothing. Both directions are
+wrong, so it is derived.
 
-That relationship is also what bounds the cache at all. An unbounded validity
-window would mean unbounded retention, which is a memory-exhaustion path
-available to any holder of a valid key — and §4 step 9 places the cache after
-verification precisely so that only such a holder can reach it. **Bounding the
-window is what bounds the cache**, and the two may not be relaxed independently.
+**It is derived per entry, and from `expires_at + skew` rather than from a
+duration.** §2 accepts a request until that instant, so an entry evicted at the
+signed `expires_at` leaves a **skew-length interval in which a retry is still
+accepted and the cache no longer recognises it** — which double-debits and can
+turn a normalized outcome into an answer, the two failures this whole mechanism
+exists to prevent. Stating retention as a duration invites exactly that
+off-by-one, because the natural instant to measure a duration from is the one
+the message names.
+
+`window + 2 × skew` is what that derivation **bounds** any single entry to, and
+it is the memory argument rather than the rule: a request is acceptable over
+`[issued_at − skew, expires_at + skew]`, whose length cannot exceed the window
+plus skew at each end. Bounding the window is therefore what bounds the cache,
+and the two may not be relaxed independently.
+
+An unbounded validity window would therefore mean unbounded retention, which is
+a memory-exhaustion path available to any holder of a valid key — and
+[`core-model.md`](core-model.md) §4 step 9 places the cache after verification
+precisely so that only such a holder can reach it.
 
 ## 2. Freshness
 
@@ -116,9 +130,9 @@ object.
 **A responder must reject a `nonce` that decodes to fewer than 16 bytes.** The
 floor is on the **decoded bytes** and not on the string, which is a distinction
 worth stating because the two differ: 16 bytes is 22 base64url characters, so a
-responder measuring the string against 16 would accept a 12-byte nonce. That is
-the kind of disagreement two implementations reach independently and neither
-notices.
+responder measuring the string against 16 would accept a 12-byte nonce. Nothing
+in a message reveals which of the two a responder applied, so the disagreement
+surfaces only when a nonce lands between the values.
 
 It is a length floor, and it is all a responder can check: it holds one nonce and
 no distribution, so it cannot measure entropy. Sixteen zero bytes have none and

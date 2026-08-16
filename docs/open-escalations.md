@@ -4533,11 +4533,25 @@ condition as a range, `(0, window]`, and the interval is gone. The counterexampl
 is in the document because a rule with a hole in it reads exactly like one
 without.
 
+**Review found a third defect, and this one had a failure scenario.** §1 first
+stated retention as a *duration*, `window + 2×skew`, which says nothing about
+what it is measured from — and P-004 §10 had already reasoned from the wrong
+instant, arguing that an evicted entry is safe because expiry rejects a
+resubmission at step 6. That is false for the **skew tail**: §2 accepts a request
+until `expires_at + skew`, so an entry evicted at the signed `expires_at` leaves
+an interval in which a retry is accepted by a cache that has forgotten it, which
+double-debits and can turn a normalized outcome into an answer. §1 now states
+retention as an **instant** — until `expires_at + skew`, the same moment §2 stops
+accepting — so eviction and expiry cannot drift apart. `window + 2×skew` is what
+that derivation *bounds* an entry to, and is the memory argument rather than the
+rule.
+
 **The nonce encoding was never stated either**, which review found: §3 says the
 floor is on the **decoded bytes** and names base64url without padding. Sixteen
 bytes is twenty-two base64url characters, so an implementation measuring the
-string against sixteen accepts a twelve-byte nonce — a disagreement two
-implementations reach independently and neither notices.
+string against sixteen accepts a twelve-byte nonce — and nothing in a message
+reveals which of the two a responder applied, so the disagreement surfaces only
+when a nonce lands between the values.
 
 **The nonce requirement is split rather than moved**, which is the part that
 changes what gets built. A responder holds one nonce and no distribution, so it
