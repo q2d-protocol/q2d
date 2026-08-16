@@ -255,10 +255,22 @@ func TestEachRefusalReportsItsOwnCause(t *testing.T) {
 	wide += "}"
 	long := `{"a":"` + strings.Repeat("x", 3000) + `"}`
 
+	// A public_context above its object limit is CauseOther in both
+	// implementations: it is an object size, and no vector distinguishes it.
+	// Rust tagged it as a string limit for one commit and Go did not, which is a
+	// divergence on one input.
+	members := make([]string, 0, 40)
+	for i := 0; i < 40; i++ {
+		members = append(members, fmt.Sprintf("%q:%q", fmt.Sprintf("k%d", i),
+			strings.Repeat("x", 1000)))
+	}
+	context := `{"predicate":{"public_context":{` + strings.Join(members, ",") + `}}}`
+
 	for _, c := range []struct {
 		input string
 		want  ParseCause
 	}{
+		{context, CauseOther},
 		{`{"a":1,"a":2}`, CauseDuplicateKey},
 		{`{"a":1.5}`, CauseFloat},
 		{deep, CauseTooDeep},

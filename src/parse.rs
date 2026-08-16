@@ -315,14 +315,16 @@ impl<'a> Parser<'a> {
                 let began = p.at;
                 let item = p.value()?;
                 if entering_public_context && p.at - began > MAX_PUBLIC_CONTEXT {
-                    return Err(p.fail_because(
-                        ParseCause::StringTooLong,
-                        &format!(
-                            "`public_context` of {} bytes, above core-model.md \
-                             §2.8's {MAX_PUBLIC_CONTEXT}",
-                            p.at - began
-                        ),
-                    ));
+                    // `Other`, not `StringTooLong`: this is an **object**
+                    // size, and no vector distinguishes it — the same reason
+                    // an integer outside `i64` is `Other`. Tagging it as a
+                    // string limit put Rust and Go on different internal
+                    // reasons for one input, which review caught.
+                    return Err(p.fail(&format!(
+                        "`public_context` of {} bytes, above core-model.md \
+                         §2.8's {MAX_PUBLIC_CONTEXT}",
+                        p.at - began
+                    )));
                 }
                 p.where_ = outer;
                 // serialization.md §2: rejected on parse, not resolved.
@@ -802,7 +804,19 @@ mod cause_tests {
             (0..70).map(|i| format!("\"k{i}\":1")).collect::<Vec<_>>().join(",")
         );
         let long = format!("{{\"a\":\"{}\"}}", "x".repeat(3000));
+        // A `public_context` above its object limit is `Other` in both
+        // implementations: it is an object size, and no vector distinguishes
+        // it. Rust tagged it as a string limit for one commit and Go did not,
+        // which is a divergence on one input.
+        let members: Vec<String> = (0..40)
+            .map(|i| format!(r#""k{i}":"{}""#, "x".repeat(1000)))
+            .collect();
+        let context = format!(
+            r#"{{"predicate":{{"public_context":{{{}}}}}}}"#,
+            members.join(",")
+        );
         for (input, expected) in [
+            (context, ParseCause::Other),
             (r#"{"a":1,"a":2}"#.to_string(), ParseCause::DuplicateKey),
             (r#"{"a":1.5}"#.to_string(), ParseCause::Float),
             (deep, ParseCause::TooDeep),
