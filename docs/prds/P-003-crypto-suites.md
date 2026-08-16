@@ -246,10 +246,15 @@ where that is asserted.
 
 ## 7. Acceptance
 
-- [x] Raw Ed25519 reproduces every RFC 8032 §7.1 vector in both implementations.
-      A unit gate in each, reading its seeds from `conformance/keys/` rather
-      than repeating them — so it covers the material the **corpus signs
-      with** rather than a copy. §6 records why this is not a corpus group.
+- [ ] Raw Ed25519 reproduces every RFC 8032 §7.1 vector in both implementations.
+      **Three of the five.** A unit gate in each implementation reproduces the
+      three answers committed in `conformance/keys/ed25519-test-only.json` —
+      TEST 1, 2 and 3 — reading their seeds from there rather than repeating
+      them, so the gate covers the material the *corpus signs with* rather than
+      a copy. §7.1 also publishes TEST 1024 and TEST SHA(abc), whose messages
+      are 1023 and 64 bytes; neither is committed, so neither is asserted, and
+      this box stays unticked until they are. §6 records why none of this is a
+      corpus group.
 - [ ] Both produce **byte-identical** compact JWS for the same key and payload —
       Ed25519 determinism makes this a byte comparison, not a both-verify check.
 - [ ] Each implementation verifies the other's signatures. **This is

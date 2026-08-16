@@ -6,9 +6,8 @@
 
 [P-001](../docs/prds/P-001-conformance-corpus.md) §5 gives `suite/` as *"suite
 resolution, downgrade rejection, unknown suite"*, and issue 13 authors it.
-[P-003](../docs/prds/P-003-crypto-suites.md) §6 names six groups. Four are here
-in full; two are not, and neither absence is about this tool — one needs an
-operation the vocabulary does not have, the other a second registered suite.
+[P-003](../docs/prds/P-003-crypto-suites.md) §6 names five groups. Four are here
+in full; the fifth is not, and its absence is not about this tool — see below.
 
 Generated with a `--check`, for the reason
 [`author_message.py`](author_message.py) is. The bytes come from
