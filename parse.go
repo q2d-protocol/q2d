@@ -38,6 +38,7 @@ package q2d
 // sent the bytes, not that they meant well.
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -179,8 +180,57 @@ type parser struct {
 // fail names a position and never a value: an offset is a fact about the
 // input's shape, which the sender chose, where the bytes at it may be a private
 // field of a response.
+// ParseCause is why a parse failed, for a caller that has to report a reason.
+//
+// The corpus asserts an internal reason per rejection, and message/reject/
+// distinguishes five parse failures that all reach malformed on the wire. A
+// caller cannot recover them from the message string without matching prose, so
+// the cause travels beside it.
+//
+// CauseOther is everything RFC 8259 itself refuses — a trailing comma, a lone
+// surrogate, a leading zero. Those are one fact to an operator ("this is not
+// JSON") and no vector distinguishes them.
+type ParseCause int
+
+const (
+	CauseOther ParseCause = iota
+	CauseDuplicateKey
+	CauseFloat
+	CauseTooDeep
+	CauseTooManyMembers
+	CauseStringTooLong
+	CauseIntegerOutOfRange
+)
+
+// ParseFailure carries a message and the cause beside it.
+type ParseFailure struct {
+	message string
+	cause   ParseCause
+}
+
+func (e ParseFailure) Error() string { return e.message }
+
+// Cause reports why the parse failed.
+func (e ParseFailure) Cause() ParseCause { return e.cause }
+
+// CauseOf reports the cause of a parse error, or CauseOther for an error that
+// does not carry one.
+func CauseOf(err error) ParseCause {
+	var failure ParseFailure
+	if errors.As(err, &failure) {
+		return failure.cause
+	}
+	return CauseOther
+}
+
 func (p *parser) fail(what string) error {
-	return fmt.Errorf("%s, at byte %d", what, p.at)
+	return ParseFailure{fmt.Sprintf("%s, at byte %d", what, p.at), CauseOther}
+}
+
+// failBecause fails with a cause a caller can report. The five §5.2.1 collapses
+// to malformed and the corpus keeps apart.
+func (p *parser) failBecause(cause ParseCause, what string) error {
+	return ParseFailure{fmt.Sprintf("%s, at byte %d", what, p.at), cause}
 }
 
 func (p *parser) peek() (byte, bool) {
@@ -250,7 +300,8 @@ func (p *parser) value() (Value, error) {
 func (p *parser) enter() error {
 	p.depth++
 	if p.depth > MaxDepth {
-		return p.fail(fmt.Sprintf("nested deeper than P-002 §4.8's limit of %d", MaxDepth))
+		return p.failBecause(CauseTooDeep,
+			fmt.Sprintf("nested deeper than P-002 §4.8's limit of %d", MaxDepth))
 	}
 	return nil
 }
@@ -311,12 +362,13 @@ func (p *parser) object() (Value, error) {
 		// keyed by a contact's name discloses the name. The position is enough
 		// to find it, and a position is a fact about the input's shape.
 		if len(pairs) == MaxMembers {
-			return nil, p.fail(fmt.Sprintf(
+			return nil, p.failBecause(CauseTooManyMembers, fmt.Sprintf(
 				"more than P-002 §4.8's %d members in one object", MaxMembers))
 		}
 		if _, seen := pairs[key]; seen {
-			return nil, p.fail("duplicate key, which serialization.md §2 rejects " +
-				"rather than resolving — two readings of one signed payload")
+			return nil, p.failBecause(CauseDuplicateKey,
+				"duplicate key, which serialization.md §2 rejects "+
+					"rather than resolving — two readings of one signed payload")
 		}
 		pairs[key] = item
 
@@ -424,7 +476,7 @@ func (p *parser) string() (string, error) {
 // The overshoot is at most one character, four bytes.
 func (p *parser) withinStringLimit(out *strings.Builder) error {
 	if out.Len() > p.at2.maxString() {
-		return p.fail(fmt.Sprintf(
+		return p.failBecause(CauseStringTooLong, fmt.Sprintf(
 			"a string longer than core-model.md §2.8's %d bytes", p.at2.maxString()))
 	}
 	return nil
@@ -540,16 +592,20 @@ func (p *parser) number() (Value, error) {
 	// managing. A syntactic test is decidable identically in every language,
 	// which is the property that matters here.
 	if d, ok := p.peek(); ok && (d == '.' || d == 'e' || d == 'E') {
-		return nil, p.fail("a fraction or exponent, which serialization.md §2 " +
-			"refuses " +
-			"in a signed structure — capacity is integer millibits, timestamps " +
-			"are strings")
+		return nil, p.failBecause(CauseFloat,
+			"a fraction or exponent, which serialization.md §2 "+
+				"refuses "+
+				"in a signed structure — capacity is integer millibits, timestamps "+
+				"are strings")
 	}
 
 	n, err := strconv.ParseInt(p.text[start:p.at], 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("integer outside −2^63 … 2^63 − 1, which scope.md "+
-			"§4.1 requires an entry's integers to lie within, at byte %d", start)
+		return nil, ParseFailure{
+			message: fmt.Sprintf("integer outside −2^63 … 2^63 − 1, which scope.md "+
+				"§4.1 requires an entry's integers to lie within, at byte %d", start),
+			cause: CauseIntegerOutOfRange,
+		}
 	}
 	return Int(n), nil
 }

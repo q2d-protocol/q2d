@@ -1,6 +1,7 @@
 package q2d
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -237,4 +238,53 @@ func TestPublicContextIsCappedAsAWholeAndNotOnlyPerString(t *testing.T) {
 	// And an object comfortably inside it still parses.
 	small := strings.Repeat("d", 4*1024)
 	parsed(t, `{"predicate":{"public_context":{"a":"`+small+`","b":"`+small+`"}}}`)
+}
+
+// Each of the five must report its own cause, and the test builds the input for
+// each rather than trusting where an edit landed. Rust has the mirror of this in
+// parse.rs, and both were wrong in different places when written by hand.
+func TestEachRefusalReportsItsOwnCause(t *testing.T) {
+	deep := strings.Repeat("[", 20) + "1" + strings.Repeat("]", 20)
+	wide := "{"
+	for i := 0; i < 70; i++ {
+		if i > 0 {
+			wide += ","
+		}
+		wide += fmt.Sprintf("%q:1", fmt.Sprintf("k%d", i))
+	}
+	wide += "}"
+	long := `{"a":"` + strings.Repeat("x", 3000) + `"}`
+
+	// A public_context above its object limit is CauseOther in both
+	// implementations: it is an object size, and no vector distinguishes it.
+	// Rust tagged it as a string limit for one commit and Go did not, which is a
+	// divergence on one input.
+	members := make([]string, 0, 40)
+	for i := 0; i < 40; i++ {
+		members = append(members, fmt.Sprintf("%q:%q", fmt.Sprintf("k%d", i),
+			strings.Repeat("x", 1000)))
+	}
+	context := `{"predicate":{"public_context":{` + strings.Join(members, ",") + `}}}`
+
+	for _, c := range []struct {
+		input string
+		want  ParseCause
+	}{
+		{context, CauseOther},
+		{`{"a":1,"a":2}`, CauseDuplicateKey},
+		{`{"a":1.5}`, CauseFloat},
+		{deep, CauseTooDeep},
+		{wide, CauseTooManyMembers},
+		{long, CauseStringTooLong},
+		{`{"a":9223372036854775808}`, CauseIntegerOutOfRange},
+		{`{"a":}`, CauseOther},
+	} {
+		_, err := Parse([]byte(c.input))
+		if err == nil {
+			t.Fatalf("%.40s was accepted", c.input)
+		}
+		if got := CauseOf(err); got != c.want {
+			t.Errorf("%.40s: cause %v, want %v", c.input, got, c.want)
+		}
+	}
 }

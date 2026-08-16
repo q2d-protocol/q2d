@@ -65,7 +65,7 @@ pub fn parse_envelope(bytes: &[u8]) -> Result<Envelope, ParseError> {
     // First, and on the slice: this is the check §4 step 1 asks for, and it is
     // the only one that runs before anything is allocated from the input.
     if bytes.len() > MAX_ENVELOPE {
-        return Err(ParseError(format!(
+        return Err(ParseError::other(format!(
             "envelope of {} bytes, above P-002 §4.8's limit of {MAX_ENVELOPE}",
             bytes.len()
         )));
@@ -80,7 +80,7 @@ pub fn parse_envelope(bytes: &[u8]) -> Result<Envelope, ParseError> {
 
     let pairs = match value {
         Value::Object(pairs) => pairs,
-        _ => return Err(ParseError("an envelope is a JSON object".into())),
+        _ => return Err(ParseError::other("an envelope is a JSON object")),
     };
 
     let mut signed = None;
@@ -97,12 +97,12 @@ pub fn parse_envelope(bytes: &[u8]) -> Result<Envelope, ParseError> {
         match (key.as_str(), item) {
             ("signed", Value::String(text)) => signed = Some(text),
             ("signed", _) => {
-                return Err(ParseError("`signed` is a JWS compact string — §4.4".into()))
+                return Err(ParseError::other("`signed` is a JWS compact string — §4.4"))
             }
             ("routing", item @ Value::Object(_)) => routing = Some(item),
             ("routing", _) => {
-                return Err(ParseError(
-                    "`routing` is an object of projected fields — §4.5".into(),
+                return Err(ParseError::other(
+                    "`routing` is an object of projected fields — §4.5",
                 ))
             }
             // The name is the sender's own structure rather than a value, and
@@ -110,7 +110,7 @@ pub fn parse_envelope(bytes: &[u8]) -> Result<Envelope, ParseError> {
             // from: core-model.md §2.1 gives the envelope two members and no
             // others, and P-003 owns what is inside `signed`.
             (other, _) => {
-                return Err(ParseError(format!(
+                return Err(ParseError::other(format!(
                     "unknown envelope member {other:?} — core-model.md §2.1 \
                      carries `signed` and `routing` and no others"
                 )))
@@ -119,7 +119,7 @@ pub fn parse_envelope(bytes: &[u8]) -> Result<Envelope, ParseError> {
     }
 
     let signed = signed
-        .ok_or_else(|| ParseError("no `signed` member — core-model.md §2.1".into()))?;
+        .ok_or_else(|| ParseError::other("no `signed` member — core-model.md §2.1"))?;
 
     // §4.8's 2 KiB, over the part of the envelope it can reach. Post-parse
     // rather than during, because the parser applied the envelope bound to
@@ -127,7 +127,7 @@ pub fn parse_envelope(bytes: &[u8]) -> Result<Envelope, ParseError> {
     // Bounded work: the envelope was capped before any of it was read.
     if let Some(len) = routing.as_ref().and_then(longest_string) {
         if len > MAX_STRING {
-            return Err(ParseError(format!(
+            return Err(ParseError::other(format!(
                 "a `routing` string of {len} bytes, above P-002 §4.8's {MAX_STRING}"
             )));
         }

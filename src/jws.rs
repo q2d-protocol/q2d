@@ -114,12 +114,12 @@ pub fn sign(
     ))
 }
 
-// `segments` and `verify_compact` have no caller inside the crate yet: P-003
-// issue 6 is the caller, and it is blocked on E-46. Allowed rather than
-// exported, because exporting it to silence a warning is how the half-verifier
-// becomes public by accident.
-#[allow(dead_code)]
 /// Split a compact serialization into its three segments.
+///
+/// Test-only. The production path splits once, in [`crate::verify`], because
+/// that is where the header has to be read — splitting again here would be a
+/// second place deciding what a segment is.
+#[cfg(test)]
 ///
 /// Structural only — nothing here verifies anything, and a caller that used the
 /// payload without verifying first would be violating `core-model.md` §4's
@@ -156,9 +156,24 @@ fn segments(compact: &str) -> Result<(&str, &str, &str), SignatureInvalid> {
 /// what a malformed one produces. Doing the cryptographic half now leaves issue
 /// 6 as the ordering and the policy rather than the ordering, the policy and
 /// the mathematics.
-#[allow(dead_code)]
+#[cfg(test)]
 pub(crate) fn verify_compact(compact: &str, key: &PublicKey) -> Result<Vec<u8>, SignatureInvalid> {
     let (header, payload, signature) = segments(compact)?;
+    verify_compact_parts(compact, header, payload, signature, key)
+}
+
+/// The same, for a caller that has already split the string.
+///
+/// [`crate::verify`] splits it to read the header, and re-splitting here would
+/// mean two places that decide what a segment is — the arrangement two
+/// implementations drift in, one file apart.
+pub(crate) fn verify_compact_parts(
+    compact: &str,
+    header: &str,
+    payload: &str,
+    signature: &str,
+    key: &PublicKey,
+) -> Result<Vec<u8>, SignatureInvalid> {
     // **All three segments must be base64url**, including the one this function
     // does not read. `crypto-suites.md` §3 defines the form as
     // `BASE64URL(header) "." BASE64URL(payload) "." BASE64URL(signature)`, and

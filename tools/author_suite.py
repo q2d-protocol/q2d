@@ -175,13 +175,116 @@ def vectors() -> list[dict]:
                 "fails on its own; re-spelling the signature changes no input "
                 "to anything, and leaves a valid message whose `signed` string "
                 "differs from the one that was sent — a different "
-                "`request_digest` for one exchange (§6). Rejected at step 4: a "
-                "signature that does not decode is not a valid signature, and "
-                "§5.2.1 gives one class for the whole of authentication."
+                "`request_digest` for one exchange (§6). Rejected at **step 3**, "
+                "with the rest of the container: "
+                "[E-46](../docs/open-escalations.md) put a fault in the signed "
+                "form `crypto-suites.md` §3 defines under "
+                "`structurally_invalid`, and all three segments are checked "
+                "there rather than one of them being left to verification."
             ),
             "operation": "verify_query",
             "input": envelope(f"{head}.{payload}.{respelled(signature)}"),
-            "expect": rejects("signature_not_canonical", "unauthenticated", 4),
+            # E-46 closed as B: the fault is in the container `crypto-suites.md`
+            # §3 defines, so it is `structurally_invalid` at step 3 rather than
+            # `unauthenticated` at step 4. This vector said the latter for one
+            # commit, while the header cases had nowhere to go at all.
+            "expect": rejects("signature_segment_not_base64url", "structurally_invalid", 3),
+        },
+        {
+            "id": "suite/verify/not-three-segments",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#5.2.1"],
+            "description": (
+                "A `signed` string of two segments. §3 fixes the compact form "
+                "at three, and §4 step 3 has to split it to read the suite — so "
+                "the count is checked where it is already being counted. "
+                "`structurally_invalid` rather than `malformed`: the envelope "
+                "parsed and is correct, and it is the requester's **suite "
+                "implementation** that is wrong, which is the half of its code "
+                "§5.2.1's line sends it to ([E-46](../docs/open-escalations.md))."
+            ),
+            "operation": "verify_query",
+            "input": envelope(".".join(valid.split(".")[:2])),
+            "expect": rejects("compact_segment_count", "structurally_invalid", 3),
+        },
+        {
+            "id": "suite/verify/payload-not-base64url",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#5.2.1"],
+            "description": (
+                "Three segments, and the **payload** is not base64url. The "
+                "sibling of `header-not-base64url`. **All three segments are "
+                "checked at step 3** — §3 defines the form and step 3 is where "
+                "the form is read — and this vector exists because the payload "
+                "is the segment an implementation is most likely to leave out "
+                "of that check: it reads the header on its own account and "
+                "checks the signature to verify, while the payload is not "
+                "needed until step 5. One that left it to the parse there "
+                "would answer `malformed`, sending the requester to its "
+                "serializer for a fault in its JWS construction."
+            ),
+            "operation": "verify_query",
+            "input": envelope(f"{valid.split('.')[0]}.not base64url!.{valid.split('.')[2]}"),
+            "expect": rejects("payload_segment_not_base64url", "structurally_invalid", 3),
+        },
+        {
+            "id": "suite/verify/header-not-an-object",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#5.2.1"],
+            "description": (
+                "A header segment that decodes, and decodes to a JSON string "
+                "rather than an object. §3 says the header has exactly two "
+                "members, which presupposes it is an object at all — and the "
+                "case is worth its own vector because it is the one that gets "
+                "*past* the base64url check and still has no suite to read. "
+                "`structurally_invalid` for the same reason as the rest of the "
+                "container: the fault is in what §3 defines."
+            ),
+            "operation": "verify_query",
+            "input": envelope(".".join([
+                av.base64url(b'"not an object"'),
+                valid.split(".")[1],
+                valid.split(".")[2],
+            ])),
+            "expect": rejects("header_not_an_object", "structurally_invalid", 3),
+        },
+        {
+            "id": "suite/verify/header-member-not-a-string",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#5.2.1"],
+            "description": (
+                "A header that is an object with the two members §3 names, and "
+                "`suite` is a number. The member set is right and the *types* "
+                "are not — which is a different fault from a header carrying an "
+                "extra member, and reaches a different internal reason so an "
+                "operator can tell them apart. Both are `structurally_invalid` "
+                "at step 3: §5.2.1 collapses them on the wire because each is "
+                "visible in the message the requester itself produced."
+            ),
+            "operation": "verify_query",
+            "input": envelope(".".join([
+                av.base64url(b'{"key_id":"test-requester-1","suite":1}'),
+                valid.split(".")[1],
+                valid.split(".")[2],
+            ])),
+            "expect": rejects("header_member_not_a_string", "structurally_invalid", 3),
+        },
+        {
+            "id": "suite/verify/header-not-base64url",
+            "section": "suite",
+            "requirement": ["crypto-suites.md#3", "core-model.md#5.2.1"],
+            "description": (
+                "Three segments, and the first is not base64url. **This is the "
+                "case that had no value in the vocabulary at all** before "
+                "[E-46](../docs/open-escalations.md): `malformed` names steps 1 "
+                "and 5, `structurally_invalid` required that the message "
+                "parsed, and `unsupported_suite` cannot apply to a header that "
+                "will not decode. E-46 moved the line from *did it parse* to "
+                "*what is wrong*, and a header is `crypto-suites.md` §3's."
+            ),
+            "operation": "verify_query",
+            "input": envelope("not base64url!." + ".".join(valid.split(".")[1:])),
+            "expect": rejects("header_segment_not_base64url", "structurally_invalid", 3),
         },
         {
             "id": "suite/sign/second-key",

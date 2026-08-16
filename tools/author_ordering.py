@@ -138,18 +138,28 @@ def vectors() -> list[dict]:
     head, payload, signature = valid.split(".")
 
     return [
-        vector(1, "signed-is-not-a-compact-serialization",
-               "An envelope whose `signed` is not three dot-separated base64url "
-               "segments. Step 1 parses the envelope before any allocation on "
-               "attacker-controlled data, so this is refused before a suite is "
-               "read or a key resolved — nothing below step 1 runs.\n\n"
+        vector(1, "signed-is-not-a-string",
+               "An envelope whose `signed` is a number. Step 1 parses the "
+               "envelope before any allocation on attacker-controlled data, so "
+               "this is refused before a suite is read or a key resolved — "
+               "nothing below step 1 runs.\n\n"
+               "**This vector used to carry a `signed` string that was not a "
+               "compact serialization**, and that was wrong: `signed` is opaque "
+               "at the envelope layer ([P-002](../docs/prds/P-002-message-envelope.md) "
+               "§4.4), so step 1 cannot tell one string from another. "
+               "[E-46](../docs/open-escalations.md) settled where that case "
+               "belongs — step 3, `structurally_invalid`, because the fault is "
+               "in the container `crypto-suites.md` §3 defines — and "
+               "`suite/verify/not-three-segments` is now the vector for it. The "
+               "*type* of `signed` is a fact about the envelope, which is what "
+               "makes this one a step-1 case.\n\n"
                "It does **not** cover a transport delivering bytes that are not "
                "JSON at all: a vector file is JSON and a runner is handed a "
                "parsed object, so that case cannot travel through this corpus. "
                "It belongs to the binding that owns framing "
                "([P-013](../docs/prds/P-013-https-binding.md)).",
-               {"signed": "not-a-compact-serialization", "routing": ROUTING},
-               "envelope_malformed", "malformed"),
+               {"signed": 3, "routing": ROUTING},
+               "envelope_signed_not_a_string", "malformed"),
 
         vector(3, "unregistered-suite",
                "A header declaring a suite `crypto-suites.md` §3 does not "

@@ -93,6 +93,54 @@ ties them to the vector. **Three readings of one string**, by tests that share n
 code — Python being the authoring tool rather than a third implementation of the
 protocol.
 
+## `rejection-vocabulary.txt`
+
+Every internal reason the corpus names, with the wire value a requester receives
+and the [`core-model.md`](../spec/core-model.md) §4 step it is caught at.
+
+**Derived, not authored.** A Python test rebuilds it from the corpus and fails if
+the committed file differs, so the fixture cannot drift from the vectors.
+
+**What each implementation asserts is narrower than the file.** Each lists the
+reasons it produces today, and for every listed name checks the wire value and
+the step against this fixture — failing rather than skipping if the name is not
+here, which is what catches a typo in the list. The file names more than either
+implementation can produce: envelope, routing, expiry, registry and policy
+reasons belong to modules that are not built, and are checked when they are.
+
+Two gaps in the other direction, worth naming rather than leaving to be inferred
+from an absence. `suite_below_policy` is a reason both implementations *can*
+return and the fixture cannot carry — a vector supplies a message, and whether a
+registered suite is outside the acceptable set is a fact about the verifier. It
+is held by mirrored unit tests, which is the weaker thing this directory exists
+to replace.
+
+What the fixture does buy is agreement on every reason both sides list, which is
+what stops a vector passing in one implementation and failing in the other for a
+reason no runner reports usefully.
+
+It found two disagreements the moment it existed. §4's steps are not all
+numbers — the header/payload comparison is step **5a**, lettered by E-35 so the
+steps below it did not renumber — and both implementations had typed the step as
+an integer. And the corpus's `suite_unregistered` is narrower than the single reason both
+implementations had, which covered an unregistered suite *and* one outside the
+acceptable set. §5.2.1 collapses the two on the wire and an operator still needs
+to know which, so they are two internal reasons now.
+
+**Only the first of that pair is in this fixture**, and the second cannot be
+until the vector format can state the *verifier's* policy: whether a registered
+suite is outside the acceptable set is a fact about the verifier, not about the
+message, and a vector supplies a message. The same gap keeps `suite/status/`
+unwritten, and it is [P-001](../docs/prds/P-001-conformance-corpus.md)'s to
+close rather than P-003's. Until then `suite_below_policy` is asserted by
+mirrored unit tests, which is the weaker thing this directory exists to replace
+— said plainly rather than left to be inferred from a name that is absent.
+
+The `-` in the step column is a vector that asserts no step, which
+[P-001](../docs/prds/P-001-conformance-corpus.md) §4.8 permits: a step-less
+vector asserts no ordering, which is weaker and true, where a guessed step is
+stronger and wrong.
+
 ## `ed25519-acceptance.txt`
 
 Ten rows, each a case where "Ed25519" alone does not decide the answer. RFC

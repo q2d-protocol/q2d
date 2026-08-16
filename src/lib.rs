@@ -21,6 +21,7 @@ pub mod routing;
 pub mod suites;
 pub mod timestamp;
 pub mod value;
+pub mod verify;
 pub mod version;
 
 pub use digest::digest;
@@ -33,4 +34,5 @@ pub use policy::{PolicyError, SuitePolicy, DEFAULT_ACCEPTABLE};
 pub use routing::{check_routing, project_routing, Routing, RoutingMismatch};
 pub use suites::{RegistryError, SuiteEntry, SuiteRegistry, SuiteStatus};
 pub use value::{serialize, serialize_operation_data, ProfileError, Value};
+pub use verify::{verify_query, Rejected};
 pub use version::{check_version, VersionProblem, SUPPORTED};

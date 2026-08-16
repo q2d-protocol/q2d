@@ -18,14 +18,13 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-46 is open**, raised while building P-003 issue 2: §5.2.1 has no
-> `external_reason` for a `signed` string that is not a well-formed compact JWS.
-> `malformed` names steps 1 and 5, `structurally_invalid` requires that the
-> message *parsed*, and `unsupported_suite` cannot apply to a header that will
-> not decode. It blocks P-003 issue 6.
+> **Nothing is open.** **E-36** through **E-47** all closed.
 >
-> **E-36** through **E-45** all closed, every one raised while building P-002's
-> message layer, and **E-47** with them.
+> **E-46:** §5.2.1 had no `external_reason` for a `signed` string that is not a
+> well-formed compact JWS. Closed as **B**: `structurally_invalid` is separated
+> from `malformed` by *what is wrong* rather than by whether the message parsed,
+> so a fault in the container `crypto-suites.md` §3 defines has a value and a
+> fault in the envelope §2.1 defines keeps its own.
 >
 > **E-44** and **E-45** are [E-43](#e-43--the-production-profile-is-defined-in-a-prd-and-the-spec-cites-it-as-if-it-were-not)'s
 > class, found by looking for more of it: the envelope's **closedness** and the
@@ -206,7 +205,7 @@ question is still fresh than after the answer arrives.
 | **E-43** | The deterministic production profile is defined in a PRD, and three artifacts above it cite it as if it were not | P-002 issue 10 | `serialization.md` (new) · `crypto-suites.md` §1–§3 · `core-model.md` preamble, §2.8, §3.2, §6 · `registry/manifest.json`, `registry/validate.py` · P-002 §4.1–§4.3, P-011 §4.2 · both implementations · corpus | **Closed** |
 | **E-44** | Is the envelope object closed, or may it carry unknown members? | P-002 issue 10 | `core-model.md` §2.1 · P-002 §4.4 · both implementations · `message/envelope/unknown-member` | **Closed** |
 | **E-45** | The digest string form is defined only in P-002 | P-002 issue 10 | `serialization.md` §5 (new) · P-002 §4.7 · P-011 §4.2 · both implementations · `testdata/` · `message/digest/` | **Closed** |
-| **E-46** | Which `external_reason` for a `signed` string that is not a well-formed compact JWS? | P-003 issue 2 | `core-model.md` §5.2.1 · P-003 §4.2, issue 6 · `suite/verify/` | **Open** |
+| **E-46** | Which `external_reason` for a `signed` string that is not a well-formed compact JWS? | P-003 issue 2 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, issues 6–8 · `suite/verify/` · both implementations | **Closed** |
 | **E-47** | Ed25519 in Rust needs a dependency policy, and there is no conventions document | P-003 issue 1 | `CONVENTIONS-rust.md`, `CONVENTIONS-go.md` (both new) · `Cargo.toml`, `go.mod` · both implementations · `testdata/ed25519-acceptance.txt` · CI | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
@@ -4109,7 +4108,7 @@ states it.
 ## E-46 — Which `external_reason` for a `signed` string that is not a compact JWS?
 
 **Raised by** P-003 issue 2, while authoring
-`suite/verify/respelled-signature-segment`. **Open.**
+`suite/verify/respelled-signature-segment`.
 
 The envelope parses. `signed` turns out not to be a compact JWS — wrong number
 of segments, a header segment that is not base64url, a header that is not JSON,
@@ -4142,7 +4141,54 @@ the fault is rather than whether it parsed, which is where the other header
 faults already live · **C** a seventh value, precise and an extra oracle bit for
 no action difference.
 
-**Recommendation: B.** Blocks P-003 issue 6.
+## Resolution — B
+
+§5.2.1 separates the two values by **what is wrong**, not by whether the message
+parsed, and the line is which document defines the thing at fault. `malformed` is
+an envelope (§2.1) or a verified core object (§2) — the requester's *serializer*
+is where to look. `structurally_invalid` is the signed container or the protected
+header, which `crypto-suites.md` §3 defines — the requester's *suite
+implementation* is where to look.
+
+That reframing is what admits the missing cause. A `signed` string that is not
+three base64url segments has not parsed either, so the old line excluded it; and
+folding it into `malformed` would send a requester to the wrong half of its own
+code, because its envelope is fine and its JWS construction is not.
+
+**The rule is applied to all three segments**, including the signature. That
+changed a vector authored one commit earlier:
+`suite/verify/respelled-signature-segment` said `unauthenticated` at step 4, on
+the reading that a signature which will not decode is not a valid signature. It
+is now `structurally_invalid` at step 3 with the rest of the container — the
+uniform rule is easier to hold and the old one drew a second line inside one
+check.
+
+`structurally_invalid` now covers **three kinds**, and §5.2.1 states kinds
+rather than a count: a container that is not a well-formed compact
+serialization, a protected header that is not the object §3 defines, and a
+header/payload disagreement.
+
+Kinds rather than a count deliberately. This entry said "four causes" for one
+commit and was wrong by the next, twice: implementations found more ways for a
+header to be wrong — one that decodes to a string, one whose `suite` is a number
+— and each is *the header is not §3's object* rather than a new kind. The
+internal reasons stay separate, because an operator wants to know which; the
+value does not multiply, because a requester does nothing differently.
+
+### What was built
+
+`crypto-suites.md` §3 states the container rule and where it is caught.
+`suite/verify/` gains `not-three-segments` and `header-not-base64url` — the case
+that had no value at all — each with its own internal reason, because an
+operator debugging one wants to know which. The cross-vector test that holds
+every `structurally_invalid` cause to one wire value and distinct internal
+reasons now covers six vectors rather than three, and it caught the first
+version of these two sharing a reason.
+
+**Checked and unchanged:** `claims.md` and `conformance-classes.md`. Q2D-C-08 is
+about normalized classes and this value is in the *distinct* group, which the
+table already said; nothing about which causes share a value changed, only which
+causes exist.
 
 ---
 
