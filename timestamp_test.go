@@ -211,8 +211,13 @@ func TestEpochRefusesWhatTheFormatCheckRefuses(t *testing.T) {
 
 func TestEpochEveryDayOfAFourHundredYearCycle(t *testing.T) {
 	// The whole cycle, because the arithmetic's failure mode is an off-by-one at
-	// a century boundary that a handful of spot checks miss. The Rust side runs
-	// the identical loop, so a divergence in either shows up here.
+	// a century boundary that a handful of spot checks miss.
+	//
+	// The Rust side runs the same loop over the same range, which is two
+	// readings of the same algorithm rather than cross-implementation evidence:
+	// a shared vector is what would demonstrate agreement, and there is none for
+	// this yet because no operation in P-001 §4.5 converts a timestamp. Both
+	// sides being wrong identically is the case this does not catch.
 	previous, _ := TimestampToEpochSeconds("1600-01-01T00:00:00Z")
 	checked := 0
 	for year := 1600; year < 2000; year++ {
