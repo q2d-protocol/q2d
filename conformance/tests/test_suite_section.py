@@ -128,21 +128,25 @@ class OrderingTest(unittest.TestCase):
 
 
 class StructurallyInvalidTest(unittest.TestCase):
-    """The three cases E-34 gave a value to.
+    """Every case §5.2.1 gives `structurally_invalid` to.
 
-    Each parses, and what is wrong with it is neither a parse failure nor an
-    authentication one: in all three the declared suite is registered and
-    acceptable. That is why `unsupported_suite` does not describe them, and why
-    `malformed` -- which means "did not parse" -- would send a requester to its
-    serializer instead of to how its header is built.
+    E-34 introduced the value for three cases that *parsed*, and
+    [E-46](../../docs/open-escalations.md) moved the line: the class is
+    separated from `malformed` by **what is wrong**, not by whether the message
+    parsed. `malformed` is an envelope or a verified core object -- a
+    requester's serializer. `structurally_invalid` is the signed container or
+    the protected header, which `crypto-suites.md` §3 defines -- a requester's
+    suite implementation.
 
-    The `alg` case is caught at §4 step 3, before any signature is checked, so
-    it is not an authenticated message. The two disagreements need the parsed
-    payload and are caught at step **5a**, which E-35 added for symmetry with
-    the response order's 4a.
+    That is what admits the container cases. A `signed` string that will not
+    split into three decodable segments has not parsed either, and calling it
+    `malformed` would send a requester to the wrong half of its own code.
 
-    The class is not "authentic but wrong": it is "well formed, and not this
-    protocol's".
+    Two kinds are caught at §4 step 3, before any signature is checked -- the
+    container, and a header that is not §3's object -- so neither is an
+    authenticated message. The disagreements need the parsed payload and are
+    caught at step **5a**, which E-35 added for symmetry with the response
+    order's 4a.
     """
 
     # Every cause §5.2.1 gives `structurally_invalid` for. E-46 added the first
