@@ -4355,7 +4355,8 @@ P-001 issue 17's remit is the **Stage 5–8** extension where this is Stage 1.
 are committed; TEST 1024 and TEST SHA(abc) are asserted nowhere, and P-003 §7's
 first criterion is unticked because of it. Retiring the group changes *where*
 three answers are checked, not how many. `testdata/ed25519-acceptance.txt` is a
-different question again — the ten cases RFC 8032 leaves **open** — and is not
+different question again — one published answer as a control, and **nine cases
+RFC 8032 leaves open** — and is not
 evidence about its published answers.
 
 P-003 §6 lists five groups now and records the reasoning; §7's first acceptance

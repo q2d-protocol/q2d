@@ -81,7 +81,8 @@ needs its own completeness argument and one that is an entry short fails open.
 
 `ed25519.go`'s header states all four acceptance rules, and
 [`testdata/ed25519-acceptance.txt`](testdata/README.md) holds both
-implementations to the same answers on the ten cases RFC 8032 does not decide.
+implementations to the same answers on ten rows — one published answer as a
+control, and nine cases RFC 8032 does not decide.
 
 **Adding a second dependency is an escalation**, not a commit.
 

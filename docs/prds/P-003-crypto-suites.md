@@ -238,7 +238,8 @@ group would have changed is where three answers are checked, not how many.
 
 The cross-implementation half is separate and does exist:
 `testdata/ed25519-acceptance.txt` holds both implementations to the same answers
-on the ten cases RFC 8032 leaves open, which is a different question from its
+on ten rows: one published answer as a control, and **nine cases RFC 8032
+leaves open**, which is a different question from its
 published known answers.
 
 | Group | Vectors |
