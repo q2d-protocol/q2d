@@ -18,15 +18,7 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-48 is open**, raised while finishing P-003: a vector can describe a
-> *message* and not the *verifier* that receives it, so no vector can say that a
-> suite is `withdrawn` in the verifier's registry or outside its acceptable set.
-> That leaves §4.2 step 2 — the whole downgrade defence — held by mirrored unit
-> tests, and the same shape queued behind it in P-004, P-005, P-008 and P-015.
-> **One sub-decision inside it is already made:** `suite/rfc8032/` is retired
-> rather than given an operation.
->
-> **E-36** through **E-47** all closed.
+> **Nothing is open.** **E-36** through **E-48** all closed.
 >
 > **E-46:** §5.2.1 had no `external_reason` for a `signed` string that is not a
 > well-formed compact JWS. Closed as **B**: `structurally_invalid` is separated
@@ -215,7 +207,7 @@ question is still fresh than after the answer arrives.
 | **E-45** | The digest string form is defined only in P-002 | P-002 issue 10 | `serialization.md` §5 (new) · P-002 §4.7 · P-011 §4.2 · both implementations · `testdata/` · `message/digest/` | **Closed** |
 | **E-46** | Which `external_reason` for a `signed` string that is not a well-formed compact JWS? | P-003 issue 2 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, issues 6–8 · `suite/verify/` · both implementations | **Closed** |
 | **E-47** | Ed25519 in Rust needs a dependency policy, and there is no conventions document | P-003 issue 1 | `CONVENTIONS-rust.md`, `CONVENTIONS-go.md` (both new) · `Cargo.toml`, `go.mod` · both implementations · `testdata/ed25519-acceptance.txt` · CI | **Closed** |
-| **E-48** | A vector can describe a message, but not the verifier that receives it | P-003 issue 11 | `conformance/vector.schema.json` + its served copy · P-001 §4.2–§4.4, RUNNER-CONTRACT · P-003 §6 · P-004, P-005, P-008, P-015 | **Open** |
+| **E-48** | A vector can describe a message, but not the verifier that receives it | P-003 issue 11 | `conformance/vector.schema.json` + its served copy · P-001 §4.3, §6, RUNNER-CONTRACT · P-003 §6, §7, issues 8 and 11 · `suite/status/`, `suite/downgrade/below-floor` · both implementations · P-012 | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -4292,52 +4284,103 @@ rather than leaving the silence to be read either way.
 ## E-48 — A vector can describe a message, but not the verifier that receives it
 
 **Raised by** P-003 issue 11, while finding that `suite/status/` cannot be
-written. **Open.**
+written. **Closed — A.**
 
-P-001 §4.3 supplies every input that would otherwise *vary* — keys, nonces,
-timestamps, identifiers. What no vector can state is the responder's
-**configuration**, and several rules are decisions taken from it rather than
-from the message:
+*The state below is what the format was when this was raised.* P-001 §4.3
+supplied every input that would otherwise *vary* — keys, nonces, timestamps,
+identifiers. What no vector could state was the responder's **configuration**,
+and several rules are decisions taken from it rather than from the message:
 
-| Vector that cannot be written | What it would have to say |
+| Vector that could not be written | What it would have to say |
 |---|---|
 | `suite/status/deprecated-verifies` | *the verifier's registry lists this suite as `deprecated`* |
 | `suite/status/withdrawn-refuses` | *…as `withdrawn`* |
 | `suite_below_policy` | *this suite is registered, and outside the verifier's acceptable set* |
 
-There is a precedent and it is narrower than it looks: six `ordering/` vectors
-carry `input.environment.now`, the responder's clock supplied rather than read.
-But `environment` is **P-007's `PolicyInput` shape** — an argument to the policy
-engine that happens to describe the world — not a general mechanism.
+There was a precedent, and it was narrower than it looked: six `ordering/`
+vectors carry `input.environment.now`, the responder's clock supplied rather
+than read. But `environment` is **P-007's `PolicyInput` shape** — an argument to
+the policy engine that happens to describe the world — not a general mechanism.
 
-**Why it is more than two missing vectors.** P-003 §4.2 step 2 is what that
-PRD's §9 item 1 calls the entire downgrade defence, and it is now the only
+**Why it was more than two missing vectors.** P-003 §4.2 step 2 is what that
+PRD's §9 item 1 calls the entire downgrade defence, and it was then the only
 structural rule in that sequence with no shared vector. And the same shape is
 queued behind it: P-004's replay cache, P-005's pinned manifest digest, P-008's
 accumulated budget, P-015's cached escalation. Four PRDs will each meet this,
 and answered four times it will be answered four ways.
 
-**Options:** **A** extend `input.environment`, which conflates the policy
-engine's argument with the runner's configuration · **B** a new top-level block
-beside `input` naming the responder's state before the operation runs · **C**
-per-section fixture files, which put state outside the file the runner is handed
-and give the harness protocol knowledge §3 keeps out of it · **D** accept it, and
-add the claim that agreement is demonstrated *except* where a rule depends on
-configuration.
+**Options:** **A** a documented key **inside** `input` · **B** a new top-level
+block beside `input` naming the responder's state before the operation runs ·
+**C** per-section fixture files, which put state outside the file the runner is
+handed and give the harness protocol knowledge §3 keeps out of it · **D** accept
+it, and add the claim that agreement is demonstrated *except* where a rule
+depends on configuration.
 
-**Recommendation: B**, decided once and before P-004 is built. The reason is not
-the missing vectors: `input` currently means two things, and the format has no
-word for the second. A vector saying `verify_query` with an envelope describes a
-*call*; a vector saying *this verifier lists the suite as withdrawn* describes the
-*world the call happens in*.
+A first pass listed A as *extend `input.environment`* and recommended **B**. Two
+findings changed both, and they are recorded because each was a fact nobody had
+checked rather than a preference anyone revised:
 
-**Where it stops being right.** `given` is for **configuration** — state the
-responder *was* in. It is wrong for **accumulated** state: a replay cache with an
-entry, or a budget with prior debits, is the result of previous operations, and
-declaring it duplicates what a sequence of vectors establishes. P-001 §10 already
-anticipates a sequence-asserting operation at Stage 5. If B is adopted the line
-has to be drawn in the same commit — **configuration is declared, history is
-replayed** — or P-008 will describe a budget two ways.
+- **P-001 §9 item 3 already forbids this.** *"All nondeterministic inputs come
+  from the vector. No clocks, no RNG, **no ambient state**."* A verifier built
+  from a config file and a registry file is ambient state. So the format was not
+  being asked for a new capability — it was failing to implement a rule the PRD
+  had already made, and §9 item 3 also says where the answer goes: inputs come
+  from the vector, and `input` is where a vector puts inputs. That makes A a
+  *new documented key*, not an overload of P-007's `environment`.
+- **The projection is an allowlist, and B would have spent it.**
+  `harness/projection.py` copies `id`, `operation`, `input` and nothing else,
+  closed on purpose so a field nobody anticipated cannot reach a runner (§4.2),
+  and `input` is copied whole and untouched. A holds with **no change** to the
+  allowlist, to §6's `VectorInput`, or to any runner that reads its input as a
+  tree; B changes all three to draw a distinction `input` can hold for free.
+
+**A second thing the first pass got wrong: registering a suite could not have
+substituted for this.** Four documents recorded these vectors as waiting on *a
+second registered suite*. For a `deprecated` suite to **verify**, the verifier
+must implement it, and P-003 §4.3's floor requires registered *and* implemented
+before status is consulted — so a suite registered purely to be deprecated is
+refused one check earlier, as unimplemented. The vector would pass while testing
+a different rule, which is worse than not having it.
+
+**Resolution — A.** `input.verifier`, carrying `suite_registry` and
+`acceptable_suites`. P-001 §4.3 states the decision, `RUNNER-CONTRACT.md` fixes
+the shape and — the part that matters more — **the defaults**, since a vector
+that omits `verifier` must mean the same thing to both runners.
+
+**Where it stops being right, decided in the same commit.** `verifier` is for
+**configuration** — state the responder was *configured into*. It is wrong for
+**accumulated** state: a replay cache holding a nonce (P-004) or a budget with
+prior debits (P-008) is the result of previous operations, and declaring it
+would assert the very thing the corpus exists to demonstrate. **Configuration is
+declared; history is replayed.**
+
+No mechanism for replayed history exists, and this decision does not add one.
+The first pass said P-001 §10 *"already anticipates a sequence-asserting
+operation at Stage 5"* — it does not. §4.5's Stage 5 entry is about asserting
+**which step** rejected a response, which is ordering within one operation, not
+state carried between vectors. P-004 and P-008 must raise it rather than reach
+for `verifier` because it is the nearest thing available; §4.3 says so where
+they will read it.
+
+**Three vectors landed**, and with them a property no single vector could hold:
+`suite/downgrade/unregistered-suite`, `suite/status/withdrawn-refuses` and
+`suite/downgrade/below-floor` are three different internal reasons behind one
+byte-identical wire response. `test_suite_section.py` asserts that across the
+three, because each passes on its own while the wire values diverge.
+
+**It also split an internal reason.** `suite_below_policy` had been covering two
+facts — the registry withdrew this suite, and this deployment does not accept it
+— and §6 makes the first binding on every deployment while the second is local.
+Both implementations now report `suite_withdrawn` for the first, and step 2
+checks status **before** policy so that a refusal the registry made is not
+reported as a local decision. One internal reason for two facts is the same
+defect class as one variable for both halves of a denial, arriving from the
+other side.
+
+**Checked and unchanged:** `claims.md`, `conformance-classes.md`,
+`trust-matrix.md`. This changes what the corpus can *assert*, not what any claim
+rests on — Q2D-C-05's downgrade language already described the rule these
+vectors now check, and it was true while only unit tests held it.
 
 ## Resolved inside it — `suite/rfc8032/` is retired
 

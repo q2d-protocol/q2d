@@ -39,7 +39,13 @@ fn every_reason_this_module_produces_matches_the_corpus() {
         ("header_segment_not_base64url", Rejected::HeaderSegmentNotBase64url),
         ("signature_segment_not_base64url", Rejected::SignatureSegmentNotBase64url),
         ("header_member_not_permitted", Rejected::HeaderMemberNotPermitted),
+        // The three suite refusals. All three are listed because the corpus
+        // asserts them as one property — different internal reasons, one wire
+        // value — and a list carrying some of them checks the reasons without
+        // checking the collapse.
         ("suite_unregistered", Rejected::SuiteUnregistered),
+        ("suite_withdrawn", Rejected::SuiteWithdrawn),
+        ("suite_below_policy", Rejected::SuiteBelowPolicy),
         ("key_unresolvable", Rejected::KeyUnresolvable),
         ("signature_invalid", Rejected::SignatureInvalid),
         ("core_object_unsupported_version", Rejected::UnsupportedVersion),

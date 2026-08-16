@@ -63,14 +63,24 @@ pub enum Rejected {
     HeaderMemberNotAString,
     /// The header carries a member §3 does not permit.
     HeaderMemberNotPermitted,
-    /// The suite is unregistered, or outside the verifier's acceptable set.
+    /// The suite is not in the registry at all.
     ///
-    /// **Two variants, one wire value.** §5.2.1 gives `unsupported_suite` for
-    /// both on purpose — separating them would tell a requester whether the
-    /// custodian *knows* a suite it declined, which is the custodian's minimum
-    /// acceptable policy. An operator still needs to know which, so the
-    /// internal reasons differ and the mapping collapses them.
+    /// **Three variants, one wire value.** §5.2.1 gives `unsupported_suite` for
+    /// all of them on purpose — separating them would tell a requester whether
+    /// the custodian *knows* a suite it declined, and whether it was the
+    /// registry or this deployment that declined it. Together those are the
+    /// custodian's minimum acceptable policy. An operator still needs to know
+    /// which, so the internal reasons differ and the mapping collapses them.
     SuiteUnregistered,
+    /// Registered, and its status forbids verifying — `crypto-suites.md` §6's
+    /// `withdrawn`.
+    ///
+    /// Distinct from [`Self::SuiteBelowPolicy`] because they are different
+    /// facts for an operator, and different facts for the corpus: one is *the
+    /// registry retired this suite*, which every deployment must honour, the
+    /// other *this deployment does not accept it*, which is local. A vector
+    /// asserting §6's withdrawal rule cannot be written if the two collapse.
+    SuiteWithdrawn,
     SuiteBelowPolicy,
     /// The key did not resolve.
     ///
@@ -152,7 +162,9 @@ impl Rejected {
             | Rejected::HeaderMemberNotPermitted
             | Rejected::HeaderPayloadSuiteMismatch
             | Rejected::HeaderPayloadKeyMismatch => "structurally_invalid",
-            Rejected::SuiteUnregistered | Rejected::SuiteBelowPolicy => "unsupported_suite",
+            Rejected::SuiteUnregistered
+            | Rejected::SuiteWithdrawn
+            | Rejected::SuiteBelowPolicy => "unsupported_suite",
             Rejected::KeyUnresolvable | Rejected::SignatureInvalid => "unauthenticated",
             Rejected::CoreObjectMalformed
             | Rejected::CoreObjectCarriesSignatureValue
@@ -180,6 +192,7 @@ impl Rejected {
             | Rejected::HeaderMemberNotAString
             | Rejected::HeaderMemberNotPermitted
             | Rejected::SuiteUnregistered
+            | Rejected::SuiteWithdrawn
             | Rejected::SuiteBelowPolicy => "3",
             Rejected::KeyUnresolvable | Rejected::SignatureInvalid => "4",
             Rejected::CoreObjectMalformed
@@ -212,6 +225,7 @@ impl fmt::Display for Rejected {
                 "the protected header carries a member crypto-suites.md §3 does not permit"
             }
             Rejected::SuiteUnregistered => "the declared suite is not registered",
+            Rejected::SuiteWithdrawn => "the declared suite is withdrawn",
             Rejected::SuiteBelowPolicy => "the declared suite is outside the acceptable set",
             Rejected::KeyUnresolvable => "the key did not resolve",
             Rejected::SignatureInvalid => "the signature did not verify",
@@ -321,7 +335,14 @@ pub fn verify_query(
     let entry = registry
         .resolve(&header.suite)
         .map_err(|_| Rejected::SuiteUnregistered)?;
-    if !policy.accepts(&header.suite) || !entry.status().may_verify() {
+    // Status before policy, which is the order they can be told apart in: a
+    // suite the registry has withdrawn is refused whatever a deployment
+    // configured, so reading policy first would report a local decision for a
+    // refusal that was not local. All three reach §5.2.1's `unsupported_suite`.
+    if !entry.status().may_verify() {
+        return Err(Rejected::SuiteWithdrawn);
+    }
+    if !policy.accepts(&header.suite) {
         return Err(Rejected::SuiteBelowPolicy);
     }
 
@@ -635,14 +656,62 @@ mod tests {
         assert_eq!(rejected.step(), "5");
     }
 
+    impl Rejected {
+        /// Every variant, derived rather than transcribed.
+        ///
+        /// `MAPPING` below is hand-written, and a hand-written list of every
+        /// variant stops covering the type the moment someone adds one —
+        /// silently, because nothing makes a `const` slice complete. So this
+        /// list is built from a **total function**: `next` matches
+        /// exhaustively, and a new variant does not compile until it has been
+        /// placed in the order.
+        ///
+        /// That this was needed is not hypothetical. `MAPPING` carried
+        /// `CoreObjectCarriesSignatureValue` twice, and no check noticed,
+        /// because nothing compared the table against the type.
+        fn every_variant() -> Vec<Rejected> {
+            const fn next(reason: &Rejected) -> Option<Rejected> {
+                match reason {
+                    Rejected::CompactSegmentCount => Some(Rejected::HeaderSegmentNotBase64url),
+                    Rejected::HeaderSegmentNotBase64url => Some(Rejected::PayloadSegmentNotBase64url),
+                    Rejected::PayloadSegmentNotBase64url => Some(Rejected::SignatureSegmentNotBase64url),
+                    Rejected::SignatureSegmentNotBase64url => Some(Rejected::HeaderNotAnObject),
+                    Rejected::HeaderNotAnObject => Some(Rejected::HeaderMemberNotAString),
+                    Rejected::HeaderMemberNotAString => Some(Rejected::HeaderMemberNotPermitted),
+                    Rejected::HeaderMemberNotPermitted => Some(Rejected::SuiteUnregistered),
+                    Rejected::SuiteUnregistered => Some(Rejected::SuiteWithdrawn),
+                    Rejected::SuiteWithdrawn => Some(Rejected::SuiteBelowPolicy),
+                    Rejected::SuiteBelowPolicy => Some(Rejected::KeyUnresolvable),
+                    Rejected::KeyUnresolvable => Some(Rejected::SignatureInvalid),
+                    Rejected::SignatureInvalid => Some(Rejected::CoreObjectMalformed),
+                    Rejected::CoreObjectMalformed => Some(Rejected::CoreObjectCarriesSignatureValue),
+                    Rejected::CoreObjectCarriesSignatureValue => Some(Rejected::CoreObjectDuplicateKey),
+                    Rejected::CoreObjectDuplicateKey => Some(Rejected::CoreObjectFloat),
+                    Rejected::CoreObjectFloat => Some(Rejected::CoreObjectTooDeep),
+                    Rejected::CoreObjectTooDeep => Some(Rejected::CoreObjectTooManyMembers),
+                    Rejected::CoreObjectTooManyMembers => Some(Rejected::CoreObjectStringTooLong),
+                    Rejected::CoreObjectStringTooLong => Some(Rejected::UnsupportedVersion),
+                    Rejected::UnsupportedVersion => Some(Rejected::HeaderPayloadSuiteMismatch),
+                    Rejected::HeaderPayloadSuiteMismatch => Some(Rejected::HeaderPayloadKeyMismatch),
+                    Rejected::HeaderPayloadKeyMismatch => None,
+                }
+            }
+            let mut all = vec![Rejected::CompactSegmentCount];
+            while let Some(following) = next(all.last().unwrap()) {
+                all.push(following);
+            }
+            all
+        }
+    }
+
     #[test]
     fn the_mapping_to_a_wire_value_is_many_to_one_and_not_the_name() {
         // §5.2's separation. The check is not that the two *spell* differently
         // — `SignatureInvalid` and `signature_invalid` coincide, and §5.2.1 names
         // that class after its value on purpose. It is that the wire value is a
-        // **mapping** rather than the variant's name in lower case: an
-        // implementation deriving one from the other gets six of these nine
-        // wrong, and this table is what both implementations must agree on.
+        // **mapping** rather than the variant's name in lower case: most of
+        // these variants do not name their own wire value, and this table is
+        // what both implementations must agree on.
         const MAPPING: &[(Rejected, &str, &str)] = &[
             (Rejected::CompactSegmentCount, "structurally_invalid", "3"),
             (Rejected::HeaderSegmentNotBase64url, "structurally_invalid", "3"),
@@ -652,6 +721,7 @@ mod tests {
             (Rejected::HeaderMemberNotAString, "structurally_invalid", "3"),
             (Rejected::HeaderMemberNotPermitted, "structurally_invalid", "3"),
             (Rejected::SuiteUnregistered, "unsupported_suite", "3"),
+            (Rejected::SuiteWithdrawn, "unsupported_suite", "3"),
             (Rejected::SuiteBelowPolicy, "unsupported_suite", "3"),
             (Rejected::KeyUnresolvable, "unauthenticated", "4"),
             (Rejected::SignatureInvalid, "unauthenticated", "4"),
@@ -662,11 +732,23 @@ mod tests {
             (Rejected::CoreObjectTooManyMembers, "malformed", "5"),
             (Rejected::CoreObjectStringTooLong, "malformed", "5"),
             (Rejected::CoreObjectCarriesSignatureValue, "malformed", "5"),
-            (Rejected::CoreObjectCarriesSignatureValue, "malformed", "5"),
             (Rejected::UnsupportedVersion, "unsupported_version", "5"),
             (Rejected::HeaderPayloadSuiteMismatch, "structurally_invalid", "5a"),
             (Rejected::HeaderPayloadKeyMismatch, "structurally_invalid", "5a"),
         ];
+
+        // The table covers the type. Without this it covers whatever it
+        // covered on the day it was written.
+        let mut tabled: Vec<Rejected> = MAPPING.iter().map(|(r, _, _)| r.clone()).collect();
+        let mut all = Rejected::every_variant();
+        assert_eq!(
+            tabled.len(),
+            all.len(),
+            "a variant is missing from MAPPING, or is listed twice"
+        );
+        tabled.sort_by_key(|r| format!("{r:?}"));
+        all.sort_by_key(|r| format!("{r:?}"));
+        assert_eq!(tabled, all);
 
         let mut values = std::collections::BTreeSet::new();
         for (rejected, external, step) in MAPPING {

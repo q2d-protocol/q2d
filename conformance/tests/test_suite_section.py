@@ -222,30 +222,50 @@ class ExpectedStateTest(unittest.TestCase):
                          "suite/rfc8032/ landed — P-003 §6 retired it, so either "
                          "that decision changed or this is a mistake")
 
-    def test_no_below_floor_downgrade_vector_yet(self):
-        # Waiting on E-48, not on a second registered suite. A vector supplies a
-        # *message*, and whether a suite sits below the verifier's floor is a
-        # fact about the verifier -- so a second registered suite would not make
-        # this writable either. The internal reason `suite_below_policy` is held
-        # by mirrored unit tests meanwhile.
-        premature = [name for name in by_id()
-                     if name.startswith("suite/downgrade/below-floor")]
-        self.assertEqual(premature, [],
-                         "a below-floor vector landed — E-48 has presumably "
-                         "given a vector a way to state the verifier's policy, "
-                         "so delete this assertion")
+    def test_the_three_configuration_vectors_state_their_configuration(self):
+        # E-48 closed as `input.verifier`, and these three are why it was
+        # raised: each asserts a rule about the **receiver** rather than about
+        # the message. A vector that stated no configuration would assert the
+        # rule against whatever the runner was built with -- the ambient state
+        # P-001 §9 item 3 forbids -- and would pass or fail for a reason not
+        # written down anywhere.
+        for name in ("suite/status/deprecated-verifies",
+                     "suite/status/withdrawn-refuses",
+                     "suite/downgrade/below-floor"):
+            with self.subTest(name):
+                verifier = by_id()[name]["input"].get("verifier")
+                self.assertIsNotNone(
+                    verifier, f"{name} asserts a rule about the verifier and "
+                    "does not say which verifier")
+                self.assertIn("suite_registry", verifier)
 
-    def test_status_has_no_group_yet(self):
-        # Waiting on E-48 for the same reason: `deprecated` and `withdrawn` are
-        # what the *verifier's registry* says about a suite, and no vector can
-        # say it. An earlier reading had this waiting on a second registered
-        # suite, which was the wrong diagnosis -- and registering one nobody
-        # implements purely to deprecate it is the shape `policy`'s floor exists
-        # to refuse.
-        self.assertFalse((SECTION / "status").exists(),
-                         "suite/status/ landed — E-48 has presumably given a "
-                         "vector a way to state the verifier's registry, so "
-                         "delete this assertion")
+    def test_the_three_suite_refusals_differ_inside_and_agree_on_the_wire(self):
+        # The property `unsupported_suite` exists for, asserted across causes
+        # rather than per cause. Three different facts -- the registry has never
+        # heard of it, the registry withdrew it, this deployment does not accept
+        # it -- and a requester must not be able to tell which, because together
+        # they are the custodian's minimum acceptable policy (§5.2.1).
+        #
+        # Per-vector assertions cannot catch this. Each of the three would pass
+        # on its own while the wire values diverged.
+        vectors = [by_id()[name] for name in (
+            "suite/downgrade/unregistered-suite",
+            "suite/status/withdrawn-refuses",
+            "suite/downgrade/below-floor")]
+        internal = {v["expect"]["rejection"]["internal_reason"] for v in vectors}
+        wire = {json.dumps(v["expect"]["rejection"]["wire"], sort_keys=True)
+                for v in vectors}
+        steps = {v["expect"]["rejection"].get("step") for v in vectors}
+        self.assertEqual(len(internal), 3,
+                         "two suite refusals share an internal reason, so an "
+                         "operator cannot tell them apart")
+        self.assertEqual(len(wire), 1,
+                         "the wire responses differ, so a requester can probe "
+                         "which suites a custodian knows")
+        self.assertEqual(steps, {3},
+                         "a suite refusal happens somewhere other than §4 "
+                         "step 3, so one of them reads further into the "
+                         "message than another")
 
 class RejectionVocabularyTest(unittest.TestCase):
     """`testdata/rejection-vocabulary.txt` is the corpus's own mapping, extracted.

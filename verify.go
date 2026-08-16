@@ -61,12 +61,21 @@ const (
 	HeaderMemberNotAString
 	// HeaderMemberNotPermitted: the header carries a member §3 does not permit.
 	HeaderMemberNotPermitted
-	// SuiteUnregistered and SuiteBelowPolicy: two constants, one wire value.
-	// §5.2.1 gives unsupported_suite for both on purpose — separating them would
-	// tell a requester whether the custodian knows a suite it declined, which is
-	// the custodian's minimum acceptable policy. An operator still needs to know
-	// which, so the internal reasons differ and the mapping collapses them.
+	// SuiteUnregistered, SuiteWithdrawnByRegistry and SuiteBelowPolicy: three
+	// constants, one wire value. §5.2.1 gives unsupported_suite for all of them
+	// on purpose — separating them would tell a requester whether the custodian
+	// knows a suite it declined, and whether it was the registry or this
+	// deployment that declined it. Together those are the custodian's minimum
+	// acceptable policy. An operator still needs to know which, so the internal
+	// reasons differ and the mapping collapses them.
+	//
+	// SuiteWithdrawnByRegistry is crypto-suites.md §6's withdrawal, which every
+	// deployment must honour, and is a different fact from SuiteBelowPolicy,
+	// which is local configuration. It is named for the registry rather than
+	// called SuiteWithdrawn because suites.go already has that identifier for
+	// the status itself — see CONVENTIONS-go.md.
 	SuiteUnregistered
+	SuiteWithdrawnByRegistry
 	SuiteBelowPolicy
 	// KeyUnresolvable and SignatureInvalid: separate internal reasons, and the
 	// wire value is not.
@@ -126,6 +135,16 @@ const (
 	// payload disagree.
 	HeaderPayloadSuiteMismatch
 	HeaderPayloadKeyMismatch
+
+	// rejectedCount is not a reason. It is the number of them, and it is here
+	// rather than written down because a hand-written count stops being the
+	// count the moment someone adds a constant above it — silently. The mapping
+	// test walks 0..rejectedCount, so a new reason with no table row fails
+	// rather than going untested.
+	//
+	// It is also what makes Step's default safe: a reason added without a row
+	// would otherwise report step 3 because nothing said otherwise.
+	rejectedCount
 )
 
 // ExternalReason is the value a requester receives — core-model.md §5.2.1.
@@ -136,7 +155,7 @@ const (
 // reason maps to two.
 func (r Rejected) ExternalReason() string {
 	switch r {
-	case SuiteUnregistered, SuiteBelowPolicy:
+	case SuiteUnregistered, SuiteWithdrawnByRegistry, SuiteBelowPolicy:
 		return "unsupported_suite"
 	case KeyUnresolvable, SignatureInvalid:
 		return "unauthenticated"
@@ -190,6 +209,8 @@ func (r Rejected) Error() string {
 		return "the protected header carries a member crypto-suites.md §3 does not permit"
 	case SuiteUnregistered:
 		return "the declared suite is not registered"
+	case SuiteWithdrawnByRegistry:
+		return "the declared suite is withdrawn"
 	case SuiteBelowPolicy:
 		return "the declared suite is outside the acceptable set"
 	case KeyUnresolvable:
@@ -316,16 +337,21 @@ func VerifyQuery(signed string, policy SuitePolicy, registry SuiteRegistry,
 
 	// Step 2 — the whole defence.
 	//
-	// Registry first, then policy, which is the order the two internal reasons
-	// need: a suite that is not registered cannot also be below a floor. Both
-	// reach one wire value — §5.2.1's unsupported_suite is one value for two
-	// causes, so a requester cannot learn whether the custodian knows the suite
-	// it declined.
+	// Registry, then status, then policy — the order the three internal reasons
+	// can be told apart in. A suite that is not registered has no status to
+	// read, and one the registry has withdrawn is refused whatever a deployment
+	// configured, so reading policy first would report a local decision for a
+	// refusal that was not local. All three reach one wire value — §5.2.1's
+	// unsupported_suite is one value for three causes, so a requester cannot
+	// learn whether the custodian knows the suite it declined.
 	entry, err := registry.Resolve(header.suite)
 	if err != nil {
 		return nil, SuiteUnregistered
 	}
-	if !policy.Accepts(header.suite) || !entry.Status().MayVerify() {
+	if !entry.Status().MayVerify() {
+		return nil, SuiteWithdrawnByRegistry
+	}
+	if !policy.Accepts(header.suite) {
 		return nil, SuiteBelowPolicy
 	}
 

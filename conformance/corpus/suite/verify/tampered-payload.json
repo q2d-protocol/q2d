@@ -2,6 +2,7 @@
   "id": "suite/verify/tampered-payload",
   "section": "suite",
   "requirement": [
+    "Q2D-C-05",
     "crypto-suites.md#3",
     "core-model.md#4",
     "core-model.md#5.2.1"

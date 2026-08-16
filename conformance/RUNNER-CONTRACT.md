@@ -134,6 +134,50 @@ it** — not here, and not in one list. `verify_query` and `digest` each take mo
 than one kind of input and say which by the field name;
 [P-002](../docs/prds/P-002-message-envelope.md) §5 is where those are stated.
 
+### `input.verifier` — the one member every operation shares
+
+A responder's configuration is ambient state, and P-001 §9 item 3 forbids
+ambient state. So `input.verifier` carries it, and it is defined here rather
+than by an owning PRD because it is not any operation's input — it is the
+receiver's, and a rule about what a vector means when it says **nothing** has to
+live where every runner reads it.
+
+```json
+"verifier": {
+  "suite_registry": { "suites": [ … ] },
+  "acceptable_suites": ["eddsa-jws-2026"]
+}
+```
+
+- `suite_registry` is a suite registry document, in the shape
+  [`registry/suites.json`](../registry/suites.json) has. **Absent means the
+  runner's own built-in registry**, which for the two implementation runners is
+  that file.
+- `acceptable_suites` is what an operator wrote in a config file — P-003 §4.3.
+  **Absent means the empty list**, which that section already defines as *the
+  operator configured nothing* and resolves to the mandatory-to-implement suite
+  alone. Absent is therefore not the same as `[]` meaning *accept nothing*; no
+  vector can ask for a policy that accepts nothing, because P-003 §4.3 makes
+  that a startup failure rather than a verifier.
+
+Both defaults are stated here, and not left to the implementation, because a
+vector that omits `verifier` must mean the same thing to both runners. An
+implementation choosing its own default turns silence into a divergence that no
+vector is asserting and no reader would look for.
+
+A runner that cannot honour a `verifier` it was given — an unparseable registry,
+a configuration its policy refuses — is **exit 1, not `rejected`**. The vector
+described a responder this runner could not become, which is a runner problem;
+reporting it as a rejection would attribute to the message a refusal that
+happened before the message was read.
+
+That is also the limit of what `verifier` can assert. P-003 §4.3's floor —
+configuration naming a suite below it **fails startup** rather than dropping it
+— is a property of a responder that never starts, and a vector describes one
+that answers. No corpus vector can assert it; both implementations hold it in
+unit tests, and it is named here so the absence is on record rather than
+inferred from an empty section.
+
 ## The reference stub
 
 [`runners/stub/q2d-conform`](runners/stub/q2d-conform) implements this contract

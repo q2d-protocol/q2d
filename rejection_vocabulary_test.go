@@ -46,7 +46,13 @@ func TestEveryReasonThisPackageProducesMatchesTheCorpus(t *testing.T) {
 		{"header_segment_not_base64url", HeaderSegmentNotBase64URL},
 		{"signature_segment_not_base64url", SignatureSegmentNotBase64URL},
 		{"header_member_not_permitted", HeaderMemberNotPermitted},
+		// The three suite refusals. All three are listed because the corpus
+		// asserts them as one property — different internal reasons, one wire
+		// value — and a list carrying some of them checks the reasons without
+		// checking the collapse.
 		{"suite_unregistered", SuiteUnregistered},
+		{"suite_withdrawn", SuiteWithdrawnByRegistry},
+		{"suite_below_policy", SuiteBelowPolicy},
 		{"key_unresolvable", KeyUnresolvable},
 		{"signature_invalid", SignatureInvalid},
 		{"core_object_unsupported_version", UnsupportedVersion},

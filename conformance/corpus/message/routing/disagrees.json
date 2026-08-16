@@ -2,6 +2,7 @@
   "id": "message/routing/disagrees",
   "section": "message",
   "requirement": [
+    "Q2D-C-05",
     "core-model.md#2.1",
     "core-model.md#4",
     "core-model.md#5.2.1"

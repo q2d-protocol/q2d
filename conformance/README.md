@@ -109,16 +109,26 @@ these vectors project `status` and `external_reason`, so comparing them across
 causes compares two constants. Uniformity of the whole response is `denial/`'s,
 which is the one section the schema forbids from projecting.
 
-Two cases are absent and each absence is asserted, so it turns red when its
-blocker goes: `suite/status/` and the below-floor downgrade, both waiting on
-[E-48](../docs/open-escalations.md) — a vector can describe a *message* and not
-the *verifier* that receives it, so neither can say what this verifier's registry
-or acceptable set contains.
+**`suite/status/` and the below-floor downgrade landed with
+[E-48](../docs/open-escalations.md)**, which was open because a vector could
+describe a *message* and not the *verifier* that receives it. It closed as
+`input.verifier` — the receiver's configuration, supplied by the vector like
+every other input P-001 §4.3 refuses to let a runner read from its
+surroundings — and the three vectors it unblocked carry a registry and an
+acceptable set of their own.
+
+They are worth reading together rather than one at a time. `unregistered-suite`,
+`status/withdrawn-refuses` and `downgrade/below-floor` are three different facts
+about a suite — never heard of it, the registry retired it, this deployment does
+not accept it — behind one byte-identical response, and
+[`tests/test_suite_section.py`](tests/test_suite_section.py) asserts that across
+the three because each of them passes alone while the wire values diverge.
 
 An earlier reading had them waiting on a **second registered suite**, and that
-was the wrong diagnosis: with a second one registered there would still be no way
-to write *this verifier lists it as withdrawn*. A third case, `suite/rfc8032/`,
-is **retired** rather than absent — P-003 §6 records why.
+was the wrong diagnosis twice over: a vector still could not have said *this
+verifier lists it as withdrawn*, and a suite registered purely to be deprecated
+is refused as unimplemented one check before its status is read. A third case,
+`suite/rfc8032/`, is **retired** rather than absent — P-003 §6 records why.
 
 **`ordering/` asserts where a request is refused**, one vector per rejection step
 of [`core-model.md`](../spec/core-model.md) §4, every one using `process_query`.

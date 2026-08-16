@@ -847,7 +847,11 @@ def vectors() -> list[dict]:
         {
             "id": "message/routing/disagrees",
             "section": "message",
-            "requirement": ["core-model.md#2.1", "core-model.md#4",
+            # Q2D-C-05 names three checks under *Verified by*, and this is
+            # `conformance/routing-mismatch`. Cited only once the other two
+            # exist, which they now do -- a claim reported as covered by one of
+            # its three is a traceability matrix that overstates.
+            "requirement": ["Q2D-C-05", "core-model.md#2.1", "core-model.md#4",
                             "core-model.md#5.2.1"],
             "description": (
                 "A routing projection whose `expires_at` differs from the "
