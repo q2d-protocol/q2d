@@ -222,9 +222,28 @@ in a message. There is no code path that derives it from received data.
 
 `suite/` — authored under this PRD.
 
+**Five groups, not six.** `suite/rfc8032/` was listed here and is **retired**:
+a raw Ed25519 signature is not a Q2D operation, [P-001](P-001-conformance-corpus.md)
+§4.5's vocabulary has no name for one, and adding a name is issue 17's Stage 5–8
+change rather than this PRD's. Retiring it was the alternative to extending that
+vocabulary, and it is the right trade because a corpus group would have asserted
+**the same three answers** the unit gates already assert — TEST 1, 2 and 3, the
+ones `conformance/keys/` commits — at the cost of extending a closed vocabulary.
+It would not have added the two that are missing.
+
+**Retiring the group is not a claim about coverage.** §7's first criterion asks
+for *every* §7.1 vector and is **unticked**: TEST 1024 and TEST SHA(abc) are
+neither committed nor asserted anywhere, by a vector or otherwise. What a corpus
+group would have changed is where three answers are checked, not how many.
+
+The cross-implementation half is separate and does exist:
+`testdata/ed25519-acceptance.txt` holds both implementations to the same answers
+on ten rows: one published answer as a control, and **nine cases RFC 8032
+leaves open**, which is a different question from its
+published known answers.
+
 | Group | Vectors |
 |---|---|
-| `suite/rfc8032/` | Raw Ed25519 against RFC 8032 §7.1 known-answer vectors. **Not authored as corpus vectors**, and this row is the record of why: a raw signature is not a Q2D operation, and [P-001](P-001-conformance-corpus.md) §4.5's vocabulary has no name for one. Adding a name is issue 17's, deliberately a single coordinated change. The known answers are a unit gate in both implementations instead, reading the same committed key material, and the cross-implementation half lives in `testdata/ed25519-acceptance.txt` where the other three-way fixtures are |
 | `suite/sign/` | JWS compact construction, byte-exact, over P-002 payloads |
 | `suite/verify/` | Valid, tampered payload, tampered header, tampered signature |
 | `suite/downgrade/` | Below-floor suite, unregistered suite, a header carrying `alg`, header/payload suite mismatch, header/payload key mismatch |
@@ -234,6 +253,14 @@ in a message. There is no code path that derives it from received data.
 ## 7. Acceptance
 
 - [ ] Raw Ed25519 reproduces every RFC 8032 §7.1 vector in both implementations.
+      **Three of the five.** A unit gate in each implementation reproduces the
+      three answers committed in `conformance/keys/ed25519-test-only.json` —
+      TEST 1, 2 and 3 — reading their seeds from there rather than repeating
+      them, so the gate covers the material the *corpus signs with* rather than
+      a copy. §7.1 also publishes TEST 1024 and TEST SHA(abc), whose messages
+      are 1023 and 64 bytes; neither is committed, so neither is asserted, and
+      this box stays unticked until they are. §6 records why none of this is a
+      corpus group.
 - [ ] Both produce **byte-identical** compact JWS for the same key and payload —
       Ed25519 determinism makes this a byte comparison, not a both-verify check.
 - [ ] Each implementation verifies the other's signatures. **This is
@@ -310,7 +337,7 @@ registry entry.
 | 8 | Status enforcement, both directions | **The producing half is done**, and it is enforced where it cannot be forgotten: `sign` takes a `SuiteEntry` and refuses unless its status permits production, so there is no path that signs under a deprecated or withdrawn suite by naming it. The **verifying** half is `policy`'s floor, which already refuses a withdrawn suite at startup rather than at verification. What remains is `suite/status/`, which needs `verify_query` vectors and therefore issue 6 |
 | 9 | `resolve_key` interface plus a test-fixture implementation | **Done.** [`src/keys.rs`](../../src/keys.rs) and [`keys.go`](../../keys.go). Both invariants are carried by the signature rather than by a comment: it returns a key or an error, so there is no third case to be lenient about; and it returns the **same error value** a bad signature does, so there is no second value to accidentally map onto a second wire response. A key the suite would refuse never enters the set, so it cannot resolve and then fail verification — one refusal, at the boundary, rather than two chances to get it right |
 | 10 | Test key material, RFC 8032-seeded | **Done before this PRD opened**, by [P-001](P-001-conformance-corpus.md) issue 10: `conformance/keys/ed25519-test-only.json`, three keypairs with RFC 8032 §7.1's known answers beside them. Issue 1's gate now reads from it rather than repeating the seeds, which a containment test in `test_keys.py` requires — it asserts no seed appears anywhere else in the repository, and it caught the first version of both `ed25519` modules doing the obvious thing |
-| 11 | Author `suite/` corpus section | **Five of six groups present**, and `suite/rfc8032/` is not one of them for the reason §6 records: a raw Ed25519 signature is not a Q2D operation. `suite/verify/` gained `not-three-segments` and `header-not-base64url` under [E-46](../open-escalations.md). `suite/verify/` also gained `payload-not-base64url` and `header-not-an-object`, so every structural rejection the sequence can reach has a shared vector — review found the two that did not, which is the gap a cross-implementation claim is made of. **`suite/status/` is what remains — and `suite_below_policy` with it. Both need something the vector format does not have**: a way for a vector to state the *verifier's* registry state, since a deprecated or withdrawn suite is a fact about the verifier rather than about the message. That is a [P-001](P-001-conformance-corpus.md) format question, not a P-003 one |
+| 11 | Author `suite/` corpus section | **Three of §6's five groups are complete, a fourth is partial, and the fifth is unwritten.** `sign/`, `verify/` and `keys/` are done; `downgrade/` has every case but the below-floor one; `status/` has none. Sixteen vectors. `suite/rfc8032/` is **retired** rather than owed: a raw Ed25519 signature is not a Q2D operation, and retiring the row was the alternative to extending [P-001](P-001-conformance-corpus.md) §4.5's vocabulary for it — the right trade, because the known answers are already gated three ways and a corpus group would have re-asserted what three tests assert. `suite/verify/` also gained `payload-not-base64url` and `header-not-an-object`, so every structural rejection the sequence can reach has a shared vector — review found the two that did not, which is the gap a cross-implementation claim is made of. **`suite/status/` is what remains — and `suite_below_policy` with it. Both need something the vector format does not have**: a way for a vector to state the *verifier's* registry state, since a deprecated or withdrawn suite is a fact about the verifier rather than about the message. That is a [P-001](P-001-conformance-corpus.md) format question, not a P-003 one |
 | 12 | Header-parameter attack vector | **Done, and there is no code for it** — which is the result this row wanted. §3's member set is closed, so `alg: none`, `alg: HS256`, `crit` and `b64` are refused by the *set* before the suite is looked up, with no rule naming any of them and none permitted to be added. The test asserts the signature over those bytes is valid and the message is refused anyway |
 | 13 | Suite value exposed for receipt construction | **Done, and it is one accessor.** `SuiteEntry::id()` is the value a receipt records, and `sign` already takes the entry — so a responder that signed a response holds the identifier without reaching into this module for it. P-011 cannot confirm the seam until it is built, which is why this row says what the seam *is* rather than that a consumer is using it |
 

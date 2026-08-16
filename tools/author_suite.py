@@ -6,9 +6,10 @@
 
 [P-001](../docs/prds/P-001-conformance-corpus.md) §5 gives `suite/` as *"suite
 resolution, downgrade rejection, unknown suite"*, and issue 13 authors it.
-[P-003](../docs/prds/P-003-crypto-suites.md) §6 names six groups. Four are here
-in full; two are not, and neither absence is about this tool — one needs an
-operation the vocabulary does not have, the other a second registered suite.
+[P-003](../docs/prds/P-003-crypto-suites.md) §6 names five groups. Three are here
+in full — `sign/`, `verify/`, `keys/` — `downgrade/` has every case but the
+below-floor one, and `status/` has none. Neither gap is about this tool; both
+wait on [E-48](../docs/open-escalations.md), and the section below says why.
 
 Generated with a `--check`, for the reason
 [`author_message.py`](author_message.py) is. The bytes come from
@@ -30,19 +31,24 @@ reasons, and a message broken in two ways cannot establish which.
 
 ## What is not here
 
-**`suite/rfc8032/`** — raw Ed25519 against RFC 8032 §7.1's known answers. There
-is no operation for signing a raw message: P-001 §4.5's vocabulary is
-protocol-level, and adding one is issue 17's, which settles vocabulary additions
-as a single change. The known answers are not unchecked meanwhile —
-[`author_vectors.py`](author_vectors.py) refuses to sign anything until it
-reproduces all three, so every byte this file emits already depends on them.
+**`suite/rfc8032/` is retired**, not owed. Signing a raw message needs an
+operation P-001 §4.5's protocol-level vocabulary does not have, and adding one
+is issue 17's Stage 5–8 change. A group would have asserted the same three
+answers the unit gates assert — TEST 1, 2 and 3, the ones `conformance/keys/`
+commits — at the cost of extending a closed vocabulary. It is not a claim about
+coverage: §7.1 publishes five and P-003 §7's first criterion is unticked because
+two are asserted nowhere. [`author_vectors.py`](author_vectors.py) refuses to
+sign anything until it reproduces the committed three, so every byte this file
+emits already depends on them.
 
-**`suite/status/`**, and `suite/downgrade/`'s below-floor case — both need a
-second registered suite. [`crypto-suites.md`](../spec/crypto-suites.md) §3
-registers exactly one, `eddsa-jws-2026`, and it is `active`: nothing is
-deprecated to verify-but-not-produce, nothing is withdrawn, and no suite sits
-below a plausible floor. These land when a second suite does, and the
-unregistered-suite vector below covers the part that does not need one.
+**`suite/status/`**, and `suite/downgrade/`'s below-floor case, wait on
+[E-48](../docs/open-escalations.md) rather than on a second registered suite.
+This file used to say they land when a second suite does, and that was the wrong
+diagnosis: a vector cannot state what the **verifier's** registry says about a
+suite, so even with a second one registered there would be no way to write *this
+verifier lists it as withdrawn*. Registering a suite nobody implements purely to
+be deprecated is also the shape `policy`'s floor exists to refuse. The
+unregistered-suite vector below covers the part that needs neither.
 """
 
 from __future__ import annotations

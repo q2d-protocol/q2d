@@ -109,12 +109,16 @@ these vectors project `status` and `external_reason`, so comparing them across
 causes compares two constants. Uniformity of the whole response is `denial/`'s,
 which is the one section the schema forbids from projecting.
 
-Three cases are absent and each absence is asserted, so it turns red when its
-blocker goes: `suite/rfc8032/` on P-001
-issue 17, since signing a raw message needs an operation §4.5 does not have; and
-`suite/status/` plus the below-floor downgrade on a second registered suite,
-where [`crypto-suites.md`](../spec/crypto-suites.md) §3 registers one and it is
-active.
+Two cases are absent and each absence is asserted, so it turns red when its
+blocker goes: `suite/status/` and the below-floor downgrade, both waiting on
+[E-48](../docs/open-escalations.md) — a vector can describe a *message* and not
+the *verifier* that receives it, so neither can say what this verifier's registry
+or acceptable set contains.
+
+An earlier reading had them waiting on a **second registered suite**, and that
+was the wrong diagnosis: with a second one registered there would still be no way
+to write *this verifier lists it as withdrawn*. A third case, `suite/rfc8032/`,
+is **retired** rather than absent — P-003 §6 records why.
 
 **`ordering/` asserts where a request is refused**, one vector per rejection step
 of [`core-model.md`](../spec/core-model.md) §4, every one using `process_query`.

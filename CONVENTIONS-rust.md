@@ -63,8 +63,8 @@ decision and are conditions on it, not commentary:
    started in this document and the module headers; Codex was right that a
    third implementation reads `spec/` and would have picked its own edge cases.
 3. **A shared fixture holds both implementations to the same answers.**
-   [`testdata/ed25519-acceptance.txt`](testdata/README.md) — ten rows, each a
-   case RFC 8032 does not decide.
+   [`testdata/ed25519-acceptance.txt`](testdata/README.md) — ten rows: one
+   published answer as a control, and nine cases RFC 8032 does not decide.
 
 `default-features = false` drops key *generation*, which needs an RNG and which
 Q2D does not do: every key in this repository is a fixed test seed.

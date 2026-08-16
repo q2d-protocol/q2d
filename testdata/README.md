@@ -143,7 +143,9 @@ stronger and wrong.
 
 ## `ed25519-acceptance.txt`
 
-Ten rows, each a case where "Ed25519" alone does not decide the answer. RFC
+Ten rows. **One is a published RFC 8032 §7.1 known answer** — `rfc8032-test-1`,
+the control, without which a fixture that refused everything would pass. The
+other nine are cases where "Ed25519" alone does not decide the answer. RFC
 8032 leaves the choice open, libraries take it differently, and two
 implementations that disagreed here would disagree about whether a message is
 authentic **while both passing RFC 8032's own vectors** — which is exactly the

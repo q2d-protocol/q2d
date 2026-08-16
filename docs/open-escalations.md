@@ -18,7 +18,15 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **Nothing is open.** **E-36** through **E-47** all closed.
+> **E-48 is open**, raised while finishing P-003: a vector can describe a
+> *message* and not the *verifier* that receives it, so no vector can say that a
+> suite is `withdrawn` in the verifier's registry or outside its acceptable set.
+> That leaves §4.2 step 2 — the whole downgrade defence — held by mirrored unit
+> tests, and the same shape queued behind it in P-004, P-005, P-008 and P-015.
+> **One sub-decision inside it is already made:** `suite/rfc8032/` is retired
+> rather than given an operation.
+>
+> **E-36** through **E-47** all closed.
 >
 > **E-46:** §5.2.1 had no `external_reason` for a `signed` string that is not a
 > well-formed compact JWS. Closed as **B**: `structurally_invalid` is separated
@@ -207,6 +215,7 @@ question is still fresh than after the answer arrives.
 | **E-45** | The digest string form is defined only in P-002 | P-002 issue 10 | `serialization.md` §5 (new) · P-002 §4.7 · P-011 §4.2 · both implementations · `testdata/` · `message/digest/` | **Closed** |
 | **E-46** | Which `external_reason` for a `signed` string that is not a well-formed compact JWS? | P-003 issue 2 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, issues 6–8 · `suite/verify/` · both implementations | **Closed** |
 | **E-47** | Ed25519 in Rust needs a dependency policy, and there is no conventions document | P-003 issue 1 | `CONVENTIONS-rust.md`, `CONVENTIONS-go.md` (both new) · `Cargo.toml`, `go.mod` · both implementations · `testdata/ed25519-acceptance.txt` · CI | **Closed** |
+| **E-48** | A vector can describe a message, but not the verifier that receives it | P-003 issue 11 | `conformance/vector.schema.json` + its served copy · P-001 §4.2–§4.4, RUNNER-CONTRACT · P-003 §6 · P-004, P-005, P-008, P-015 | **Open** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
 | **E-18** | Does `harness cross` satisfy §4.8's cross-implementation clause with only byte agreement built? | P-001 §10 | P-001 §4.8, §7 | **Closed** |
 | **E-19** | How is a signed vector authored, when the corpus is what an implementation is checked against? | P-001 §10 | P-001 §4.9, §10 | **Closed** |
@@ -4277,6 +4286,82 @@ version of the crate would be green and the version is what was pinned.
 this decision is what implements that qualification rather than a change to it.
 No claim is made about timing or physical side channels, and both modules say so
 rather than leaving the silence to be read either way.
+
+---
+
+## E-48 — A vector can describe a message, but not the verifier that receives it
+
+**Raised by** P-003 issue 11, while finding that `suite/status/` cannot be
+written. **Open.**
+
+P-001 §4.3 supplies every input that would otherwise *vary* — keys, nonces,
+timestamps, identifiers. What no vector can state is the responder's
+**configuration**, and several rules are decisions taken from it rather than
+from the message:
+
+| Vector that cannot be written | What it would have to say |
+|---|---|
+| `suite/status/deprecated-verifies` | *the verifier's registry lists this suite as `deprecated`* |
+| `suite/status/withdrawn-refuses` | *…as `withdrawn`* |
+| `suite_below_policy` | *this suite is registered, and outside the verifier's acceptable set* |
+
+There is a precedent and it is narrower than it looks: six `ordering/` vectors
+carry `input.environment.now`, the responder's clock supplied rather than read.
+But `environment` is **P-007's `PolicyInput` shape** — an argument to the policy
+engine that happens to describe the world — not a general mechanism.
+
+**Why it is more than two missing vectors.** P-003 §4.2 step 2 is what that
+PRD's §9 item 1 calls the entire downgrade defence, and it is now the only
+structural rule in that sequence with no shared vector. And the same shape is
+queued behind it: P-004's replay cache, P-005's pinned manifest digest, P-008's
+accumulated budget, P-015's cached escalation. Four PRDs will each meet this,
+and answered four times it will be answered four ways.
+
+**Options:** **A** extend `input.environment`, which conflates the policy
+engine's argument with the runner's configuration · **B** a new top-level block
+beside `input` naming the responder's state before the operation runs · **C**
+per-section fixture files, which put state outside the file the runner is handed
+and give the harness protocol knowledge §3 keeps out of it · **D** accept it, and
+add the claim that agreement is demonstrated *except* where a rule depends on
+configuration.
+
+**Recommendation: B**, decided once and before P-004 is built. The reason is not
+the missing vectors: `input` currently means two things, and the format has no
+word for the second. A vector saying `verify_query` with an envelope describes a
+*call*; a vector saying *this verifier lists the suite as withdrawn* describes the
+*world the call happens in*.
+
+**Where it stops being right.** `given` is for **configuration** — state the
+responder *was* in. It is wrong for **accumulated** state: a replay cache with an
+entry, or a budget with prior debits, is the result of previous operations, and
+declaring it duplicates what a sequence of vectors establishes. P-001 §10 already
+anticipates a sequence-asserting operation at Stage 5. If B is adopted the line
+has to be drawn in the same commit — **configuration is declared, history is
+replayed** — or P-008 will describe a budget two ways.
+
+## Resolved inside it — `suite/rfc8032/` is retired
+
+Not every part of this waits on the format. P-003 §6 listed a `suite/rfc8032/`
+group for RFC 8032's known answers, which would have needed an operation for a
+**raw signature** — something that is not a Q2D operation at all, and so a change
+to P-001 §4.5's closed vocabulary.
+
+**Decided: retire the row.** A corpus group would have asserted **the same three
+answers** the unit gates already assert — TEST 1, 2 and 3, the ones
+`conformance/keys/` commits — at the cost of extending a closed vocabulary, and
+P-001 issue 17's remit is the **Stage 5–8** extension where this is Stage 1.
+
+**It is not a claim about coverage.** §7.1 publishes five known answers and three
+are committed; TEST 1024 and TEST SHA(abc) are asserted nowhere, and P-003 §7's
+first criterion is unticked because of it. Retiring the group changes *where*
+three answers are checked, not how many. `testdata/ed25519-acceptance.txt` is a
+different question again — one published answer as a control, and **nine cases
+RFC 8032 leaves open** — and is not
+evidence about its published answers.
+
+P-003 §6 lists five groups now and records the reasoning; §7's first acceptance
+criterion is unchanged, because it asks that raw Ed25519 reproduces RFC 8032 in
+both implementations and says nothing about where that is asserted.
 
 ---
 

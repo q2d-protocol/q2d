@@ -25,7 +25,8 @@
 //!   it.
 //!
 //! `testdata/ed25519-acceptance.txt` holds both implementations to the same
-//! answers on the cases RFC 8032 leaves open.
+//! answers on the cases RFC 8032 leaves open, with one published answer as a
+//! control so a fixture that refused everything could not pass.
 //!
 //! ## Not constant-time, and not claimed to be
 //!
