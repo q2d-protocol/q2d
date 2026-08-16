@@ -72,15 +72,27 @@ key   = (requester_principal, nonce)          // E-50
 value = (request_digest, expires_at)
 ```
 
-On lookup:
+On lookup, in this order:
 
-| Case | Outcome |
-|---|---|
-| Absent | New request; proceed |
-| Present, `request_digest` matches | **Replay** — return `response_bytes` verbatim |
-| Present, `request_digest` differs | **Reject** — `query_id` reuse |
+| # | Index | Case | Outcome |
+|---|---|---|---|
+| 1 | `query_id` | present, `request_digest` matches | **Replay** — return `response_bytes` verbatim |
+| 2 | `query_id` | present, `request_digest` differs | **Reject** — `query_id` reuse |
+| 3 | nonce | present | **Reject** — nonce reuse ([E-50](../open-escalations.md)) |
+| 4 | — | neither | New request; proceed |
 
-The third row is a decision, not a fallout. A `query_id` reused with different
+**The `query_id` index is read first, and the order is load-bearing.** A genuine
+retry matches *both* — same identifier and same nonce, by construction — so a
+nonce-first order would have to carve out an exception for the case that happens
+most, and a rule with an exception for its common case is a rule waiting to be
+got wrong.
+
+Row 3 needs no digest comparison. Reaching it means the `query_id` index held
+nothing, and equal digests would imply equal signed bytes and therefore the same
+`query_id` — so a nonce found here was used over *different* content, which is
+what [`core-model.md`](../../spec/core-model.md) §5.2.1 rejects.
+
+Row 2 is a decision, not a fallout. A `query_id` reused with different
 content could be a requester retrying after correcting a contract, or an attacker
 probing for cache confusion. Rejecting it makes one `query_id` mean one exchange,
 which keeps the audit trail unambiguous and closes the confusion vector. A
@@ -185,8 +197,11 @@ cache, because they were never authenticated.
 ## 5. Interfaces
 
 ```
-check_replay(principal, query_id, request_digest) -> Replay | Fresh | IdReuse
-record(principal, query_id, request_digest, response_bytes, expires_at, debit) -> Result
+check_replay(principal, query_id, nonce, request_digest)
+   -> Fresh | Replay(response_bytes) | QueryIdReuse | NonceReuse
+   // four outcomes since E-50; the `query_id` index is read before the nonce
+   // index, because a genuine retry matches both
+record(principal, query_id, nonce, request_digest, response_bytes, expires_at, debit) -> Result
    // commits the cache entry and the debit atomically
 
 check_freshness(issued_at, expires_at, now, skew) -> Result
@@ -280,11 +295,11 @@ failure this PRD is most likely to actually have.
 |---|---|---|
 | 1 | Nonce length floor | **Built** — [`src/freshness.rs`](../../src/freshness.rs) and [`freshness.go`](../../freshness.go); `replay/nonce/` waits on issue 8. **Renamed from *minimum entropy***: [`freshness.md`](../../spec/freshness.md) §3 splits the requirement, and the half a responder can enforce is a length floor. The floor is on the **decoded bytes**, and a test asserts the 22-character length a string check would have compared instead. A second test passes thirty-two zero bytes and expects success — it exists so nobody later reads the floor as an entropy check, since a responder holds one nonce and no distribution and there is nothing to measure. Two internal reasons, because a nonce that will not decode and one that is too short are different mistakes in a requester's own serializer; one wire value, `malformed`, at step 5 |
 | 2 | Replay cache store with retention and eviction | **Built** — [`src/replay.rs`](../../src/replay.rs) and [`replay.go`](../../replay.go). Eviction reports a count, so it is observable rather than inferred: a sweep that silently did nothing looks identical to one that worked. **Retention is applied on read as well as by the sweep**, so idempotency does not depend on when a timer last fired, and the boundary is inclusive at [`freshness.md`](../../spec/freshness.md) §1's instant — an entry hidden one second early lets a retry through as fresh and debits twice. The store holds no opinion about whether a digest matches; that is issue 3, and a store with one would be a second place the idempotency rule lives. **Open question 1's cache-failure path is issue 9** and is not built. The **nonce index** landed with [E-50](../open-escalations.md): written and evicted with the primary one, scoped to the requester, and reporting what a nonce was last attached to without drawing a conclusion from it |
-| 3 | `check_replay` with the **four**-way outcome | `replay/idempotent/` and `replay/id-reuse/` pass, and a nonce reused under a different `query_id` rejects. [E-50](../open-escalations.md) added the fourth case and issue 2 built the index it reads. **One thing this issue must settle**: a step-9 rejection's `external_reason` is the responder's *pinned registry* value ([`core-model.md`](../../spec/core-model.md) §5.2.1), not a constant, so `Rejected` cannot carry it the way the earlier steps' values are carried |
+| 3 | `check_replay` with the **four**-way outcome | **Built**; the vectors wait on issue 8. Fresh, replay, `query_id` reuse, nonce reuse — [E-50](../open-escalations.md) added the fourth and issue 2 built the index it reads. **The `query_id` index is consulted first**, because a genuine retry matches both and a nonce-first order would have to special-case it; a rule with an exception carved out for the common case is a rule waiting to be got wrong. The two rejections are a **separate type from `Rejected`**, which settles what this row asked: every reason in that type maps to a value [`core-model.md`](../../spec/core-model.md) §5.2.1 fixes, and these two do not — §5.2.1 gives everything from step 9 onward the value the responder's **pinned registry** declares, which is data. A constant would compile one deployment's configuration into every deployment, so the type reports the internal reason and the step and says nothing about the wire. P-009 reads the registry |
 | 4 | `check_freshness` with skew and window bound | **Built**; `replay/expiry/` waits on issue 8. Both boundaries asserted **at** the tolerance, not near it, in both implementations. The window is a range and a test walks the interval [`freshness.md`](../../spec/freshness.md) §2's counterexample describes — 111 values of `now` for which a ceiling-only implementation calls a negative window fresh — so the lower bound cannot be dropped silently. A timestamp §2.2 refuses is reported `malformed` rather than `expired`: the fault is in the requester's serializer, and `expired` would send them to their clock |
 | 5 | `record` — atomic debit and cache commit | Fault-injection test shows no under-charge |
-| 6 | Verbatim response storage and return | Two retries byte-identical |
-| 7 | Ordering assertion: cache unreachable before step 9 | `replay/ordering/` passes |
+| 6 | Verbatim response storage and return | **Built**, and asserted as *two retries are equal* rather than as *the bytes are right* — the property is that nothing regenerates. Re-signing would remake `decided_at`, so two retries would differ, and that difference tells a requester the responder re-evaluated, which under opaque escalation is the transition [`core-model.md`](../../spec/core-model.md) §5.3 forbids revealing. Caching bytes rather than decisions makes it structural. Go copies on the way in and out (`CONVENTIONS-go.md`); Rust has it from the borrow checker |
+| 7 | Ordering assertion: cache unreachable before step 9 | **Blocked on [P-010](P-010-responder-pipeline.md), and not on anything here.** Ordering is a property of the pipeline: a vector must show that a bad-signature request left no entry, which needs `process_query` — every `ordering/` vector uses it, because a `verify_query` vector cannot show that one step ran before another. The store deliberately does **not** enforce the ordering itself and says so at the type: a caller could insert at any point, and the assertion that the pipeline does not is this issue's |
 | 8 | Author `replay/` corpus section | Five groups; `harness lint` clean |
 | 9 | Cache-failure rejection, eviction semantics, and the window bound | A store failure produces a Tier C denial with no debit; an evicted entry does not suppress a debit; a configured window above [`freshness.md`](../../spec/freshness.md) §1's maximum fails at startup |
 
