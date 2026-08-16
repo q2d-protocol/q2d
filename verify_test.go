@@ -209,6 +209,11 @@ func TestTheMappingToAWireValueIsManyToOneAndNotTheName(t *testing.T) {
 		{HeaderNotAnObject, "structurally_invalid", "3"},
 		{HeaderMemberNotAString, "structurally_invalid", "3"},
 		{HeaderMemberNotPermitted, "structurally_invalid", "3"},
+		{CoreObjectNonceNotBase64URL, "malformed", "5"},
+		{CoreObjectNonceTooShort, "malformed", "5"},
+		{RequestExpired, "expired", "6"},
+		{RequestFutureDated, "expired", "6"},
+		{RequestWindowOutOfRange, "expired", "6"},
 		{SuiteUnregistered, "unsupported_suite", "3"},
 		{SuiteWithdrawnByRegistry, "unsupported_suite", "3"},
 		{SuiteBelowPolicy, "unsupported_suite", "3"},
@@ -263,7 +268,10 @@ func TestTheMappingToAWireValueIsManyToOneAndNotTheName(t *testing.T) {
 	if len(values) >= len(mapping) {
 		t.Error("every internal reason has its own wire value, which is the leak")
 	}
-	if len(values) != 5 {
+	// Six of §5.2.1's eight values. routing_mismatch is step 8's and unavailable
+	// is the normalized class from step 9 onward; neither is reachable from the
+	// reasons this type carries yet.
+	if len(values) != 6 {
 		t.Errorf("%d distinct wire values", len(values))
 	}
 }
