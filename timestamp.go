@@ -102,6 +102,15 @@ func isQ2DTimestamp(value string) bool {
 // occurred twenty-seven times in fifty years, and buys an arithmetic both
 // implementations can be held to.
 //
+// This follows a decision isQ2DTimestamp already made; it does not make one, and
+// it is not in spec/. §2.2 fixes the spelling and says nothing about how an
+// accepted :60 participates in arithmetic, and P-004 §4.4 specifies the
+// subtraction without saying either. A third implementation could count it,
+// collapse it, or refuse it, and disagree with both of these at a leap boundary.
+// That is E-49 in docs/open-escalations.md, raised with the other freshness
+// constants that have no normative home, and this paragraph is what stops the
+// code being read as the answer.
+//
 // The epoch is 1970-01-01T00:00:00Z. Nothing in the protocol serializes this
 // value — it exists inside a comparison and no further — so the choice of epoch
 // is arbitrary and only has to be the same in both implementations.
