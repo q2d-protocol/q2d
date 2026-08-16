@@ -74,7 +74,40 @@ pub const MAX_ENVELOPE: usize = 64 * 1024;
 /// input's shape, which the sender chose, where the bytes at it may be a
 /// private field of a response.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ParseError(pub String);
+pub struct ParseError(pub String, pub ParseCause);
+
+/// Why a parse failed, for a caller that has to report a reason.
+///
+/// The corpus asserts an **internal reason** per rejection, and
+/// `message/reject/` distinguishes five parse failures that all reach
+/// `malformed` on the wire. A caller cannot recover them from the message
+/// string without matching prose, so the cause travels beside it.
+///
+/// `Other` is everything RFC 8259 itself refuses — a trailing comma, a lone
+/// surrogate, a leading zero. Those are one fact to an operator ("this is not
+/// JSON") and no vector distinguishes them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParseCause {
+    DuplicateKey,
+    Float,
+    TooDeep,
+    TooManyMembers,
+    StringTooLong,
+    IntegerOutOfRange,
+    Other,
+}
+
+impl ParseError {
+    /// A failure with no cause a caller distinguishes.
+    pub(crate) fn other(message: impl Into<String>) -> Self {
+        ParseError(message.into(), ParseCause::Other)
+    }
+
+    /// Why it failed.
+    pub fn cause(&self) -> ParseCause {
+        self.1
+    }
+}
 
 impl std::fmt::Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -156,7 +189,7 @@ impl Where {
 /// cannot reach it. See that function for the arithmetic.
 pub(crate) fn parse_within(bytes: &[u8], where_: Where) -> Result<Value, ParseError> {
     let text = std::str::from_utf8(bytes).map_err(|e| {
-        ParseError(format!(
+        ParseError::other(format!(
             "not valid UTF-8 at byte {}. serialization.md §2 refuses these \
              rather than substituting, and RFC 8259 §8.1 requires UTF-8 for \
              exchanged JSON",
@@ -186,8 +219,14 @@ struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    /// Fail with a cause a caller can report. The five §5.2.1 collapses to
+    /// `malformed` and the corpus keeps apart.
+    fn fail_because(&self, cause: ParseCause, what: &str) -> ParseError {
+        ParseError(format!("{what}, at byte {}", self.at), cause)
+    }
+
     fn fail(&self, what: &str) -> ParseError {
-        ParseError(format!("{what}, at byte {}", self.at))
+        ParseError::other(format!("{what}, at byte {}", self.at))
     }
 
     fn peek(&self) -> Option<u8> {
@@ -237,7 +276,8 @@ impl<'a> Parser<'a> {
     fn nested<T>(&mut self, body: impl FnOnce(&mut Self) -> T) -> Result<T, ParseError> {
         self.depth += 1;
         if self.depth > MAX_DEPTH {
-            return Err(self.fail(&format!(
+            return Err(self.fail_because(
+                ParseCause::TooDeep,&format!(
                 "nested deeper than P-002 §4.8's limit of {MAX_DEPTH}"
             )));
         }
@@ -274,7 +314,8 @@ impl<'a> Parser<'a> {
                 let began = p.at;
                 let item = p.value()?;
                 if entering_public_context && p.at - began > MAX_PUBLIC_CONTEXT {
-                    return Err(p.fail(&format!(
+                    return Err(p.fail_because(
+                        ParseCause::TooManyMembers,&format!(
                         "`public_context` of {} bytes, above core-model.md §2.8's \
                          {MAX_PUBLIC_CONTEXT}",
                         p.at - began
@@ -290,15 +331,17 @@ impl<'a> Parser<'a> {
                 // discloses the name. The position is enough to find it, and a
                 // position is a fact about the input's shape.
                 if pairs.len() == MAX_MEMBERS {
-                    return Err(p.fail(&format!(
+                    return Err(p.fail_because(
+                        ParseCause::DuplicateKey,&format!(
                         "more than P-002 §4.8's {MAX_MEMBERS} members in one object"
                     )));
                 }
                 if pairs.insert(key, item).is_some() {
-                    return Err(p.fail(
+                    return Err(p.fail_because(
+                        ParseCause::DuplicateKey,
                         "duplicate key, which serialization.md §2 rejects \
-                         rather than \
-                         resolving — two readings of one signed payload",
+                         rather than resolving — two readings of one signed \
+                         payload",
                     ));
                 }
                 p.skip_whitespace();
@@ -388,7 +431,8 @@ impl<'a> Parser<'a> {
     /// The overshoot is at most one character, four bytes.
     fn within_string_limit(&self, out: &str) -> Result<(), ParseError> {
         if out.len() > self.where_.max_string() {
-            return Err(self.fail(&format!(
+            return Err(self.fail_because(
+                ParseCause::StringTooLong,&format!(
                 "a string longer than core-model.md §2.8's {} bytes",
                 self.where_.max_string()
             )));
@@ -474,7 +518,8 @@ impl<'a> Parser<'a> {
                     self.at += 1;
                 }
             }
-            _ => return Err(self.fail("a number needs a digit")),
+            _ => return Err(self.fail_because(
+                ParseCause::Float,"a number needs a digit")),
         }
 
         // A fraction or an exponent makes it a float **syntactically**, and
@@ -488,7 +533,8 @@ impl<'a> Parser<'a> {
         // decidable identically in every language, which is the property that
         // matters here.
         if matches!(self.peek(), Some(b'.' | b'e' | b'E')) {
-            return Err(self.fail(
+            return Err(self.fail_because(
+                ParseCause::IntegerOutOfRange,
                 "a fraction or exponent, which serialization.md §2 refuses in \
                  a signed \
                  structure — capacity is integer millibits, timestamps are strings",
@@ -497,7 +543,7 @@ impl<'a> Parser<'a> {
 
         let text = std::str::from_utf8(&self.bytes[start..self.at]).expect("ascii digits");
         text.parse::<i64>().map(Value::Integer).map_err(|_| {
-            ParseError(format!(
+            ParseError::other(format!(
                 "integer outside −2^63 … 2^63 − 1, which scope.md §4.1 requires \
                  an entry's integers to lie within, at byte {start}"
             ))

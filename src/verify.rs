@@ -111,6 +111,17 @@ pub enum Rejected {
     /// **verified core object**, which is the half of §5.2.1's line that
     /// `malformed` covers.
     CoreObjectCarriesSignatureValue,
+    /// The five parse failures `message/reject/` keeps apart.
+    ///
+    /// All `malformed` on the wire — §5.2.1 collapses them because each is
+    /// visible in the message the requester produced — and each a different
+    /// fact for an operator, which is why `parse` reports a cause rather than
+    /// only a message.
+    CoreObjectDuplicateKey,
+    CoreObjectFloat,
+    CoreObjectTooDeep,
+    CoreObjectTooManyMembers,
+    CoreObjectStringTooLong,
     /// `q2d_version` is a string this build does not implement.
     ///
     /// Step 5 and not earlier: the authoritative version is inside the signed
@@ -143,9 +154,13 @@ impl Rejected {
             | Rejected::HeaderPayloadKeyMismatch => "structurally_invalid",
             Rejected::SuiteUnregistered | Rejected::SuiteBelowPolicy => "unsupported_suite",
             Rejected::KeyUnresolvable | Rejected::SignatureInvalid => "unauthenticated",
-            Rejected::CoreObjectMalformed | Rejected::CoreObjectCarriesSignatureValue => {
-                "malformed"
-            }
+            Rejected::CoreObjectMalformed
+            | Rejected::CoreObjectCarriesSignatureValue
+            | Rejected::CoreObjectDuplicateKey
+            | Rejected::CoreObjectFloat
+            | Rejected::CoreObjectTooDeep
+            | Rejected::CoreObjectTooManyMembers
+            | Rejected::CoreObjectStringTooLong => "malformed",
             Rejected::UnsupportedVersion => "unsupported_version",
         }
     }
@@ -169,6 +184,11 @@ impl Rejected {
             Rejected::KeyUnresolvable | Rejected::SignatureInvalid => "4",
             Rejected::CoreObjectMalformed
             | Rejected::CoreObjectCarriesSignatureValue
+            | Rejected::CoreObjectDuplicateKey
+            | Rejected::CoreObjectFloat
+            | Rejected::CoreObjectTooDeep
+            | Rejected::CoreObjectTooManyMembers
+            | Rejected::CoreObjectStringTooLong
             | Rejected::UnsupportedVersion => "5",
             // **Lettered.** §4's query order names step `5a` for the two
             // comparisons, which E-35 added. A numeric type could not carry it,
@@ -196,6 +216,11 @@ impl fmt::Display for Rejected {
             Rejected::KeyUnresolvable => "the key did not resolve",
             Rejected::SignatureInvalid => "the signature did not verify",
             Rejected::CoreObjectMalformed => "the verified payload is not a core object",
+            Rejected::CoreObjectDuplicateKey => "the verified object has a duplicate key",
+            Rejected::CoreObjectFloat => "the verified object carries a floating-point value",
+            Rejected::CoreObjectTooDeep => "the verified object nests past the limit",
+            Rejected::CoreObjectTooManyMembers => "an object in the payload has too many members",
+            Rejected::CoreObjectStringTooLong => "a string in the payload is past its limit",
             Rejected::CoreObjectCarriesSignatureValue => {
                 "the verified object carries `signature.value`, which this suite puts in the third segment"
             }
@@ -317,19 +342,24 @@ pub fn verify_query(
 
     // Step 5 — parse the verified object. Not before: §2.1 is explicit.
     //
-    // **Every parse failure collapses to one internal reason here, and the
-    // corpus distinguishes five.** `message/reject/` expects
-    // `core_object_duplicate_key`, `core_object_float`, `core_object_too_deep`,
-    // `core_object_too_many_members` and `core_object_string_too_long` — all
-    // `malformed` on the wire, which this gets right, and each a different fact
-    // for an operator, which this does not.
-    //
-    // Closing it means `parse` reporting a typed cause rather than a message,
-    // which is P-002's error surface in both languages rather than something
-    // this module can do alone. P-003 issue 6's row records it. No runner
-    // answers a vector yet, so nothing fails today; the day one does, those
-    // five fail on the internal reason with the wire value correct.
-    let core = crate::parse(&payload).map_err(|_| Rejected::CoreObjectMalformed)?;
+    // **The five `message/reject/` keeps apart.** All `malformed` on the wire
+    // and each a different fact for an operator, which is why [`crate::parse`]
+    // reports a [`ParseCause`](crate::parse::ParseCause) rather than only a
+    // message. Recovering them by matching prose would be a second place that
+    // decides what a parse failure was.
+    let core = crate::parse(&payload).map_err(|error| match error.cause() {
+        crate::parse::ParseCause::DuplicateKey => Rejected::CoreObjectDuplicateKey,
+        crate::parse::ParseCause::Float => Rejected::CoreObjectFloat,
+        crate::parse::ParseCause::TooDeep => Rejected::CoreObjectTooDeep,
+        crate::parse::ParseCause::TooManyMembers => Rejected::CoreObjectTooManyMembers,
+        crate::parse::ParseCause::StringTooLong => Rejected::CoreObjectStringTooLong,
+        // An integer outside `i64` and everything RFC 8259 itself refuses are
+        // one fact to an operator — *this is not a core object* — and no vector
+        // distinguishes them.
+        crate::parse::ParseCause::IntegerOutOfRange | crate::parse::ParseCause::Other => {
+            Rejected::CoreObjectMalformed
+        }
+    })?;
 
     // Step 5a — the two comparisons. After parsing, because neither can be made
     // before it.
@@ -625,6 +655,11 @@ mod tests {
             (Rejected::KeyUnresolvable, "unauthenticated", "4"),
             (Rejected::SignatureInvalid, "unauthenticated", "4"),
             (Rejected::CoreObjectMalformed, "malformed", "5"),
+            (Rejected::CoreObjectDuplicateKey, "malformed", "5"),
+            (Rejected::CoreObjectFloat, "malformed", "5"),
+            (Rejected::CoreObjectTooDeep, "malformed", "5"),
+            (Rejected::CoreObjectTooManyMembers, "malformed", "5"),
+            (Rejected::CoreObjectStringTooLong, "malformed", "5"),
             (Rejected::CoreObjectCarriesSignatureValue, "malformed", "5"),
             (Rejected::CoreObjectCarriesSignatureValue, "malformed", "5"),
             (Rejected::UnsupportedVersion, "unsupported_version", "5"),

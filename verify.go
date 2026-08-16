@@ -105,6 +105,16 @@ const (
 	// malformed rather than structurally_invalid: the fault is in the verified
 	// core object, which is the half of §5.2.1's line that malformed covers.
 	CoreObjectCarriesSignatureValue
+	// The five parse failures message/reject/ keeps apart.
+	//
+	// All malformed on the wire — §5.2.1 collapses them because each is visible
+	// in the message the requester produced — and each a different fact for an
+	// operator, which is why Parse reports a cause rather than only a message.
+	CoreObjectDuplicateKey
+	CoreObjectFloat
+	CoreObjectTooDeep
+	CoreObjectTooManyMembers
+	CoreObjectStringTooLong
 	// UnsupportedVersion: q2d_version is a string this build does not implement.
 	//
 	// Step 5 and not earlier: the authoritative version is inside the signed
@@ -130,7 +140,9 @@ func (r Rejected) ExternalReason() string {
 		return "unsupported_suite"
 	case KeyUnresolvable, SignatureInvalid:
 		return "unauthenticated"
-	case CoreObjectMalformed, CoreObjectCarriesSignatureValue:
+	case CoreObjectMalformed, CoreObjectCarriesSignatureValue,
+		CoreObjectDuplicateKey, CoreObjectFloat, CoreObjectTooDeep,
+		CoreObjectTooManyMembers, CoreObjectStringTooLong:
 		return "malformed"
 	case UnsupportedVersion:
 		return "unsupported_version"
@@ -148,7 +160,9 @@ func (r Rejected) Step() string {
 	switch r {
 	case KeyUnresolvable, SignatureInvalid:
 		return "4"
-	case CoreObjectMalformed, CoreObjectCarriesSignatureValue, UnsupportedVersion:
+	case CoreObjectMalformed, CoreObjectCarriesSignatureValue, UnsupportedVersion,
+		CoreObjectDuplicateKey, CoreObjectFloat, CoreObjectTooDeep,
+		CoreObjectTooManyMembers, CoreObjectStringTooLong:
 		return "5"
 	case HeaderPayloadSuiteMismatch, HeaderPayloadKeyMismatch:
 		return "5a"
@@ -184,6 +198,16 @@ func (r Rejected) Error() string {
 		return "the signature did not verify"
 	case CoreObjectMalformed:
 		return "the verified payload is not a core object"
+	case CoreObjectDuplicateKey:
+		return "the verified object has a duplicate key"
+	case CoreObjectFloat:
+		return "the verified object carries a floating-point value"
+	case CoreObjectTooDeep:
+		return "the verified object nests past the limit"
+	case CoreObjectTooManyMembers:
+		return "an object in the payload has too many members"
+	case CoreObjectStringTooLong:
+		return "a string in the payload is past its limit"
 	case CoreObjectCarriesSignatureValue:
 		return "the verified object carries `signature.value`, which this suite puts in the third segment"
 	case UnsupportedVersion:
@@ -320,20 +344,29 @@ func VerifyQuery(signed string, policy SuitePolicy, registry SuiteRegistry,
 
 	// Step 5 — parse the verified object. Not before: §2.1 is explicit.
 	//
-	// Every parse failure collapses to one internal reason here, and the corpus
-	// distinguishes five. message/reject/ expects core_object_duplicate_key,
-	// core_object_float, core_object_too_deep, core_object_too_many_members and
-	// core_object_string_too_long — all malformed on the wire, which this gets
-	// right, and each a different fact for an operator, which this does not.
-	//
-	// Closing it means Parse reporting a typed cause rather than a message,
-	// which is P-002's error surface in both languages rather than something
-	// this file can do alone. P-003 issue 6's row records it. No runner answers
-	// a vector yet, so nothing fails today; the day one does, those five fail on
-	// the internal reason with the wire value correct.
+	// The five message/reject/ keeps apart. All malformed on the wire and each a
+	// different fact for an operator, which is why Parse reports a ParseCause
+	// rather than only a message. Recovering them by matching prose would be a
+	// second place that decides what a parse failure was.
 	core, err := Parse(payload)
 	if err != nil {
-		return nil, CoreObjectMalformed
+		switch CauseOf(err) {
+		case CauseDuplicateKey:
+			return nil, CoreObjectDuplicateKey
+		case CauseFloat:
+			return nil, CoreObjectFloat
+		case CauseTooDeep:
+			return nil, CoreObjectTooDeep
+		case CauseTooManyMembers:
+			return nil, CoreObjectTooManyMembers
+		case CauseStringTooLong:
+			return nil, CoreObjectStringTooLong
+		default:
+			// An integer outside int64 and everything RFC 8259 itself refuses
+			// are one fact to an operator — this is not a core object — and no
+			// vector distinguishes them.
+			return nil, CoreObjectMalformed
+		}
 	}
 
 	// Step 5a — the two comparisons. After parsing, because neither can be made
