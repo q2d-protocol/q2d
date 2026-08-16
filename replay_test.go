@@ -218,3 +218,29 @@ func TestBothIndexesExpireAtTheSameInstant(t *testing.T) {
 		t.Error("nonce record visible after the instant")
 	}
 }
+
+func TestReplacingAnEntryRetiresTheNonceItReplaced(t *testing.T) {
+	// Review found this: the two indexes could diverge on replace, leaving a nonce
+	// remembered with nothing pointing at it. Nothing in the pipeline replaces an
+	// entry, and a documented invariant that depends on the caller's discipline is
+	// not one.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	cache.Insert(policy, "p", "q", "sha256:aa", nil, "first", replayExpires)
+	cache.Insert(policy, "p", "q", "sha256:bb", nil, "second", replayExpires)
+	if _, ok := cache.NonceUsed("p", "first", replayExpires); ok {
+		t.Error("the replaced nonce is still remembered")
+	}
+	if _, ok := cache.NonceUsed("p", "second", replayExpires); !ok {
+		t.Error("the replacing nonce is not remembered")
+	}
+	if cache.NonceLen() != 1 {
+		t.Errorf("%d nonce records for one exchange", cache.NonceLen())
+	}
+	// And replacing with the same nonce keeps it, rather than deleting the record
+	// it is about to write.
+	cache.Insert(policy, "p", "q", "sha256:cc", nil, "second", replayExpires)
+	use, ok := cache.NonceUsed("p", "second", replayExpires)
+	if !ok || use.RequestDigest != "sha256:cc" {
+		t.Errorf("%+v %v", use, ok)
+	}
+}

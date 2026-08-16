@@ -58,6 +58,10 @@ pub struct Entry {
     pub response_bytes: Vec<u8>,
     /// The instant this entry must be retained **through**, inclusive.
     retain_through: i64,
+    /// The nonce this exchange used, so that replacing the entry can retire the
+    /// nonce record it wrote. Not public: it exists to keep the two indexes
+    /// consistent, not to be read.
+    nonce: String,
 }
 
 impl Entry {
@@ -121,17 +125,37 @@ impl ReplayCache {
         expires_at: i64,
     ) {
         let retain_through = policy.retain_through(expires_at);
+        // Both indexes are written in one call and expire at one instant, so
+        // there is no state in which a request is remembered by one and not the
+        // other. Two insert functions would make that state reachable.
+        //
+        // **Including on replace**, which review found this had not handled: an
+        // entry overwritten under one `query_id` with a different nonce used to
+        // leave its first nonce remembered with nothing pointing at it. That
+        // failed restrictive — the stale record would reject a later reuse — and
+        // the comment above was false, which is worse than the leak.
+        //
+        // Nothing in the pipeline replaces an entry: issue 3 decides fresh,
+        // replay or reuse *before* inserting, and a fresh request carries a new
+        // identifier. The invariant is held here anyway, because a store whose
+        // documented invariant depends on its caller's discipline does not have
+        // one.
+        if let Some(previous) = self.entries.get(&(principal.to_string(), query_id.to_string()))
+        {
+            if previous.nonce != nonce {
+                self.nonces
+                    .remove(&(principal.to_string(), previous.nonce.clone()));
+            }
+        }
         self.entries.insert(
             (principal.to_string(), query_id.to_string()),
             Entry {
                 request_digest: request_digest.to_string(),
                 response_bytes,
                 retain_through,
+                nonce: nonce.to_string(),
             },
         );
-        // Both indexes are written in one call and expire at one instant, so
-        // there is no state in which a request is remembered by one and not the
-        // other. Two insert functions would make that state reachable.
         self.nonces.insert(
             (principal.to_string(), nonce.to_string()),
             NonceUse {
@@ -379,6 +403,27 @@ mod tests {
         assert!(cache.nonce_use("p", "N", through).is_some());
         assert!(cache.get("p", "q", through + 1).is_none());
         assert!(cache.nonce_use("p", "N", through + 1).is_none());
+    }
+
+    #[test]
+    fn replacing_an_entry_retires_the_nonce_it_replaced() {
+        // Review found this: the two indexes could diverge on replace, leaving a
+        // nonce remembered with nothing pointing at it. Nothing in the pipeline
+        // replaces an entry, and a documented invariant that depends on the
+        // caller's discipline is not one.
+        let (mut cache, policy) = cache();
+        cache.insert(&policy, "p", "q", "sha256:aa", vec![], "first", EXPIRES);
+        cache.insert(&policy, "p", "q", "sha256:bb", vec![], "second", EXPIRES);
+        assert!(cache.nonce_use("p", "first", EXPIRES).is_none(), "retired");
+        assert!(cache.nonce_use("p", "second", EXPIRES).is_some());
+        assert_eq!(cache.nonce_len(), 1, "one exchange, one nonce record");
+        // And replacing with the *same* nonce keeps it, rather than deleting the
+        // record it is about to write.
+        cache.insert(&policy, "p", "q", "sha256:cc", vec![], "second", EXPIRES);
+        assert_eq!(
+            cache.nonce_use("p", "second", EXPIRES).unwrap().request_digest,
+            "sha256:cc"
+        );
     }
 
     #[test]

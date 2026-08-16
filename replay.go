@@ -56,6 +56,10 @@ type ReplayEntry struct {
 	// retainThrough is the instant this entry must be retained through,
 	// inclusive.
 	retainThrough int64
+	// nonce is the nonce this exchange used, so that replacing the entry can
+	// retire the nonce record it wrote. Unexported: it exists to keep the two
+	// indexes consistent, not to be read.
+	nonce string
 }
 
 // RetainThrough returns the retention instant, for tests and operator tooling.
@@ -113,14 +117,29 @@ func (c *ReplayCache) Insert(policy FreshnessPolicy, principal, queryID, request
 	stored := make([]byte, len(responseBytes))
 	copy(stored, responseBytes)
 	retainThrough := policy.RetainThrough(expiresAt)
+	// Both indexes are written in one call and expire at one instant, so there is
+	// no state in which a request is remembered by one and not the other. Two
+	// insert functions would make that state reachable.
+	//
+	// Including on replace, which review found this had not handled: an entry
+	// overwritten under one query_id with a different nonce used to leave its
+	// first nonce remembered with nothing pointing at it. That failed restrictive
+	// — the stale record would reject a later reuse — and the comment above was
+	// false, which is worse than the leak.
+	//
+	// Nothing in the pipeline replaces an entry: issue 3 decides fresh, replay or
+	// reuse before inserting, and a fresh request carries a new identifier. The
+	// invariant is held here anyway, because a store whose documented invariant
+	// depends on its caller's discipline does not have one.
+	if previous, ok := c.entries[replayKey{principal, queryID}]; ok && previous.nonce != nonce {
+		delete(c.nonces, nonceKey{principal, previous.nonce})
+	}
 	c.entries[replayKey{principal, queryID}] = ReplayEntry{
 		RequestDigest: requestDigest,
 		ResponseBytes: stored,
 		retainThrough: retainThrough,
+		nonce:         nonce,
 	}
-	// Both indexes are written in one call and expire at one instant, so there is
-	// no state in which a request is remembered by one and not the other. Two
-	// insert functions would make that state reachable.
 	c.nonces[nonceKey{principal, nonce}] = NonceUse{
 		RequestDigest: requestDigest,
 		retainThrough: retainThrough,
