@@ -72,15 +72,27 @@ key   = (requester_principal, nonce)          // E-50
 value = (request_digest, expires_at)
 ```
 
-On lookup:
+On lookup, in this order:
 
-| Case | Outcome |
-|---|---|
-| Absent | New request; proceed |
-| Present, `request_digest` matches | **Replay** — return `response_bytes` verbatim |
-| Present, `request_digest` differs | **Reject** — `query_id` reuse |
+| # | Index | Case | Outcome |
+|---|---|---|---|
+| 1 | `query_id` | present, `request_digest` matches | **Replay** — return `response_bytes` verbatim |
+| 2 | `query_id` | present, `request_digest` differs | **Reject** — `query_id` reuse |
+| 3 | nonce | present | **Reject** — nonce reuse ([E-50](../open-escalations.md)) |
+| 4 | — | neither | New request; proceed |
 
-The third row is a decision, not a fallout. A `query_id` reused with different
+**The `query_id` index is read first, and the order is load-bearing.** A genuine
+retry matches *both* — same identifier and same nonce, by construction — so a
+nonce-first order would have to carve out an exception for the case that happens
+most, and a rule with an exception for its common case is a rule waiting to be
+got wrong.
+
+Row 3 needs no digest comparison. Reaching it means the `query_id` index held
+nothing, and equal digests would imply equal signed bytes and therefore the same
+`query_id` — so a nonce found here was used over *different* content, which is
+what [`core-model.md`](../../spec/core-model.md) §5.2.1 rejects.
+
+Row 2 is a decision, not a fallout. A `query_id` reused with different
 content could be a requester retrying after correcting a contract, or an attacker
 probing for cache confusion. Rejecting it makes one `query_id` mean one exchange,
 which keeps the audit trail unambiguous and closes the confusion vector. A
