@@ -277,7 +277,8 @@ impl<'a> Parser<'a> {
         self.depth += 1;
         if self.depth > MAX_DEPTH {
             return Err(self.fail_because(
-                ParseCause::TooDeep,&format!(
+                ParseCause::TooDeep,
+                &format!(
                 "nested deeper than P-002 §4.8's limit of {MAX_DEPTH}"
             )));
         }
@@ -315,11 +316,13 @@ impl<'a> Parser<'a> {
                 let item = p.value()?;
                 if entering_public_context && p.at - began > MAX_PUBLIC_CONTEXT {
                     return Err(p.fail_because(
-                        ParseCause::TooManyMembers,&format!(
-                        "`public_context` of {} bytes, above core-model.md §2.8's \
-                         {MAX_PUBLIC_CONTEXT}",
-                        p.at - began
-                    )));
+                        ParseCause::StringTooLong,
+                        &format!(
+                            "`public_context` of {} bytes, above core-model.md \
+                             §2.8's {MAX_PUBLIC_CONTEXT}",
+                            p.at - began
+                        ),
+                    ));
                 }
                 p.where_ = outer;
                 // serialization.md §2: rejected on parse, not resolved.
@@ -332,9 +335,9 @@ impl<'a> Parser<'a> {
                 // position is a fact about the input's shape.
                 if pairs.len() == MAX_MEMBERS {
                     return Err(p.fail_because(
-                        ParseCause::DuplicateKey,&format!(
-                        "more than P-002 §4.8's {MAX_MEMBERS} members in one object"
-                    )));
+                        ParseCause::TooManyMembers,
+                        &format!("more than P-002 §4.8's {MAX_MEMBERS} members in one object"),
+                    ));
                 }
                 if pairs.insert(key, item).is_some() {
                     return Err(p.fail_because(
@@ -432,7 +435,8 @@ impl<'a> Parser<'a> {
     fn within_string_limit(&self, out: &str) -> Result<(), ParseError> {
         if out.len() > self.where_.max_string() {
             return Err(self.fail_because(
-                ParseCause::StringTooLong,&format!(
+                ParseCause::StringTooLong,
+                &format!(
                 "a string longer than core-model.md §2.8's {} bytes",
                 self.where_.max_string()
             )));
@@ -518,8 +522,7 @@ impl<'a> Parser<'a> {
                     self.at += 1;
                 }
             }
-            _ => return Err(self.fail_because(
-                ParseCause::Float,"a number needs a digit")),
+            _ => return Err(self.fail("a number needs a digit")),
         }
 
         // A fraction or an exponent makes it a float **syntactically**, and
@@ -534,19 +537,22 @@ impl<'a> Parser<'a> {
         // matters here.
         if matches!(self.peek(), Some(b'.' | b'e' | b'E')) {
             return Err(self.fail_because(
-                ParseCause::IntegerOutOfRange,
+                ParseCause::Float,
                 "a fraction or exponent, which serialization.md §2 refuses in \
-                 a signed \
-                 structure — capacity is integer millibits, timestamps are strings",
+                 a signed structure — capacity is integer millibits, \
+                 timestamps are strings",
             ));
         }
 
         let text = std::str::from_utf8(&self.bytes[start..self.at]).expect("ascii digits");
         text.parse::<i64>().map(Value::Integer).map_err(|_| {
-            ParseError::other(format!(
-                "integer outside −2^63 … 2^63 − 1, which scope.md §4.1 requires \
-                 an entry's integers to lie within, at byte {start}"
-            ))
+            ParseError(
+                format!(
+                    "integer outside −2^63 … 2^63 − 1, which scope.md §4.1 \
+                     requires an entry's integers to lie within, at byte {start}"
+                ),
+                ParseCause::IntegerOutOfRange,
+            )
         })
     }
 }
@@ -779,5 +785,34 @@ mod tests {
         let message = refused(r#"{"answer":"the value that must not leak",}"#);
         assert!(message.contains("byte"), "{message}");
         assert!(!message.contains("must not leak"), "{message}");
+    }
+}
+
+#[cfg(test)]
+mod cause_tests {
+    use super::*;
+
+    /// Each of the five must report its own cause, and the test builds the
+    /// input for each rather than trusting where an edit landed.
+    #[test]
+    fn each_refusal_reports_its_own_cause() {
+        let deep = format!("{}1{}", "[".repeat(20), "]".repeat(20));
+        let wide = format!(
+            "{{{}}}",
+            (0..70).map(|i| format!("\"k{i}\":1")).collect::<Vec<_>>().join(",")
+        );
+        let long = format!("{{\"a\":\"{}\"}}", "x".repeat(3000));
+        for (input, expected) in [
+            (r#"{"a":1,"a":2}"#.to_string(), ParseCause::DuplicateKey),
+            (r#"{"a":1.5}"#.to_string(), ParseCause::Float),
+            (deep, ParseCause::TooDeep),
+            (wide, ParseCause::TooManyMembers),
+            (long, ParseCause::StringTooLong),
+            (r#"{"a":9223372036854775808}"#.to_string(), ParseCause::IntegerOutOfRange),
+            (r#"{"a":}"#.to_string(), ParseCause::Other),
+        ] {
+            let error = parse(input.as_bytes()).unwrap_err();
+            assert_eq!(error.cause(), expected, "{}", &input[..input.len().min(40)]);
+        }
     }
 }
