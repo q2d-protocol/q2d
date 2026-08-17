@@ -7,15 +7,16 @@
 //!
 //! ## What is here and what is not
 //!
-//! The two indexes, and [`ReplayCache::check`] — step 9's **four-way** outcome
-//! over them: fresh, replay, `query_id` reuse, nonce reuse. The decision lives
-//! with the indexes rather than above them because it is a reading of both, and
-//! a caller assembling it from [`ReplayCache::get`] and
-//! [`ReplayCache::nonce_use`] would be the second place the order of those two
-//! lookups is decided — which is the part §5.2.1 constrains.
+//! The two indexes, [`ReplayCache::check`] — step 9's **four-way** outcome over
+//! them: fresh, replay, `query_id` reuse, nonce reuse — and
+//! [`ReplayCache::record`], the commit of an outcome together with its capacity
+//! debit. The decision lives with the indexes rather than above them because it
+//! is a reading of both, and a caller assembling it from [`ReplayCache::get`]
+//! and [`ReplayCache::nonce_use`] would be the second place the order of those
+//! two lookups is decided — which is the part §5.2.1 constrains.
 //!
-//! **Not here:** the **atomic commit with the capacity debit**, which is P-004
-//! issue 5, and **when** step 9 runs, which is the pipeline's and is issue 7.
+//! **Not here:** the budget arithmetic behind [`Budget`], which is P-008's, and
+//! **when** step 9 runs, which is the pipeline's and is issue 7.
 //!
 //! ## Two indexes, because §5.2.1 names two identifiers
 //!
@@ -110,7 +111,7 @@ impl ReplayCache {
         Self::default()
     }
 
-    /// Record an exchange.
+    /// Write both indexes.
     ///
     /// `expires_at` is the request's, in seconds, and the retention instant is
     /// derived from it by `policy` — this module never computes a duration. An
@@ -118,7 +119,14 @@ impl ReplayCache {
     /// decision to have made: issue 3 decides whether a second request under one
     /// `query_id` is a replay or a rejection, and by the time it inserts it has
     /// already decided.
-    pub fn insert(
+    ///
+    /// **Private, since issue 5.** [`Self::record`] is the only way to commit an
+    /// exchange, because §4.6's guarantee is that an entry and its debit arrive
+    /// together — and a public writer that took no debit would be a second
+    /// commit path with the debit left out, which is the under-charge the issue
+    /// exists to prevent. The store's own tests still reach it: they are testing
+    /// the indexes, not the commit.
+    fn insert(
         &mut self,
         policy: &FreshnessPolicy,
         principal: &str,
@@ -343,6 +351,115 @@ impl ReplayCache {
             return Replay::Rejected(ReplayRejection::NonceReuse);
         }
         Replay::Fresh
+    }
+}
+
+/// Where the capacity debit is applied — P-004 §4.6.
+///
+/// **This module calls it and does not implement it.** P-004 §3 puts budget
+/// arithmetic in [P-008](../docs/prds/P-008-capacity-accounting.md); what is
+/// here is the *order* in which the debit and the cache entry are committed, and
+/// that order needs a seam rather than a sum.
+///
+/// `Refusal` is an associated type because a refusal means something P-008
+/// decides — insufficient remaining capacity, an unknown principal, a store that
+/// is down — and a concrete error here would be this module choosing that
+/// vocabulary for it. [`ReplayCache::record`] passes it back untouched.
+pub trait Budget {
+    /// What a refused debit says. P-008's, not this module's.
+    type Refusal;
+
+    /// Apply `millibits` to `principal`'s budget.
+    ///
+    /// `Ok` means committed. An error means **nothing was committed**, which is
+    /// what [`ReplayCache::record`] relies on to leave the cache untouched.
+    fn debit(&mut self, principal: &str, millibits: i64) -> Result<(), Self::Refusal>;
+}
+
+/// Why [`ReplayCache::record`] committed nothing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RecordFailure<R> {
+    /// A debit below zero, which would **credit** the budget — the same refusal
+    /// [`crate::registry`] makes of a negative capacity, applied where the value
+    /// is spent rather than where it is published.
+    ///
+    /// It should be unreachable: a debit descends from a registry capacity, and
+    /// a negative one never loads. Refused here anyway, because the consequence
+    /// of the unreachable state being reached is a budget that grows on every
+    /// answer.
+    NegativeDebit(i64),
+    /// The debit was refused. P-008's reason, unchanged.
+    DebitRefused(R),
+}
+
+impl ReplayCache {
+    /// Commit an exchange and its capacity debit — P-004 §4.6, issue 5.
+    ///
+    /// ## The debit is applied first, and that is the whole guarantee
+    ///
+    /// §4.6 gives the two orders and their crash consequences: debit-then-cache
+    /// **over-charges** on retry, cache-then-debit **under-charges**, and an
+    /// atomic commit does neither. It then says which to choose where atomicity
+    /// is not available — debit first, because over-charging is conservative and
+    /// under-charging means more disclosure than policy intended, which is what
+    /// Q2D-C-09 rests on.
+    ///
+    /// **Atomicity is a property of the stores, and not of this function.**
+    /// Where the budget and the cache live in one store, a caller implementing
+    /// [`Budget`] over that store puts both writes in one transaction and the
+    /// order stops mattering; nothing here changes. Where they do not — a
+    /// persistent budget beside an in-memory cache, which is what P-013's
+    /// daemon will have — this module cannot enrol a caller-supplied sink in a
+    /// transaction it does not own, and a two-phase interface would be this
+    /// module designing P-008's store.
+    ///
+    /// So `record` provides §4.6's fallback, and the property that follows from
+    /// it given [`Budget`]'s contract that an error means nothing was committed:
+    /// **no state exists in which a cache entry was committed and its debit was
+    /// not.** A crash between the two loses the entry, not the debit.
+    ///
+    /// Today both stores are in memory, so a crash loses both and the question
+    /// does not arise. The order is fixed now anyway, because the moment either
+    /// store persists it is a correctness property, and that is P-013's change
+    /// to make against a rule rather than to rediscover.
+    ///
+    /// ## What it does not do
+    ///
+    /// It does not call [`Self::check`]. Step 9 decides *whether* to proceed and
+    /// this commits what the outcome turned out to be; folding the two together
+    /// would put the lookup and the commit either side of the whole of steps
+    /// 10-17, which is not one operation.
+    #[allow(clippy::too_many_arguments)]
+    pub fn record<B: Budget + ?Sized>(
+        &mut self,
+        budget: &mut B,
+        policy: &FreshnessPolicy,
+        principal: &str,
+        query_id: &str,
+        nonce: &str,
+        request_digest: &str,
+        response_bytes: Vec<u8>,
+        expires_at: i64,
+        debit: i64,
+    ) -> Result<(), RecordFailure<B::Refusal>> {
+        // Before the debit, not after: a negative value refused after it had
+        // been applied would have already credited the budget.
+        if debit < 0 {
+            return Err(RecordFailure::NegativeDebit(debit));
+        }
+        budget
+            .debit(principal, debit)
+            .map_err(RecordFailure::DebitRefused)?;
+        self.insert(
+            policy,
+            principal,
+            query_id,
+            request_digest,
+            response_bytes,
+            nonce,
+            expires_at,
+        );
+        Ok(())
     }
 }
 
@@ -624,5 +741,200 @@ mod tests {
         cache.insert(&strict, "p", "q", "sha256:aa", vec![], "n", EXPIRES);
         assert!(cache.get("p", "q", EXPIRES + 5).is_some());
         assert!(cache.get("p", "q", EXPIRES + 6).is_none());
+    }
+
+    // ---- issue 5: the commit, and the fault injection around it ----
+
+    /// A budget that keeps a running total and can be made to refuse.
+    ///
+    /// **The total is what the assertions read**, not the call count: P-004 §7
+    /// asks for a retry to produce no second debit *against the budget total*,
+    /// and a call count would pass for a store that was called once and applied
+    /// the value twice.
+    ///
+    /// `applied_before_refusing` is the fault injection. It models the store
+    /// that committed and then failed to report it — the case where `record`
+    /// returns an error and the debit nevertheless stands.
+    #[derive(Default)]
+    struct TestBudget {
+        total: i64,
+        refuse: bool,
+        applied_before_refusing: bool,
+        last_principal: Option<String>,
+    }
+
+    /// Everything P-008 will say, reduced to the one thing this module needs.
+    #[derive(Debug, PartialEq, Eq)]
+    struct Refused;
+
+    impl Budget for TestBudget {
+        type Refusal = Refused;
+
+        fn debit(&mut self, principal: &str, millibits: i64) -> Result<(), Refused> {
+            self.last_principal = Some(principal.to_string());
+            if self.refuse {
+                if self.applied_before_refusing {
+                    self.total += millibits;
+                }
+                return Err(Refused);
+            }
+            self.total += millibits;
+            Ok(())
+        }
+    }
+
+    fn record(
+        cache: &mut ReplayCache,
+        budget: &mut TestBudget,
+        policy: &FreshnessPolicy,
+        query_id: &str,
+        debit: i64,
+    ) -> Result<(), RecordFailure<Refused>> {
+        cache.record(
+            budget,
+            policy,
+            "did:key:z6MkRequesterPrincipal",
+            query_id,
+            &format!("nonce-for-{query_id}"),
+            "sha256:aa",
+            b"response".to_vec(),
+            EXPIRES,
+            debit,
+        )
+    }
+
+    #[test]
+    fn a_commit_writes_both_indexes_and_debits_once() {
+        let (mut cache, policy) = cache();
+        let mut budget = TestBudget::default();
+        record(&mut cache, &mut budget, &policy, "urn:uuid:one", 2_000).expect("committed");
+        assert_eq!(budget.total, 2_000);
+        assert_eq!(
+            budget.last_principal.as_deref(),
+            Some("did:key:z6MkRequesterPrincipal"),
+            "the debit lands on the requester the entry is keyed under"
+        );
+        assert_eq!(cache.len(), 1);
+        assert_eq!(cache.nonce_len(), 1);
+    }
+
+    #[test]
+    fn a_refused_debit_leaves_no_entry() {
+        // The fault injection, and the property is the absence: an entry written
+        // beside a debit that did not happen is the under-charge — a retry would
+        // find it, return the stored bytes, and the disclosure would never be
+        // paid for.
+        let (mut cache, policy) = cache();
+        let mut budget = TestBudget {
+            refuse: true,
+            ..TestBudget::default()
+        };
+        let failure = record(&mut cache, &mut budget, &policy, "urn:uuid:one", 2_000)
+            .expect_err("refused");
+        assert_eq!(failure, RecordFailure::DebitRefused(Refused));
+        assert_eq!(budget.total, 0);
+        assert!(cache.is_empty(), "neither index was written");
+    }
+
+    #[test]
+    fn a_refused_debit_leaves_an_earlier_exchange_alone() {
+        // The refusal must not be a rollback of something else. An earlier
+        // exchange under a different identifier is committed and paid for, and a
+        // later refusal has no business touching it.
+        let (mut cache, policy) = cache();
+        let mut budget = TestBudget::default();
+        record(&mut cache, &mut budget, &policy, "urn:uuid:one", 2_000).expect("committed");
+        budget.refuse = true;
+        record(&mut cache, &mut budget, &policy, "urn:uuid:two", 2_000).expect_err("refused");
+        assert_eq!(budget.total, 2_000);
+        assert_eq!(cache.len(), 1);
+        assert!(cache
+            .get("did:key:z6MkRequesterPrincipal", "urn:uuid:one", EXPIRES)
+            .is_some());
+    }
+
+    #[test]
+    fn a_failure_after_the_debit_over_charges_rather_than_under_charging() {
+        // §4.6's accepted direction, asserted rather than described. The store
+        // applied the debit and then failed to say so, which is the crash window
+        // debit-first leaves open. The retry arrives as `Fresh` — nothing was
+        // cached — and pays a second time.
+        //
+        // That is the whole of what debit-first buys, and the test says so in
+        // the direction that matters: never the other one.
+        let (mut cache, policy) = cache();
+        let mut budget = TestBudget {
+            refuse: true,
+            applied_before_refusing: true,
+            ..TestBudget::default()
+        };
+        record(&mut cache, &mut budget, &policy, "urn:uuid:one", 2_000).expect_err("refused");
+        assert_eq!(budget.total, 2_000, "the debit stands");
+        assert!(cache.is_empty());
+
+        budget.refuse = false;
+        assert_eq!(
+            cache.check(
+                "did:key:z6MkRequesterPrincipal",
+                "urn:uuid:one",
+                "nonce-for-urn:uuid:one",
+                "sha256:aa",
+                EXPIRES
+            ),
+            Replay::Fresh,
+            "nothing suppresses the retry"
+        );
+        record(&mut cache, &mut budget, &policy, "urn:uuid:one", 2_000).expect("committed");
+        assert_eq!(budget.total, 4_000, "charged twice, which is the safe side");
+    }
+
+    #[test]
+    fn a_retry_of_a_committed_exchange_does_not_debit_again() {
+        // P-004 §7, and the reason `check` and `record` are separate calls: the
+        // retry never reaches the commit, because step 9 has already answered.
+        let (mut cache, policy) = cache();
+        let mut budget = TestBudget::default();
+        record(&mut cache, &mut budget, &policy, "urn:uuid:one", 2_000).expect("committed");
+        let outcome = cache.check(
+            "did:key:z6MkRequesterPrincipal",
+            "urn:uuid:one",
+            "nonce-for-urn:uuid:one",
+            "sha256:aa",
+            EXPIRES,
+        );
+        assert_eq!(outcome, Replay::Replayed(b"response".to_vec()));
+        assert_eq!(budget.total, 2_000, "one exchange, one debit");
+    }
+
+    #[test]
+    fn a_negative_debit_is_refused_before_it_reaches_the_budget() {
+        // A credit, not a debit. Refused here as well as at the manifest,
+        // because the two refusals close different holes: the registry's stops a
+        // published capacity below zero, and this stops any arithmetic between
+        // there and here from producing one.
+        let (mut cache, policy) = cache();
+        let mut budget = TestBudget::default();
+        let failure =
+            record(&mut cache, &mut budget, &policy, "urn:uuid:one", -1).expect_err("refused");
+        assert_eq!(failure, RecordFailure::NegativeDebit(-1));
+        assert_eq!(budget.total, 0);
+        assert!(
+            budget.last_principal.is_none(),
+            "the budget was never called, so nothing could have been credited"
+        );
+        assert!(cache.is_empty());
+    }
+
+    #[test]
+    fn a_zero_debit_commits() {
+        // `deny` and `escalate` debit nothing — E-01 — and their outcomes are
+        // still cached, because §4.7 caches every outcome reached at or after
+        // step 9. A zero treated as "nothing to do" would skip the entry and
+        // make a denial re-evaluate on every retry.
+        let (mut cache, policy) = cache();
+        let mut budget = TestBudget::default();
+        record(&mut cache, &mut budget, &policy, "urn:uuid:one", 0).expect("committed");
+        assert_eq!(budget.total, 0);
+        assert_eq!(cache.len(), 1, "the outcome is cached even though it was free");
     }
 }

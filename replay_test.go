@@ -2,17 +2,20 @@ package q2d
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 )
 
-// These mirror src/replay.rs's tests case for case.
+// These mirror src/replay.rs's tests case for case, with one exception:
+// TestNoBudgetIsRefusedRatherThanSkipped has no Rust counterpart, because Rust's
+// generic parameter cannot be absent and there is no case to write.
 
 const replayExpires int64 = 1000300
 
 const replayPrincipal = "did:key:z6MkRequesterPrincipal"
 
 func insertReplay(cache *ReplayCache, policy FreshnessPolicy, queryID string) {
-	cache.Insert(policy, replayPrincipal, queryID, "sha256:aa", []byte("response"), "nonce-for-"+queryID, replayExpires)
+	cache.insert(policy, replayPrincipal, queryID, "sha256:aa", []byte("response"), "nonce-for-"+queryID, replayExpires)
 }
 
 func TestAnEntryIsReturnedVerbatim(t *testing.T) {
@@ -66,7 +69,7 @@ func TestTheCacheNeverHidesAnEntryTheFreshnessCheckWouldAccept(t *testing.T) {
 	for window := int64(1); window <= 300; window++ {
 		issued, expires := int64(1000000), int64(1000000)+window
 		cache := NewReplayCache()
-		cache.Insert(policy, "p", "q", "sha256:aa", nil, "n", expires)
+		cache.insert(policy, "p", "q", "sha256:aa", nil, "n", expires)
 		for now := issued - 120; now <= expires+120; now++ {
 			acceptable := policy.Check(issued, expires, now) == nil
 			_, visible := cache.Get("p", "q", now)
@@ -128,7 +131,7 @@ func TestAShorterConfiguredWindowShortensRetention(t *testing.T) {
 		t.Fatal(err)
 	}
 	cache := NewReplayCache()
-	cache.Insert(strict, "p", "q", "sha256:aa", nil, "n", replayExpires)
+	cache.insert(strict, "p", "q", "sha256:aa", nil, "n", replayExpires)
 	if _, ok := cache.Get("p", "q", replayExpires+5); !ok {
 		t.Error("evicted inside the configured skew")
 	}
@@ -145,7 +148,7 @@ func TestAStoredResponseCannotBeMutatedThroughTheCallersSlice(t *testing.T) {
 	// sent.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
 	response := []byte("answer")
-	cache.Insert(policy, "p", "q", "sha256:aa", response, "n", replayExpires)
+	cache.insert(policy, "p", "q", "sha256:aa", response, "n", replayExpires)
 	response[0] = 'X'
 	entry, _ := cache.Get("p", "q", replayExpires)
 	if !bytes.Equal(entry.ResponseBytes, []byte("answer")) {
@@ -163,7 +166,7 @@ func TestANonceIsFoundUnderADifferentQueryID(t *testing.T) {
 	// under a new identifier shares no key with its first use, so without this
 	// index the second request is fresh.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
-	cache.Insert(policy, "p", "urn:uuid:one", "sha256:aa", nil, "N", replayExpires)
+	cache.insert(policy, "p", "urn:uuid:one", "sha256:aa", nil, "N", replayExpires)
 	if _, ok := cache.Get("p", "urn:uuid:two", replayExpires); ok {
 		t.Error("the primary index saw it, which it cannot")
 	}
@@ -180,7 +183,7 @@ func TestTheNonceIndexIsScopedToTheRequester(t *testing.T) {
 	// A global index would let any requester exhaust another's nonce values and
 	// deny them service.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
-	cache.Insert(policy, "p", "q", "sha256:aa", nil, "N", replayExpires)
+	cache.insert(policy, "p", "q", "sha256:aa", nil, "N", replayExpires)
 	if _, ok := cache.NonceUsed("someone-else", "N", replayExpires); ok {
 		t.Error("one requester's nonce reached another's index")
 	}
@@ -192,7 +195,7 @@ func TestTheStoreReportsTheDigestAndTakesNoView(t *testing.T) {
 	// would be a second place the rule lives — which is why this returns what it
 	// recorded rather than a verdict.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
-	cache.Insert(policy, "p", "q", "sha256:aa", nil, "N", replayExpires)
+	cache.insert(policy, "p", "q", "sha256:aa", nil, "N", replayExpires)
 	use, _ := cache.NonceUsed("p", "N", replayExpires)
 	if use.RequestDigest != "sha256:aa" {
 		t.Errorf("digest %q", use.RequestDigest)
@@ -203,7 +206,7 @@ func TestBothIndexesExpireAtTheSameInstant(t *testing.T) {
 	// Written together and evicted together, so no state exists in which a request
 	// is remembered by one and not the other.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
-	cache.Insert(policy, "p", "q", "sha256:aa", nil, "N", replayExpires)
+	cache.insert(policy, "p", "q", "sha256:aa", nil, "N", replayExpires)
 	through := policy.RetainThrough(replayExpires)
 	if _, ok := cache.Get("p", "q", through); !ok {
 		t.Error("entry gone at the instant")
@@ -225,8 +228,8 @@ func TestReplacingAnEntryRetiresTheNonceItReplaced(t *testing.T) {
 	// entry, and a documented invariant that depends on the caller's discipline is
 	// not one.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
-	cache.Insert(policy, "p", "q", "sha256:aa", nil, "first", replayExpires)
-	cache.Insert(policy, "p", "q", "sha256:bb", nil, "second", replayExpires)
+	cache.insert(policy, "p", "q", "sha256:aa", nil, "first", replayExpires)
+	cache.insert(policy, "p", "q", "sha256:bb", nil, "second", replayExpires)
 	if _, ok := cache.NonceUsed("p", "first", replayExpires); ok {
 		t.Error("the replaced nonce is still remembered")
 	}
@@ -238,7 +241,7 @@ func TestReplacingAnEntryRetiresTheNonceItReplaced(t *testing.T) {
 	}
 	// And replacing with the same nonce keeps it, rather than deleting the record
 	// it is about to write.
-	cache.Insert(policy, "p", "q", "sha256:cc", nil, "second", replayExpires)
+	cache.insert(policy, "p", "q", "sha256:cc", nil, "second", replayExpires)
 	use, ok := cache.NonceUsed("p", "second", replayExpires)
 	if !ok || use.RequestDigest != "sha256:cc" {
 		t.Errorf("%+v %v", use, ok)
@@ -251,7 +254,7 @@ func TestTheFourOutcomes(t *testing.T) {
 		t.Errorf("nothing recorded: %v, want fresh", got)
 	}
 
-	cache.Insert(policy, "p", "q1", "sha256:aa", []byte("answer"), "n1", replayExpires)
+	cache.insert(policy, "p", "q1", "sha256:aa", []byte("answer"), "n1", replayExpires)
 
 	got, response := cache.Check("p", "q1", "n1", "sha256:aa", replayExpires)
 	if got != ReplayReplayed || !bytes.Equal(response, []byte("answer")) {
@@ -275,7 +278,7 @@ func TestARetryIsAReplayAndNotANonceReuse(t *testing.T) {
 	// with an exception carved out for the common case is a rule waiting to be got
 	// wrong.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
-	cache.Insert(policy, "p", "q", "sha256:aa", []byte("answer"), "n", replayExpires)
+	cache.insert(policy, "p", "q", "sha256:aa", []byte("answer"), "n", replayExpires)
 	if _, ok := cache.NonceUsed("p", "n", replayExpires); !ok {
 		t.Fatal("both indexes should match")
 	}
@@ -290,7 +293,7 @@ func TestAReplayReturnsTheBytesThatWereStored(t *testing.T) {
 	// the responder re-evaluated — which under opaque escalation is what §5.3
 	// forbids revealing.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
-	cache.Insert(policy, "p", "q", "sha256:aa", []byte("exactly these"), "n", replayExpires)
+	cache.insert(policy, "p", "q", "sha256:aa", []byte("exactly these"), "n", replayExpires)
 	_, first := cache.Check("p", "q", "n", "sha256:aa", replayExpires)
 	_, second := cache.Check("p", "q", "n", "sha256:aa", replayExpires)
 	if !bytes.Equal(first, second) {
@@ -308,7 +311,7 @@ func TestAnExpiredEntryMakesTheRequestFreshAgain(t *testing.T) {
 	// that depended on a caller checking first would be a store with an
 	// undocumented precondition.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
-	cache.Insert(policy, "p", "q", "sha256:aa", nil, "n", replayExpires)
+	cache.insert(policy, "p", "q", "sha256:aa", nil, "n", replayExpires)
 	after := policy.RetainThrough(replayExpires) + 1
 	if got, _ := cache.Check("p", "q", "n", "sha256:aa", after); got != ReplayFresh {
 		t.Errorf("%v, want fresh", got)
@@ -335,5 +338,205 @@ func TestTheTwoRejectionsAreToldApartInternallyAndShareAStep(t *testing.T) {
 		if o.InternalReason() != "" || o.Step() != "" {
 			t.Errorf("%v reports %q at %q", o, o.InternalReason(), o.Step())
 		}
+	}
+}
+
+// ---- issue 5: the commit, and the fault injection around it ----
+
+// testBudget keeps a running total and can be made to refuse.
+//
+// The total is what the assertions read, not the call count: P-004 §7 asks for a
+// retry to produce no second debit against the budget total, and a call count
+// would pass for a store that was called once and applied the value twice.
+//
+// appliedBeforeRefusing is the fault injection. It models the store that
+// committed and then failed to report it — the case where Record returns an error
+// and the debit nevertheless stands.
+type testBudget struct {
+	total                 int64
+	refuse                bool
+	appliedBeforeRefusing bool
+	lastPrincipal         string
+	called                bool
+}
+
+// errRefused is everything P-008 will say, reduced to the one thing this file
+// needs.
+var errRefused = errors.New("refused")
+
+func (b *testBudget) Debit(principal string, millibits int64) error {
+	b.called = true
+	b.lastPrincipal = principal
+	if b.refuse {
+		if b.appliedBeforeRefusing {
+			b.total += millibits
+		}
+		return errRefused
+	}
+	b.total += millibits
+	return nil
+}
+
+func recordReplay(cache *ReplayCache, budget Budget, policy FreshnessPolicy, queryID string, debit int64) error {
+	return cache.Record(budget, policy, replayPrincipal, queryID, "nonce-for-"+queryID,
+		"sha256:aa", []byte("response"), replayExpires, debit)
+}
+
+func TestACommitWritesBothIndexesAndDebitsOnce(t *testing.T) {
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	budget := &testBudget{}
+	if err := recordReplay(cache, budget, policy, "urn:uuid:one", 2000); err != nil {
+		t.Fatalf("committed: %v", err)
+	}
+	if budget.total != 2000 {
+		t.Errorf("total %d", budget.total)
+	}
+	if budget.lastPrincipal != replayPrincipal {
+		t.Errorf("the debit landed on %q, not the requester the entry is keyed under", budget.lastPrincipal)
+	}
+	if cache.Len() != 1 || cache.NonceLen() != 1 {
+		t.Errorf("%d entries, %d nonces", cache.Len(), cache.NonceLen())
+	}
+}
+
+func TestARefusedDebitLeavesNoEntry(t *testing.T) {
+	// The fault injection, and the property is the absence: an entry written
+	// beside a debit that did not happen is the under-charge — a retry would find
+	// it, return the stored bytes, and the disclosure would never be paid for.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	budget := &testBudget{refuse: true}
+	err := recordReplay(cache, budget, policy, "urn:uuid:one", 2000)
+	if !errors.Is(err, errRefused) {
+		t.Fatalf("err %v", err)
+	}
+	if budget.total != 0 {
+		t.Errorf("total %d", budget.total)
+	}
+	if cache.Len() != 0 || cache.NonceLen() != 0 {
+		t.Errorf("%d entries, %d nonces; neither index should have been written", cache.Len(), cache.NonceLen())
+	}
+}
+
+func TestARefusedDebitLeavesAnEarlierExchangeAlone(t *testing.T) {
+	// The refusal must not be a rollback of something else. An earlier exchange
+	// under a different identifier is committed and paid for, and a later refusal
+	// has no business touching it.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	budget := &testBudget{}
+	if err := recordReplay(cache, budget, policy, "urn:uuid:one", 2000); err != nil {
+		t.Fatalf("committed: %v", err)
+	}
+	budget.refuse = true
+	if err := recordReplay(cache, budget, policy, "urn:uuid:two", 2000); err == nil {
+		t.Fatal("the second commit should have been refused")
+	}
+	if budget.total != 2000 {
+		t.Errorf("total %d", budget.total)
+	}
+	if cache.Len() != 1 {
+		t.Errorf("%d entries", cache.Len())
+	}
+	if _, ok := cache.Get(replayPrincipal, "urn:uuid:one", replayExpires); !ok {
+		t.Error("the earlier exchange was lost")
+	}
+}
+
+func TestAFailureAfterTheDebitOverChargesRatherThanUnderCharging(t *testing.T) {
+	// §4.6's accepted direction, asserted rather than described. The store applied
+	// the debit and then failed to say so, which is the crash window debit-first
+	// leaves open. The retry arrives as fresh — nothing was cached — and pays a
+	// second time.
+	//
+	// That is the whole of what debit-first buys, and the test says so in the
+	// direction that matters: never the other one.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	budget := &testBudget{refuse: true, appliedBeforeRefusing: true}
+	if err := recordReplay(cache, budget, policy, "urn:uuid:one", 2000); err == nil {
+		t.Fatal("the commit should have been refused")
+	}
+	if budget.total != 2000 {
+		t.Errorf("the debit should stand; total %d", budget.total)
+	}
+	if cache.Len() != 0 {
+		t.Errorf("%d entries", cache.Len())
+	}
+
+	budget.refuse = false
+	outcome, _ := cache.Check(replayPrincipal, "urn:uuid:one", "nonce-for-urn:uuid:one", "sha256:aa", replayExpires)
+	if outcome != ReplayFresh {
+		t.Fatalf("outcome %v; nothing should suppress the retry", outcome)
+	}
+	if err := recordReplay(cache, budget, policy, "urn:uuid:one", 2000); err != nil {
+		t.Fatalf("committed: %v", err)
+	}
+	if budget.total != 4000 {
+		t.Errorf("total %d; charged twice is the safe side", budget.total)
+	}
+}
+
+func TestARetryOfACommittedExchangeDoesNotDebitAgain(t *testing.T) {
+	// P-004 §7, and the reason Check and Record are separate calls: the retry
+	// never reaches the commit, because step 9 has already answered.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	budget := &testBudget{}
+	if err := recordReplay(cache, budget, policy, "urn:uuid:one", 2000); err != nil {
+		t.Fatalf("committed: %v", err)
+	}
+	outcome, stored := cache.Check(replayPrincipal, "urn:uuid:one", "nonce-for-urn:uuid:one", "sha256:aa", replayExpires)
+	if outcome != ReplayReplayed || !bytes.Equal(stored, []byte("response")) {
+		t.Fatalf("outcome %v, bytes %q", outcome, stored)
+	}
+	if budget.total != 2000 {
+		t.Errorf("total %d; one exchange, one debit", budget.total)
+	}
+}
+
+func TestANegativeDebitIsRefusedBeforeItReachesTheBudget(t *testing.T) {
+	// A credit, not a debit. Refused here as well as at the manifest, because the
+	// two refusals close different holes: the registry's stops a published
+	// capacity below zero, and this stops any arithmetic between there and here
+	// from producing one.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	budget := &testBudget{}
+	if err := recordReplay(cache, budget, policy, "urn:uuid:one", -1); !errors.Is(err, ErrNegativeDebit) {
+		t.Fatalf("err %v", err)
+	}
+	if budget.called {
+		t.Error("the budget was called, so it could have been credited")
+	}
+	if cache.Len() != 0 {
+		t.Errorf("%d entries", cache.Len())
+	}
+}
+
+func TestAZeroDebitCommits(t *testing.T) {
+	// deny and escalate debit nothing — E-01 — and their outcomes are still
+	// cached, because §4.7 caches every outcome reached at or after step 9. A zero
+	// treated as "nothing to do" would skip the entry and make a denial
+	// re-evaluate on every retry.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	budget := &testBudget{}
+	if err := recordReplay(cache, budget, policy, "urn:uuid:one", 0); err != nil {
+		t.Fatalf("committed: %v", err)
+	}
+	if budget.total != 0 {
+		t.Errorf("total %d", budget.total)
+	}
+	if cache.Len() != 1 {
+		t.Errorf("%d entries; the outcome is cached even though it was free", cache.Len())
+	}
+}
+
+func TestNoBudgetIsRefusedRatherThanSkipped(t *testing.T) {
+	// Go's interfaces admit a nil where Rust's generic parameter cannot be absent
+	// — CONVENTIONS-go.md §4. Committing an entry against no budget at all is
+	// exactly the under-charge Record exists to prevent, so it is a named refusal
+	// and not a caller convenience.
+	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
+	if err := recordReplay(cache, nil, policy, "urn:uuid:one", 2000); !errors.Is(err, ErrNoBudget) {
+		t.Fatalf("err %v", err)
+	}
+	if cache.Len() != 0 {
+		t.Errorf("%d entries", cache.Len())
 	}
 }
