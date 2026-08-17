@@ -428,8 +428,7 @@ var ErrNoBudget = errors.New("q2d: a reservation with no budget to settle it aga
 // error means nothing was committed: no state exists in which a cache entry was
 // committed and its debit was not. The converse state does exist — a settled debit
 // with no entry, which the retry pays for a second time — and it is real until the
-// transaction above is built. Both stores being in memory is what makes it
-// unreachable right now, and that is a fact about today rather than a property.
+// transaction above is built.
 //
 // # What it does not do
 //

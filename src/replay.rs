@@ -428,8 +428,6 @@ impl ReplayCache {
     /// which a cache entry was committed and its debit was not.** The converse
     /// state does exist — a settled debit with no entry, which the retry pays
     /// for a second time — and it is real until the transaction above is built.
-    /// Both stores being in memory is what makes it unreachable right now, and
-    /// that is a fact about today rather than a property.
     ///
     /// ## What it does not do
     ///
