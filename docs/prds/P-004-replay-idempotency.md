@@ -44,7 +44,16 @@ charge twice.
 
 **Inside:** nonce requirements; the replay cache and its key; expiry and skew
 evaluation; validity-window bounds; cache retention; the verbatim-response rule;
-atomic commit of debit and cache entry.
+the **order** in which the debit and the cache entry are committed, and the rule
+that they must be committed together.
+
+**Inside as a rule, and not as a mechanism:** the atomic commit itself. §4.6
+requires it; `record` cannot provide it, because the cache write is not inside
+anything a caller can open or close. The transaction that delivers it is
+[P-010](P-010-responder-pipeline.md) §5's, over the single store
+[P-008](P-008-capacity-accounting.md)'s open question 3 resolved to. This PRD
+therefore owns the requirement and the fallback order; neither of the two
+modules that own the mechanism may weaken it.
 
 **Explicitly outside:** the escalation lifecycle (**P-015**) — this PRD
 guarantees a cached outcome is returned unchanged, and P-015 relies on that
@@ -348,8 +357,13 @@ failure this PRD is most likely to actually have.
 5. **The maximum validity window bounds cache retention.** Relaxing the window
    relaxes memory bounds. Both are [`freshness.md`](../../spec/freshness.md) §1's
    now, so changing either is a specification change and not this PRD's to make.
-6. **Debit and cache entry commit atomically; debit first if they cannot.**
-   Over-charging is safe, under-charging is not.
+6. **The debit and the cache entry are committed together, and where they
+   cannot be, the debit goes first.** Over-charging is safe, under-charging is
+   not. The order is decided here and is built; the atomic commit is decided
+   here and is **built elsewhere** — §4.6 and issue 5 say where. Both halves are
+   escalate-if-changed, and the second is the one most likely to be quietly
+   dropped, because the module that requires it is not the module that provides
+   it.
 7. **Outcomes at or after step 9 are cached, including rejections.**
 
 ## 10. Open questions
