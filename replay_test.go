@@ -7,9 +7,8 @@ import (
 )
 
 // These mirror src/replay.rs's tests case for case, with one exception:
-// TestANilBudgetOrReservationIsRefusedRatherThanSkipped has no Rust counterpart,
-// because Rust's generic parameters cannot be absent and there is no case to
-// write.
+// TestAReservationWithNoBudgetIsRefused has no Rust counterpart, because Rust's
+// generic parameter cannot be absent and there is no case to write.
 
 const replayExpires int64 = 1000300
 
@@ -520,38 +519,44 @@ func TestTheAmountNeverReachesThisPackage(t *testing.T) {
 	}
 }
 
-func TestAZeroDebitCommits(t *testing.T) {
-	// deny and escalate debit nothing — E-01 — and their outcomes are still
-	// cached, because §4.7 caches every outcome reached at or after step 9. A
-	// zero-valued reservation treated as "nothing to settle" would skip the entry
-	// and make a denial re-evaluate on every retry — and this package cannot make
-	// that mistake, because it cannot see the value.
+func TestADenialCommitsWithNoReservation(t *testing.T) {
+	// §4.7 caches every outcome from step 9 onward, and E-01 settled that deny and
+	// escalate debit nothing — so most cached outcomes have no reservation at all.
+	// A required one would force a caller either to skip caching denials, which
+	// lets a denial become an answer on retry, or to mint an empty reservation,
+	// which is a debit-shaped object where E-01 says none belongs.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
 	budget := &testBudget{}
-	if err := recordReplay(cache, budget, policy, "urn:uuid:one", 0); err != nil {
+	if err := cache.Record(budget, policy, replayPrincipal, "urn:uuid:one", "n", "sha256:aa",
+		[]byte("denied"), replayExpires, nil); err != nil {
 		t.Fatalf("committed: %v", err)
+	}
+	if budget.settled != 0 {
+		t.Errorf("%d settles; nothing should have been settled", budget.settled)
 	}
 	if budget.total != 0 {
 		t.Errorf("total %d", budget.total)
 	}
 	if cache.Len() != 1 {
-		t.Errorf("%d entries; the outcome is cached even though it was free", cache.Len())
+		t.Errorf("%d entries; the outcome is cached anyway", cache.Len())
+	}
+	// And it is returned verbatim on a retry, which is the whole point: a denial
+	// that re-evaluated could come back as something else.
+	outcome, stored := cache.Check(replayPrincipal, "urn:uuid:one", "n", "sha256:aa", replayExpires)
+	if outcome != ReplayReplayed || !bytes.Equal(stored, []byte("denied")) {
+		t.Errorf("outcome %v, bytes %q", outcome, stored)
 	}
 }
 
-func TestANilBudgetOrReservationIsRefusedRatherThanSkipped(t *testing.T) {
-	// Go's interfaces admit a nil where Rust's generic parameters cannot be absent
-	// — CONVENTIONS-go.md §4. Committing an entry against no budget, or settling
-	// nothing, is exactly the under-charge Record exists to prevent, so each is a
-	// named refusal and not a caller convenience.
+func TestAReservationWithNoBudgetIsRefused(t *testing.T) {
+	// Go's interfaces admit a nil where Rust's generic parameter cannot be absent
+	// — CONVENTIONS-go.md §4. A reservation handed to no budget would be dropped
+	// silently and the entry committed against capacity nobody spent, so it is a
+	// named refusal. A nil reservation is not: that is a denial, and the test
+	// above is it.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
 	if err := recordReplay(cache, nil, policy, "urn:uuid:one", 2000); !errors.Is(err, ErrNoBudget) {
-		t.Errorf("nil budget: %v", err)
-	}
-	err := cache.Record(&testBudget{}, policy, replayPrincipal, "urn:uuid:one", "n", "sha256:aa",
-		[]byte("response"), replayExpires, nil)
-	if !errors.Is(err, ErrNoReservation) {
-		t.Errorf("nil reservation: %v", err)
+		t.Errorf("err %v", err)
 	}
 	if cache.Len() != 0 {
 		t.Errorf("%d entries", cache.Len())

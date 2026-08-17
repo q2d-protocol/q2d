@@ -436,6 +436,22 @@ impl ReplayCache {
     ///
     /// It does not release a reservation it failed to settle, and does not
     /// retry. What becomes of one is P-008's and P-010 §4.7's.
+    ///
+    /// ## Why the reservation is optional
+    ///
+    /// §4.7 caches **every** outcome reached at or after step 9, and most of
+    /// them never reach the budget: a rate-limit rejection at 9a, an unknown
+    /// predicate at 10, a schema or constraint failure at 11 and 11a, a policy
+    /// denial at 14. [E-01](../docs/open-escalations.md) settled that neither
+    /// `deny` nor `escalate` debits, so there is nothing to settle and no
+    /// reservation to hold. A required reservation would leave a caller either
+    /// not caching denials — which breaks §4.7, and lets a denial become an
+    /// answer on retry — or minting an empty one, which puts a debit-shaped
+    /// object where E-01 says none belongs.
+    ///
+    /// **This module cannot tell an answer from a denial**, and does not try:
+    /// `None` is the caller's assertion that nothing was released. Step 18 is
+    /// where that assertion is made and P-010's is the pipeline that makes it.
     #[allow(clippy::too_many_arguments)]
     pub fn record<B: Budget + ?Sized>(
         &mut self,
@@ -447,9 +463,11 @@ impl ReplayCache {
         request_digest: &str,
         response_bytes: Vec<u8>,
         expires_at: i64,
-        reservation: B::Reservation,
+        reservation: Option<B::Reservation>,
     ) -> Result<(), B::Refusal> {
-        budget.settle(reservation)?;
+        if let Some(reservation) = reservation {
+            budget.settle(reservation)?;
+        }
         self.insert(
             policy,
             principal,
@@ -805,7 +823,7 @@ mod tests {
             "sha256:aa",
             b"response".to_vec(),
             EXPIRES,
-            TestReservation(debit),
+            Some(TestReservation(debit)),
         )
     }
 
@@ -932,23 +950,49 @@ mod tests {
                 "sha256:aa",
                 b"response".to_vec(),
                 EXPIRES,
-                reservation,
+                Some(reservation),
             )
             .expect("committed");
         assert_eq!(budget.total, 2_000, "the amount was the reservation's");
     }
 
     #[test]
-    fn a_zero_debit_commits() {
-        // `deny` and `escalate` debit nothing — E-01 — and their outcomes are
-        // still cached, because §4.7 caches every outcome reached at or after
-        // step 9. A zero-valued reservation treated as "nothing to settle" would
-        // skip the entry and make a denial re-evaluate on every retry — and this
-        // module cannot make that mistake, because it cannot see the value.
+    fn a_denial_commits_with_no_reservation() {
+        // §4.7 caches every outcome from step 9 onward, and E-01 settled that
+        // `deny` and `escalate` debit nothing — so most cached outcomes have no
+        // reservation at all. A required one would force a caller either to skip
+        // caching denials, which lets a denial become an answer on retry, or to
+        // mint an empty reservation, which is a debit-shaped object where E-01
+        // says none belongs.
         let (mut cache, policy) = cache();
         let mut budget = TestBudget::default();
-        record(&mut cache, &mut budget, &policy, "urn:uuid:one", 0).expect("committed");
+        cache
+            .record(
+                &mut budget,
+                &policy,
+                "did:key:z6MkRequesterPrincipal",
+                "urn:uuid:one",
+                "n",
+                "sha256:aa",
+                b"denied".to_vec(),
+                EXPIRES,
+                None,
+            )
+            .expect("committed");
+        assert_eq!(budget.settled, 0, "nothing was settled");
         assert_eq!(budget.total, 0);
-        assert_eq!(cache.len(), 1, "the outcome is cached even though it was free");
+        assert_eq!(cache.len(), 1, "and the outcome is cached anyway");
+        // And it is returned verbatim on a retry, which is the whole point: a
+        // denial that re-evaluated could come back as something else.
+        assert_eq!(
+            cache.check(
+                "did:key:z6MkRequesterPrincipal",
+                "urn:uuid:one",
+                "n",
+                "sha256:aa",
+                EXPIRES
+            ),
+            Replay::Replayed(b"denied".to_vec())
+        );
     }
 }

@@ -386,18 +386,17 @@ type Budget interface {
 	Settle(reservation Reservation) error
 }
 
-// ErrNoBudget is Record called with no budget to settle against, and
-// ErrNoReservation is Record called with no reservation to settle.
+// ErrNoBudget is Record called with a reservation and no budget to settle it
+// against.
 //
-// Go's interfaces admit a nil where Rust's generic parameters cannot be absent,
-// so both refusals exist on one side only — CONVENTIONS-go.md §4's rule that a
-// nil interface value is a distinct case and gets a named refusal. What both
-// implementations agree on is that no entry is committed without a settled
-// reservation.
-var (
-	ErrNoBudget      = errors.New("q2d: no budget to settle against")
-	ErrNoReservation = errors.New("q2d: no reservation to settle")
-)
+// Go's interfaces admit a nil where Rust's generic parameter cannot be absent, so
+// this refusal exists on one side only — CONVENTIONS-go.md §4's rule that a nil
+// interface value is a distinct case and gets a named refusal. What both
+// implementations agree on is that a reservation is never dropped silently.
+//
+// A nil *reservation* is not an error: it is a cached outcome that debits
+// nothing, which is most of them. See Record.
+var ErrNoBudget = errors.New("q2d: a reservation with no budget to settle it against")
 
 // Record commits an exchange and settles its capacity debit — P-004 §4.6, issue 5.
 //
@@ -437,19 +436,33 @@ var (
 //
 // It does not release a reservation it failed to settle, and does not retry. What
 // becomes of one is P-008's and P-010 §4.7's.
+//
+// # Why the reservation is optional
+//
+// §4.7 caches every outcome reached at or after step 9, and most of them never
+// reach the budget: a rate-limit rejection at 9a, an unknown predicate at 10, a
+// schema or constraint failure at 11 and 11a, a policy denial at 14. E-01 settled
+// that neither deny nor escalate debits, so there is nothing to settle and no
+// reservation to hold. A required reservation would leave a caller either not
+// caching denials — which breaks §4.7, and lets a denial become an answer on
+// retry — or minting an empty one, which puts a debit-shaped object where E-01
+// says none belongs.
+//
+// This file cannot tell an answer from a denial, and does not try: a nil
+// reservation is the caller's assertion that nothing was released. Step 18 is
+// where that assertion is made and P-010's is the pipeline that makes it.
 func (c *ReplayCache) Record(budget Budget, policy FreshnessPolicy, principal, queryID, nonce, requestDigest string, responseBytes []byte, expiresAt int64, reservation Reservation) error {
-	// A nil interface value is its own case, not a caller convenience meaning "no
-	// budget" or "nothing to settle". Committing an entry against neither is the
-	// under-charge this function exists to prevent, so both are refused rather
-	// than skipped.
-	if budget == nil {
-		return ErrNoBudget
-	}
-	if reservation == nil {
-		return ErrNoReservation
-	}
-	if err := budget.Settle(reservation); err != nil {
-		return err
+	if reservation != nil {
+		// A nil interface value is its own case, not a caller convenience. A
+		// reservation handed to no budget would be dropped silently, and the entry
+		// committed against capacity nobody spent — the under-charge this function
+		// exists to prevent.
+		if budget == nil {
+			return ErrNoBudget
+		}
+		if err := budget.Settle(reservation); err != nil {
+			return err
+		}
 	}
 	c.insert(policy, principal, queryID, requestDigest, responseBytes, nonce, expiresAt)
 	return nil
