@@ -2845,6 +2845,13 @@ how: the registry-entry endpoint is gone, so `http_exchange` never exercises it,
 and `requester/order/` needs an operation that can assert *which step* rejected
 rather than only that the response was rejected.
 
+**Issue 17 is now done**, alongside [E-51](#e-51--a-vector-cannot-describe-a-sequence),
+which added the one operation no PRD had proposed. E-14's need turned out to be
+`process_response` — a sequence of *steps* over one response, which this
+paragraph called a step-asserting operation and §4.5 had called a
+sequence-asserting one. E-51's is a sequence of *requests*. Settling them
+together is what surfaced the collision.
+
 **Cascade:** P-001 §4.5 and §10 · corpus sections of P-012 … P-016 · P-013 open
 question 5.
 
