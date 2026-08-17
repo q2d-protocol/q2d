@@ -214,8 +214,8 @@ question is still fresh than after the answer arrives.
 | **E-46** | Which `external_reason` for a `signed` string that is not a well-formed compact JWS? | P-003 issue 2 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, issues 6–8 · `suite/verify/` · both implementations | **Closed** |
 | **E-47** | Ed25519 in Rust needs a dependency policy, and there is no conventions document | P-003 issue 1 | `CONVENTIONS-rust.md`, `CONVENTIONS-go.md` (both new) · `Cargo.toml`, `go.mod` · both implementations · `testdata/ed25519-acceptance.txt` · CI | **Closed** |
 | **E-51** | A vector cannot describe a sequence, and idempotency is a property of the second request | P-004 issue 8 | `conformance/vector.schema.json` + served copy · `conformance/RUNNER-CONTRACT.md` · `conformance/harness/lint.py` · the reference stub · P-001 §4.5, §4.6, §10, issue 17 · P-004 §6, issue 8 · P-008 §6 · P-012 §6 · P-015 §10 | **Closed** |
+| **E-52** | A sequence cannot carry an event between its requests, and an approval is one | E-51's resolution, via P-015 §10 | `conformance/vector.schema.json` + served copy · P-001 §4.5, §4.6 · P-015 §6, §10, issues 4 and 12 | **Open** |
 | **E-50** | Does the replay check track nonces, or only `query_id`s? | P-004 issue 2 (review) | `freshness.md` §1, §3.1 (new) · `core-model.md` §5.2.1 unchanged · P-004 §4.2, §4.3, §9 item 2, §10, issues 2 and 3 · both implementations' `replay` | **Closed** |
-| **E-51** | **C — one operation whose input is a list of requests.** `process_sequence` takes an ordered list, processed against one responder state, and returns one result per request under `output.results`. The sequence lives inside `input`, where the projection already passes it through untouched, so the **vector format, the projection and the runner contract are unchanged**: one vector per invocation, one result, a runner holding no state between invocations. A refused request inside the list leaves the top-level `outcome` as `ok` — the implementation processed what it was given, and `rejected` would both misstate that and lose which request was refused, since `rejection` is one object. `result.schema.json` is therefore unchanged too. Decided with **P-001 issue 17**, which settled the whole Stage 5–8 vocabulary in the same change so that a new operation is not named unilaterally | `conformance/vector.schema.json` + served copy · `conformance/RUNNER-CONTRACT.md` · `conformance/harness/lint.py` (a sequence of one asserts nothing) · the reference stub's vocabulary · two harness tests whose asserted absences this inverts · P-001 §4.5, §4.6, §10, issue 17 · P-004 §6, issue 8 · P-008 §6 · P-012 §6 · P-015 §10 (which must raise its own) |
 | **E-49** | Every freshness and replay constant lives in a PRD, not in `spec/` | P-004 issue 1 | `freshness.md` (new) · `core-model.md` §2.2, §4 steps 6 and 9, §5.2.1 · `claims.md` Q2D-C-07 · `conformance-classes.md` · P-004 §2, §4.3, §4.4, §6, §7, §8, §9, §10, issues 1, 4 and 9 · P-008 §4.5 · P-015 §4.2, §4.7 · both implementations' `timestamp` | **Closed** |
 | **E-48** | A vector can describe a message, but not the verifier that receives it | P-003 issue 11 | `conformance/vector.schema.json` + its served copy · P-001 §4.3, §6, RUNNER-CONTRACT · P-003 §6, §7, issues 8 and 11 · `suite/status/`, `suite/downgrade/below-floor` · both implementations · P-012 | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
@@ -2906,6 +2906,7 @@ raised by E-17's own resolution rather than by a PRD. E-21, E-22, E-23 and E-24 
 | **E-33** | **`spec/` enumerates Tiers A and B; the registry keeps Tier C.** New `core-model.md` **§5.2.1**: `malformed`, `unsupported_version`, `unsupported_suite`, `routing_mismatch` and `expired` are distinct because each describes the *request*; `unauthenticated` collapses the whole of authentication, since distinguishing an unknown key from a bad signature would let a requester probe which identities a custodian holds; Tier C stays the responder's pinned registry's declared value — manifest-level, so it is in hand for the rejections that never resolve an entry: a replay at step 9, a rate limit at 9a, an unknown predicate at 10. An unrecognised value is an **opaque rejection**, so adding one later does not break an older requester. | `core-model.md` §5.2, §5.2.1 · P-009 §4.1, §5, §3 · P-012 §5, §6 · P-001 issue 12 |
 | **E-34** | **One new value, `structurally_invalid`** — a sixth Tier A value for a message that parses and is wrong in a way that is neither a parse failure nor an authentication one: a header carrying `alg`, or one whose `suite` or `key_id` disagrees with the payload's. Not `unsupported_suite` or `unauthenticated`, because the suite was acceptable and nothing failed to authenticate — the `alg` case is refused at step 3 before a signature is checked at all; not `malformed`, because those parse. One value for three causes because which part disagreed is visible in the message the requester itself produced — unlike `unsupported_suite`, which collapses to withhold the custodian's floor. §5.2.1 now states the test a future value must pass: it must send a requester somewhere a neighbouring value would not. | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · P-009 §4.1, §5 · P-001 issue 13 |
 | **E-35** | **A lettered query step 5a**, immediately after parsing: confirm the protected header's `suite` and `key_id` equal the payload's copies. It cannot precede step 5, since it needs the parsed object, and it precedes every step that acts on a payload field. Symmetric with the response order's 4a, which E-32 added for the same check — the requirement had existed in `crypto-suites.md` §3 and P-003 §4.2 with no slot in the query order that cites it. Lettered so steps 6–19 do not renumber. | `core-model.md` §4 query order, §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, §6 · `conformance-classes.md` CC-2 · `mvp-scope.md` · P-010 · P-001 §5, issue 14 · both schemas and both served copies |
+| **E-51** | **C — one operation whose input is a list of requests.** `process_sequence` takes an ordered list, processed against one responder state, and returns one result per request under `output.results`. The sequence lives inside `input`, where the projection already passes it through untouched, so the **vector format, the projection and the runner contract are unchanged**: one vector per invocation, one result, a runner holding no state between invocations. A refused request inside the list leaves the top-level `outcome` as `ok` — the implementation processed what it was given, and `rejected` would both misstate that and lose which request was refused, since `rejection` is one object. `result.schema.json` is therefore unchanged too. Decided with **P-001 issue 17**, which settled the whole Stage 5–8 vocabulary in the same change so that a new operation is not named unilaterally | `conformance/vector.schema.json` + served copy · `conformance/RUNNER-CONTRACT.md` · `conformance/harness/lint.py` (a sequence of one asserts nothing) · the reference stub's vocabulary · two harness tests whose asserted absences this inverts · P-001 §4.5, §4.6, §10, issue 17 · P-004 §6, issue 8 · P-008 §6 · P-012 §6 · P-015 §10 (which must raise its own) |
 
 ## E-36 — Does §2.2's timestamp spelling bind every string, or only the fields §2.2 names?
 
@@ -4552,6 +4553,95 @@ operation"*, meaning a sequence of **steps** over one response. That is
 `process_response`. E-51's is a sequence of **requests**. Two things under one
 word, inside the very list that exists to stop two names for one thing, so each
 now has its own name and the word names neither.
+
+---
+
+## E-52 — A sequence cannot carry an event between its requests, and an approval is one
+
+**Raised by** [E-51](#e-51--a-vector-cannot-describe-a-sequence)'s resolution,
+which stated this boundary and said P-015 should expect to raise it. **Open.**
+Recorded now rather than when `escalation/` is authored, because a question
+living only in the PRD that found it is findable by someone already reading that
+PRD and by nobody else — which is the failure this register exists to prevent.
+
+### The problem
+
+`process_sequence` processes an ordered list of requests **against one responder
+state**. That covers a retry, a `query_id` reuse, a running total. It does not
+cover an escalation, because the thing that happens between the two requests is
+not a request:
+
+1. A requester asks `contact/contactable-for`. Policy escalates.
+2. **An authority approves, out of band** — over whatever channel the deployment
+   uses, which the protocol deliberately does not specify.
+3. The requester asks again, and [`core-model.md`](../spec/core-model.md) §5.3
+   governs what it gets.
+
+Step 2 has no message, no envelope and no signature the corpus can hand a
+runner. It is a state change inside the responder, caused by something outside
+the exchange.
+
+### What is blocked
+
+Four of `escalation/`'s eight groups, all of which are P-015 issue 12's:
+`retry/` (*"identical retry after an approval returns the cached outcome"*),
+`fresh/` (*"fresh query with a matching scope is revalidated end to end"*),
+`grant/` (*"a consumed grant does not apply — a second fresh query in the same
+window escalates again"*), and `poll/`'s decided outcome. P-015 issue 4 is
+written against the same shape.
+
+The other four are single requests and are unaffected.
+
+### Options
+
+**A — `input.verifier` carries the grant**, as declared configuration: the
+responder starts the sequence with an approval already recorded.
+*For:* no new operation, no format change; `verifier` is exactly where E-48 put
+declared configuration.
+*Against:* [E-48](#e-48--a-vector-can-describe-a-message-but-not-the-verifier-that-receives-it)
+drew the line at *"configuration is declared; history is replayed"*, and a grant
+is history — it is the outcome of a previous exchange. A vector could assert a
+grant exists without any vector having escalated to produce one, which is E-51's
+own reason for refusing the pre-loaded cache.
+
+**B — the sequence's entries are a tagged union**: a request, or an approval.
+*For:* the approval is where it actually happens, in order, and the runner
+applies it as the authority would. One operation still, one result still.
+*Against:* the corpus starts describing something that is not a message. Every
+other `input` is protocol data a real party could send; this would be an
+instruction to the runner.
+
+**C — a second operation** taking requests and approvals as separate ordered
+lists with positions.
+*Against:* the same objection as B with more machinery, and a second operation
+where B extends one.
+
+**D — accept it**, and demonstrate the four groups in mirrored unit tests.
+*Against:* Q2D-C-10's *"an identical retry never becomes an answer after
+approval"* is the sharpest thing P-015 claims, and it would rest on tests that
+cannot disagree across implementations.
+
+### Recommendation — B, and not yet
+
+B is right because the alternative to describing the approval is asserting its
+*effect*, which is A, and A is the thing E-48 and E-51 both refused for the same
+reason. An approval in the list is honest about what it is: the corpus already
+describes a responder's configuration in `verifier`, and this describes an event
+the responder is told about. The line E-48 drew is between declaring history and
+replaying it, and B replays it.
+
+**Not yet, because nothing is blocked today.** `escalation/` is Stage 7, P-015
+issue 12 is unstarted, and the four groups cannot be authored until the pipeline
+they run through exists. Deciding B now would settle the shape of an operation
+against no vector, which is how E-51's own brief got two details wrong. It is
+recorded here so it is not rediscovered, and it should be decided when P-015
+issue 12 is picked up.
+
+**Where the recommendation stops being right.** If a second event type appears —
+a revocation, a clock advance, a manifest reload — B becomes a general
+event-list operation, and at that point the tagged union is a small interpreter
+and option C's separation is worth revisiting. One event type is a union; three
+is a language.
 
 ---
 
