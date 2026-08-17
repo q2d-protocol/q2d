@@ -556,7 +556,9 @@ are the ones this PRD found, and both change documents above it.
 | 14 | Two-machine walkthrough, executed by someone who did not write it | The Stage 6 gate |
 | 15 | Claim-language audit across quickstart and operator docs | No text claims Q2D-C-11, CC-8, or CC-9, describes CC-12 as establishing Q2D-C-11, or says TLS closes a residual channel |
 
-Issue 9 blocks
-on [P-001](P-001-conformance-corpus.md)'s operation vocabulary, which is the
-first time a later stage has needed to extend it; [P-001](P-001-conformance-corpus.md)
-§4.5 anticipated that and requires extension rather than redefinition.
+Issue 9 **no longer blocks on [P-001](P-001-conformance-corpus.md)'s operation
+vocabulary**, which it did as the first later stage to need one: issue 17 there
+settled every name through Stage 8 in one change, and `http_exchange` is in
+§4.5's table and the schema's enum. Open question 5 records its input and output
+shape. The runner half is still this PRD's — a name a runner has not built
+exits 1 — so what remains is implementation rather than a decision elsewhere.

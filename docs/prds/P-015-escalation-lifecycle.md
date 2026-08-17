@@ -527,7 +527,7 @@ right.
 | 9 | Fresh-query revalidation path | `escalation/fresh/` shows every step running |
 | 10 | `issue_token` and `poll` | `escalation/explicit/` and `escalation/poll/` pass; two polls leave identical state |
 | 11 | Approval CLI | An operator approves and refuses locally; no network surface added |
-| 12 | Author `escalation/` corpus section | Seven groups; `harness lint` clean |
+| 12 | Author `escalation/` corpus section | **Eight** groups; `harness lint` clean. This row said seven and §6 has listed eight since `escalation/scope/` was added — a count nobody re-read, which would have closed the issue a group short. **Four of the eight are blocked on [E-52](../open-escalations.md)**: `retry/`, `fresh/`, `grant/` and `poll/`'s decided outcome each need an approval *between* two requests, and [E-51](../open-escalations.md)'s `process_sequence` carries requests only. The other four are single requests and are authorable when the pipeline is |
 | 13 | Claim-language audit | Nothing calls explicit escalation normalized, or claims a §4.9 channel is closed |
 
 Issue 4 is the one to schedule properly: a
