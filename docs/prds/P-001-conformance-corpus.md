@@ -324,18 +324,8 @@ applies to the harness too.
 | `policy_decide` | 3 | Policy contract input → decision + modifiers |
 | `evaluate_predicate` | 4 | Local evaluation and output validation |
 | `process_query` | 4 | The full §4 pipeline |
-
-Later stages extend the table; they do not redefine existing entries.
-
-**Stages 5–8 need operations this table does not have, and the extension must be
-one coordinated change rather than four.** Each later PRD arrived at its own
-needs independently, and an operation named `http_exchange` in one
-implementation and `binding_exchange` in the other is a divergence the corpus
-exists to prevent — with the added hazard that it would surface as a runner
-error rather than as a failing vector.
-
-| Anticipated operation | Stage | Needed by |
-|---|---|---|
+| `process_sequence` | 4 | **One responder, several requests, in order** — [E-51](../open-escalations.md). Idempotency is a property of the *second* request and no vector could describe one; the sequence lives inside `input`, where the projection already passes it through untouched, so the vector format, the projection and the runner contract are unchanged. §4.6 fixes what it returns |
+| `process_response` | 5 | The requester's §4.1 order, and **which of its steps rejected** — the mirror of `process_query`, for the same reason `ordering/` cannot be assembled from `verify_response` vectors |
 | `build_contract` | 5 | [P-012](P-012-requester-runtime.md) `requester/contract/` |
 | `project_outcome` | 5 | [P-012](P-012-requester-runtime.md) `requester/outcome/`, `requester/projection/` |
 | `retry_bytes` | 5 | [P-012](P-012-requester-runtime.md) `requester/retry/` |
@@ -344,28 +334,48 @@ error rather than as a failing vector.
 | `resolve_identity`, `verify_delegation` | 6 | [P-014](P-014-identity-pairing.md) `identity/` |
 | `escalate_poll`, `approve` | 7 | [P-015](P-015-escalation-lifecycle.md) `escalation/` |
 
-Names are proposals, not decisions — the point of listing them together is that
-they are settled once, here, before either implementation writes a runner.
+Later stages extend the table; they do not redefine existing entries.
 
-Two entries have moved since this table was written, and settling the vocabulary
-must account for both:
+**The table is settled rather than anticipated**, which is issue 17. It used to
+carry the Stage 5–8 names in a second table headed *"names are proposals, not
+decisions"*, and the schema's enum deliberately excluded them. Both are now one
+list, because the hazard the split was managing is the one it created: an
+operation named `http_exchange` in one implementation and `binding_exchange` in
+the other is a divergence that surfaces as a runner error rather than as a
+failing vector, and four PRDs choosing separately is exactly how that happens.
+An operation no runner implements yet is exit 1, which is what §7 already
+expects of an unbuilt stage.
+
+Three entries moved while it was being settled:
 
 - **`http_exchange` no longer needs a registry-entry path.**
   `GET /predicates/{id}/{version}` was dropped from Stage 6
   ([P-013](P-013-https-binding.md) §4.3), so no vector exercises it.
-- **A sequence-asserting operation is needed at Stage 5.**
-  [`core-model.md`](../../spec/core-model.md) §4.1 makes the requester's response
-  processing order normative, and [P-012](P-012-requester-runtime.md)'s
-  `requester/order/` has to assert *which step rejected*, not merely that the
-  response was rejected. `ordering/` does this responder-side today; the same
-  shape is needed on the requester side.
+- **`process_response` is what the requester-side ordering need was asking
+  for.** This section recorded it as *"a sequence-asserting operation"*, which
+  was the right need under a word that now means something else:
+  [`core-model.md`](../../spec/core-model.md) §4.1 makes the requester's
+  response processing order normative, and
+  [P-012](P-012-requester-runtime.md)'s `requester/order/` must assert *which
+  step* rejected. That is a sequence of **steps** over one response, not a
+  sequence of **requests**, which is what E-51 added `process_sequence` for.
+  Two different things under one word is how a vocabulary settled to prevent
+  divergence causes one, so each now has its own name and the word is not used
+  for either.
+- **`process_sequence` is new, from [E-51](../open-escalations.md).** It is the
+  one entry no PRD proposed here, because the need was raised as an escalation
+  rather than as a corpus section.
 
-[P-015](P-015-escalation-lifecycle.md) needs a **minimal timing capability at
-Stage 7** — an assertion that two response paths fall within a band, so that an
-opaque escalation can be shown not to be distinguishable by latency. Open
-question 3 is resolved that way: the capability moves to Stage 7, full timing
-bands and measurement stay at Stage 8 with
-[P-016](P-016-demonstration-adversarial.md).
+**One name is deliberately missing.** [P-015](P-015-escalation-lifecycle.md)
+needs a **minimal timing capability at Stage 7** — an assertion that two response
+paths fall within a band, so that an opaque escalation can be shown not to be
+distinguishable by latency. Open question 3 is resolved that way: the capability
+moves to Stage 7, full timing bands and measurement stay at Stage 8 with
+[P-016](P-016-demonstration-adversarial.md). **What it is called, and whether it
+is an operation at all, is issue 18 and is undecided** — so it is absent from
+the table and from the enum, and
+[`test_vector_schema.py`](../../conformance/tests/test_vector_schema.py) holds
+that absence, turning red the day issue 18 lands without the enum being updated.
 
 ### 4.6 Result format
 
@@ -416,6 +426,54 @@ are cited across this repository, so a step inserted mid-sequence is lettered
 rather than renumbering everything below it. The **enum is closed** and holds
 exactly what §4 defines — a vector naming `12b` would otherwise assert an
 ordering the specification does not have.
+
+#### A sequence returns one result, and its outcome is the operation's
+
+`process_sequence` ([E-51](../open-escalations.md)) takes several requests and
+one of them may be refused. **The top-level `outcome` stays `ok`**, and the
+per-request outcomes are the operation's `output`:
+
+```json
+{
+  "vector_id": "replay/id-reuse/same-id-different-digest",
+  "outcome": "ok",
+  "output": {
+    "results": [
+      { "outcome": "ok", "output": { } },
+      { "outcome": "rejected",
+        "rejection": { "internal_reason": "query_id_reuse",
+                       "wire": { "status": "deny", "external_reason": "unavailable" },
+                       "step": 9 } }
+    ]
+  },
+  "implementation": { "name": "q2d-rs", "version": "0.1.0" }
+}
+```
+
+**`rejected` at the top level would be the wrong statement.** It means the
+implementation refused *the input it was given*, and the input here is the
+sequence. A responder that answers the first request and refuses the second has
+not refused the sequence; it has processed it, and the refusal is what the
+sequence was written to show. Reporting it as a top-level rejection would also
+lose which request was refused, since `rejection` is one object.
+
+So `result.schema.json` is **unchanged**. Each entry is the operation's data,
+under the rule the schema already states about `output` — *"any JSON value; its
+shape is the operation's"* — and it is fixed here rather than there for the
+reason §4.4 gives for not enumerating per-operation input fields: a schema
+listing them would be a second definition of what the owning PRD already fixes.
+
+Two consequences worth stating rather than discovering:
+
+- **The schema does not enforce that an inner rejection carries both halves.**
+  The top-level shape does, and this one is compared as data. What holds it is
+  the vector's own expectation, which names every field it asserts.
+- **`harness cross`'s denial-uniformity check does not walk into `results`.**
+  It reads vectors whose *expectation* is a rejection, and a sequence vector's
+  is not. That is acceptable because uniformity across causes is `denial/`'s
+  section and no sequence vector is in it — but it is a real gap in coverage
+  rather than an oversight, and a sequence vector may not be relied on to
+  demonstrate uniformity.
 
 ### 4.7 The harness
 
@@ -796,7 +854,7 @@ change one stops and escalates.
 | ~~How are unsigned parts of a message compared when JSON key order is unconstrained?~~ | **Resolved: `semantic` is parse-then-deep-equal**, with array order significant, absent ≠ null, and no coercion. It applies to unsigned material only; anything inside `signed` compares as `bytes`. **`routing` is unsigned and its values still have to match exactly** — [`core-model.md`](../../spec/core-model.md) §4 step 8 requires a responder to compare each projected field against the verified object with no coercion, so a vector asserting a routing projection is asserting values, not shapes. `semantic` delivers that for the fields §2.1 permits there, which are all strings; it would not if one were a number, and §4.4's no-coercion rule is what keeps the two documents saying the same thing. §4.4 carries the definition |
 | ~~Does the corpus version independently of the spec, or track it?~~ | **Resolved: it tracks the spec.** The corpus exists to demonstrate that a spec version is implementable, so a vector set that could drift from the version it tests would let two implementations agree with each other and with neither spec. A corpus release is identified by the `spec/vX.Y` it was authored against ([`versioning.md`](../versioning.md)) |
 | ~~Should `process_query` vectors carry expected timing bands?~~ | **Resolved: a minimal timing capability is pulled forward to Stage 7.** Not a measurement framework — an assertion that two response paths fall within a band, which is what [P-015](P-015-escalation-lifecycle.md) issue 4 needs to show an opaque escalation is not distinguishable by latency. Full timing bands stay at Stage 8, where [P-016](P-016-demonstration-adversarial.md) owns measurement and reporting |
-| ~~**The §4.5 operation-vocabulary extension for Stages 5–8.**~~ | **Resolved: settled as one change, before Stage 5** — issue 17, not an open question. §4.5 now lists every anticipated operation with its owning PRD, and no later PRD names one unilaterally: four PRDs choosing separately would diverge at the *runner* level, where it surfaces as an unknown-operation error rather than a failing vector. The list already reflects the two decisions that changed it — the registry-entry endpoint is gone, and `requester/order/` needs an operation that can assert *which step* rejected |
+| ~~**The §4.5 operation-vocabulary extension for Stages 5–8.**~~ | **Resolved, and now done** — issue 17, never an open question. §4.5 is one settled table and the schema enum matches it; four PRDs choosing separately would diverge at the *runner* level, where it surfaces as an unknown-operation error rather than a failing vector. Three things moved in the settling: the registry-entry endpoint is gone, `requester/order/` needs **`process_response`** rather than the thing this row called a sequence-asserting operation, and [E-51](../open-escalations.md) added **`process_sequence`**. Issue 18's timing capability is the one name left out, because it is undecided |
 | ~~**Does `cross` satisfy §4.8's cross-implementation clause with only the first half built?**~~ | **Resolved: the split is approved, and the exit status stays non-zero.** Issue 9 closes on byte agreement alone; B-verifying-A is issue 19. `cross` continues to exit 3 rather than 0 when the runners agree, because the exit status is the only part of the report a release gate reads and 0 would let one conclude the clause holds. The two halves are not redundant, which is the reason the second is tracked rather than dropped: byte agreement compares A's *signer* against B's signer and says nothing about either **verifier**, and verification is where [`core-model.md`](../../spec/core-model.md) §4 step 4 gates everything below it. §4.8 and §7 now carry the split |
 | ~~**Should a runner report a wire response as its serialized string rather than as a parsed object?**~~ | **Resolved, and the question was the wrong one.** [`core-model.md`](../../spec/core-model.md) §6 settles byte-length uniformity structurally *by design* — the reduced receipt is *"exactly five fields"*, none variable-length, so *"byte-length uniformity across every cause in a normalized class follows from the shape rather than from a check"*. (That argument holds only while every reduced field really is fixed-width, which the timestamp-profile question below puts in doubt: a `decided_at` carrying `+00:00` is six characters where `Z` is one. §6 is the design, not yet a demonstrated property.) The real defect was that **`wire` was undefined**: the schema typed it `{"type": "object"}` while its prose said *"what a requester receives"*, and every vector asserted a two-field fragment of §5.2's four-field response. `vector.schema.json` now defines it — a vector may assert a subset where response construction is not what it tests, and **asserts nothing about the fields it omits**; `denial/` may not, because `status` and `external_reason` are both fixed by the class, so comparing only those compares two constants. The uniformity assertion now names every partial comparison instead of printing a confident summary over a check that could not fail. **Denial vectors become whole-response when the header question below lands** — a response carries a signature — and that dependency is recorded on the header issue itself, not only here |
 | ~~**How does a signed vector get authored, when the corpus is what an implementation is checked against?**~~ | **Resolved: from the specification text, by an authoring tool** — [`tools/author_vectors.py`](../../tools/author_vectors.py), written before either implementation exists, kept out of `conformance/harness/` and out of CI's authoring path. Three readings of the specification instead of two, and a disagreement between the tool and either implementation is a specification ambiguity found. Three disciplines carry the decision and are stated in the tool's own docstring: it is **not** described as independent (one author, structural independence only); a tool/implementation disagreement is a **specification ambiguity under investigation**, not an implementation bug, until someone shows which reading the text supports; and its output is committed and thereafter treated as authored data. Its Ed25519 comes from RFC 8032 §5.1 and **the tool refuses to run until it reproduces §7.1's published vectors**, so no constant in it is trusted from memory. Building it immediately surfaced the header gap below |
@@ -828,7 +886,7 @@ Decomposition into tracked work. Each names its acceptance.
 | 14 | Author `ordering/` section | **Six vectors landed — steps 1, 3, 4, 5, 5a and 6 — and the section stops there for a reason stronger than a missing fixture.** A vector asserting rejection at step N must **pass** steps 1 to N-1, so a request that cannot get past an earlier step is wrong in two ways and a fail-closed implementation correctly rejects it at the earlier one — such a vector fails *conforming* implementations. Step 7 is delegation verification and [P-014](P-014-identity-pairing.md) has defined no fixture format for a profile or its evidence, so nothing at or after 7 is authorable: not step 8, whose own defect is expressible, and not steps 10 to 13, whose registry is in hand. Every vector uses `process_query` — ordering is a property of the pipeline, and a `verify_query` vector cannot show the signature was checked *before* the registry was consulted — and each supplies the responder's clock as `environment.now`, since §4 step 6 needs a time and §4.3 forbids a runner from reading one. **Step 2 gets none by design**: §4 makes it optional and never a security decision. [P-010](P-010-responder-pipeline.md) §6 owns the section and its issue 11 completes it once the fixtures exist |
 | 15 | Dependency assertion: harness imports no implementation | CI check fails if either is importable from the harness |
 | 16 | `semantic` comparison implemented per §4.4 | Array order significant; absent ≠ null; no coercion; both runners agree on a differing-tree report |
-| 17 | **Settle the §4.5 operation vocabulary for Stages 5–8, as one change** | Every operation named, with its owning PRD; no later PRD introduces one unilaterally. Closes after the endpoint drop and the requester-order addition, both already reflected in §4.5. **Not a blocker for [P-002](P-002-message-envelope.md) issue 10**, which was briefly recorded as one and is not: this issue's remit is the Stage 5–8 extension, and P-002 is Stage 1. Its `message/` groups are authored through `sign_query`, `verify_query`, `process_query` and `digest`, all of which are in the enum already — a serializer is exercised by a vector asserting the bytes it produced, not by an operation named after the function |
+| 17 | **Settle the §4.5 operation vocabulary for Stages 5–8, as one change** | **Done.** §4.5 is one table of decided names, and [`vector.schema.json`](../../conformance/vector.schema.json)'s enum carries all of them — the split between a decided list and an anticipated one was itself the divergence hazard, since a PRD reaching Stage 5 would have had to name its operation to author a section and the enum would have refused it. Three things moved in the settling. `http_exchange` lost its registry-entry path ([P-013](P-013-https-binding.md) §4.3). The requester-side ordering need is **`process_response`**, not the "sequence-asserting operation" this section called it — that is a sequence of *steps* over one response, and [E-51](../open-escalations.md) has since taken the word for a sequence of *requests*, so each has its own name and the word names neither. And **`process_sequence`** is new, from E-51, the one entry no PRD proposed because the need arrived as an escalation. **The timing capability is deliberately not named**: issue 18 is undecided, so it is absent from the table and the enum, and a test holds that absence. **Not a blocker for [P-002](P-002-message-envelope.md) issue 10**, which was briefly recorded as one and is not: this issue's remit was the Stage 5–8 extension, and P-002 is Stage 1. Its `message/` groups are authored through `sign_query`, `verify_query`, `process_query` and `digest`, all of which were in the enum already — a serializer is exercised by a vector asserting the bytes it produced, not by an operation named after the function |
 | 18 | Minimal timing capability, available at Stage 7 | A vector can assert two response paths fall within a band; [P-015](P-015-escalation-lifecycle.md) issue 4 can be written against it |
 | 19 | **Cross-verification: put A's output to B** | §4.8's second cross-implementation clause, split out of issue 9 by §10's resolution. Two PRDs have an acceptance criterion that needs it: [P-003](P-003-crypto-suites.md) §7 and [P-012](P-012-requester-runtime.md) §7. [P-002](P-002-message-envelope.md) §7 does **not** — it asks for byte agreement over `message/`, which issue 9 delivers. **The two runners now exist** — [`src/bin/q2d-conform.rs`](../../src/bin/q2d-conform.rs) and [`cmd/q2d-conform/main.go`](../../cmd/q2d-conform/main.go), contract-only and held to identical behaviour by [`test_runner_parity.py`](../../conformance/tests/test_runner_parity.py) — so what remains is the format: a vector naming its companion artefact and the field that consumes it, which is a format change and protocol knowledge §3 places outside the harness. Still blocked on [P-002](P-002-message-envelope.md) and [P-003](P-003-crypto-suites.md) settling which operation consumes a signed envelope, and on either runner answering anything — cross-verification between two runners that both report `error` shows nothing. **Not optional:** [`mvp-scope.md`](../mvp-scope.md) Stage 1's gate is cross-verification, so this is what makes that gate real. `cross` exits 3 on agreement until it lands |
 

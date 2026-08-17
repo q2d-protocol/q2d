@@ -59,6 +59,17 @@ KNOWN_OPERATIONS = frozenset({
     "policy_decide",
     "evaluate_predicate",
     "process_query",
+    "process_response",
+    "process_sequence",
+    "build_contract",
+    "project_outcome",
+    "retry_bytes",
+    "http_exchange",
+    "fingerprint",
+    "resolve_identity",
+    "verify_delegation",
+    "escalate_poll",
+    "approve",
 })
 
 

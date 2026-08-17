@@ -741,6 +741,40 @@ def receipt_value_errors(receipt: dict) -> list[str]:
     return errors
 
 
+def sequence_errors(vector: dict) -> list[str]:
+    """A `process_sequence` vector must actually carry a sequence.
+
+    [E-51](../../docs/open-escalations.md) added the operation because a vector
+    could not describe one, and the thing it exists to describe is a *second*
+    request: idempotency is a property of the retry, and what makes a
+    `query_id` a reuse is that it was used. One request in the list asserts
+    none of that and would pass silently, which is the same failure the
+    `ordering/` rule below exists to stop.
+
+    Two rather than one, and no upper bound: what the count has to clear is
+    "there is a prior request", and any ceiling would be invented here.
+
+    Written to survive a malformed vector, because this runs *alongside* the
+    schema's checks rather than after them (P-001 §4.8) -- so `input` may be a
+    string, `requests` may be an integer, and reaching into either would abort
+    the run that was about to report it.
+    """
+    if vector.get("operation") != "process_sequence":
+        return []
+    data = vector.get("input")
+    if not isinstance(data, dict):
+        return []  # the schema is already reporting this one
+    requests = data.get("requests")
+    if not isinstance(requests, list):
+        return ["operation: a process_sequence vector's input must carry a "
+                "'requests' list; without one it describes no sequence"]
+    if len(requests) < 2:
+        return ["operation: a process_sequence vector must carry at least two "
+                "requests -- with one there is no prior request, and the "
+                "property it exists to assert is a property of the second"]
+    return []
+
+
 def section_errors(vector: dict) -> list[str]:
     """Rules a section carries that the schema cannot express.
 
@@ -791,6 +825,7 @@ def vector_errors(vector, path: Path, corpus_root: Path, vector_schema: dict,
         errors += placement_errors(vector, path, corpus_root)
         errors += citation_errors(vector, claims, classes, sections)
         errors += section_errors(vector)
+        errors += sequence_errors(vector)
         # The same list `run` applies, from the same place. Calling the rules
         # individually here is how the coherence rule reached `run` and not
         # `lint` -- two call sites, one of them updated.

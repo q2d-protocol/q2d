@@ -162,7 +162,12 @@ class StubContractTest(unittest.TestCase):
     def test_an_unknown_operation_is_exit_one_not_a_skip(self):
         # Fail-closed applies to runners: a skipped vector is a vector nobody
         # notices is unimplemented (P-001 §4.5).
-        payload = dict(self.projected, operation="http_exchange")
+        #
+        # This used to use `http_exchange`, which P-001 issue 17 has since
+        # settled into the vocabulary. The case needs a name that is genuinely
+        # outside it, and a misspelling is the one that matters: a typo must not
+        # create an operation any more than it may create a section.
+        payload = dict(self.projected, operation="http_exchagne")
         result = run_stub(payload, self.tmp)
         self.assertEqual(result.returncode, EXIT_CANNOT_PROCESS)
         self.assertEqual(result.stdout, "")

@@ -18,10 +18,11 @@ cannot verify a decision cascaded if you cannot enumerate what it touched.
 > considered and why the losing one lost, which is the part a future reader needs
 > and the part a commit message does not carry. §3 lists the resolutions.
 >
-> **E-51 is open**, raised by P-004 issue 8 as [E-48](#e-48--a-vector-can-describe-a-message-but-not-the-verifier-that-receives-it)
-> said it would be: **a vector cannot describe a sequence.** Idempotency is a
-> property of a *second* request, and no vector in the corpus asserts one. It
-> blocks two of `replay/`'s five groups, and the same shape is queued in P-008.
+> **E-51 is closed as C**, raised by P-004 issue 8 as [E-48](#e-48--a-vector-can-describe-a-message-but-not-the-verifier-that-receives-it)
+> said it would be: a vector could not describe a sequence, and idempotency is a
+> property of a *second* request. `process_sequence` takes an ordered list of
+> requests inside `input`, so the vector format, the projection and the runner
+> contract are all unchanged.
 >
 > **E-36** through **E-50** all closed.
 >
@@ -212,8 +213,9 @@ question is still fresh than after the answer arrives.
 | **E-45** | The digest string form is defined only in P-002 | P-002 issue 10 | `serialization.md` §5 (new) · P-002 §4.7 · P-011 §4.2 · both implementations · `testdata/` · `message/digest/` | **Closed** |
 | **E-46** | Which `external_reason` for a `signed` string that is not a well-formed compact JWS? | P-003 issue 2 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, issues 6–8 · `suite/verify/` · both implementations | **Closed** |
 | **E-47** | Ed25519 in Rust needs a dependency policy, and there is no conventions document | P-003 issue 1 | `CONVENTIONS-rust.md`, `CONVENTIONS-go.md` (both new) · `Cargo.toml`, `go.mod` · both implementations · `testdata/ed25519-acceptance.txt` · CI | **Closed** |
-| **E-51** | A vector cannot describe a sequence, and idempotency is a property of the second request | P-004 issue 8 | `conformance/vector.schema.json` + served copy · P-001 §4.5, §4.6, issue 17 · P-004 §6, issue 8 · P-008 · P-012 | **Open** |
+| **E-51** | A vector cannot describe a sequence, and idempotency is a property of the second request | P-004 issue 8 | `conformance/vector.schema.json` + served copy · `conformance/RUNNER-CONTRACT.md` · `conformance/harness/lint.py` · the reference stub · P-001 §4.5, §4.6, §10, issue 17 · P-004 §6, issue 8 · P-008 §6 · P-012 §6 · P-015 §10 | **Closed** |
 | **E-50** | Does the replay check track nonces, or only `query_id`s? | P-004 issue 2 (review) | `freshness.md` §1, §3.1 (new) · `core-model.md` §5.2.1 unchanged · P-004 §4.2, §4.3, §9 item 2, §10, issues 2 and 3 · both implementations' `replay` | **Closed** |
+| **E-51** | **C — one operation whose input is a list of requests.** `process_sequence` takes an ordered list, processed against one responder state, and returns one result per request under `output.results`. The sequence lives inside `input`, where the projection already passes it through untouched, so the **vector format, the projection and the runner contract are unchanged**: one vector per invocation, one result, a runner holding no state between invocations. A refused request inside the list leaves the top-level `outcome` as `ok` — the implementation processed what it was given, and `rejected` would both misstate that and lose which request was refused, since `rejection` is one object. `result.schema.json` is therefore unchanged too. Decided with **P-001 issue 17**, which settled the whole Stage 5–8 vocabulary in the same change so that a new operation is not named unilaterally | `conformance/vector.schema.json` + served copy · `conformance/RUNNER-CONTRACT.md` · `conformance/harness/lint.py` (a sequence of one asserts nothing) · the reference stub's vocabulary · two harness tests whose asserted absences this inverts · P-001 §4.5, §4.6, §10, issue 17 · P-004 §6, issue 8 · P-008 §6 · P-012 §6 · P-015 §10 (which must raise its own) |
 | **E-49** | Every freshness and replay constant lives in a PRD, not in `spec/` | P-004 issue 1 | `freshness.md` (new) · `core-model.md` §2.2, §4 steps 6 and 9, §5.2.1 · `claims.md` Q2D-C-07 · `conformance-classes.md` · P-004 §2, §4.3, §4.4, §6, §7, §8, §9, §10, issues 1, 4 and 9 · P-008 §4.5 · P-015 §4.2, §4.7 · both implementations' `timestamp` | **Closed** |
 | **E-48** | A vector can describe a message, but not the verifier that receives it | P-003 issue 11 | `conformance/vector.schema.json` + its served copy · P-001 §4.3, §6, RUNNER-CONTRACT · P-003 §6, §7, issues 8 and 11 · `suite/status/`, `suite/downgrade/below-floor` · both implementations · P-012 | **Closed** |
 | **E-17** | Is a coarsening mapping declared by the requester, or inferred by the responder? | P-006 | `core-model.md` §2.5, §3.2 | **Closed** |
@@ -4420,7 +4422,7 @@ both implementations and says nothing about where that is asserted.
 
 ## E-51 — A vector cannot describe a sequence
 
-**Raised by** P-004 issue 8. **Open.** [E-48](#e-48--a-vector-can-describe-a-message-but-not-the-verifier-that-receives-it)
+**Raised by** P-004 issue 8. **Closed — C.** [E-48](#e-48--a-vector-can-describe-a-message-but-not-the-verifier-that-receives-it)
 said this would be raised here rather than answered by `input.verifier`:
 *"configuration is declared; history is replayed."*
 
@@ -4492,6 +4494,57 @@ processes. It is wrong for anything needing two parties' state to interleave —
 an escalation approved out of band between two queries (P-015 §5.3) is a
 sequence with an external event in the middle, and no list of requests expresses
 that. P-015 should expect to raise its own.
+
+---
+
+### Resolution — C
+
+`process_sequence`. Its input carries `requests`, an ordered list; each entry is
+what `process_query` takes; the runner processes them in order against one
+responder state and returns `output.results`, one entry per request.
+
+**Two things the brief got wrong, both found by writing it down.**
+
+The brief said C costs a change to `result.schema.json`, because a sequence
+whose second request is refused has no single top-level outcome. It does not.
+`outcome: rejected` means *the implementation refused the input it was given*,
+and the input is the sequence — a responder that answers the first request and
+refuses the second has processed the sequence, not refused it. So the top-level
+outcome is `ok` and the per-request outcomes are the operation's `output`, under
+the rule the schema already states: *"any JSON value; its shape is the
+operation's"*. Reporting it as a top-level rejection would also lose *which*
+request was refused, since `rejection` is one object.
+
+The brief also said P-008's `budget/accumulate/` was blocked on this. It was
+not: `capacity_debit` already takes `{"debits": [...]}`, and P-001 §4.8's
+cross-vector check compares permutations *across* vectors. A running total over
+separate requests is the sequence problem; a list of debits to one call is not.
+`budget/idempotent/` is the group that needed this.
+
+**What it costs, honestly.** Two things are worth stating rather than
+discovering later, and P-001 §4.6 states both: the schema does not enforce that
+an *inner* rejection carries both halves, and `harness cross`'s
+denial-uniformity check does not walk into `results`. Neither is fatal —
+uniformity across causes is `denial/`'s section and no sequence vector is in it
+— but a sequence vector may not be relied on to demonstrate uniformity.
+
+**A lint rule came with it.** A `process_sequence` vector must carry at least
+two requests. One asserts nothing about a sequence and would pass silently,
+which is the same failure the `ordering/` rule exists to stop.
+
+**Nothing is unblocked yet, which is worth saying plainly.** P-004's
+`idempotent/` and `id-reuse/` were blocked on *two* things and are now blocked
+on one: what the sequence runs through is the §4 pipeline, and
+[P-010](prds/P-010-responder-pipeline.md) has not built it. The useful change is
+that the format question is closed, not that vectors can be written today.
+
+**Decided with P-001 issue 17**, as the recommendation said. That issue settled
+the whole Stage 5–8 vocabulary in the same change, which also corrected a word:
+§4.5 had recorded the requester-side ordering need as *"a sequence-asserting
+operation"*, meaning a sequence of **steps** over one response. That is
+`process_response`. E-51's is a sequence of **requests**. Two things under one
+word, inside the very list that exists to stop two names for one thing, so each
+now has its own name and the word names neither.
 
 ---
 
