@@ -201,8 +201,8 @@ check_replay(principal, query_id, nonce, request_digest)
    -> Fresh | Replay(response_bytes) | QueryIdReuse | NonceReuse
    // four outcomes since E-50; the `query_id` index is read before the nonce
    // index, because a genuine retry matches both
-record(principal, query_id, nonce, request_digest, response_bytes, expires_at, debit) -> Result
-   // commits the cache entry and the debit atomically
+record(budget, principal, query_id, nonce, request_digest, response_bytes, expires_at, debit) -> Result
+   // commits the cache entry and the debit, in §4.6's order
 
 check_freshness(issued_at, expires_at, now, skew) -> Result
 validate_nonce(nonce) -> Result
@@ -210,6 +210,13 @@ validate_nonce(nonce) -> Result
 
 `record` taking the debit is deliberate. Two separate calls could be interleaved
 or partially applied; one call cannot.
+
+`budget` is the sink the debit is applied to, and it is a **parameter rather than
+something this module holds**, because §3 puts the arithmetic in
+[P-008](P-008-capacity-accounting.md) and §4.6 puts the *order* here. It was
+absent from this list until issue 5 was built, which read as though `record` did
+the arithmetic itself. Its contract is the one thing §4.6's guarantee rests on:
+a refusal means **nothing was committed**.
 
 ## 6. Corpus sections
 
@@ -297,12 +304,21 @@ failure this PRD is most likely to actually have.
 | 2 | Replay cache store with retention and eviction | **Built** — [`src/replay.rs`](../../src/replay.rs) and [`replay.go`](../../replay.go). Eviction reports a count, so it is observable rather than inferred: a sweep that silently did nothing looks identical to one that worked. **Retention is applied on read as well as by the sweep**, so idempotency does not depend on when a timer last fired, and the boundary is inclusive at [`freshness.md`](../../spec/freshness.md) §1's instant — an entry hidden one second early lets a retry through as fresh and debits twice. The store holds no opinion about whether a digest matches; that is issue 3, and a store with one would be a second place the idempotency rule lives. **Open question 1's cache-failure path is issue 9** and is not built. The **nonce index** landed with [E-50](../open-escalations.md): written and evicted with the primary one, scoped to the requester, and reporting what a nonce was last attached to without drawing a conclusion from it |
 | 3 | `check_replay` with the **four**-way outcome | **Built**; the vectors wait on issue 8. Fresh, replay, `query_id` reuse, nonce reuse — [E-50](../open-escalations.md) added the fourth and issue 2 built the index it reads. **The `query_id` index is consulted first**, because a genuine retry matches both and a nonce-first order would have to special-case it; a rule with an exception carved out for the common case is a rule waiting to be got wrong. The two rejections are a **separate type from `Rejected`**, which settles what this row asked: every reason in that type maps to a value [`core-model.md`](../../spec/core-model.md) §5.2.1 fixes, and these two do not — §5.2.1 gives everything from step 9 onward the value the responder's **pinned registry** declares, which is data. A constant would compile one deployment's configuration into every deployment, so the type reports the internal reason and the step and says nothing about the wire. P-009 reads the registry |
 | 4 | `check_freshness` with skew and window bound | **Built**; `replay/expiry/` waits on issue 8. Both boundaries asserted **at** the tolerance, not near it, in both implementations. The window is a range and a test walks the interval [`freshness.md`](../../spec/freshness.md) §2's counterexample describes — 111 values of `now` for which a ceiling-only implementation calls a negative window fresh — so the lower bound cannot be dropped silently. A timestamp §2.2 refuses is reported `malformed` rather than `expired`: the fault is in the requester's serializer, and `expired` would send them to their clock |
-| 5 | `record` — atomic debit and cache commit | Fault-injection test shows no under-charge |
+| 5 | `record` — atomic debit and cache commit | **Done** — [`src/replay.rs`](../../src/replay.rs) and [`replay.go`](../../replay.go). **Atomicity turned out to be a property of the stores rather than of this function**, and the code says so rather than claiming otherwise: where the budget and the cache are one store a caller implementing the sink over it puts both writes in one transaction, and where they are not — a persistent budget beside an in-memory cache, which is what [P-013](P-013-https-binding.md)'s daemon will have — this module cannot enrol a caller-supplied sink in a transaction it does not own. So what is built is §4.6's stated fallback, **debit first**, and the property that follows from the sink's contract that a refusal committed nothing: no state exists in which an entry was committed and its debit was not. Both stores are in memory today, so a crash loses both and the question does not arise; the order is fixed now because it becomes a correctness property the moment either persists. **The debit sink is a parameter**, added to §5, since §3 puts the arithmetic in [P-008](P-008-capacity-accounting.md) and only the order is here — and its refusal type is P-008's, passed back untouched, rather than a vocabulary this module would be choosing on its behalf. **`insert` is now private**: with a commit path that carries the debit, an exported writer that took none was a second path with the debit left out, which is the under-charge the issue exists to prevent. **The debit is `int64` and a negative one is refused at the door**, rather than made unrepresentable by an unsigned parameter — which looks stronger and is not, since Go's conversion from a negative `int64` wraps silently to an enormous positive while Rust's refuses, so the same call site would over-debit hugely in one implementation and fail in the other. The fault injection is a sink that applies the debit and *then* reports failure, and the test asserts the retry pays **twice** — §4.6's accepted direction, written down as a test rather than as prose, in the direction that matters |
 | 6 | Verbatim response storage and return | **Built**, and asserted as *two retries are equal* rather than as *the bytes are right* — the property is that nothing regenerates. Re-signing would remake `decided_at`, so two retries would differ, and that difference tells a requester the responder re-evaluated, which under opaque escalation is the transition [`core-model.md`](../../spec/core-model.md) §5.3 forbids revealing. Caching bytes rather than decisions makes it structural. Go copies on the way in and out (`CONVENTIONS-go.md`); Rust has it from the borrow checker |
 | 7 | Ordering assertion: cache unreachable before step 9 | **Blocked on [P-010](P-010-responder-pipeline.md), and not on anything here.** Ordering is a property of the pipeline: a vector must show that a bad-signature request left no entry, which needs `process_query` — every `ordering/` vector uses it, because a `verify_query` vector cannot show that one step ran before another. The store deliberately does **not** enforce the ordering itself and says so at the type: a caller could insert at any point, and the assertion that the pipeline does not is this issue's |
 | 8 | Author `replay/` corpus section | **Not authorable yet, and not for one reason.** Checked group by group rather than assumed: `expiry/` asserts step 6 and `ordering/` asserts step 9, both of which need `process_query` — a `verify_query` vector cannot show one step ran before another, which is why every existing `ordering/` vector uses it. `nonce/` needs an operation that calls this module's floor check, and `verify_query` is not it: P-003's sequence must not depend on P-004, or the two PRDs' dependency runs both ways. All three therefore wait on [P-010](P-010-responder-pipeline.md). `idempotent/` and `id-reuse/` wait on something else entirely — **a vector cannot describe a sequence**, and no vector in the corpus does ([E-51](../open-escalations.md)) |
 | 9 | Cache-failure rejection, eviction semantics, and the window bound | A store failure produces a Tier C denial with no debit; an evicted entry does not suppress a debit; a configured window above [`freshness.md`](../../spec/freshness.md) §1's maximum fails at startup |
 
-Issue 5 is the one to schedule time for — the fault-injection harness is more
-work than the logic it tests, and issue 9's cache-failure path is tested through
-the same harness.
+Issue 5 was expected to be the one to schedule time for, on the reasoning that a
+fault-injection harness is more work than the logic it tests. **It was not**, and
+the reason is worth carrying to issue 9, which was to be tested through the same
+harness: once the debit sink is a parameter, injecting a fault is a test double
+that refuses, and the case that mattered — the store that applies the debit and
+*then* reports failure — is one boolean on it. A harness was the right instinct
+for a store this module owned, and it does not own one.
+
+What that leaves for issue 9 is unchanged and not yet checked group by group. Its
+cache-failure half needs a cache store that *can* fail, and this module's cannot
+— the indexes are in memory — so where that seam belongs is a question issue 9
+has to answer rather than inherit from here.
