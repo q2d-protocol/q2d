@@ -11,7 +11,11 @@
 //! between.
 //!
 //! **It implements no Q2D behaviour, and adding some is a deliberate act.**
-//! Every operation reports `error`. What it does implement is the half of the
+//! What it does with a given operation is
+//! [`RUNNER-CONTRACT.md`](../../conformance/RUNNER-CONTRACT.md)'s to state and
+//! is not restated here: the answer differs between a name this runner
+//! recognises and one it does not, and P-001 issue 17 settled names it will not
+//! recognise for several stages yet. What it does implement is the half of the
 //! contract that is not protocol: read the projection, parse it as RFC 8259
 //! JSON rather than as what a library tolerates, recognise the operation or
 //! exit 1, and emit a well-formed result. That much has to be right, because

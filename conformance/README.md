@@ -59,9 +59,11 @@ Standard library only, like [`registry/validate.py`](../registry/validate.py).
 **Three runners exist and none answers a vector.** The Python stub, and now the
 Rust and Go ones — [`src/bin/q2d-conform.rs`](../src/bin/q2d-conform.rs) and
 [`cmd/q2d-conform/main.go`](../cmd/q2d-conform/main.go). All three implement
-[`RUNNER-CONTRACT.md`](RUNNER-CONTRACT.md)'s non-protocol half and report
-`error` for every operation; the stub may never do more, and the other two are
-where the implementations will attach.
+[`RUNNER-CONTRACT.md`](RUNNER-CONTRACT.md)'s non-protocol half and none
+implements any Q2D behaviour; the stub may never do more, and the other two are
+where the implementations will attach. **What each does with an operation is
+the contract's to state**, not this file's — the two differ, and a summary here
+would be a second answer to a question that has one.
 
 Having both now is what makes `cross` interpretable later. It reports a
 disagreement as two implementations reading the specification differently, and
