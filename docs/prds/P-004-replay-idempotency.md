@@ -381,9 +381,13 @@ Issue 5 was expected to be the one to schedule time for, on the reasoning that a
 fault-injection harness is more work than the logic it tests. **It was not**, and
 the reason is worth carrying to issue 9, which was to be tested through the same
 harness: once the debit sink is a parameter, injecting a fault is a test double
-that refuses, and the case that mattered — the store that applies the debit and
-*then* reports failure — is one boolean on it. A harness was the right instinct
-for a store this module owned, and it does not own one.
+that refuses — and it refuses the way the sink's contract says, committing
+nothing. The case that mattered, a crash *after* a successful settle, needs no
+injection at all, because a test can settle and then stop where `record` would
+have stopped. A double that applied a debit and then reported failure would
+contradict the contract and assert the behaviour of a store the interface
+forbids; the first version did exactly that, and review caught it. A harness was
+the right instinct for a store this module owned, and it does not own one.
 
 What that leaves for issue 9 is unchanged and not yet checked group by group. Its
 cache-failure half needs a cache store that *can* fail, and this module's cannot
