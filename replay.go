@@ -48,7 +48,6 @@ package q2d
 
 import (
 	"errors"
-	"fmt"
 	"sort"
 )
 
@@ -353,87 +352,103 @@ func (c *ReplayCache) Len() int { return len(c.entries) }
 // that dropped one index from a store that dropped both.
 func (c *ReplayCache) NonceLen() int { return len(c.nonces) }
 
-// Budget is where the capacity debit is applied — P-004 §4.6.
+// Reservation is P-008 §5's reservation handle, opaque to this file.
+//
+// P-008's check returns one rather than a boolean so that a caller "cannot check
+// and then debit later without holding the thing that reserved the capacity". An
+// interface value carries it here because what a reservation is belongs to P-008,
+// exactly as Rust makes it an associated type; this file only passes it on.
+type Reservation any
+
+// Budget is where the capacity debit is settled — P-008 §5's settle, which that
+// PRD says is called from this file's Record.
 //
 // This file calls it and does not implement it. P-004 §3 puts budget arithmetic
-// in P-008; what is here is the order in which the debit and the cache entry are
-// committed, and that order needs a seam rather than a sum.
+// in P-008; what is here is where the debit is committed, and that needs a seam
+// rather than a sum.
+//
+// # It takes a reservation, not a quantity
+//
+// A millibit count here would hand back the property the reservation exists for:
+// anyone could commit an entry against a number they made up, having reserved
+// nothing. So this file never sees an amount, and consequently has no opinion
+// about one — a negative or absurd value is refused where the arithmetic is,
+// which is P-008.
 //
 // The returned error is P-008's and is passed back by Record unchanged, because
 // what a refusal means — insufficient remaining capacity, an unknown principal, a
 // store that is down — is P-008's to say. A nil error means committed; a non-nil
 // one means nothing was committed, which is what Record relies on to leave the
-// cache untouched.
+// cache untouched. The reservation is consumed either way: one that fails to
+// settle stays with P-008, where an unsettled reservation expires (P-010 §4.7),
+// so the capacity returns rather than being stranded.
 type Budget interface {
-	Debit(principal string, millibits int64) error
+	Settle(reservation Reservation) error
 }
 
-// ErrNegativeDebit is a debit below zero, which would credit the budget — the
-// same refusal the registry makes of a negative capacity, applied where the value
-// is spent rather than where it is published.
+// ErrNoBudget is Record called with no budget to settle against, and
+// ErrNoReservation is Record called with no reservation to settle.
 //
-// It should be unreachable: a debit descends from a registry capacity, and a
-// negative one never loads. Refused anyway, because the consequence of the
-// unreachable state being reached is a budget that grows on every answer.
-var ErrNegativeDebit = errors.New("q2d: capacity debit is below zero")
+// Go's interfaces admit a nil where Rust's generic parameters cannot be absent,
+// so both refusals exist on one side only — CONVENTIONS-go.md §4's rule that a
+// nil interface value is a distinct case and gets a named refusal. What both
+// implementations agree on is that no entry is committed without a settled
+// reservation.
+var (
+	ErrNoBudget      = errors.New("q2d: no budget to settle against")
+	ErrNoReservation = errors.New("q2d: no reservation to settle")
+)
 
-// ErrNoBudget is Record called with no budget to debit.
+// Record commits an exchange and settles its capacity debit — P-004 §4.6, issue 5.
 //
-// Go's interfaces admit a nil where Rust's generic parameter cannot be absent, so
-// this refusal exists on one side only — CONVENTIONS-go.md §4's rule that a nil
-// interface value is a distinct case and gets a named refusal. What both
-// implementations agree on is that no entry is committed without a debit.
-var ErrNoBudget = errors.New("q2d: no budget to debit")
-
-// Record commits an exchange and its capacity debit — P-004 §4.6, issue 5.
+// # One call, because two could be separated by a caller
 //
-// # The debit is applied first, and that is the whole guarantee
+// §4.6's reason for a single call is that a caller holding two could interleave
+// them, apply one and not the other, or forget the second. One call cannot be
+// separated by a caller. It can still be separated by a crash, and the rest of
+// this is about which side of that this file falls.
+//
+// # Settle first
 //
 // §4.6 gives the two orders and their crash consequences: debit-then-cache
 // over-charges on retry, cache-then-debit under-charges, and an atomic commit does
-// neither. It then says which to choose where atomicity is not available — debit
-// first, because over-charging is conservative and under-charging means more
-// disclosure than policy intended, which is what Q2D-C-09 rests on.
+// neither. Where atomicity is not on offer it says which to take — debit first,
+// because over-charging is conservative and under-charging means more disclosure
+// than policy intended, which is what Q2D-C-09 rests on.
 //
-// Atomicity is a property of the stores, and not of this function. Where the
-// budget and the cache live in one store, a caller implementing Budget over that
-// store puts both writes in one transaction and the order stops mattering;
-// nothing here changes. Where they do not — a persistent budget beside an
-// in-memory cache, which is what P-013's daemon will have — this file cannot
-// enrol a caller-supplied sink in a transaction it does not own, and a two-phase
-// interface would be this file designing P-008's store.
+// Atomicity is a property of the stores rather than of this function, and P-008's
+// resolved open question 3 makes them one store for exactly this reason: two
+// stores would need a distributed transaction, which P-013 §4.6 declines to solve.
+// So the atomic row is the one this system takes, and it is reached by a caller
+// implementing Budget over the store the cache lives in — at which point both
+// writes are in one transaction and this order stops mattering. Nothing here
+// changes.
 //
-// So Record provides §4.6's fallback, and the property that follows from it given
-// Budget's contract that an error means nothing was committed: no state exists in
-// which a cache entry was committed and its debit was not. A crash between the
-// two loses the entry, not the debit.
-//
-// Today both stores are in memory, so a crash loses both and the question does
-// not arise. The order is fixed now anyway, because the moment either store
-// persists it is a correctness property, and that is P-013's change to make
-// against a rule rather than to rediscover.
+// Until that store exists the sink is a parameter and the cache is in memory, so
+// the order is doing real work, and it is §4.6's: settle, then write. Given
+// Budget's contract that an error means nothing was committed, no state exists in
+// which a cache entry was committed and its debit was not.
 //
 // # What it does not do
 //
 // It does not call Check. Step 9 decides whether to proceed and this commits what
 // the outcome turned out to be; folding the two together would put the lookup and
 // the commit either side of the whole of steps 10-17, which is not one operation.
-func (c *ReplayCache) Record(budget Budget, policy FreshnessPolicy, principal, queryID, nonce, requestDigest string, responseBytes []byte, expiresAt, debit int64) error {
+//
+// It does not release a reservation it failed to settle, and does not retry. What
+// becomes of one is P-008's and P-010 §4.7's.
+func (c *ReplayCache) Record(budget Budget, policy FreshnessPolicy, principal, queryID, nonce, requestDigest string, responseBytes []byte, expiresAt int64, reservation Reservation) error {
 	// A nil interface value is its own case, not a caller convenience meaning "no
-	// budget". Committing an entry against no budget at all is the under-charge
-	// this function exists to prevent, so it is refused rather than skipped.
+	// budget" or "nothing to settle". Committing an entry against neither is the
+	// under-charge this function exists to prevent, so both are refused rather
+	// than skipped.
 	if budget == nil {
 		return ErrNoBudget
 	}
-	// Before the debit, not after: a negative value refused after it had been
-	// applied would have already credited the budget.
-	if debit < 0 {
-		// Wrapped so the value is legible to an operator, as Rust's
-		// RecordFailure::NegativeDebit carries it, and still matched by
-		// errors.Is.
-		return fmt.Errorf("%w: %d millibits", ErrNegativeDebit, debit)
+	if reservation == nil {
+		return ErrNoReservation
 	}
-	if err := budget.Debit(principal, debit); err != nil {
+	if err := budget.Settle(reservation); err != nil {
 		return err
 	}
 	c.insert(policy, principal, queryID, requestDigest, responseBytes, nonce, expiresAt)

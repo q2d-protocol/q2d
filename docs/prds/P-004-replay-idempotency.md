@@ -172,8 +172,8 @@ decides in the meantime.
 
 ### 4.6 Debit and cache commit together
 
-The capacity debit and the cache entry are committed **atomically**. A crash
-between them is the failure this PRD exists to prevent:
+The capacity debit and the cache entry are committed by **one call**, in one
+order. A crash between them is the failure this section exists to bound:
 
 | Order | Crash consequence |
 |---|---|
@@ -184,6 +184,30 @@ between them is the failure this PRD exists to prevent:
 Where a store cannot offer atomicity, **debit first**. Over-charging is the
 conservative direction; under-charging means more disclosure than policy
 intended, and Q2D-C-09 would not hold.
+
+**This section used to open by saying the two are committed atomically**, and
+issue 5 found that no module delivers that on its own. Atomicity is a property
+of the *stores*, and the third row is one a **deployment** reaches rather than
+one this module chooses:
+[P-008](P-008-capacity-accounting.md)'s resolved open question 3 puts the budget
+and the replay cache in **one store** for exactly this reason — two stores means
+a distributed transaction, which [P-013](P-013-https-binding.md) §4.6 declines to
+solve. A caller implementing the sink over that store puts both writes in one
+transaction and this order stops mattering.
+
+Until that store exists the sink is a parameter and the cache is in memory, so
+the order above is what is built.
+
+**What is settled here is a reservation, not a quantity.**
+[P-008](P-008-capacity-accounting.md) §5's `check` returns a reservation rather
+than a boolean so that a caller *"cannot check and then debit later without
+holding the thing that reserved the capacity"*, and §5 there says `settle` is
+called from this module's `record`. A millibit count in `record`'s signature
+would hand that property straight back — anyone could commit an entry against a
+number they invented, having reserved nothing. So this module never sees an
+amount, and the first row's over-charge is bounded by P-008 rather than
+permanent: a reservation that is never settled expires
+([P-010](P-010-responder-pipeline.md) §4.7) and the capacity returns.
 
 ### 4.7 Rejections are cached too
 
@@ -201,22 +225,35 @@ check_replay(principal, query_id, nonce, request_digest)
    -> Fresh | Replay(response_bytes) | QueryIdReuse | NonceReuse
    // four outcomes since E-50; the `query_id` index is read before the nonce
    // index, because a genuine retry matches both
-record(budget, principal, query_id, nonce, request_digest, response_bytes, expires_at, debit) -> Result
-   // commits the cache entry and the debit, in §4.6's order
+record(budget, principal, query_id, nonce, request_digest, response_bytes, expires_at, reservation) -> Result
+   // settles P-008's reservation and commits the cache entry, in §4.6's order
 
 check_freshness(issued_at, expires_at, now, skew) -> Result
 validate_nonce(nonce) -> Result
 ```
 
-`record` taking the debit is deliberate. Two separate calls could be interleaved
-or partially applied; one call cannot.
+`record` taking the debit is deliberate. Two separate calls could be interleaved,
+and a caller could forget the second; one call cannot be either.
 
-`budget` is the sink the debit is applied to, and it is a **parameter rather than
-something this module holds**, because §3 puts the arithmetic in
-[P-008](P-008-capacity-accounting.md) and §4.6 puts the *order* here. It was
+**It can still be partially applied**, which this note used to deny: §4.6's first
+row is exactly that state, and the sentence claimed the interface closed a window
+only a shared store closes. What one call buys is that the two writes cannot be
+*separated by a caller* — not that they cannot be separated by a crash.
+
+`budget` is the sink the debit is settled against, and it is a **parameter rather
+than something this module holds**, because §3 puts the arithmetic in
+[P-008](P-008-capacity-accounting.md) and §4.6 puts the *commit* here. It was
 absent from this list until issue 5 was built, which read as though `record` did
 the arithmetic itself. Its contract is the one thing §4.6's guarantee rests on:
 a refusal means **nothing was committed**.
+
+**The last parameter was `debit` and is now `reservation`**, reconciling this
+list with [P-008](P-008-capacity-accounting.md) §5, which has said since it was
+written that `settle(reservation)` is called from here. Read as a quantity — which
+is how it was built first — it defeats the reason `check` returns a reservation at
+all. This module treats it as opaque: it never inspects an amount, so it has no
+opinion about one, and a value that is negative or absurd is refused where the
+arithmetic is.
 
 ## 6. Corpus sections
 
@@ -304,7 +341,7 @@ failure this PRD is most likely to actually have.
 | 2 | Replay cache store with retention and eviction | **Built** — [`src/replay.rs`](../../src/replay.rs) and [`replay.go`](../../replay.go). Eviction reports a count, so it is observable rather than inferred: a sweep that silently did nothing looks identical to one that worked. **Retention is applied on read as well as by the sweep**, so idempotency does not depend on when a timer last fired, and the boundary is inclusive at [`freshness.md`](../../spec/freshness.md) §1's instant — an entry hidden one second early lets a retry through as fresh and debits twice. The store holds no opinion about whether a digest matches; that is issue 3, and a store with one would be a second place the idempotency rule lives. **Open question 1's cache-failure path is issue 9** and is not built. The **nonce index** landed with [E-50](../open-escalations.md): written and evicted with the primary one, scoped to the requester, and reporting what a nonce was last attached to without drawing a conclusion from it |
 | 3 | `check_replay` with the **four**-way outcome | **Built**; the vectors wait on issue 8. Fresh, replay, `query_id` reuse, nonce reuse — [E-50](../open-escalations.md) added the fourth and issue 2 built the index it reads. **The `query_id` index is consulted first**, because a genuine retry matches both and a nonce-first order would have to special-case it; a rule with an exception carved out for the common case is a rule waiting to be got wrong. The two rejections are a **separate type from `Rejected`**, which settles what this row asked: every reason in that type maps to a value [`core-model.md`](../../spec/core-model.md) §5.2.1 fixes, and these two do not — §5.2.1 gives everything from step 9 onward the value the responder's **pinned registry** declares, which is data. A constant would compile one deployment's configuration into every deployment, so the type reports the internal reason and the step and says nothing about the wire. P-009 reads the registry |
 | 4 | `check_freshness` with skew and window bound | **Built**; `replay/expiry/` waits on issue 8. Both boundaries asserted **at** the tolerance, not near it, in both implementations. The window is a range and a test walks the interval [`freshness.md`](../../spec/freshness.md) §2's counterexample describes — 111 values of `now` for which a ceiling-only implementation calls a negative window fresh — so the lower bound cannot be dropped silently. A timestamp §2.2 refuses is reported `malformed` rather than `expired`: the fault is in the requester's serializer, and `expired` would send them to their clock |
-| 5 | `record` — atomic debit and cache commit | **Done** — [`src/replay.rs`](../../src/replay.rs) and [`replay.go`](../../replay.go). **Atomicity turned out to be a property of the stores rather than of this function**, and the code says so rather than claiming otherwise: where the budget and the cache are one store a caller implementing the sink over it puts both writes in one transaction, and where they are not — a persistent budget beside an in-memory cache, which is what [P-013](P-013-https-binding.md)'s daemon will have — this module cannot enrol a caller-supplied sink in a transaction it does not own. So what is built is §4.6's stated fallback, **debit first**, and the property that follows from the sink's contract that a refusal committed nothing: no state exists in which an entry was committed and its debit was not. Both stores are in memory today, so a crash loses both and the question does not arise; the order is fixed now because it becomes a correctness property the moment either persists. **The debit sink is a parameter**, added to §5, since §3 puts the arithmetic in [P-008](P-008-capacity-accounting.md) and only the order is here — and its refusal type is P-008's, passed back untouched, rather than a vocabulary this module would be choosing on its behalf. **`insert` is now private**: with a commit path that carries the debit, an exported writer that took none was a second path with the debit left out, which is the under-charge the issue exists to prevent. **The debit is `int64` and a negative one is refused at the door**, rather than made unrepresentable by an unsigned parameter — which looks stronger and is not, since Go's conversion from a negative `int64` wraps silently to an enormous positive while Rust's refuses, so the same call site would over-debit hugely in one implementation and fail in the other. The fault injection is a sink that applies the debit and *then* reports failure, and the test asserts the retry pays **twice** — §4.6's accepted direction, written down as a test rather than as prose, in the direction that matters |
+| 5 | `record` — atomic debit and cache commit | **Done** — [`src/replay.rs`](../../src/replay.rs) and [`replay.go`](../../replay.go). **`record` settles a reservation; it never sees an amount.** Built first against this PRD alone, taking a millibit `debit`, and that was wrong: [P-008](P-008-capacity-accounting.md) §5 has always said `settle(reservation)` is called from here, and `check` returns a reservation precisely so that a caller *"cannot check and then debit later without holding the thing that reserved the capacity"* — which a number as a parameter hands straight back. The reservation is opaque, so this module has no arithmetic to do and no value to get wrong, and the negative-value refusal an earlier version made here belongs where the arithmetic is. **Atomicity is a property of the stores rather than of this function**, and P-008's resolved open question 3 makes them **one store** for that reason; until it exists the sink is a parameter and the cache is in memory, so §4.6's order — settle, then write — is what is built, and it gives the property that follows from the sink's contract: no state exists in which an entry was committed and its debit was not. **The sink is a parameter**, added to §5, and its reservation and refusal types are both P-008's, passed through untouched rather than a vocabulary this module would be choosing on P-008's behalf. **`insert` is now private**: with a commit path that carries the debit, an exported writer that took none was a second path with the debit left out, which is the under-charge the issue exists to prevent. The fault injection is a sink that settles and *then* reports failure, and the test asserts the retry pays **twice** — §4.6's accepted direction, written down as a test rather than as prose, in the direction that matters |
 | 6 | Verbatim response storage and return | **Built**, and asserted as *two retries are equal* rather than as *the bytes are right* — the property is that nothing regenerates. Re-signing would remake `decided_at`, so two retries would differ, and that difference tells a requester the responder re-evaluated, which under opaque escalation is the transition [`core-model.md`](../../spec/core-model.md) §5.3 forbids revealing. Caching bytes rather than decisions makes it structural. Go copies on the way in and out (`CONVENTIONS-go.md`); Rust has it from the borrow checker |
 | 7 | Ordering assertion: cache unreachable before step 9 | **Blocked on [P-010](P-010-responder-pipeline.md), and not on anything here.** Ordering is a property of the pipeline: a vector must show that a bad-signature request left no entry, which needs `process_query` — every `ordering/` vector uses it, because a `verify_query` vector cannot show that one step ran before another. The store deliberately does **not** enforce the ordering itself and says so at the type: a caller could insert at any point, and the assertion that the pipeline does not is this issue's |
 | 8 | Author `replay/` corpus section | **Not authorable yet, and not for one reason.** Checked group by group rather than assumed: `expiry/` asserts step 6 and `ordering/` asserts step 9, both of which need `process_query` — a `verify_query` vector cannot show one step ran before another, which is why every existing `ordering/` vector uses it. `nonce/` needs an operation that calls this module's floor check, and `verify_query` is not it: P-003's sequence must not depend on P-004, or the two PRDs' dependency runs both ways. All three therefore wait on [P-010](P-010-responder-pipeline.md). `idempotent/` and `id-reuse/` wait on something else entirely — **a vector cannot describe a sequence**, and no vector in the corpus does ([E-51](../open-escalations.md)) |

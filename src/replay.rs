@@ -354,74 +354,78 @@ impl ReplayCache {
     }
 }
 
-/// Where the capacity debit is applied — P-004 §4.6.
+/// Where the capacity debit is settled — [P-008](../docs/prds/P-008-capacity-accounting.md)
+/// §5's `settle`, which that PRD says is called from this module's
+/// [`ReplayCache::record`].
 ///
 /// **This module calls it and does not implement it.** P-004 §3 puts budget
-/// arithmetic in [P-008](../docs/prds/P-008-capacity-accounting.md); what is
-/// here is the *order* in which the debit and the cache entry are committed, and
-/// that order needs a seam rather than a sum.
+/// arithmetic in P-008; what is here is where the debit is *committed*, and that
+/// needs a seam rather than a sum.
 ///
-/// `Refusal` is an associated type because a refusal means something P-008
-/// decides — insufficient remaining capacity, an unknown principal, a store that
-/// is down — and a concrete error here would be this module choosing that
-/// vocabulary for it. [`ReplayCache::record`] passes it back untouched.
+/// ## It takes a reservation, not a quantity
+///
+/// P-008 §5's `check` returns a `Reservation` rather than a boolean so that a
+/// caller "cannot check and then debit later without holding the thing that
+/// reserved the capacity". A millibit count here would hand that property back:
+/// anyone could commit an entry against a number they made up, having reserved
+/// nothing. So this module never sees an amount, and consequently has no opinion
+/// about one — a negative or absurd value is refused where the arithmetic is,
+/// which is P-008.
+///
+/// Both types are associated because both are P-008's: what a reservation *is*,
+/// and what a refusal means — insufficient remaining capacity, an unknown
+/// principal, a store that is down. Concrete types here would be this module
+/// choosing that vocabulary on P-008's behalf. [`ReplayCache::record`] passes
+/// the refusal back untouched.
 pub trait Budget {
-    /// What a refused debit says. P-008's, not this module's.
+    /// P-008 §5's reservation handle, opaque here.
+    type Reservation;
+    /// What a refused settle says. P-008's, not this module's.
     type Refusal;
 
-    /// Apply `millibits` to `principal`'s budget.
+    /// Make the reserved capacity durable — P-008 §5's `settle`.
     ///
     /// `Ok` means committed. An error means **nothing was committed**, which is
     /// what [`ReplayCache::record`] relies on to leave the cache untouched.
-    fn debit(&mut self, principal: &str, millibits: i64) -> Result<(), Self::Refusal>;
-}
-
-/// Why [`ReplayCache::record`] committed nothing.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum RecordFailure<R> {
-    /// A debit below zero, which would **credit** the budget — the same refusal
-    /// [`crate::registry`] makes of a negative capacity, applied where the value
-    /// is spent rather than where it is published.
     ///
-    /// It should be unreachable: a debit descends from a registry capacity, and
-    /// a negative one never loads. Refused here anyway, because the consequence
-    /// of the unreachable state being reached is a budget that grows on every
-    /// answer.
-    NegativeDebit(i64),
-    /// The debit was refused. P-008's reason, unchanged.
-    DebitRefused(R),
+    /// The reservation is consumed either way. A settle that fails leaves it
+    /// with P-008, where an unsettled reservation expires — P-010 §4.7 — so the
+    /// capacity returns rather than being stranded.
+    fn settle(&mut self, reservation: Self::Reservation) -> Result<(), Self::Refusal>;
 }
 
 impl ReplayCache {
-    /// Commit an exchange and its capacity debit — P-004 §4.6, issue 5.
+    /// Commit an exchange and settle its capacity debit — P-004 §4.6, issue 5.
     ///
-    /// ## The debit is applied first, and that is the whole guarantee
+    /// ## One call, because two could be separated by a caller
+    ///
+    /// §4.6's reason for a single call is that a caller holding two could
+    /// interleave them, apply one and not the other, or forget the second. One
+    /// call cannot be separated *by a caller*. It can still be separated by a
+    /// crash, and the rest of this is about which side of that the module falls.
+    ///
+    /// ## Settle first
     ///
     /// §4.6 gives the two orders and their crash consequences: debit-then-cache
     /// **over-charges** on retry, cache-then-debit **under-charges**, and an
-    /// atomic commit does neither. It then says which to choose where atomicity
-    /// is not available — debit first, because over-charging is conservative and
+    /// atomic commit does neither. Where atomicity is not on offer it says which
+    /// to take — debit first, because over-charging is conservative and
     /// under-charging means more disclosure than policy intended, which is what
     /// Q2D-C-09 rests on.
     ///
-    /// **Atomicity is a property of the stores, and not of this function.**
-    /// Where the budget and the cache live in one store, a caller implementing
-    /// [`Budget`] over that store puts both writes in one transaction and the
-    /// order stops mattering; nothing here changes. Where they do not — a
-    /// persistent budget beside an in-memory cache, which is what P-013's
-    /// daemon will have — this module cannot enrol a caller-supplied sink in a
-    /// transaction it does not own, and a two-phase interface would be this
-    /// module designing P-008's store.
+    /// **Atomicity is a property of the stores rather than of this function**,
+    /// and P-008's resolved open question 3 makes them **one store** for exactly
+    /// this reason: two stores would need a distributed transaction, which
+    /// P-013 §4.6 declines to solve. So the atomic row is the one this system
+    /// takes, and it is reached by a caller implementing [`Budget`] over the
+    /// store the cache lives in — at which point both writes are in one
+    /// transaction and this order stops mattering. Nothing here changes.
     ///
-    /// So `record` provides §4.6's fallback, and the property that follows from
-    /// it given [`Budget`]'s contract that an error means nothing was committed:
-    /// **no state exists in which a cache entry was committed and its debit was
-    /// not.** A crash between the two loses the entry, not the debit.
-    ///
-    /// Today both stores are in memory, so a crash loses both and the question
-    /// does not arise. The order is fixed now anyway, because the moment either
-    /// store persists it is a correctness property, and that is P-013's change
-    /// to make against a rule rather than to rediscover.
+    /// Until that store exists the sink is a parameter and the cache is in
+    /// memory, so the order is doing real work, and it is §4.6's: settle, then
+    /// write. Given [`Budget`]'s contract that an error means nothing was
+    /// committed, **no state exists in which a cache entry was committed and its
+    /// debit was not.**
     ///
     /// ## What it does not do
     ///
@@ -429,6 +433,9 @@ impl ReplayCache {
     /// this commits what the outcome turned out to be; folding the two together
     /// would put the lookup and the commit either side of the whole of steps
     /// 10-17, which is not one operation.
+    ///
+    /// It does not release a reservation it failed to settle, and does not
+    /// retry. What becomes of one is P-008's and P-010 §4.7's.
     #[allow(clippy::too_many_arguments)]
     pub fn record<B: Budget + ?Sized>(
         &mut self,
@@ -440,16 +447,9 @@ impl ReplayCache {
         request_digest: &str,
         response_bytes: Vec<u8>,
         expires_at: i64,
-        debit: i64,
-    ) -> Result<(), RecordFailure<B::Refusal>> {
-        // Before the debit, not after: a negative value refused after it had
-        // been applied would have already credited the budget.
-        if debit < 0 {
-            return Err(RecordFailure::NegativeDebit(debit));
-        }
-        budget
-            .debit(principal, debit)
-            .map_err(RecordFailure::DebitRefused)?;
+        reservation: B::Reservation,
+    ) -> Result<(), B::Refusal> {
+        budget.settle(reservation)?;
         self.insert(
             policy,
             principal,
@@ -750,7 +750,9 @@ mod tests {
     /// **The total is what the assertions read**, not the call count: P-004 §7
     /// asks for a retry to produce no second debit *against the budget total*,
     /// and a call count would pass for a store that was called once and applied
-    /// the value twice.
+    /// the value twice. The double's reservation carries the millibits so that a
+    /// total exists to assert against — the module under test never sees one,
+    /// which is the point of the reservation and is itself asserted below.
     ///
     /// `applied_before_refusing` is the fault injection. It models the store
     /// that committed and then failed to report it — the case where `record`
@@ -760,25 +762,30 @@ mod tests {
         total: i64,
         refuse: bool,
         applied_before_refusing: bool,
-        last_principal: Option<String>,
+        settled: usize,
     }
+
+    /// P-008's reservation, reduced to what a test needs to add up.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    struct TestReservation(i64);
 
     /// Everything P-008 will say, reduced to the one thing this module needs.
     #[derive(Debug, PartialEq, Eq)]
     struct Refused;
 
     impl Budget for TestBudget {
+        type Reservation = TestReservation;
         type Refusal = Refused;
 
-        fn debit(&mut self, principal: &str, millibits: i64) -> Result<(), Refused> {
-            self.last_principal = Some(principal.to_string());
+        fn settle(&mut self, reservation: TestReservation) -> Result<(), Refused> {
+            self.settled += 1;
             if self.refuse {
                 if self.applied_before_refusing {
-                    self.total += millibits;
+                    self.total += reservation.0;
                 }
                 return Err(Refused);
             }
-            self.total += millibits;
+            self.total += reservation.0;
             Ok(())
         }
     }
@@ -789,7 +796,7 @@ mod tests {
         policy: &FreshnessPolicy,
         query_id: &str,
         debit: i64,
-    ) -> Result<(), RecordFailure<Refused>> {
+    ) -> Result<(), Refused> {
         cache.record(
             budget,
             policy,
@@ -799,7 +806,7 @@ mod tests {
             "sha256:aa",
             b"response".to_vec(),
             EXPIRES,
-            debit,
+            TestReservation(debit),
         )
     }
 
@@ -809,11 +816,7 @@ mod tests {
         let mut budget = TestBudget::default();
         record(&mut cache, &mut budget, &policy, "urn:uuid:one", 2_000).expect("committed");
         assert_eq!(budget.total, 2_000);
-        assert_eq!(
-            budget.last_principal.as_deref(),
-            Some("did:key:z6MkRequesterPrincipal"),
-            "the debit lands on the requester the entry is keyed under"
-        );
+        assert_eq!(budget.settled, 1, "one exchange, one settle");
         assert_eq!(cache.len(), 1);
         assert_eq!(cache.nonce_len(), 1);
     }
@@ -831,7 +834,7 @@ mod tests {
         };
         let failure = record(&mut cache, &mut budget, &policy, "urn:uuid:one", 2_000)
             .expect_err("refused");
-        assert_eq!(failure, RecordFailure::DebitRefused(Refused));
+        assert_eq!(failure, Refused, "P-008's reason, passed back untouched");
         assert_eq!(budget.total, 0);
         assert!(cache.is_empty(), "neither index was written");
     }
@@ -907,30 +910,43 @@ mod tests {
     }
 
     #[test]
-    fn a_negative_debit_is_refused_before_it_reaches_the_budget() {
-        // A credit, not a debit. Refused here as well as at the manifest,
-        // because the two refusals close different holes: the registry's stops a
-        // published capacity below zero, and this stops any arithmetic between
-        // there and here from producing one.
+    fn the_amount_never_reaches_this_module() {
+        // P-008 §5's structural property, from this side. `check` returns a
+        // reservation rather than a boolean so that a caller cannot commit
+        // capacity it never reserved — and it only holds if the commit takes the
+        // reservation. A millibit parameter here would let a caller pass a number
+        // it invented, which is the same hole with an extra step.
+        //
+        // Asserted as a compile-time fact by the signature: the reservation is
+        // P-008's associated type, so this module has nothing to inspect, no
+        // arithmetic to do, and no value to get wrong. A negative or absurd
+        // amount is P-008's to refuse, where the arithmetic lives.
         let (mut cache, policy) = cache();
         let mut budget = TestBudget::default();
-        let failure =
-            record(&mut cache, &mut budget, &policy, "urn:uuid:one", -1).expect_err("refused");
-        assert_eq!(failure, RecordFailure::NegativeDebit(-1));
-        assert_eq!(budget.total, 0);
-        assert!(
-            budget.last_principal.is_none(),
-            "the budget was never called, so nothing could have been credited"
-        );
-        assert!(cache.is_empty());
+        let reservation = TestReservation(2_000);
+        cache
+            .record(
+                &mut budget,
+                &policy,
+                "did:key:z6MkRequesterPrincipal",
+                "urn:uuid:one",
+                "n",
+                "sha256:aa",
+                b"response".to_vec(),
+                EXPIRES,
+                reservation,
+            )
+            .expect("committed");
+        assert_eq!(budget.total, 2_000, "the amount was the reservation's");
     }
 
     #[test]
     fn a_zero_debit_commits() {
         // `deny` and `escalate` debit nothing — E-01 — and their outcomes are
         // still cached, because §4.7 caches every outcome reached at or after
-        // step 9. A zero treated as "nothing to do" would skip the entry and
-        // make a denial re-evaluate on every retry.
+        // step 9. A zero-valued reservation treated as "nothing to settle" would
+        // skip the entry and make a denial re-evaluate on every retry — and this
+        // module cannot make that mistake, because it cannot see the value.
         let (mut cache, policy) = cache();
         let mut budget = TestBudget::default();
         record(&mut cache, &mut budget, &policy, "urn:uuid:one", 0).expect("committed");

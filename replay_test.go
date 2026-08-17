@@ -7,8 +7,9 @@ import (
 )
 
 // These mirror src/replay.rs's tests case for case, with one exception:
-// TestNoBudgetIsRefusedRatherThanSkipped has no Rust counterpart, because Rust's
-// generic parameter cannot be absent and there is no case to write.
+// TestANilBudgetOrReservationIsRefusedRatherThanSkipped has no Rust counterpart,
+// because Rust's generic parameters cannot be absent and there is no case to
+// write.
 
 const replayExpires int64 = 1000300
 
@@ -347,7 +348,10 @@ func TestTheTwoRejectionsAreToldApartInternallyAndShareAStep(t *testing.T) {
 //
 // The total is what the assertions read, not the call count: P-004 §7 asks for a
 // retry to produce no second debit against the budget total, and a call count
-// would pass for a store that was called once and applied the value twice.
+// would pass for a store that was called once and applied the value twice. The
+// double's reservation carries the millibits so that a total exists to assert
+// against — the code under test never sees one, which is the point of the
+// reservation and is itself asserted below.
 //
 // appliedBeforeRefusing is the fault injection. It models the store that
 // committed and then failed to report it — the case where Record returns an error
@@ -356,30 +360,32 @@ type testBudget struct {
 	total                 int64
 	refuse                bool
 	appliedBeforeRefusing bool
-	lastPrincipal         string
-	called                bool
+	settled               int
 }
+
+// testReservation is P-008's reservation, reduced to what a test needs to add up.
+type testReservation struct{ millibits int64 }
 
 // errRefused is everything P-008 will say, reduced to the one thing this file
 // needs.
 var errRefused = errors.New("refused")
 
-func (b *testBudget) Debit(principal string, millibits int64) error {
-	b.called = true
-	b.lastPrincipal = principal
+func (b *testBudget) Settle(reservation Reservation) error {
+	b.settled++
+	held := reservation.(testReservation)
 	if b.refuse {
 		if b.appliedBeforeRefusing {
-			b.total += millibits
+			b.total += held.millibits
 		}
 		return errRefused
 	}
-	b.total += millibits
+	b.total += held.millibits
 	return nil
 }
 
 func recordReplay(cache *ReplayCache, budget Budget, policy FreshnessPolicy, queryID string, debit int64) error {
 	return cache.Record(budget, policy, replayPrincipal, queryID, "nonce-for-"+queryID,
-		"sha256:aa", []byte("response"), replayExpires, debit)
+		"sha256:aa", []byte("response"), replayExpires, testReservation{debit})
 }
 
 func TestACommitWritesBothIndexesAndDebitsOnce(t *testing.T) {
@@ -391,8 +397,8 @@ func TestACommitWritesBothIndexesAndDebitsOnce(t *testing.T) {
 	if budget.total != 2000 {
 		t.Errorf("total %d", budget.total)
 	}
-	if budget.lastPrincipal != replayPrincipal {
-		t.Errorf("the debit landed on %q, not the requester the entry is keyed under", budget.lastPrincipal)
+	if budget.settled != 1 {
+		t.Errorf("%d settles; one exchange settles once", budget.settled)
 	}
 	if cache.Len() != 1 || cache.NonceLen() != 1 {
 		t.Errorf("%d entries, %d nonces", cache.Len(), cache.NonceLen())
@@ -407,7 +413,7 @@ func TestARefusedDebitLeavesNoEntry(t *testing.T) {
 	budget := &testBudget{refuse: true}
 	err := recordReplay(cache, budget, policy, "urn:uuid:one", 2000)
 	if !errors.Is(err, errRefused) {
-		t.Fatalf("err %v", err)
+		t.Fatalf("err %v; P-008's reason should pass back untouched", err)
 	}
 	if budget.total != 0 {
 		t.Errorf("total %d", budget.total)
@@ -442,12 +448,12 @@ func TestARefusedDebitLeavesAnEarlierExchangeAlone(t *testing.T) {
 }
 
 func TestAFailureAfterTheDebitOverChargesRatherThanUnderCharging(t *testing.T) {
-	// §4.6's accepted direction, asserted rather than described. The store applied
-	// the debit and then failed to say so, which is the crash window debit-first
-	// leaves open. The retry arrives as fresh — nothing was cached — and pays a
-	// second time.
+	// §4.6's accepted direction, asserted rather than described. The store settled
+	// and then failed to say so, which is the crash window settle-first leaves
+	// open. The retry arrives as fresh — nothing was cached — and pays a second
+	// time.
 	//
-	// That is the whole of what debit-first buys, and the test says so in the
+	// That is the whole of what settle-first buys, and the test says so in the
 	// direction that matters: never the other one.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
 	budget := &testBudget{refuse: true, appliedBeforeRefusing: true}
@@ -491,29 +497,35 @@ func TestARetryOfACommittedExchangeDoesNotDebitAgain(t *testing.T) {
 	}
 }
 
-func TestANegativeDebitIsRefusedBeforeItReachesTheBudget(t *testing.T) {
-	// A credit, not a debit. Refused here as well as at the manifest, because the
-	// two refusals close different holes: the registry's stops a published
-	// capacity below zero, and this stops any arithmetic between there and here
-	// from producing one.
+func TestTheAmountNeverReachesThisPackage(t *testing.T) {
+	// P-008 §5's structural property, from this side. check returns a reservation
+	// rather than a boolean so that a caller cannot commit capacity it never
+	// reserved — and that only holds if the commit takes the reservation. A
+	// millibit parameter here would let a caller pass a number it invented, which
+	// is the same hole with an extra step.
+	//
+	// The signature carries it: Record takes an opaque Reservation, so this
+	// package has nothing to inspect, no arithmetic to do, and no value to get
+	// wrong. A negative or absurd amount is P-008's to refuse, where the
+	// arithmetic lives. All this can assert is that the amount came from the
+	// reservation and not from a parameter.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
 	budget := &testBudget{}
-	if err := recordReplay(cache, budget, policy, "urn:uuid:one", -1); !errors.Is(err, ErrNegativeDebit) {
-		t.Fatalf("err %v", err)
+	if err := cache.Record(budget, policy, replayPrincipal, "urn:uuid:one", "n", "sha256:aa",
+		[]byte("response"), replayExpires, testReservation{2000}); err != nil {
+		t.Fatalf("committed: %v", err)
 	}
-	if budget.called {
-		t.Error("the budget was called, so it could have been credited")
-	}
-	if cache.Len() != 0 {
-		t.Errorf("%d entries", cache.Len())
+	if budget.total != 2000 {
+		t.Errorf("total %d; the amount was the reservation's", budget.total)
 	}
 }
 
 func TestAZeroDebitCommits(t *testing.T) {
 	// deny and escalate debit nothing — E-01 — and their outcomes are still
-	// cached, because §4.7 caches every outcome reached at or after step 9. A zero
-	// treated as "nothing to do" would skip the entry and make a denial
-	// re-evaluate on every retry.
+	// cached, because §4.7 caches every outcome reached at or after step 9. A
+	// zero-valued reservation treated as "nothing to settle" would skip the entry
+	// and make a denial re-evaluate on every retry — and this package cannot make
+	// that mistake, because it cannot see the value.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
 	budget := &testBudget{}
 	if err := recordReplay(cache, budget, policy, "urn:uuid:one", 0); err != nil {
@@ -527,14 +539,19 @@ func TestAZeroDebitCommits(t *testing.T) {
 	}
 }
 
-func TestNoBudgetIsRefusedRatherThanSkipped(t *testing.T) {
-	// Go's interfaces admit a nil where Rust's generic parameter cannot be absent
-	// — CONVENTIONS-go.md §4. Committing an entry against no budget at all is
-	// exactly the under-charge Record exists to prevent, so it is a named refusal
-	// and not a caller convenience.
+func TestANilBudgetOrReservationIsRefusedRatherThanSkipped(t *testing.T) {
+	// Go's interfaces admit a nil where Rust's generic parameters cannot be absent
+	// — CONVENTIONS-go.md §4. Committing an entry against no budget, or settling
+	// nothing, is exactly the under-charge Record exists to prevent, so each is a
+	// named refusal and not a caller convenience.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
 	if err := recordReplay(cache, nil, policy, "urn:uuid:one", 2000); !errors.Is(err, ErrNoBudget) {
-		t.Fatalf("err %v", err)
+		t.Errorf("nil budget: %v", err)
+	}
+	err := cache.Record(&testBudget{}, policy, replayPrincipal, "urn:uuid:one", "n", "sha256:aa",
+		[]byte("response"), replayExpires, nil)
+	if !errors.Is(err, ErrNoReservation) {
+		t.Errorf("nil reservation: %v", err)
 	}
 	if cache.Len() != 0 {
 		t.Errorf("%d entries", cache.Len())
