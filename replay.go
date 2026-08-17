@@ -6,14 +6,15 @@
 //
 // # What is here and what is not
 //
-// The two indexes, and Check — step 9's four-way outcome over them: fresh,
-// replay, query_id reuse, nonce reuse. The decision lives with the indexes rather
-// than above them because it is a reading of both, and a caller assembling it
-// from Get and NonceUsed would be the second place the order of those two lookups
-// is decided — which is the part §5.2.1 constrains.
+// The two indexes, Check — step 9's four-way outcome over them: fresh, replay,
+// query_id reuse, nonce reuse — and Record, the commit of an outcome together
+// with its capacity debit. The decision lives with the indexes rather than above
+// them because it is a reading of both, and a caller assembling it from Get and
+// NonceUsed would be the second place the order of those two lookups is decided
+// — which is the part §5.2.1 constrains.
 //
-// Not here: the atomic commit with the capacity debit, which is P-004 issue 5,
-// and when step 9 runs, which is the pipeline's and is issue 7.
+// Not here: the budget arithmetic behind Budget, which is P-008's, and when step
+// 9 runs, which is the pipeline's and is issue 7.
 //
 // # Two indexes, because §5.2.1 names two identifiers
 //
@@ -45,7 +46,10 @@
 // point — and P-004 issue 7 is the assertion that the pipeline does not.
 package q2d
 
-import "sort"
+import (
+	"errors"
+	"sort"
+)
 
 // ReplayEntry is one cached exchange. P-004 §4.2's value.
 type ReplayEntry struct {
@@ -106,14 +110,20 @@ func NewReplayCache() *ReplayCache {
 	}
 }
 
-// Insert records an exchange.
+// insert writes both indexes.
 //
 // expiresAt is the request's, in seconds, and the retention instant is derived
 // from it by policy — this file never computes a duration. An entry for a key
 // already present is replaced, which is the caller's decision to have made: issue
 // 3 decides whether a second request under one query_id is a replay or a
 // rejection, and by the time it inserts it has already decided.
-func (c *ReplayCache) Insert(policy FreshnessPolicy, principal, queryID, requestDigest string, responseBytes []byte, nonce string, expiresAt int64) {
+//
+// Unexported since issue 5. Record is the only way to commit an exchange, because
+// §4.6's guarantee is that an entry and its debit arrive together — and an
+// exported writer that took no debit would be a second commit path with the debit
+// left out, which is the under-charge the issue exists to prevent. The store's own
+// tests still reach it: they are testing the indexes, not the commit.
+func (c *ReplayCache) insert(policy FreshnessPolicy, principal, queryID, requestDigest string, responseBytes []byte, nonce string, expiresAt int64) {
 	// The response is copied. A caller retaining the slice it passed could
 	// otherwise mutate a cached response after the fact, and §4.5's whole point
 	// is that the bytes returned on a replay are the bytes that were sent.
@@ -341,3 +351,121 @@ func (c *ReplayCache) Len() int { return len(c.entries) }
 // evicted together, so a test that could only see a total could not tell a store
 // that dropped one index from a store that dropped both.
 func (c *ReplayCache) NonceLen() int { return len(c.nonces) }
+
+// Reservation is P-008 §5's reservation handle, opaque to this file.
+//
+// P-008's check returns one rather than a boolean so that a caller "cannot check
+// and then debit later without holding the thing that reserved the capacity". An
+// interface value carries it here because what a reservation is belongs to P-008,
+// exactly as Rust makes it an associated type; this file only passes it on.
+type Reservation any
+
+// Budget is where the capacity debit is settled — P-008 §5's settle, which that
+// PRD says is called from this file's Record.
+//
+// This file calls it and does not implement it. P-004 §3 puts budget arithmetic
+// in P-008; what is here is where the debit is committed, and that needs a seam
+// rather than a sum.
+//
+// # It takes a reservation, not a quantity
+//
+// A millibit count here would hand back the property the reservation exists for:
+// anyone could commit an entry against a number they made up, having reserved
+// nothing. So this file never sees an amount, and consequently has no opinion
+// about one — a negative or absurd value is refused where the arithmetic is,
+// which is P-008.
+//
+// The returned error is P-008's and is passed back by Record unchanged, because
+// what a refusal means — insufficient remaining capacity, an unknown principal, a
+// store that is down — is P-008's to say. A nil error means committed; a non-nil
+// one means nothing was committed, which is what Record relies on to leave the
+// cache untouched. The reservation is consumed either way: one that fails to
+// settle stays with P-008, where an unsettled reservation expires (P-010 §4.7),
+// so the capacity returns rather than being stranded.
+type Budget interface {
+	Settle(reservation Reservation) error
+}
+
+// ErrNoBudget is Record called with a reservation and no budget to settle it
+// against.
+//
+// Go's interfaces admit a nil where Rust's generic parameter cannot be absent, so
+// this refusal exists on one side only — CONVENTIONS-go.md §4's rule that a nil
+// interface value is a distinct case and gets a named refusal. What both
+// implementations agree on is that a reservation is never dropped silently.
+//
+// A nil *reservation* is not an error: it is a cached outcome that debits
+// nothing, which is most of them. See Record.
+var ErrNoBudget = errors.New("q2d: a reservation with no budget to settle it against")
+
+// Record commits an exchange and settles its capacity debit — P-004 §4.6, issue 5.
+//
+// # One call, because two could be separated by a caller
+//
+// §4.6's reason for a single call is that a caller holding two could interleave
+// them, apply one and not the other, or forget the second. One call cannot be
+// separated by a caller. It can still be separated by a crash, and the rest of
+// this is about which side of that this file falls.
+//
+// # Settle first, and this interface goes no further
+//
+// §4.6 gives the two orders and their crash consequences: debit-then-cache
+// over-charges on retry, cache-then-debit under-charges, and an atomic commit does
+// neither. Where atomicity is not on offer it says which to take — debit first,
+// because over-charging is conservative and under-charging means more disclosure
+// than policy intended, which is what Q2D-C-09 rests on.
+//
+// This is the first row, and nothing a caller does makes it the third. Record
+// settles and then writes; the write is not inside anything the caller can open or
+// close, so implementing Budget over the store the cache lives in does not enclose
+// it. The atomic row needs a transaction handle this signature does not take —
+// P-010 §5 is where that transaction is opened, staging the debit at step 18 and
+// committing it with the response bytes step 19 produces, and P-008's resolved
+// open question 3 is the single store that makes it local rather than distributed.
+// Neither exists yet.
+//
+// So what holds today is the property that follows from Budget's contract that an
+// error means nothing was committed: no state exists in which a cache entry was
+// committed and its debit was not. The converse state does exist — a settled debit
+// with no entry, which the retry pays for a second time — and it is real until the
+// transaction above is built.
+//
+// # What it does not do
+//
+// It does not call Check. Step 9 decides whether to proceed and this commits what
+// the outcome turned out to be; folding the two together would put the lookup and
+// the commit either side of the whole of steps 10-17, which is not one operation.
+//
+// It does not release a reservation it failed to settle, and does not retry. What
+// becomes of one is P-008's and P-010 §4.7's.
+//
+// # Why the reservation is optional
+//
+// §4.7 caches every outcome reached at or after step 9, and most of them never
+// reach the budget: a rate-limit rejection at 9a, an unknown predicate at 10, a
+// schema or constraint failure at 11 and 11a, a policy denial at 14. E-01 settled
+// that neither deny nor escalate debits, so there is nothing to settle and no
+// reservation to hold. A required reservation would leave a caller either not
+// caching denials — which breaks §4.7, and lets a denial become an answer on
+// retry — or minting an empty one, which puts a debit-shaped object where E-01
+// says none belongs.
+//
+// This file cannot tell an answer from a denial, and does not try: a nil
+// reservation is the caller's assertion that nothing was released. Step 18 is
+// where that assertion is made and P-010's is the pipeline that makes it.
+func (c *ReplayCache) Record(budget Budget, policy FreshnessPolicy, principal, queryID, nonce, requestDigest string, responseBytes []byte, expiresAt int64, reservation Reservation) error {
+	if reservation != nil {
+		// A nil interface value is its own case, not a caller convenience. A
+		// reservation handed to no budget would be dropped silently, and the entry
+		// committed against capacity nobody spent — the under-charge this function
+		// exists to prevent.
+		if budget == nil {
+			return ErrNoBudget
+		}
+		if err := budget.Settle(reservation); err != nil {
+			return err
+		}
+	}
+	c.insert(policy, principal, queryID, requestDigest, responseBytes, nonce, expiresAt)
+	return nil
+}
