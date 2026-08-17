@@ -754,14 +754,16 @@ mod tests {
     /// total exists to assert against — the module under test never sees one,
     /// which is the point of the reservation and is itself asserted below.
     ///
-    /// `applied_before_refusing` is the fault injection. It models the store
-    /// that committed and then failed to report it — the case where `record`
-    /// returns an error and the debit nevertheless stands.
+    /// `refuse` is the fault injection, and it refuses the way [`Budget`] says a
+    /// refusal works: nothing is committed. A double that applied the debit and
+    /// *then* reported failure would contradict the one contract `record` relies
+    /// on, and would be asserting the behaviour of a store that may not exist.
+    /// The crash *after* a successful settle is a different state and is reached
+    /// differently — see the over-charge test.
     #[derive(Default)]
     struct TestBudget {
         total: i64,
         refuse: bool,
-        applied_before_refusing: bool,
         settled: usize,
     }
 
@@ -780,9 +782,6 @@ mod tests {
         fn settle(&mut self, reservation: TestReservation) -> Result<(), Refused> {
             self.settled += 1;
             if self.refuse {
-                if self.applied_before_refusing {
-                    self.total += reservation.0;
-                }
                 return Err(Refused);
             }
             self.total += reservation.0;
@@ -857,25 +856,24 @@ mod tests {
     }
 
     #[test]
-    fn a_failure_after_the_debit_over_charges_rather_than_under_charging() {
-        // §4.6's accepted direction, asserted rather than described. The store
-        // applied the debit and then failed to say so, which is the crash window
-        // debit-first leaves open. The retry arrives as `Fresh` — nothing was
-        // cached — and pays a second time.
+    fn a_crash_after_the_settle_over_charges_rather_than_under_charging() {
+        // §4.6's first row, which is the state settle-first leaves open and the
+        // reason it is nevertheless the safe side. The capacity is spent, no
+        // entry exists, and nothing gives it back: the reservation *settled*, so
+        // the expiry that covers an abandoned one does not apply here.
         //
-        // That is the whole of what debit-first buys, and the test says so in
-        // the direction that matters: never the other one.
+        // The crash is modelled by doing what `record` does and stopping where it
+        // would have stopped — settle returns, the entry is never written. Asking
+        // the double to apply a debit and then report failure would produce the
+        // same state by contradicting `Budget`'s contract, which is the one thing
+        // `record` relies on.
         let (mut cache, policy) = cache();
-        let mut budget = TestBudget {
-            refuse: true,
-            applied_before_refusing: true,
-            ..TestBudget::default()
-        };
-        record(&mut cache, &mut budget, &policy, "urn:uuid:one", 2_000).expect_err("refused");
-        assert_eq!(budget.total, 2_000, "the debit stands");
+        let mut budget = TestBudget::default();
+        budget.settle(TestReservation(2_000)).expect("settled");
+        // ... and the process dies here, between the two writes.
+        assert_eq!(budget.total, 2_000, "the capacity is spent");
         assert!(cache.is_empty());
 
-        budget.refuse = false;
         assert_eq!(
             cache.check(
                 "did:key:z6MkRequesterPrincipal",

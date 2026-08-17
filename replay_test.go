@@ -353,14 +353,16 @@ func TestTheTwoRejectionsAreToldApartInternallyAndShareAStep(t *testing.T) {
 // against — the code under test never sees one, which is the point of the
 // reservation and is itself asserted below.
 //
-// appliedBeforeRefusing is the fault injection. It models the store that
-// committed and then failed to report it — the case where Record returns an error
-// and the debit nevertheless stands.
+// refuse is the fault injection, and it refuses the way Budget says a refusal
+// works: nothing is committed. A double that applied the debit and then reported
+// failure would contradict the one contract Record relies on, and would be
+// asserting the behaviour of a store that may not exist. The crash after a
+// successful settle is a different state and is reached differently — see the
+// over-charge test.
 type testBudget struct {
-	total                 int64
-	refuse                bool
-	appliedBeforeRefusing bool
-	settled               int
+	total   int64
+	refuse  bool
+	settled int
 }
 
 // testReservation is P-008's reservation, reduced to what a test needs to add up.
@@ -372,14 +374,10 @@ var errRefused = errors.New("refused")
 
 func (b *testBudget) Settle(reservation Reservation) error {
 	b.settled++
-	held := reservation.(testReservation)
 	if b.refuse {
-		if b.appliedBeforeRefusing {
-			b.total += held.millibits
-		}
 		return errRefused
 	}
-	b.total += held.millibits
+	b.total += reservation.(testReservation).millibits
 	return nil
 }
 
@@ -447,27 +445,29 @@ func TestARefusedDebitLeavesAnEarlierExchangeAlone(t *testing.T) {
 	}
 }
 
-func TestAFailureAfterTheDebitOverChargesRatherThanUnderCharging(t *testing.T) {
-	// §4.6's accepted direction, asserted rather than described. The store settled
-	// and then failed to say so, which is the crash window settle-first leaves
-	// open. The retry arrives as fresh — nothing was cached — and pays a second
-	// time.
+func TestACrashAfterTheSettleOverChargesRatherThanUnderCharging(t *testing.T) {
+	// §4.6's first row, which is the state settle-first leaves open and the reason
+	// it is nevertheless the safe side. The capacity is spent, no entry exists, and
+	// nothing gives it back: the reservation settled, so the expiry that covers an
+	// abandoned one does not apply here.
 	//
-	// That is the whole of what settle-first buys, and the test says so in the
-	// direction that matters: never the other one.
+	// The crash is modelled by doing what Record does and stopping where it would
+	// have stopped — settle returns, the entry is never written. Asking the double
+	// to apply a debit and then report failure would produce the same state by
+	// contradicting Budget's contract, which is the one thing Record relies on.
 	cache, policy := NewReplayCache(), DefaultFreshnessPolicy()
-	budget := &testBudget{refuse: true, appliedBeforeRefusing: true}
-	if err := recordReplay(cache, budget, policy, "urn:uuid:one", 2000); err == nil {
-		t.Fatal("the commit should have been refused")
+	budget := &testBudget{}
+	if err := budget.Settle(testReservation{2000}); err != nil {
+		t.Fatalf("settled: %v", err)
 	}
+	// ... and the process dies here, between the two writes.
 	if budget.total != 2000 {
-		t.Errorf("the debit should stand; total %d", budget.total)
+		t.Errorf("total %d; the capacity is spent", budget.total)
 	}
 	if cache.Len() != 0 {
 		t.Errorf("%d entries", cache.Len())
 	}
 
-	budget.refuse = false
 	outcome, _ := cache.Check(replayPrincipal, "urn:uuid:one", "nonce-for-urn:uuid:one", "sha256:aa", replayExpires)
 	if outcome != ReplayFresh {
 		t.Fatalf("outcome %v; nothing should suppress the retry", outcome)
