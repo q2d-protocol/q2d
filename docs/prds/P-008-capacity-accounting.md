@@ -218,7 +218,7 @@ worse than debiting would have been.
 capacity_for(entry, effective_domain) -> Result<Millibits>   // lookup; no log2
 check(key: BudgetKey, debit: Millibits, now) -> Verdict      // reserves
    Verdict = Within { reservation } | Exhausted { spent, limit }
-settle(reservation) -> Result                                // called by P-004's atomic commit
+settle(reservation) -> Result                                // called by P-004's `record`
 release(reservation) -> Result
 spent(key, window, now) -> Millibits
 ```
@@ -227,9 +227,20 @@ spent(key, window, now) -> Millibits
 caller cannot check and then debit later without holding the thing that reserved
 the capacity.
 
-`settle` is called from [P-004](P-004-replay-idempotency.md)'s `record`, inside
-the same atomic commit as the replay-cache entry. It is not called directly by
-the pipeline — that ordering is what makes a retry unable to debit twice.
+`settle` is called from [P-004](P-004-replay-idempotency.md)'s `record` rather
+than directly by the pipeline, which is what makes a retry unable to debit twice.
+
+**It is to be called inside the same transaction as the replay-cache entry, and
+is not yet**, which this paragraph stated as though it already were. P-004 issue
+5 built `record` as settle-then-write — §4.6's first row there — and review of it
+established that `record` cannot reach the atomic row on its own: the cache write
+is not inside anything a caller of `settle` can open or close. The transaction is
+[P-010](P-010-responder-pipeline.md) §5's, staging the debit at step 18 and
+committing it with the bytes step 19 produces, over the single store open
+question 3 resolved to; issue 2 here is where this module's half lands. Until
+then a crash between the settle and the cache write **over-charges** — the
+conservative direction P-004 §4.6 chose, and not one this PRD may describe as
+already closed.
 
 ## 6. Corpus sections
 
@@ -314,7 +325,7 @@ there is nothing for a requester-asserted debit to be read from.
 | 4 | Rolling-window `spent` | `budget/window/` passes; no calendar boundary |
 | 5 | `check` with reservation, and the exhaustion boundary | `budget/exhaustion/` and `budget/reserve/` pass |
 | 5a | **Rate limiter**, keyed on the **relationship component only** — never the full `BudgetKey` — checked at [`core-model.md`](../../spec/core-model.md) §4 step 9a; required configuration with no default | Startup fails when unconfigured; the limiter is reachable without registry resolution, so a request naming an unknown predicate counts identically to one naming a known predicate; `budget/ratelimit/` shows a rejection byte-identical to a Tier C denial, with no retry metadata and no distinguishing header |
-| 6 | `settle` / `release` wired into P-004's atomic commit | `budget/idempotent/` passes |
+| 6 | `settle` / `release` wired into P-004's `record`, **inside a transaction with the cache entry** | `budget/idempotent/` passes. The wiring is the easy half: P-004 issue 5 built `record` as settle-then-write, and review there established that it cannot enclose the cache write on its own — so this issue also carries the transaction, over the single store open question 3 resolved to, opened where [P-010](P-010-responder-pipeline.md) §5 says. Until it lands, a crash between the two over-charges |
 | 7 | Reservation expiry | Unsettled reservation held **through** `expires_at + skew` and released after it — [`freshness.md`](../../spec/freshness.md) §1's inclusive boundary |
 | 8 | Accumulation order-independence | P-001 cross-vector permutation assertion passes |
 | 9 | Author `budget/` corpus section | Six groups; `harness lint` clean |

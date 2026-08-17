@@ -407,7 +407,7 @@ var ErrNoBudget = errors.New("q2d: a reservation with no budget to settle it aga
 // separated by a caller. It can still be separated by a crash, and the rest of
 // this is about which side of that this file falls.
 //
-// # Settle first
+// # Settle first, and this interface goes no further
 //
 // §4.6 gives the two orders and their crash consequences: debit-then-cache
 // over-charges on retry, cache-then-debit under-charges, and an atomic commit does
@@ -415,18 +415,21 @@ var ErrNoBudget = errors.New("q2d: a reservation with no budget to settle it aga
 // because over-charging is conservative and under-charging means more disclosure
 // than policy intended, which is what Q2D-C-09 rests on.
 //
-// Atomicity is a property of the stores rather than of this function, and P-008's
-// resolved open question 3 makes them one store for exactly this reason: two
-// stores would need a distributed transaction, which P-013 §4.6 declines to solve.
-// So the atomic row is the one this system takes, and it is reached by a caller
-// implementing Budget over the store the cache lives in — at which point both
-// writes are in one transaction and this order stops mattering. Nothing here
-// changes.
+// This is the first row, and nothing a caller does makes it the third. Record
+// settles and then writes; the write is not inside anything the caller can open or
+// close, so implementing Budget over the store the cache lives in does not enclose
+// it. The atomic row needs a transaction handle this signature does not take —
+// P-010 §5 is where that transaction is opened, staging the debit at step 18 and
+// committing it with the response bytes step 19 produces, and P-008's resolved
+// open question 3 is the single store that makes it local rather than distributed.
+// Neither exists yet.
 //
-// Until that store exists the sink is a parameter and the cache is in memory, so
-// the order is doing real work, and it is §4.6's: settle, then write. Given
-// Budget's contract that an error means nothing was committed, no state exists in
-// which a cache entry was committed and its debit was not.
+// So what holds today is the property that follows from Budget's contract that an
+// error means nothing was committed: no state exists in which a cache entry was
+// committed and its debit was not. The converse state does exist — a settled debit
+// with no entry, which the retry pays for a second time — and it is real until the
+// transaction above is built. Both stores being in memory is what makes it
+// unreachable right now, and that is a fact about today rather than a property.
 //
 // # What it does not do
 //
