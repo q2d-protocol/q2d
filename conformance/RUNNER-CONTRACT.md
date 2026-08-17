@@ -224,8 +224,17 @@ that shares an author with the corpus.
 
 [`src/bin/q2d-conform.rs`](../src/bin/q2d-conform.rs) and
 [`cmd/q2d-conform/main.go`](../cmd/q2d-conform/main.go) are the Rust and Go
-runners. They implement this contract and, today, no Q2D behaviour: every
-operation reports `error`, exactly as the stub does.
+runners. They implement this contract and, today, no Q2D behaviour.
+
+**They are not the stub, and their two ways of answering nothing differ.** Each
+recognises the Stage 1–4 subset it has built — see *Operations* above — and
+reports `error` for those, meaning it functioned and produced nothing. A name
+outside that subset is exit 1, including a **settled** Stage 5–8 name like
+`http_exchange`: settling the vocabulary named the operations, it did not build
+them. Both outcomes fail the vector loudly, which is what P-001 §7 expects of an
+unbuilt stage; neither is a skip. The stub differs because modelling the whole
+contract is its job, so it recognises every name and reports `error` for all of
+them.
 
 **Unlike the stub, they may learn to answer.** They are the reference
 implementations' runners and the corpus exists to be run against them; the stub
