@@ -479,7 +479,7 @@ nothing is reviewed against a claim.
 |---|---|---|
 | 1 | Synthetic fixtures, obviously fictional | Fixture files reviewed; no plausible real profile |
 | 2 | `demo run` and `demo run --swap` | Byte-identical in both; both directions complete |
-| 3 | Attacks 1–8 as runnable scripts | Each reports actual against expected; each cites its claim |
+| 3 | Attacks **1 and 3–8** as runnable scripts | Each reports actual against expected; each cites its claim. **Not attack 2** — capacity-debit forgery, struck with the budget (2026-08-19). This row said *1–8* and disagreed with both the attack table and §7 |
 | ~~4~~ | ~~Attack 9, adaptive probing~~ | **Cut 2026-08-19** — attacked the deferred capacity budget. Against a request quota the attack is uninteresting: the quota is the bound and it claims to measure nothing. ~~Stopping condition defined (open question 3); reconstruction reported as a fraction |
 | ~~5~~ | ~~Attack 10, timing analysis~~ | **Cut 2026-08-19** — probes a channel Q2D-NC-05 already concedes succeeds, and its consumer (issue 7) is cut |
 | ~~6~~ | ~~`measure bytes`~~ | **Cut 2026-08-19.** With this and issue 7 gone, **nothing in this project can make an empirical claim in a future paper draft** — the clearest cost of the reduction |

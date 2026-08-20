@@ -278,10 +278,10 @@ discover the problem on a live request.
 
 | Group | Vectors |
 |---|---|
-| `policy/outcome/` | Each of the three outcomes from an explicit rule |
-| `policy/compose/` | Every pair and triple over `{allow, deny, escalate}`; modifier union; two authorities narrowing one dimension, in each of the three cases [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes — comparable, incomparable, and disjoint |
+| `policy/outcome/` | **Each of the two outcomes** — `allow` and `deny` — from an explicit rule. ~~three~~: `escalate` is deferred with [P-015](P-015-escalation-lifecycle.md), and a policy engine may still emit it where the lifecycle exists |
+| `policy/compose/` | Every pair over `{allow, deny}`; ~~triples including `escalate`, and modifier union~~ — **deferred 2026-08-19**; two authorities narrowing one dimension, in each of the three cases [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes — comparable, incomparable, and disjoint |
 | `policy/failclosed/` | F1–F6, each as a property over generated inputs |
-| `policy/modifiers/` | Valid coarsening; an attempted subset is an implementation error; **an attempted `enum` coarsening likewise**, per [`core-model.md`](../../spec/core-model.md) §3.2 — settled by E-25, so a vector asserting it is asserting a rule rather than a temporary position |
+| ~~`policy/modifiers/`~~ | **Deferred 2026-08-19** — coarsening modifiers went with the capacity budget they kept computable. ~~Valid coarsening; an attempted subset is an implementation error; **an attempted `enum` coarsening likewise**, per [`core-model.md`](../../spec/core-model.md) §3.2 — settled by E-25, so a vector asserting it is asserting a rule rather than a temporary position |
 | `policy/determinism/` | Same input twice; permuted authority order; permuted rule-set map order |
 | `policy/separation/` | An audit reason never appears in `external` |
 | `policy/rules/` | A rule set overriding an invariant fails at load |
@@ -349,13 +349,13 @@ the value it would need.
 | 1 | `PolicyInput` and `Decision` types, both languages | No private-derived field; `audit` and `external` separate |
 | 2 | `decide` over a fixture rule set | `policy/outcome/` passes |
 | 3 | F1–F6 as property tests | `policy/failclosed/` passes; generators cover each class |
-| 4 | `compose` with most-restrictive ordering and modifier union | `policy/compose/` passes, with a comparable, an incomparable and a disjoint operand pair for each dimension §3.3 covers. Each result is the one [`core-model.md`](../../spec/core-model.md) §3.3 gives, which is not the same outcome for every dimension |
-| 4a | `grant` field on `PolicyInput`, read-only | `policy/grant/` passes; no code path in this module consumes a grant |
+| 4 | `compose` with most-restrictive ordering; ~~modifier union~~ **deferred** | `policy/compose/` passes, with a comparable, an incomparable and a disjoint operand pair for each dimension §3.3 covers. Each result is the one [`core-model.md`](../../spec/core-model.md) §3.3 gives, which is not the same outcome for every dimension |
+| ~~4a~~ | ~~`grant` field on `PolicyInput`, read-only~~ — **deferred 2026-08-19** with the escalation lifecycle | ~~`policy/grant/` passes; no code path in this module consumes a grant |
 | 5 | `validate_rules` at load | `policy/rules/` passes; invariant override refuses to start |
 | 6 | Determinism: explicit rule ordering, no clock, no map iteration | `policy/determinism/` passes; dependency check clean |
 | 7 | Audit/external separation | `policy/separation/` passes |
-| 8 | Modifier emission constrained to coarsening, and to shapes other than `enum` | Subset attempt errors as an implementation fault; so does an `enum` narrowing, per [`core-model.md`](../../spec/core-model.md) §3.2 |
-| 9 | Author `policy/` corpus section | Seven groups; `harness lint` clean |
+| ~~8~~ | ~~Modifier emission constrained to coarsening, and to shapes other than `enum`~~ — **deferred 2026-08-19** with the modifiers themselves | ~~Subset attempt errors as an implementation fault; so does an `enum` narrowing, per [`core-model.md`](../../spec/core-model.md) §3.2 |
+| 9 | Author `policy/` corpus section | **Five** groups; `harness lint` clean. `policy/modifiers/` and `policy/grant/` are deferred |
 | 10 | Resolve open questions 1 and 3 | Written into §4.4 and §5 before issues 4 and 5 |
 
 Issue 1 blocks everything. Issue 3 is the largest — property generators for six
