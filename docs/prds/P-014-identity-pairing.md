@@ -4,12 +4,36 @@
 |---|---|
 | PRD | P-014 |
 | Stage | 6 — closes it |
-| Status | **Ready for decomposition** |
+| Status | **Deferred 2026-08-19** — see the note below |
 | Size | M |
 | Risk | **high** — the key-to-principal binding is Q2D-C-06's trusted base, and in this profile a human establishes it by comparing a string |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-003](P-003-crypto-suites.md), [P-009](P-009-denial-normalization.md) |
 | Blocks | P-013, P-016 |
 | Pairs with | [P-013](P-013-https-binding.md) — the daemon cannot authenticate anyone without this, and this PRD owns no transport |
+
+
+> **Deferred 2026-08-19 — not withdrawn.**
+>
+> Identity is a **configured key list**, exactly as `SuitePolicy` and
+> `RegistryPins` already are — an operator enters keys by hand, and
+> [P-003](P-003-crypto-suites.md)'s `resolve_key` interface (already built)
+> resolves from it. [P-017](P-017-mcp-binding.md) §4.7 carries that, and the
+> key-file permission enforcement from issue 8 with it.
+>
+> MCP moved toward standard OAuth / Client ID Metadata Documents; a bespoke pairing
+> profile is a worse answer to a problem the ecosystem has solved.
+>
+> **Delegation becomes a no-op**, and [P-017](P-017-mcp-binding.md)'s quickstart
+> says so rather than letting a reader assume
+> [`core-model.md`](../../spec/core-model.md) §4 step 7 ran.
+>
+> **What would bring it back:** a deployment needing principal/agent separation, or
+> a Q2D-C-06 claim that rests on more than an operator's own key list. §4.9's
+> claim-language rules apply meanwhile — nothing may call a configured key list an
+> identity model.
+>
+> Full reasoning: `private-docs/scope-reduction-proposal.md`. **Everything below
+> is preserved as written**, and describes the scope that was planned.
 
 ---
 

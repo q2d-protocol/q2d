@@ -283,12 +283,24 @@ rather than an error.
 prohibited because a result among the discarded values would fall outside the
 requested domain and fail closed. **That failure is informative.** A requester
 asking a boolean predicate with a requested domain of `[true]` receives `true`
-for a true result and a denial for a false one, learning the answer either way
-while debiting `log2(1)` — nothing. Denial normalization cannot help: the
-requester constructed a question whose only failure mode is the answer it
-wanted, and no uniformity of response erases what it knows about its own
-request. Permitting subsets would defeat Q2D-C-09 for every predicate whose
-domain can be subsetted.
+for a true result and a denial for a false one, **learning the answer either
+way**. Denial normalization cannot help: the requester constructed a question
+whose only failure mode is the answer it wanted, and no uniformity of response
+erases what it knows about its own request.
+
+**The prohibition rests on that oracle and not on any accounting.** A subset of
+one turns a bounded answer into a membership test, and a membership test answered
+by the *shape* of the reply is an oracle whether or not anything is metered. This
+paragraph previously derived the rule from the debit — *the requester learns the
+answer while debiting `log2(1)`, nothing* — which was true and was the weaker
+reason: it made a rule about disclosure depend on a mechanism that could be
+configured, deferred, or absent. Q2D-C-09 is **not attempted in this release**
+([`claims.md`](claims.md)) and the rule is unchanged, which is the test that it
+never needed the budget.
+
+Where a budget does exist, subsetting defeats Q2D-C-09 as well, for every
+predicate whose domain can be subsetted. That is a consequence of the rule rather
+than its justification.
 
 The same rule binds policy modifiers (§3, [`terminology.md`](terminology.md) §6):
 a modifier coarsens and never subsets, so every result retains an image
@@ -715,6 +727,25 @@ A conforming responder processes in this order:
 | 18 | Budget debited | Once, idempotently. |
 | 19 | Receipt constructed; response signed | Q2D-C-10. |
 
+**Steps 15 and 18 have nothing to do where Q2D-C-09 is not attempted, and the
+order is unchanged.** [`claims.md`](claims.md) marks disclosure-capacity
+accounting *not attempted in this release*, so there is no budget to check at 15
+or debit at 18. Both steps remain in this order and remain numbered as they are:
+a step that does nothing under a profile is not a change to the processing
+order, and §4's numbers are cited throughout this specification and its
+conformance classes. [`conformance-classes.md`](conformance-classes.md) CC-2
+marks the corresponding must as not required in this release.
+
+**Step 15 still runs.** What it gates is not what it checks: nothing at or below
+step 16 is reachable without having passed every step above it, and that property
+is independent of whether step 15 has a budget to consult. An implementation that
+skipped the step because it had nothing to consult would make private access
+reachable one step early, which is the invariant §4 exists to state.
+
+The same reading applies to **step 7** wherever an identity profile has no
+delegation to verify. The step is present, it verifies what the profile defines,
+and where that is nothing it refuses nothing.
+
 Steps 5a, 9a and 11a are lettered rather than numbered because the step numbers
 are cited throughout this repository and renumbering them silently would be worse
 than an irregular label.
@@ -978,7 +1009,8 @@ would reveal how far a request got.
 
 **Not every step 9 outcome is a rejection.** An identical retry — the same
 `query_id` over the same bytes — replays the stored response verbatim, which is
-what makes a retry idempotent and is why it debits nothing a second time (§7).
+what makes a retry idempotent — and, where a budget exists, why it debits
+nothing a second time (§7).
 Step 9 rejects the *other* case: a `query_id` or nonce reused over different
 content, which is a replay attempt rather than a retry.
 
@@ -1091,7 +1123,6 @@ field list**; where any other document disagrees, this one governs.
 | `release_shape` | the effective domain's shape |
 | `assurance_profile` | the profile actually used |
 | `signature_suite` | so the receipt stays assessable after that suite is deprecated |
-| `disclosure_capacity_debit_millibits` | integer |
 | `decided_at` | A timestamp — §2.2 |
 | `responder` | the computation executor's identity |
 
@@ -1148,8 +1179,15 @@ and policy detail stays local and is not disclosed to the requester by default.
 ## 7. Idempotency and replay
 
 An identical retry — same signed `query_id` and `nonce` — returns the same
-cached outcome. It must not debit the budget twice, and must not transition from
-a normalized outcome to an answer.
+cached outcome, **replaying the stored response bytes rather than re-evaluating**.
+It must not transition from a normalized outcome to an answer.
+
+**Returning the stored bytes is the requirement, and no-second-debit is its
+consequence** where a budget exists. This rule read *"must not debit the budget
+twice"* until 2026-08; that named a consequence of a mechanism
+[`claims.md`](claims.md) now marks **not attempted**, while the property it
+depended on — nothing is regenerated, so two retries cannot differ — holds
+regardless and is what Q2D-C-07 claims.
 
 A changed purpose, sink set, public context, predicate version, or answer
 contract is a **different request** requiring a new signature and a new policy
@@ -1215,11 +1253,17 @@ a difference a requester can measure, and therefore an existence oracle. See §4
 The reason is that the two mechanisms measure different things. Q2D-C-09 accounts
 for *disclosure*, in millibits of answer alphabet. A denial discloses nothing
 from the answer alphabet; what it can leak is policy structure, which has no
-bit-count in this model. Debiting it would make
-`disclosure_capacity_debit_millibits` a number that no longer means what
-Q2D-C-09 says it means. Debiting would also let any party that can reach a
-custodian spend a subject's budget without ever receiving an answer, so that
-legitimate requesters are refused — a harm to a third party that no claim covers.
+bit-count in this model. Debiting it would make the recorded debit a number that
+no longer means what Q2D-C-09 says it means. Debiting would also let any party
+that can reach a custodian spend a subject's budget without ever receiving an
+answer, so that legitimate requesters are refused — a harm to a third party that
+no claim covers.
+
+**The rate limit is the whole of this in the current release**, because
+Q2D-C-09 is not attempted and no budget exists to debit
+([`claims.md`](claims.md)). The two requirements below were written as conditions
+on *not debiting*; with nothing to debit they are simply the requirements, and
+the first is the one that carries the weight.
 
 Two requirements come with this, and without them the decision is unsafe:
 

@@ -16,6 +16,15 @@ Pre-release. The technical report is published
 ([10.5281/zenodo.21777306](https://doi.org/10.5281/zenodo.21777306)); the
 specification spine exists; the reference implementations do not yet.
 
+**The goal is a demonstration, not an adopted protocol.** Slightly more than a
+proof of concept — something people can import and configure — and explicitly not
+hardened for financial-grade data. The headline property is that **a bounded
+answer domain gives an injected payload no channel to return through**: the
+answer domain comes from a registry the custodian pinned, and `core-model.md` §4
+step 17 validates before release. That claim is narrow on purpose — it closes the
+**response** channel, not the tool-description channel — and Q2D constrains a
+**participating** custodian rather than a hostile one.
+
 **This is a protocol project, not a product.** Nobody is shipping a feature.
 Everything here exists to make a specification true, checkable, and honest.
 
@@ -29,14 +38,20 @@ When two of these conflict, the earlier one wins.
    an implementer would rely on it.
 2. **Spec fidelity.** The code implements the specification. Where they disagree,
    one of them is a bug and you must say which.
-3. **Cross-implementation agreement.** Rust and Go must behave identically. A
-   divergence is a finding, not a variation.
+3. **Cross-implementation agreement.** Every implementation must behave
+   identically. A divergence is a finding, not a variation. Rust and Go exist and
+   agree through Stage 1; a Python wrapper and full Python and TypeScript
+   implementations are planned, and **the count going up is what makes
+   [`conformance/`](conformance/) load-bearing rather than a formality** — with
+   four, every specification ambiguity costs four fixes.
 4. **Security.** Ordering, fail-closed behaviour, absence of oracles.
 5. **Clarity.** This code is read by reviewers deciding whether to trust the
    protocol. Legibility outranks cleverness everywhere.
 
-Performance is not on this list. It becomes relevant at Stage 8's measurements
-and not before.
+Performance is not on this list, and now never becomes relevant: the 2026-08-19
+reduction cut the measurement work with the rest of Stage 8. **That is the
+clearest cost of the reduction** — it removes the ability to make an empirical
+claim in a future draft — and it is recorded rather than glossed.
 
 ## Authoritative context hierarchy
 
@@ -49,6 +64,14 @@ Higher wins. This is the single most important rule in the repository.
 4. PRDs                        how a module is built and verified
 5. code                        the implementation
 ```
+
+**Five PRDs are deferred and one is new**, since the 2026-08-19 scope reduction:
+P-008, P-012, P-013, P-014 and P-015 are deferred with a status header saying
+why; **P-017 is the MCP binding**, which replaces P-013. Deferred is not
+withdrawn — those PRDs keep their issue lists, and
+[`docs/open-escalations.md`](docs/open-escalations.md) carries a third state,
+**parked**, for escalations whose consumer was deferred. **A parked escalation is
+undecided, and nothing may cite one as settled.**
 
 **A PRD cites the spec; it never paraphrases it.** A paraphrase is a second
 source of truth, and two sources of truth drift. If a PRD needs to explain a
@@ -264,7 +287,7 @@ already determines.
 - A discovered spec ambiguity where more than one resolution is defensible.
 - A change to the processing order in `core-model.md` §4.
 - Adding a cryptographic suite, or changing the capacity unit.
-- Anything that would make the two implementations diverge deliberately.
+- Anything that would make the implementations diverge deliberately.
 - A predicate's answer domain, capacity, or sensitivity classification.
 - Anything touching the deposited report. It has a DOI and is immutable;
   corrections take a new draft number.
@@ -337,9 +360,12 @@ living in more places than the person changing it remembered.
 - **Do not let an internal reason reach the wire.**
 - **Do not resolve a spec ambiguity in code or in a PRD.**
 - **Do not write a second PRD set for the second language.**
-- **Do not describe the two implementations as "independent".** Both are by the
-  same author. They demonstrate the spec is *implementable*; that is the real and
-  sufficient claim.
+- **Do not describe the implementations as "independent".** They share an author.
+  They demonstrate the spec is *implementable*; that is the real and sufficient
+  claim. Describe them **by count** — "two implementations", later "four" — never
+  as "an independent implementation", until someone unaffiliated builds one. This
+  matters *more* as the count grows, not less: four agreeing implementations by
+  one author is still one author.
 - **Do not edit the published report package.** `paper/Q2D_..._v0.2.2_Source_Package/`
   is deposited. Corrections go into a new draft.
 - **Do not commit `private-docs/`.** It is gitignored for cause — strategy,

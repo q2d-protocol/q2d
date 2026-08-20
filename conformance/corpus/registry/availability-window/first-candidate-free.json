@@ -3,11 +3,10 @@
   "section": "registry",
   "requirement": [
     "Q2D-C-03",
-    "Q2D-C-09",
     "CC-2",
     "core-model.md#4"
   ],
-  "description": "Availability window (availability-window): first-candidate-free — answers 0, debiting 1585 millibits. Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
+  "description": "Availability window (availability-window): first-candidate-free — answers 0. Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
   "operation": "evaluate_predicate",
   "input": {
     "predicate": {
@@ -38,8 +37,7 @@
   "expect": {
     "outcome": "ok",
     "output": {
-      "result": 0,
-      "capacity_debit_millibits": 1585
+      "result": 0
     },
     "comparison": "semantic"
   }

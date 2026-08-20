@@ -8,7 +8,25 @@
 | Size | M |
 | Risk | medium |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-005](P-005-registry-client.md) |
-| Blocks | P-007, P-008, P-010, P-012, P-016 |
+| Blocks | P-007, P-010, P-016 — ~~P-008, P-012~~ **deferred 2026-08-19** |
+
+
+> **Reading this PRD after the 2026-08-19 scope reduction.**
+>
+> Where the sections below reason about the **disclosure-capacity budget**
+> ([`claims.md`](../../spec/claims.md) Q2D-C-09, *not attempted in this release*)
+> or the **escalation lifecycle** ([P-015](P-015-escalation-lifecycle.md),
+> deferred), that reasoning is **preserved as written and is not a requirement of
+> this release**.
+>
+> **What governs what gets built:** the **issue list**, the **acceptance** and
+> **negative-acceptance** tables, and the **corpus-section** table. Struck rows in
+> any of those say what does not. Design prose does not govern. Design prose has deliberately *not* been rewritten to
+> remove deferred concepts: it records why each decision was made, and deleting
+> it would leave the decisions standing with their reasons removed — which is
+> worse than a reader having to hold one caveat.
+>
+> Deferred PRDs keep their numbers and their issue lists. Nothing was withdrawn.
 
 ---
 
@@ -288,7 +306,7 @@ validated value is the only one it gets.
 |---|---|
 | Any domain expansion | Rejected for every shape |
 | A requester-supplied domain reaching the effective domain unvalidated | `check_narrowing` returns the domain; no caller can bypass it |
-| Modifiers applied before the narrowing check | Ordering vector shows a policy modifier widening an inadmissible request into an admissible one |
+| ~~Modifiers applied before the narrowing check~~ | **Struck 2026-08-19** — policy-side coarsening modifiers are deferred with the capacity budget. ~~Ordering vector shows a policy modifier widening an inadmissible request into an admissible one |
 | `object` field-level narrowing skipped | Nested invalid narrowing accepted |
 | Two implementations disagreeing on a schema edge case | `domain/schema/` cross-implementation comparison fails |
 | A constraint outside the closed vocabulary silently ignored | Unknown constraint key in an entry is a registry error, not a no-op |

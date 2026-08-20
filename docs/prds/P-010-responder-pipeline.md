@@ -7,8 +7,26 @@
 | Status | **Ready for decomposition** |
 | Size | L |
 | Risk | medium |
-| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-009](P-009-denial-normalization.md) — every prior module |
-| Blocks | P-011, P-013, P-015, P-016 |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md), [P-009](P-009-denial-normalization.md) — ** removed 2026-08-19**, deferred with Q2D-C-09 — ~~P-008~~ **deferred 2026-08-19** |
+| Blocks | P-011, P-016, [P-017](P-017-mcp-binding.md) — ~~P-013, P-015~~ **deferred 2026-08-19** |
+
+
+> **Reading this PRD after the 2026-08-19 scope reduction.**
+>
+> Where the sections below reason about the **disclosure-capacity budget**
+> ([`claims.md`](../../spec/claims.md) Q2D-C-09, *not attempted in this release*)
+> or the **escalation lifecycle** ([P-015](P-015-escalation-lifecycle.md),
+> deferred), that reasoning is **preserved as written and is not a requirement of
+> this release**.
+>
+> **What governs what gets built:** the **issue list**, the **acceptance** and
+> **negative-acceptance** tables, and the **corpus-section** table. Struck rows in
+> any of those say what does not. Design prose does not govern. Design prose has deliberately *not* been rewritten to
+> remove deferred concepts: it records why each decision was made, and deleting
+> it would leave the decisions standing with their reasons removed — which is
+> worse than a reader having to hold one caveat.
+>
+> Deferred PRDs keep their numbers and their issue lists. Nothing was withdrawn.
 
 ---
 
@@ -62,8 +80,17 @@ from a compact JWS to a parsed core object that skips verification.
 
 **Private access requires a capability that only step 15 can mint.**
 
+**Step 15 is the gate; what it checks is separate from what it mints.** It was
+described as *the budget check*, and Q2D-C-09 is now **not attempted**
+([`claims.md`](../../spec/claims.md)) so it checks nothing — but it still runs
+and still mints the token, because the property is that **nothing below step 15
+is reachable without having passed everything above it**. That never depended on
+what step 15 checked. A pipeline that skipped step 15 because it had nothing to
+do would make step 16 reachable directly, which is the one thing this type
+exists to prevent.
+
 ```
-PrivateAccessAuthorized     // constructible ONLY by the budget check at step 15
+PrivateAccessAuthorized     // constructible ONLY by step 15
 read_private_input(auth: PrivateAccessAuthorized, ...) -> PrivateInput
 ```
 
@@ -223,6 +250,38 @@ step_19_receipt_and_sign          // runs for answer, deny, and escalate alike
 // the transaction opened at 18 commits once 19 has produced the signed bytes
 ```
 
+**Steps 15 and 18 are no-ops in this release, and the steps stay.** Q2D-C-09 is
+**not attempted** ([`claims.md`](../../spec/claims.md)), so there is no budget to
+check at 15 or debit at 18. They keep their places in the orchestration and do
+nothing — the same treatment [P-017](P-017-mcp-binding.md) §4.7 gives step 7,
+delegation, under the configured-key-list profile.
+
+**Not removed, and not renumbered.** [`core-model.md`](../../spec/core-model.md)
+§4's processing order is the specification's, changing it is an escalation, and
+§4's numbers are cited across this repository. A step that does nothing under a
+profile is not a change to the order; a step that has moved is.
+
+**What still happens at 15 and 18.** Step 15 still mints
+`PrivateAccessAuthorized` — the capability token is what makes step 16
+unreachable without passing everything above it, and that property is
+independent of what step 15 checks. Step 18 still opens the transaction that
+step 19's bytes commit into, for the replay-cache entry; what it no longer stages
+is a capacity debit.
+
+**The quota tick is not in that transaction, and must not be.** An earlier draft
+of this paragraph said the cache entry and the quota tick commit together, which
+inverts what the quota is for.
+[`core-model.md`](../../spec/core-model.md) §9.1 counts the request at **step
+9a** — it counts *authenticated requests*, not successful ones — and a tick that
+rolled back when a later step failed would make every failing path free. An
+attacker probing with requests that fail output validation would consume no
+quota at all, which is precisely the unbounded probing E-01 introduced the limit
+to close.
+
+So: **counted at 9a, never rolled back, whatever happens afterwards.** The
+transaction at 18–19 governs the cache entry, and a capacity debit if one ever
+exists again.
+
 **The transaction spans steps 18 and 19, and this is easy to get wrong.**
 [P-004](P-004-replay-idempotency.md) §4.6 requires the debit and the replay-cache
 entry to commit atomically, and the cache entry stores the **verbatim response
@@ -230,8 +289,9 @@ bytes** — which do not exist until step 19 has signed them. So step 18 does no
 write through: it opens the transaction and stages the debit, step 19 produces
 the bytes, and the commit is the last act of the exchange.
 
-Three things commit together or none do: the **debit**, the **consumption of a
-single-use escalation grant** ([`core-model.md`](../../spec/core-model.md) §5.3),
+Three things commit together or none do — **and in this release only the third
+exists**, because the budget and the escalation lifecycle are both deferred: the
+**debit**, the **consumption of a single-use escalation grant** ([`core-model.md`](../../spec/core-model.md) §5.3),
 and the **cache entry with its response bytes**. Committing the debit at step 18
 and the cache at step 19 is the "debit, then cache" row of
 [P-004](P-004-replay-idempotency.md) §4.6's table — a crash between them
@@ -259,10 +319,10 @@ the design does not have.
 
 | Section | Owner | Content |
 |---|---|---|
-| `ordering/` | this PRD, **partly landed** | One vector per rejection step, 1–15, plus 5a, 9a and 11a. [P-001](P-001-conformance-corpus.md) issue 14 authored steps 1, 3, 4, 5, 5a and 6, so the ordering they establish exists before this PRD is built rather than after. The section stops at 7 because a vector asserting rejection at step N must **pass** steps 1 to N-1, and delegation verification needs a fixture [P-014](P-014-identity-pairing.md) has not defined — so step 8 and steps 10 to 13 are unauthorable despite their own defects being expressible. Issue 11 here adds everything from 7 onward. Step 2 gets none: §4 makes it optional and never a security decision |
+| `ordering/` | this PRD, **partly landed** | One vector per rejection step, **1–14** plus 5a, 9a and 11a. **Step 15 gets none in this release**: its only rejection cause was budget exhaustion, and Q2D-C-09 is not attempted — the step still runs and still mints the capability, but it has nothing to refuse, so no vector can assert a rejection there. [P-001](P-001-conformance-corpus.md) issue 14 authored steps 1, 3, 4, 5, 5a and 6, so the ordering they establish exists before this PRD is built rather than after. The section stops at 7 because a vector asserting rejection at step N must **pass** steps 1 to N-1, and delegation verification needs a fixture [P-014](P-014-identity-pairing.md) has not defined — so step 8 and steps 10 to 13 are unauthorable despite their own defects being expressible. Issue 11 here adds everything from 7 onward. Step 2 gets none: §4 makes it optional and never a security decision |
 | `evaluate/` | this PRD | The three predicates against `registry/manifest.json`'s vectors, run through the full pipeline |
 | `validate/` | this PRD | Out-of-domain output; oversized output; cardinality and precision violations |
-| `pipeline/` | this PRD | End-to-end answer; end-to-end denial; end-to-end escalation in both modes; partial-failure cases from §4.7 |
+| `pipeline/` | this PRD | End-to-end answer; end-to-end denial; ~~end-to-end escalation in both modes~~ **deferred 2026-08-19** with [P-015](P-015-escalation-lifecycle.md); the partial-failure cases from §4.7 that survive — those turning on a reservation or a grant go with the budget and the lifecycle |
 | `pipeline/receipt/` | this PRD | Step 19 runs for every outcome — an answer, a denial, and an explicit escalation each carry a receipt; an opaque escalation's is indistinguishable from a denial's |
 
 `evaluate/` is the fold-in [P-001](P-001-conformance-corpus.md) §5 anticipated:
@@ -282,10 +342,12 @@ run through the whole responder rather than against a reference function.
 - [ ] A predicate panic returns `EvaluationError::Internal` with no payload
       retained, in both languages.
 - [ ] Every §4.7 partial-failure row leaves the system no more permissive.
-- [ ] **Every outcome carries a receipt**, and an opaque escalation's is
-      byte-identical to a plain Tier C denial's.
-- [ ] A single-use grant is consumed at step 18 and not before: an exchange that
-      fails output validation leaves the grant unconsumed and available.
+- [ ] **Every outcome carries a receipt.** ~~and an opaque escalation's is
+      byte-identical to a plain Tier C denial's~~ — **struck 2026-08-19** with the
+      escalation lifecycle.
+- [ ] ~~A single-use grant is consumed at step 18 and not before: an exchange that
+      fails output validation leaves the grant unconsumed and available.~~
+      **Struck 2026-08-19** — grants are P-015's, deferred.
 - [ ] A registry entry without an implementation, or an implementation without an
       entry, fails at **startup**.
 
@@ -297,7 +359,7 @@ run through the whole responder rather than against a reference function.
 | A private value in an error | `EvaluationError` has no field that could hold one |
 | A panic payload surviving the boundary | Payload inspected or logged anywhere |
 | Out-of-domain output released | `validate/` vector returns an answer |
-| Out-of-domain output debiting | Budget total changes on a validation failure |
+| ~~Out-of-domain output debiting~~ | **Struck 2026-08-20.** The property was *a validation failure must not debit*, which is Q2D-C-09's and is not attempted. **The quota is not its analogue**: it is counted at step 9a and deliberately never rolled back (§9.1), so a validation failure leaves the tick standing by design. And §4.7 caches every outcome from step 9 onward, so it leaves a cache entry by design too. A retarget of this row in the previous commit asserted the opposite of both and was wrong |
 | A step silently reordered | `ordering/` vector rejects at a different step |
 | An answer field derived from private input other than the result | Review of the answer builder; no test can catch this |
 | A predicate disagreeing with its registry entry | `evaluate/` vector produces a different result |
@@ -344,10 +406,10 @@ should be a small, readable function rather than a convenient one.
 | 5 | Private-input adapter interface plus a fixture store | Open question 4 resolved |
 | 6 | `evaluate` with the error boundary and panic catching | Panic returns `Internal`; no payload retained; open question 2 resolved |
 | 7 | The three predicate implementations | All fourteen registry vectors pass through the pipeline |
-| 8 | `validate_output` against the effective domain and the entry's `output_schema` | `validate/` passes; no debit on failure; a value inside the domain but over its schema bound fails closed, and one inside the schema but outside the domain fails closed — [`core-model.md`](../../spec/core-model.md) §4 step 17. The first is `conformance/over-schema-bound-result`, named in [`claims.md`](../../spec/claims.md) Q2D-C-03 |
+| 8 | `validate_output` against the effective domain and the entry's `output_schema` | `validate/` passes; **nothing is committed on failure** *(was: no debit — Q2D-C-09 is not attempted; and note the quota tick at step 9a stands regardless, by design)*; a value inside the domain but over its schema bound fails closed, and one inside the schema but outside the domain fails closed — [`core-model.md`](../../spec/core-model.md) §4 step 17. The first is `conformance/over-schema-bound-result`, named in [`claims.md`](../../spec/claims.md) Q2D-C-03 |
 | 9 | Answer construction | No field private-derived except the result |
 | 10 | Partial-failure handling for §4.7 | Each row leaves the system no more permissive |
-| 11 | Author `ordering/` **from step 7 onward** — 7, 8, 9, 9a, 10, 11, 11a, 12, 13, 14, 15 — plus `evaluate/`, `validate/`, `pipeline/` | `harness lint` clean; `ordering/` covers every rejection step §4 has except 2, which gets none by design, and `test_ordering_section.py`'s `FIRST_UNPASSABLE_STEP` has been raised past 15 |
+| 11 | Author `ordering/` **from step 7 onward** — 7, 8, 9, 9a, 10, 11, 11a, 12, 13, 14 — **not 15**, whose only rejection cause was exhaustion (2026-08-19) — plus `evaluate/`, `validate/`, `pipeline/` | `harness lint` clean; `ordering/` covers every rejection step §4 has except 2, which gets none by design, and `test_ordering_section.py`'s `FIRST_UNPASSABLE_STEP` has been raised past 15 |
 
 Issue 1 blocks 2 and 6. Issue 7 is the least interesting and the most reassuring:
 if the fourteen vectors pass through the pipeline exactly as they pass against the

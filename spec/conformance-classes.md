@@ -68,26 +68,43 @@ limit at step 9a**, keyed on the relationship only
 registry and fail closed on anything unknown; compute the effective answer domain
 itself by narrowing composition, per shape, per §3.2 **and §3.3**; validate
 output against it **and against the entry's `output_schema`** (§4 step 17);
-debit capacity once; issue a receipt with every outcome; record the suite in the
+~~debit capacity once~~ — **not required in this release**, because Q2D-C-09 is
+**not attempted** ([`claims.md`](claims.md)) and there is no budget to debit; a
+required request quota bounds probing instead, and it is checked at §4 step 9a
+rather than here. Issue a receipt with every outcome; record the suite in the
 receipt; sign the response.
+
+**A struck must is not a weakened class.** The clause is kept and marked rather
+than deleted so that a deployment reading CC-2 sees what conformance requires
+when the claim it serves is attempted. Restoring Q2D-C-09 restores the must; no
+one has to rediscover that it belonged here.
 
 **Must not.** Read private input before step 16; parse the core object before
 its signature verifies; use `routing` for any decision the signature covers;
 accept a requester-asserted answer domain or capacity debit; **debit capacity for
-a denial, an escalation, or a rate-limit rejection** (§9.1); rate-limit *after*
-registry resolution, which would leave unknown predicates unlimited; start with
+a denial, an escalation, or a rate-limit rejection** (§9.1) — both vacuous while
+Q2D-C-09 is not attempted, and kept because they bind the moment it is; rate-limit
+*after* registry resolution, which would leave unknown predicates unlimited; start with
 no rate limit configured; accept a suite below its policy floor or offer an alternative
 suite in a rejection; silently downgrade a requested assurance profile;
 serialize private input into an error.
 
-**Supports.** Q2D-C-02, Q2D-C-03, Q2D-C-04, Q2D-C-06, Q2D-C-07, Q2D-C-09, Q2D-C-10.
+**Supports.** Q2D-C-02, Q2D-C-03, Q2D-C-04, Q2D-C-06, Q2D-C-07, Q2D-C-10 — and
+Q2D-C-09, which is **not attempted in this release** ([`claims.md`](claims.md)).
+A class supports a claim it would help establish; it does not assert that the
+claim is attempted.
 
 **Requires.** CC-3 and at least one assurance-profile class.
 
 ### CC-3 — Policy engine
 
-**Must.** Return deterministic `allow` / `deny` / `escalate` plus modifiers, from
-the input contract in [`core-model.md`](core-model.md) §2; fail closed when
+**Must.** Return deterministic `allow` / `deny` — and, where the escalation
+lifecycle is implemented, `escalate`; ~~plus modifiers~~ — from the input
+contract in [`core-model.md`](core-model.md) §2. **`escalate` and coarsening
+modifiers are not required in this release**: the escalation lifecycle is
+deferred, and policy-side coarsening was deferred with the capacity budget it
+existed to keep computable. Both clauses are kept and marked rather than deleted,
+for the reason CC-2 gives above; fail closed when
 authorities conflict or required context cannot be resolved; compose multiple
 authorities restrictively — every mandatory authority must permit, any mandatory
 deny prevents; keep detailed reasons local.
@@ -96,7 +113,7 @@ deny prevents; keep detailed reasons local.
 disclose policy reasoning in an externally visible response unless a policy
 explicitly permits it.
 
-**Supports.** Q2D-C-08, Q2D-C-09.
+**Supports.** Q2D-C-08 — and Q2D-C-09, **not attempted in this release**.
 
 **Note.** Q2D specifies the policy input and output contract, not a policy
 language. XACML, OPA/Rego, or local code may implement this class.
@@ -275,7 +292,7 @@ with no owning class is a specification gap.
 | Q2D-C-06 response authentication | CC-2, CC-4 |
 | Q2D-C-07 replay resistance | CC-1, CC-2 |
 | Q2D-C-08 denial normalization | CC-2, CC-3 |
-| Q2D-C-09 disclosure-capacity accounting | CC-2, CC-3 |
+| Q2D-C-09 disclosure-capacity accounting — **not attempted in this release** | CC-2, CC-3 |
 | Q2D-C-10 exchange-bound accountability | CC-2, CC-11 |
 | Q2D-C-11 binding equivalence | CC-8, CC-9, CC-12 |
 | Q2D-C-12 evidence segregation | CC-10 |

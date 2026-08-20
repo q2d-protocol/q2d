@@ -4,12 +4,35 @@
 |---|---|
 | PRD | P-013 |
 | Stage | 6 |
-| Status | **Ready for decomposition** |
+| Status | **Deferred 2026-08-19** — see the note below |
 | Size | L |
 | Risk | medium |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-009](P-009-denial-normalization.md), [P-010](P-010-responder-pipeline.md), [P-011](P-011-receipts-audit.md), [P-012](P-012-requester-runtime.md), [P-014](P-014-identity-pairing.md) |
 | Blocks | P-015, P-016 |
 | Pairs with | [P-014](P-014-identity-pairing.md) — the daemon cannot complete the walkthrough without a key resolver, and owns none of it |
+
+
+> **Deferred 2026-08-19 — superseded by [P-017](P-017-mcp-binding.md).**
+>
+> MCP's `2026-07-28` revision moved further toward ordinary stateless HTTP with
+> OAuth/CIMD authorization. A bespoke binding re-solves transport worse, and the
+> audience that would run a Q2D custodian already speaks MCP.
+>
+> **Where the content went.** Startup validation, the quickstart, the `binding/`
+> corpus section and the configuration reference all reappear in
+> [P-017](P-017-mcp-binding.md) in MCP-shaped form — reappear rather than migrate,
+> because the shape genuinely changes. **The status-and-header discipline survives
+> as P-017 §4.4**: this PRD forbade a `403` or a `429` because one distinguishing
+> status would undo three PRDs of body-level uniformity, and MCP tool errors carry
+> model-readable text, which is the same trap in a more tempting form.
+>
+> **Q2D-C-11 is marked *not attempted*** — binding equivalence needs two bindings
+> and there will be one. **CC-12 is not claimed**, and §4.8's warning against
+> reading class conformance as claim coverage survives the binding it was written
+> about.
+>
+> Full reasoning: `private-docs/scope-reduction-proposal.md`. **Everything below
+> is preserved as written**, and describes the scope that was planned.
 
 ---
 

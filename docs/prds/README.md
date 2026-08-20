@@ -3,30 +3,34 @@
 Parent: [`../mvp-scope.md`](../mvp-scope.md). Numbers are permanent once
 assigned; an abandoned PRD keeps its number and is marked withdrawn.
 
-All sixteen are ready for decomposition. **[E-52](../open-escalations.md) is open** — a sequence cannot carry an event between its requests, and an approval is one, which blocks four of P-015's eight `escalation/` groups. It is briefed with a recommendation and deliberately undecided until P-015 issue 12 is picked up, so it blocks no work that is otherwise startable. **This line said *no escalation is open* and was already wrong before E-52**: E-51 was open for four PRDs' worth of work and this file never said so, which is the register's whole argument for itself. **E-51** closed as C, adding `process_sequence`. **E-35** was the last before that, closed as A: §4's query order gains a lettered step **5a** for the header/payload comparison, symmetric with the response order's 4a. **E-34** closed just before it as B: `structurally_invalid`, a sixth Tier A value in §5.2.1, and §5.2.1 now states the test a future value must pass — it must send a requester somewhere a neighbouring value would not. **E-33** was the last, raised on authoring P-001's first rejection vector: §5.2's `external_reason` names a normalized denial class and no Tier A or B class had an identifier. `core-model.md` **§5.2.1** now enumerates them, and an unrecognised value is an opaque rejection rather than an error, so adding one later does not break an older requester. Two closed on the way into corpus authoring: **E-31** — the model has a signature and the suite says where it travels, so an `eddsa-jws-2026` query payload carries no `signature.value` — and **E-32**, which found the response side specified where the query's now was not and made it symmetric, adding §4's response step 4a so a producer lying in its header is caught in both directions. Before those: `answer_contract.maximum_cardinality` is for `set` only and measures the domain's size (E-29), and a `number` is refused in an output schema — a predicate whose answer is a decimal registers a scaled integer, so terminology §4's `scalar` shape is an integer (E-30).
+**Twelve active, five deferred, one new** — the 2026-08-19 scope reduction.
+Deferred is not withdrawn: each deferred PRD keeps its number, its issue list and
+its reasoning, with a status header saying why it stopped and what would bring it
+back. Reasoning in `private-docs/scope-reduction-proposal.md`.
 
-**Five closed recently**, and
+**What changed.** The project's goal was restated as a *demonstration people can
+import and configure* rather than a protocol being hardened for adoption. The
+headline claim became **Q2D-C-03** — a bounded answer domain gives an injected
+payload no channel to return through — and the binding became **MCP** rather than
+a bespoke HTTPS daemon. Five PRDs were deferred: the disclosure-capacity budget,
+the contained requester runtime, the HTTPS binding, the pairing profile, and the
+escalation lifecycle.
 
-each changed what an implementer reads: **E-17** puts an `enum` coarsening
-mapping in the requester's answer contract, superseding §3.2's old equality rule;
-**E-16** moved the registry's JSON Schema profile into
-[`scope.md`](../../spec/scope.md) §4.1, where an implementation built from
-`spec/` alone will find it; and **E-25** settles that a policy modifier may not
-coarsen an `enum` — a rule in
-[`core-model.md`](../../spec/core-model.md) §3.2 now, rather than the
-conservative position it was while the question was open. Writing E-25's reason
-down raised two more, both now closed. **E-26** gave and gave `core-model.md` a new **§3.3**:
-two narrowings of one dimension compose to their greatest lower bound — the
-coarser value for a number or duration, the intersection for a range or a field
-set — an empty result failing closed either way. **E-27** is closed too: §3.2's
-four conditions admitted a coarsening onto a single label while
-[`registry/validate.py`](../../registry/validate.py) rejected one and §3.2's own
-`boolean` rationale agreed with the validator, so §3.2 gains a **fifth**
-condition — at least two labels — and requires an `object` release to name at
-least one detail field, which is the same rule reaching the same constant by the
-other route. See
-[`../open-escalations.md`](../open-escalations.md), which is where every
-escalation is recorded and where a new one goes.
+**Escalations.** **[E-52](../open-escalations.md) is open and parked with
+[P-015](P-015-escalation-lifecycle.md)** — a sequence cannot carry an event
+between its requests, and an approval is one. It blocks four of P-015's eight
+`escalation/` groups, which are themselves deferred, so it blocks nothing
+startable. **[E-01](../open-escalations.md) and E-25 … E-30** park with
+[P-008](P-008-capacity-accounting.md): the enum-coarsening and capacity chain has
+no consumer while the budget is deferred. Parked means *undecided with no
+consumer*, not *closed*.
+
+**This paragraph used to say "No escalation is open" while E-51 had been open for
+four PRDs' worth of work**, and it had accreted two different escalations each
+described as "the last". That is the failure the escalation register exists to
+prevent, occurring in the file most likely to be read as a status summary. The
+register — [`../open-escalations.md`](../open-escalations.md) — is authoritative
+for what is open; this file states the shape and links.
 
 | # | Title | Stage | Status |
 |---|---|---|---|
@@ -36,16 +40,17 @@ escalation is recorded and where a new one goes.
 | [P-004](P-004-replay-idempotency.md) | Replay, expiry, idempotency | 1 | **Ready for decomposition** |
 | [P-005](P-005-registry-client.md) | Registry client: pinning, resolution, fail-closed | 2 | **Ready for decomposition** |
 | [P-006](P-006-request-validation.md) | Request validation and effective answer domain | 2 | **Ready for decomposition** |
-| [P-007](P-007-policy-engine.md) | Policy engine contract and fail-closed invariants | 3 | **Ready for decomposition** |
-| [P-008](P-008-capacity-accounting.md) | Disclosure-capacity accounting | 3 | **Ready for decomposition** |
-| [P-009](P-009-denial-normalization.md) | Denial normalization | 3 | **Ready for decomposition** |
+| [P-007](P-007-policy-engine.md) | Policy engine contract and fail-closed invariants | 3 | **Ready for decomposition** — shrunk |
+| [P-008](P-008-capacity-accounting.md) | Disclosure-capacity accounting | — | **Deferred** — a request quota replaces it |
+| [P-009](P-009-denial-normalization.md) | Denial normalization | 3 | **Ready for decomposition** — shrunk to one refusal shape per normalized class |
 | [P-010](P-010-responder-pipeline.md) | Responder pipeline, predicate execution, output validation | 4 | **Ready for decomposition** |
 | [P-011](P-011-receipts-audit.md) | Receipts and local audit | 4 | **Ready for decomposition** |
-| [P-012](P-012-requester-runtime.md) | Requester runtime | 5 | **Ready for decomposition** |
-| [P-013](P-013-https-binding.md) | Direct HTTPS binding and custodian daemon | 6 | **Ready for decomposition** |
-| [P-014](P-014-identity-pairing.md) | Identity and the local pairing profile | 6 | **Ready for decomposition** |
-| [P-015](P-015-escalation-lifecycle.md) | Escalation lifecycle | 7 | **Ready for decomposition** |
-| [P-016](P-016-demonstration-adversarial.md) | Reference demonstration and adversarial suite | 8 | **Ready for decomposition** |
+| [P-012](P-012-requester-runtime.md) | Requester runtime | 5 | **Deferred** — four issues survive as a test client |
+| [P-013](P-013-https-binding.md) | Direct HTTPS binding and custodian daemon | — | **Deferred** — superseded by P-017 |
+| [P-014](P-014-identity-pairing.md) | Identity and the local pairing profile | — | **Deferred** — configured key list instead |
+| [P-015](P-015-escalation-lifecycle.md) | Escalation lifecycle | — | **Deferred** — carries E-52 |
+| [P-016](P-016-demonstration-adversarial.md) | Reference demonstration and adversarial suite | 5 | **Ready for decomposition** — shrunk; gains the injection demo |
+| [P-017](P-017-mcp-binding.md) | MCP binding | 5 | **Ready for decomposition** — new |
 
 ## Authoring order
 

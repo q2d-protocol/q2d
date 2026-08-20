@@ -7,8 +7,26 @@
 | Status | **Ready for decomposition** |
 | Size | M |
 | Risk | low |
-| Blocks | P-002, P-003, P-004, P-005, P-006, P-007, P-008, P-009, P-010, P-011, P-012, P-013, P-014, P-015, P-016 — every other PRD |
+| Blocks | P-002, P-003, P-004, P-005, P-006, P-007, P-009, P-010, P-011, P-016 — every other PRD — ~~P-008, P-012, P-013, P-014, P-015~~ **deferred 2026-08-19** |
 | Depends on | nothing |
+
+
+> **Reading this PRD after the 2026-08-19 scope reduction.**
+>
+> Where the sections below reason about the **disclosure-capacity budget**
+> ([`claims.md`](../../spec/claims.md) Q2D-C-09, *not attempted in this release*)
+> or the **escalation lifecycle** ([P-015](P-015-escalation-lifecycle.md),
+> deferred), that reasoning is **preserved as written and is not a requirement of
+> this release**.
+>
+> **What governs what gets built:** the **issue list**, the **acceptance** and
+> **negative-acceptance** tables, and the **corpus-section** table. Struck rows in
+> any of those say what does not. Design prose does not govern. Design prose has deliberately *not* been rewritten to
+> remove deferred concepts: it records why each decision was made, and deleting
+> it would leave the decisions standing with their reasons removed — which is
+> worse than a reader having to hold one caveat.
+>
+> Deferred PRDs keep their numbers and their issue lists. Nothing was withdrawn.
 
 ---
 
@@ -57,8 +75,9 @@ reporting; test key material.
 subprocess, and compares. It implements no Q2D behaviour, and a change that gives
 it protocol knowledge is out of scope and an escalation.
 
-**Also outside:** timing and side-channel measurement (Stage 8), performance
-benchmarking (Stage 8), and fuzzing corpora (owned by the PRD for the module
+**Also outside:** timing and side-channel measurement, performance benchmarking
+— both **cut** by the 2026-08-19 reduction rather than deferred to a later stage
+— and fuzzing corpora (owned by the PRD for the module
 being fuzzed).
 
 ## 4. Design
@@ -320,18 +339,18 @@ applies to the harness too.
 | `digest` | 1 | Digest a structure, for receipt binding |
 | `resolve_predicate` | 2 | Registry resolution and pinning |
 | `effective_domain` | 2 | Domain narrowing composition |
-| `capacity_debit` | 3 | Millibit debit for an effective domain |
+| `capacity_debit` | 3 | Millibit debit for an effective domain. **No vector uses it since 2026-08-19** — Q2D-C-09 is not attempted. The name stays in the settled vocabulary rather than being removed: an operation no runner implements is exit 1, which is what §7 expects of unbuilt work, and removing a settled name would reopen the question issue 17 closed |
 | `policy_decide` | 3 | Policy contract input → decision + modifiers |
 | `evaluate_predicate` | 4 | Local evaluation and output validation |
 | `process_query` | 4 | The full §4 pipeline |
 | `process_sequence` | 4 | **One responder, several requests, in order** — [E-51](../open-escalations.md). Idempotency is a property of the *second* request and no vector could describe one; the sequence lives inside `input`, where the projection already passes it through untouched, so the vector format, the projection and the runner contract are unchanged. §4.6 fixes what it returns |
 | `process_response` | 5 | The requester's §4.1 order, and **which of its steps rejected** — the mirror of `process_query`, for the same reason `ordering/` cannot be assembled from `verify_response` vectors |
 | `build_contract` | 5 | [P-012](P-012-requester-runtime.md) `requester/contract/` |
-| `project_outcome` | 5 | [P-012](P-012-requester-runtime.md) `requester/outcome/`, `requester/projection/` |
-| `retry_bytes` | 5 | [P-012](P-012-requester-runtime.md) `requester/retry/` |
-| `http_exchange` | 6 | [P-013](P-013-https-binding.md) `binding/`, open question 5 there |
-| `fingerprint` | 6 | [P-014](P-014-identity-pairing.md) `identity/fingerprint/` |
-| `resolve_identity`, `verify_delegation` | 6 | [P-014](P-014-identity-pairing.md) `identity/` |
+| `project_outcome` | 5 | ~~[P-012](P-012-requester-runtime.md) `requester/outcome/`, `requester/projection/`~~ — **Deferred 2026-08-19** with the contained runtime. Name settled, no vector |
+| `retry_bytes` | 5 | ~~[P-012](P-012-requester-runtime.md) `requester/retry/`~~ — **Deferred 2026-08-19**. Name settled, no vector |
+| `http_exchange` | 5 | [P-017](P-017-mcp-binding.md) `binding/` — **repointed 2026-08-19**. P-013 is deferred and P-017 reuses the name rather than naming one of its own, which is exactly what settling the vocabulary was for: the MCP binding moves opaque bytes over HTTP, and the harness never speaks MCP any more than it spoke Q2D |
+| `fingerprint` | 6 | ~~[P-014](P-014-identity-pairing.md) `identity/fingerprint/`~~ — **Deferred 2026-08-19** with the pairing profile |
+| `resolve_identity`, `verify_delegation` | 6 | ~~[P-014](P-014-identity-pairing.md) `identity/`~~ — **Deferred 2026-08-19** |
 | `escalate_poll`, `approve` | 7 | [P-015](P-015-escalation-lifecycle.md) `escalation/` |
 
 Later stages extend the table; they do not redefine existing entries.
@@ -512,7 +531,10 @@ never claimed.
    byte-identical `wire` object, while distinct `internal_reason` values exist
    behind it. This is the check `registry/validate.py` already performs over
    registry vectors, generalized.
-2. **Budget accumulation is order-independent.** A debit sequence and its
+2. ~~**Budget accumulation is order-independent.**~~ **Inert since 2026-08-19** —
+   the assertion is built and correct, and the `budget/` section it runs over is
+   deferred with Q2D-C-09, so it reports zero groups across zero vectors. ~~A
+   debit sequence and its
    permutations reach the same total.
 3. **Ordering monotonicity.** No vector rejecting at step *n* has a sibling that
    reaches a later step on strictly less valid input.
@@ -759,11 +781,11 @@ issues 12, 13, and 14.
 | `message/` | envelope construction, signing, verification, routing projection, routing/signed disagreement | new |
 | `suite/` | suite resolution, downgrade rejection, unknown suite | new |
 | `replay/` | nonce reuse, expiry, clock skew, idempotent retry | new |
-| `registry/` | schema validation, evaluation, capacity debit, normalized denial | **folded in from [`registry/manifest.json`](../../registry/manifest.json)** — done, by [`tools/fold_registry.py`](../../tools/fold_registry.py). Resolution, pinning, and digest mismatch are *not* among them: the manifest's vectors exercise a predicate's evaluation and validation, not the act of resolving the entry, so those three remain to author |
+| `registry/` | schema validation, evaluation, normalized denial — **no capacity debit since 2026-08-19** | **folded in from [`registry/manifest.json`](../../registry/manifest.json)** — done, by [`tools/fold_registry.py`](../../tools/fold_registry.py). Resolution, pinning, and digest mismatch are *not* among them: the manifest's vectors exercise a predicate's evaluation and validation, not the act of resolving the entry, so those three remain to author |
 | `domain/` | narrowing, understatement, expansion attempt | new |
-| `budget/` | debit sequences, permutation equality, exhaustion | new |
+| ~~`budget/`~~ | ~~debit sequences, permutation equality, exhaustion~~ — **deferred 2026-08-19** with Q2D-C-09. A small `quota/` group belongs with the request quota when it is built | ~~new~~ |
 | `receipt/` | field binding, digest computation | new |
-| `ordering/` | one vector per rejection step, 1–15 **and the lettered steps among them, 5a, 9a and 11a** | new |
+| `ordering/` | one vector per rejection step, **1–14** — **not 15**, whose only rejection cause was budget exhaustion and which has none since Q2D-C-09 was marked not attempted (2026-08-20) — **and the lettered steps among them, 5a, 9a and 11a** | new |
 
 Stage 0 authors the format, the harness, and `message/`, `suite/`, and
 `ordering/`. Remaining sections are authored by the PRD that owns the behaviour,
@@ -877,7 +899,7 @@ Decomposition into tracked work. Each names its acceptance.
 | 5 | Harness `lint` mode | Rejects the four malformed-vector cases in §8 |
 | 6 | Harness `coverage` mode | Reports all 13 claims uncovered against an empty corpus |
 | 7 | Cross-vector assertions: denial uniformity | Generalizes `registry/validate.py`'s check to any corpus section |
-| 8 | Cross-vector assertions: budget order-independence | Permutation test over a debit sequence |
+| 8 | Cross-vector assertions: budget order-independence | **Done — and now inert.** The permutation assertion is built ([`cross_vector.py`](../../conformance/harness/cross_vector.py)) and correct; the `budget/` section it runs over is **deferred 2026-08-19** with Q2D-C-09, so it reports zero groups across zero vectors. Kept rather than removed: it is working code, and it starts asserting again the moment a debit sequence exists |
 | 9 | Harness `cross` mode | **Done**, scoped to §4.8's first cross-implementation clause by §10's resolution. Two runners over one corpus, compared field by field, reporting the first differing byte offset — and exiting 3 rather than 0 when they agree, because the B-verifies-A half is issue 19 and a release gate reads the status, not the prose |
 | 10 | Test key material | **Done.** Three keypairs from RFC 8032 §7.1 committed in `conformance/keys/`, marked test-only in the filename and the first field, with the RFC's published signatures beside them as reference data. No seed appears outside that directory, asserted by a byte search over every file. That nothing derives a public key from a seed is a rule rather than a check — see §4.9 for why a test cannot decide it, and what is checked instead |
 | 11 | Fold `registry/` vectors into the corpus | **Folded; the acceptance cannot close yet.** All fourteen manifest vectors are in the corpus and pass `harness lint`, *generated* from the manifest by [`tools/fold_registry.py`](../../tools/fold_registry.py) rather than transcribed — the manifest outranks the corpus, so it stays the one place they live, and `--check` fails the build on any divergence. What is not shown is *"unchanged results"*: that means a runner reproducing each expected answer, and no runner evaluates `evaluate_predicate` — against the reference stub all fourteen fail, which is the expected state and not the acceptance. This closes when Stage 1 provides a runner. Five of them raised the step question in §10, and five more the bytes question |

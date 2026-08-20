@@ -12,6 +12,12 @@ README, a talk, or a later draft asserts something that is not here, the
 assertion is wrong or this document is out of date — and the burden is on the
 assertion.
 
+**The property the rest of this document qualifies is
+[Q2D-C-03](#q2d-c-03--bounded-output).** A custodian returns a value that must lie
+inside a domain defined by a **third artifact** — a registry the custodian pinned
+— rather than by the party producing the answer. Every other claim here either
+establishes that bound, authenticates it, or accounts for it.
+
 Terms: [`terminology.md`](terminology.md). Boundaries: [`scope.md`](scope.md).
 Claim *language* — which words to use for each of these — is
 [`terminology.md`](terminology.md) §9.
@@ -41,6 +47,11 @@ is marked withdrawn rather than reused.
 These hold for a conforming responder at the `authenticated-answer` profile.
 They do not depend on requester-side containment.
 
+**Q2D-C-03 is the one to read first.** Q2D-C-02 is what makes it non-trivial —
+the domain comes from the registry rather than from the responder's own
+declaration — and Q2D-C-10 is what makes it checkable afterwards. The rest
+support those three.
+
 ### Q2D-C-01 — Pre-evaluation commitment
 
 **Claim.** The requester commits to the predicate and version, public context,
@@ -65,6 +76,13 @@ is never trusted.
 responder rejects unknown predicate versions and registry digests.
 **Enforced by.** Registry pinning; signature over the manifest; fail-closed on
 unknown version or digest; narrowing composition computed responder-side.
+
+**The capacity-debit clause above is not exercised in this release.** Q2D-C-09 is
+*not attempted*, so nothing computes a debit — but the sentence stays true as a
+statement about provenance: capacity is a registry entry field
+([`terminology.md`](terminology.md) §3), the manifest still carries it, and no
+requester-asserted value is read anywhere. Same treatment as Q2D-C-08's two
+unreachable causes: kept, unexercised, and binding the moment a budget exists.
 
 `answer_contract.coarsening` (`core-model.md` §2.5) is not an exception to this.
 The requester declares a mapping; the responder **validates** it against the
@@ -97,13 +115,33 @@ returned, and the schema bounds how long they may be — an `attribute` is
 *released in full* and permits no narrowing, so only the schema bounds it. The
 schema's own conformance to §4.1 is enforced at registry validation, before any
 request reaches it.
+**A consequence worth stating, because it is the reason this claim matters in
+2026.** An adversarial instruction sitting in the custodian's data — a poisoned
+record, a rewritten field, an injected string — **cannot be transmitted through
+this interface**. The released value must lie inside the registered answer
+domain, so where that domain is a `boolean`, a small `enum`, or a bounded
+interval, there is no field an instruction can occupy.
+
+**It can still influence the answer.** A poisoned record can flip a boolean, and
+that flip crosses the interface because it is the value the requester asked for.
+The distinction is between a **one-bit effect on a requested value** and a
+**channel into the requester's context**, and only the second is closed.
+
+**The bound is weakest where the release shape is widest.** An `object` release
+with detail fields, or an `attribute` released in full, is bounded by the entry's
+`output_schema` rather than by a small cardinality — which is why
+[E-28](../docs/open-escalations.md) required that schema to bound every
+variable-length value, and why the *Fails if* clause about an unbounded schema is
+not a technicality.
 **Fails if.** Validation is skipped for a `detail` field; an exception path
 serializes private input; a structured output escapes cardinality limits; **or an
 entry is admitted whose output schema leaves a variable-length value unbounded**,
 which moves the failure from the responder to the registry without changing what
 crosses the interface.
 **Not.** A claim that a bounded answer is harmless. One bit can reveal a
-consequential fact — capacity is not severity. See Q2D-NC-07.
+consequential fact — capacity is not severity. See Q2D-NC-07. **Nor a claim
+about prompt injection generally**: this closes the *response* channel, and the
+tool-description channel is untouched — see Q2D-NC-14.
 **Verified by.** `conformance/out-of-domain-result`, `conformance/error-path-leakage`, `conformance/over-schema-bound-result` — planned. The third is the `attribute` case: a result inside the effective domain and longer than its schema permits, which no other vector catches because every other bound is the domain's.
 
 Registry-side, [`registry/validate.py`](../registry/validate.py) refuses an entry whose output schema leaves a variable-length value unbounded — the assumption above, checked rather than assumed.
@@ -163,8 +201,16 @@ true. This is origin and integrity only. See Q2D-NC-01 and Q2D-NC-10.
 ### Q2D-C-07 — Replay resistance
 
 **Claim.** An intercepted request cannot be reused within the supported window.
-An identical retry returns the cached outcome and does not debit the disclosure
-budget again.
+An identical retry returns **the stored response bytes**, without re-evaluating
+the predicate or reading private input again.
+
+**The second sentence said *"and does not debit the disclosure budget again"***
+until 2026-08-19. Q2D-C-09 is **not attempted in this release**, so there is no
+budget and no debit; promising duplicate-debit protection for an unbuilt
+mechanism would state more than the release can demonstrate. Returning the
+stored bytes is the stronger property anyway and was always the observable —
+nothing is regenerated, so two retries cannot differ, and where a budget exists
+returning stored bytes is *why* it is not debited twice.
 **Holds when.** The replay cache covers the expiry window and nonces have
 sufficient entropy. **Both halves are supplied by different parties.** The
 first is a responder's and [`freshness.md`](freshness.md) §1 makes it structural
@@ -180,7 +226,9 @@ signature; responder replay cache; idempotent retry handling; the bounds in
 compromised.
 **Not.** Prevention of fresh repeated queries by a legitimate requester — that
 is Q2D-C-09's problem, and it is a throttle, not a bar.
-**Verified by.** `conformance/replay`, `conformance/duplicate-debit`,
+**Verified by.** `conformance/replay`, ~~`conformance/duplicate-debit`~~ — struck
+2026-08 with the budget it would have measured; the stored-bytes property is what
+`conformance/replay` asserts —
 `conformance/expiry-skew` — planned.
 
 ### Q2D-C-08 — Denial normalization
@@ -189,6 +237,13 @@ is Q2D-C-09's problem, and it is a throttle, not a bar.
 data, policy refusal, budget exhaustion, rate-limit rejection, unsupported
 predicate, failed freshness, and internal escalation onto one external class,
 reducing explicit existence and policy oracles.
+
+**Two of those causes are unreachable in this release**, and the claim is a
+statement about what a responder *can* map rather than about which causes a given
+deployment produces. **Budget exhaustion** needs Q2D-C-09, *not attempted*; and
+**internal escalation** needs the escalation lifecycle, deferred. The remaining
+five are the surface this release actually normalizes, and the two are kept in
+the list because the claim binds them the moment they exist.
 **Holds when.** The external envelope, its size, and its retry semantics are
 identical for every internal cause in the class.
 **Enforced by.** A **closed** external schema — `core-model.md` §5.2's four
@@ -209,6 +264,24 @@ indistinguishability property in 0.1. See Q2D-NC-05.
 **Verified by.** `conformance/denial-uniformity`, `conformance/retry-metadata` — planned.
 
 ### Q2D-C-09 — Disclosure-capacity accounting
+
+> **Not attempted in this release.** Deferred 2026-08-19, and the reason is a
+> finding rather than a schedule: this claim measures a quantity that is not the
+> one anyone is worried about. Its own *Fails if* list below already concedes that
+> collusion, correlated predicates, auxiliary knowledge and cross-custodian
+> spreading each defeat it — and no operator can say what a budget of *N*
+> millibits permits or prevents.
+>
+> **What bounds probing instead is a required request quota**, keyed on the
+> relationship, checked at §9.1's step 9a, with no default. That is a rate limit;
+> it carries **no claim** and is not measured in these units, exactly as
+> [E-01](../docs/open-escalations.md) decided when it introduced one.
+>
+> **The claim is kept rather than deleted**, because it is cited by
+> [`core-model.md`](core-model.md) §2.5 — where the prohibition on subsetting is
+> justified by it — and by `conformance-classes.md` CC-2 and CC-3, and by seven
+> PRDs. It also remains the right claim to make if a deployment ever asks for a
+> subject-level cap enforced in bits. Nothing below is withdrawn; it is unbuilt.
 
 **Claim.** Each released finite-domain answer debits `log2(cardinality)` of the
 **effective** domain from a policy-defined budget, computed by the responder.
@@ -233,7 +306,9 @@ unbounded.
 measures the capacity of an answer alphabet, not what an adversary learned. See
 Q2D-NC-04.
 **Verified by.** `conformance/budget-debit`, `conformance/adaptive-probing`,
-`conformance/sybil-relationship` — planned.
+`conformance/sybil-relationship` — **not attempted in this release**. The
+`registry/` vectors that cited this claim no longer do: they asserted a debit
+value, and there is nothing computing one.
 
 ### Q2D-C-10 — Exchange-bound accountability
 
@@ -242,8 +317,8 @@ receipt's contents depend on the outcome:
 
 - an **`answer`** binds the request digest, response digest, predicate and
   version, registry-entry digest, effective answer-contract digest, policy
-  version, release shape, assurance profile, capacity debit, decision time, and
-  responder identity;
+  version, release shape, assurance profile, decision time, and responder
+  identity;
 - a **`deny`**, and an **explicit `escalate`**, bind the request digest, decision
   class, decision time, responder identity, and signature suite — and nothing
   else.
@@ -255,9 +330,31 @@ the predicate would partition denials by predicate, defeating Q2D-C-08 through
 the evidence attached to the response. What a reduced receipt attests is *this
 exchange happened, at this time, and produced this external class* — which is the
 accountability a denial can honestly support.
+**The capacity debit left this list on 2026-08-19**, with Q2D-C-09. A field whose
+only available value is zero is a lie in waiting — a reader seeing `0` would
+conclude the answer disclosed nothing. The list is closed
+([E-22](../docs/open-escalations.md)), so removing a field is a specification
+change and is recorded as one. If a disclosure-magnitude field is ever wanted, it
+gets a **new name and its own reasoning**, rather than this one restored with a
+different meaning.
 **Holds when.** The responder issues a receipt for every outcome and retains
 detailed audit locally ([`core-model.md`](core-model.md) §5.2, §5.3, §6).
+**The local audit is load-bearing, not incidental**: a receipt with no retained
+audit behind it satisfies half of this claim.
 **Enforced by.** Receipt construction under the response signature.
+
+**A consequence: a silently changed predicate fails a check rather than quietly
+meaning something new.** The receipt binds `entry_digest`, and
+[`core-model.md`](core-model.md) §2.4.1 makes an entry's digest change when its
+definition changes. A custodian that swapped a predicate's meaning between two
+exchanges produces a receipt naming a digest the requester did not expect.
+
+**This requires the requester to know what to expect**, which means obtaining the
+entry independently rather than from the custodian answering the question. That
+is deliberate — a discovery endpoint would hand over the entry the check exists
+to compare against — and it is a real operability cost, not a free property: two
+parties on different manifest versions fail in a way neither can diagnose from
+the wire.
 **Fails if.** A binding omits receipt fields; audit and receipt diverge; an
 outcome is returned with no receipt at all; a reduced receipt is read as
 attesting to anything an answer receipt attests to.
@@ -271,6 +368,9 @@ a runtime processed an exchange.
 ## Composition claim
 
 ### Q2D-C-11 — Binding equivalence
+
+> **Not attempted in this release.** Deferred 2026-08-19. Binding equivalence is a statement **between** bindings, and this release builds one — MCP. A second binding is what would make it testable. Kept rather
+> than deleted: it is the claim to make when the work exists.
 
 **Claim.** Two conforming bindings carrying the same core exchange preserve
 identical semantics: identity and delegation, predicate and registry reference,
@@ -294,6 +394,9 @@ without it may claim everything above and nothing below.
 
 ### Q2D-C-12 — Evidence segregation
 
+> **Not attempted in this release.** Deferred 2026-08-19. Conditional on `q2d-contained-runtime-0.1`. The contained requester runtime is deferred, CC-10 is not built, and there is no model in the loop to segregate evidence from. Kept rather
+> than deleted: it is the claim to make when the work exists.
+
 **Claim.** Signatures, credentials, proofs, policy traces, and receipts are
 verified in the requester runtime and do not enter model context. The agent
 receives the semantic answer and the minimum metadata policy permits.
@@ -308,6 +411,9 @@ available to injection; it does not declassify the answer.
 **Verified by.** `conformance/model-context-content` — planned.
 
 ### Q2D-C-13 — Conditional flow confinement
+
+> **Not attempted in this release.** Deferred 2026-08-19. Same. Confining answer-derived flows requires **every** relevant sink to be mediated, and this release mediates none. Kept rather
+> than deleted: it is the claim to make when the work exists.
 
 **Claim.** Answer-derived machine outputs reach only sinks permitted by the
 effective contract and local policy.
@@ -331,8 +437,15 @@ destinations — and only under complete mediation. See Q2D-NC-11.
 True at every version and every assurance profile. These are not caveats on the
 claims above; they are positions the project holds.
 
+**The first two are the ones most likely to be assumed**, and they are placed
+first for that reason rather than by number. Q2D-NC-14 and Q2D-NC-15 were added
+in 2026-08 when Q2D-C-03's bounded-output property was stated in terms of
+injection, because that framing invites both misreadings.
+
 | ID | Q2D does not claim |
 |---|---|
+| **Q2D-NC-15** | **That Q2D constrains a hostile custodian.** The threat model assumes a *participating* custodian and treats the requesting agent as untrusted; it is a way for an honest custodian to prove it is honest, not a way to constrain a dishonest one. A compromised or malicious server — the failure mode most reported against tool interfaces in 2026 — is outside it entirely. Q2D-C-03's bound is enforced *by* the custodian, at [`core-model.md`](core-model.md) §4 step 17, and a custodian that does not run it is not conforming and not detectable by this protocol. |
+| **Q2D-NC-14** | **That a bounded answer domain prevents prompt injection.** It closes the **response** channel: an injected payload in the custodian's data has no field to occupy in a `boolean` or a small `enum`. It does not close the **tool-description** channel — a poisoned tool description, parameter schema, or registered question reaches model context untouched — and it does not stop a payload *influencing* the answer within its domain. See Q2D-C-03. |
 | **Q2D-NC-01** | That the underlying facts are true, complete, current, or independently verified. A signature over a self-asserted attribute authenticates the assertion, not the fact. |
 | **Q2D-NC-02** | That a declared purpose is honest, or enforceable once information reaches a human. |
 | **Q2D-NC-03** | That a released answer can be retracted. Revocation governs future requests only. |
@@ -346,6 +459,13 @@ claims above; they are positions the project holds.
 | **Q2D-NC-11** | That labels alone stop leakage when any sink, log, memory path, or side channel is unmediated. |
 | **Q2D-NC-12** | Novelty for source-side predicate APIs, information-flow control, capability authorization, cumulative leakage budgets, selective disclosure, trusted execution, or tamper-evident logs. The contribution is the composition. |
 | **Q2D-NC-13** | That a query is confidential from an intermediary. The 0.1 suite signs the payload and does not encrypt it, so a party holding the envelope reads every field of the core object — `routing`'s minimality (`core-model.md` §2.1) governs what is legible *without decoding*, which is a real difference and not a confidentiality boundary. A deployment needing one uses transport confidentiality or a suite 0.1 does not register. |
+
+**The table is ordered by likelihood of being assumed, not by identifier.**
+Q2D-NC-14 and Q2D-NC-15 sit at the top for that reason and appear **once**. An
+earlier draft also placed placeholder rows for them here, in numeric position,
+which gave two entries the same identifier — and this document is the traceability
+source for claim language, so an identifier that resolves to two rows is a defect
+rather than a convenience.
 
 Claims of being "the first" anything require a literature and patent search that
 has not been performed.

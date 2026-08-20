@@ -3,11 +3,10 @@
   "section": "registry",
   "requirement": [
     "Q2D-C-03",
-    "Q2D-C-09",
     "CC-2",
     "core-model.md#4"
   ],
-  "description": "Contactability for a stated purpose (contactable-for): matching-rule-permits-async — answers \"async\", debiting 1585 millibits. Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
+  "description": "Contactability for a stated purpose (contactable-for): matching-rule-permits-async — answers \"async\". Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
   "operation": "evaluate_predicate",
   "input": {
     "predicate": {
@@ -33,8 +32,7 @@
   "expect": {
     "outcome": "ok",
     "output": {
-      "result": "async",
-      "capacity_debit_millibits": 1585
+      "result": "async"
     },
     "comparison": "semantic"
   }

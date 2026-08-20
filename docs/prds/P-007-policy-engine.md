@@ -8,7 +8,25 @@
 | Size | L |
 | Risk | medium |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md) |
-| Blocks | P-008, P-009, P-010, P-011, P-015, P-016 |
+| Blocks | P-009, P-010, P-011, P-016 — ~~P-008, P-015~~ **deferred 2026-08-19** |
+
+
+> **Reading this PRD after the 2026-08-19 scope reduction.**
+>
+> Where the sections below reason about the **disclosure-capacity budget**
+> ([`claims.md`](../../spec/claims.md) Q2D-C-09, *not attempted in this release*)
+> or the **escalation lifecycle** ([P-015](P-015-escalation-lifecycle.md),
+> deferred), that reasoning is **preserved as written and is not a requirement of
+> this release**.
+>
+> **What governs what gets built:** the **issue list**, the **acceptance** and
+> **negative-acceptance** tables, and the **corpus-section** table. Struck rows in
+> any of those say what does not. Design prose does not govern. Design prose has deliberately *not* been rewritten to
+> remove deferred concepts: it records why each decision was made, and deleting
+> it would leave the decisions standing with their reasons removed — which is
+> worse than a reader having to hold one caveat.
+>
+> Deferred PRDs keep their numbers and their issue lists. Nothing was withdrawn.
 
 ---
 
@@ -125,10 +143,19 @@ Decision {
   outcome       : allow | deny | escalate
   modifiers     : [Modifier]      // allow only
   on_exhaustion : deny | escalate // applied at step 15; policy does not run again
+                                  // UNUSED in this release -- see below
   audit         : { reason, authorities_consulted, policy_version }
   external      : ExternalClass   // what P-009 may put on the wire
 }
 ```
+
+**`on_exhaustion` is unused in this release.** Q2D-C-09 is **not attempted**
+([`claims.md`](../../spec/claims.md)), so no budget produces an exhaustion
+verdict and nothing reaches step 15's branch. The field stays in `Decision`
+rather than being removed: the ordering argument below is why it has to be
+decided *in advance*, and that argument is what a future budget would need
+rather than something to rediscover. A policy engine may emit it; nothing
+consumes it.
 
 `on_exhaustion` exists because of an ordering constraint rather than a
 preference. [`core-model.md`](../../spec/core-model.md) §4 runs policy once at
@@ -252,14 +279,14 @@ discover the problem on a live request.
 
 | Group | Vectors |
 |---|---|
-| `policy/outcome/` | Each of the three outcomes from an explicit rule |
-| `policy/compose/` | Every pair and triple over `{allow, deny, escalate}`; modifier union; two authorities narrowing one dimension, in each of the three cases [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes — comparable, incomparable, and disjoint |
+| `policy/outcome/` | **Each of the two outcomes** — `allow` and `deny` — from an explicit rule. ~~three~~: `escalate` is deferred with [P-015](P-015-escalation-lifecycle.md), and a policy engine may still emit it where the lifecycle exists |
+| `policy/compose/` | Every pair over `{allow, deny}`; ~~triples including `escalate`, and modifier union~~ — **deferred 2026-08-19**; two authorities narrowing one dimension, in each of the three cases [`core-model.md`](../../spec/core-model.md) §3.3 distinguishes — comparable, incomparable, and disjoint |
 | `policy/failclosed/` | F1–F6, each as a property over generated inputs |
-| `policy/modifiers/` | Valid coarsening; an attempted subset is an implementation error; **an attempted `enum` coarsening likewise**, per [`core-model.md`](../../spec/core-model.md) §3.2 — settled by E-25, so a vector asserting it is asserting a rule rather than a temporary position |
+| ~~`policy/modifiers/`~~ | **Deferred 2026-08-19** — coarsening modifiers went with the capacity budget they kept computable. ~~Valid coarsening; an attempted subset is an implementation error; **an attempted `enum` coarsening likewise**, per [`core-model.md`](../../spec/core-model.md) §3.2 — settled by E-25, so a vector asserting it is asserting a rule rather than a temporary position |
 | `policy/determinism/` | Same input twice; permuted authority order; permuted rule-set map order |
 | `policy/separation/` | An audit reason never appears in `external` |
 | `policy/rules/` | A rule set overriding an invariant fails at load |
-| `policy/grant/` | A matching grant is an input, not an outcome: a revoked authority still denies, an expired grant does not appear, and an already-consumed one does not appear |
+| ~~`policy/grant/`~~ | **Deferred 2026-08-19** with the escalation lifecycle. ~~A matching grant is an input, not an outcome: a revoked authority still denies, an expired grant does not appear, and an already-consumed one does not appear |
 
 ## 7. Acceptance
 
@@ -282,11 +309,11 @@ discover the problem on a live request.
 | A policy conditioning on the answer | No such field exists in `PolicyInput`; the type does not permit it |
 | A configuration overriding F1–F6 | Rejected at load, not at decision time |
 | An unreachable authority treated as absent | Composition returns `allow` where it must return `deny` |
-| A modifier producing a strict subset | `apply_modifiers` errors; the decision is an implementation error, not a restriction |
+| ~~A modifier producing a strict subset~~ | **Struck 2026-08-19** — modifiers deferred. ~~`apply_modifiers` errors; the decision is an implementation error, not a restriction |
 | A clock read inside the engine | Dependency check finds a time source |
 | Authority order changing the outcome | `policy/determinism/` permutation vector fails |
 | An audit reason reaching `external` | `policy/separation/` fails |
-| An engine returning `allow` with an empty modifier set where an authority required one | Modifier union drops a narrowing |
+| ~~An engine returning `allow` with an empty modifier set where an authority required one~~ | **Struck 2026-08-19** — modifiers deferred. ~~Modifier union drops a narrowing |
 
 Row 1 is the important one, and it is enforced by a type rather than a test —
 there is no way to write the offending policy because the input does not carry
@@ -323,13 +350,13 @@ the value it would need.
 | 1 | `PolicyInput` and `Decision` types, both languages | No private-derived field; `audit` and `external` separate |
 | 2 | `decide` over a fixture rule set | `policy/outcome/` passes |
 | 3 | F1–F6 as property tests | `policy/failclosed/` passes; generators cover each class |
-| 4 | `compose` with most-restrictive ordering and modifier union | `policy/compose/` passes, with a comparable, an incomparable and a disjoint operand pair for each dimension §3.3 covers. Each result is the one [`core-model.md`](../../spec/core-model.md) §3.3 gives, which is not the same outcome for every dimension |
-| 4a | `grant` field on `PolicyInput`, read-only | `policy/grant/` passes; no code path in this module consumes a grant |
+| 4 | `compose` with most-restrictive ordering; ~~modifier union~~ **deferred** | `policy/compose/` passes, with a comparable, an incomparable and a disjoint operand pair for each dimension §3.3 covers. Each result is the one [`core-model.md`](../../spec/core-model.md) §3.3 gives, which is not the same outcome for every dimension |
+| ~~4a~~ | ~~`grant` field on `PolicyInput`, read-only~~ — **deferred 2026-08-19** with the escalation lifecycle | ~~`policy/grant/` passes; no code path in this module consumes a grant |
 | 5 | `validate_rules` at load | `policy/rules/` passes; invariant override refuses to start |
 | 6 | Determinism: explicit rule ordering, no clock, no map iteration | `policy/determinism/` passes; dependency check clean |
 | 7 | Audit/external separation | `policy/separation/` passes |
-| 8 | Modifier emission constrained to coarsening, and to shapes other than `enum` | Subset attempt errors as an implementation fault; so does an `enum` narrowing, per [`core-model.md`](../../spec/core-model.md) §3.2 |
-| 9 | Author `policy/` corpus section | Seven groups; `harness lint` clean |
+| ~~8~~ | ~~Modifier emission constrained to coarsening, and to shapes other than `enum`~~ — **deferred 2026-08-19** with the modifiers themselves | ~~Subset attempt errors as an implementation fault; so does an `enum` narrowing, per [`core-model.md`](../../spec/core-model.md) §3.2 |
+| 9 | Author `policy/` corpus section | **Five** groups; `harness lint` clean. `policy/modifiers/` and `policy/grant/` are deferred |
 | 10 | Resolve open questions 1 and 3 | Written into §4.4 and §5 before issues 4 and 5 |
 
 Issue 1 blocks everything. Issue 3 is the largest — property generators for six

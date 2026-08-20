@@ -7,8 +7,49 @@
 | Status | **Ready for decomposition** |
 | Size | M |
 | Risk | medium |
-| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-005](P-005-registry-client.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-010](P-010-responder-pipeline.md) |
-| Blocks | P-012, P-013, P-016 |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-005](P-005-registry-client.md), [P-007](P-007-policy-engine.md), [P-010](P-010-responder-pipeline.md) — ~~P-008~~ **deferred 2026-08-19** |
+| Blocks | P-016, [P-017](P-017-mcp-binding.md) — ~~P-012, P-013~~ **deferred 2026-08-19** |
+
+
+> **Partially shrunk 2026-08-19 — and one cut was reversed by review.**
+>
+> **Kept:** the receipt types, `build_receipt`, `response_digest`,
+> `build_deny_receipt`, `verify_receipt`, the corpus section, the claim-language
+> audit — and the **`AuditEvent` type and a local append-only audit store**.
+>
+> **The audit store was cut and restored.** The first draft of the scope
+> reduction cut all four audit issues on the grounds that a demonstration returns
+> receipts rather than storing them. Review found that
+> [`claims.md`](../../spec/claims.md) **Q2D-C-10 holds when the responder issues a
+> receipt for every outcome *and retains detailed audit locally*** — so cutting
+> the store while still claiming C-10 would have delivered less than the claim
+> states. §4.3's audit/receipt delta is the reason the store is not merely a log:
+> it is where the internal reason, the rejecting step, and the policy reasoning
+> live, none of which may reach the wire.
+>
+> **Still cut:** encryption at rest, and retention/deletion machinery. Both are
+> enterprise hardening rather than the property C-10 rests on. **§4.7's argument
+> that an audit store with no expiry is an ever-growing record of who asked what
+> about whom remains true**, and is the first thing to restore if this is ever
+> deployed rather than demonstrated.
+
+
+> **Reading this PRD after the 2026-08-19 scope reduction.**
+>
+> Where the sections below reason about the **disclosure-capacity budget**
+> ([`claims.md`](../../spec/claims.md) Q2D-C-09, *not attempted in this release*)
+> or the **escalation lifecycle** ([P-015](P-015-escalation-lifecycle.md),
+> deferred), that reasoning is **preserved as written and is not a requirement of
+> this release**.
+>
+> **What governs what gets built:** the **issue list**, the **acceptance** and
+> **negative-acceptance** tables, and the **corpus-section** table. Struck rows in
+> any of those say what does not. Design prose does not govern. Design prose has deliberately *not* been rewritten to
+> remove deferred concepts: it records why each decision was made, and deleting
+> it would leave the decisions standing with their reasons removed — which is
+> worse than a reader having to hold one caveat.
+>
+> Deferred PRDs keep their numbers and their issue lists. Nothing was withdrawn.
 
 ---
 
@@ -60,7 +101,7 @@ interface CC-11 needs.
 | `release_shape` | the effective domain's shape | answer |
 | `assurance_profile` | the profile actually used | answer |
 | `signature_suite` | the suite the response was signed under | answer, deny, escalate |
-| `disclosure_capacity_debit_millibits` | integer ([P-008](P-008-capacity-accounting.md)) | answer |
+| ~~`disclosure_capacity_debit_millibits`~~ | **Removed 2026-08-19** from `claims.md` Q2D-C-10 and [`core-model.md`](../../spec/core-model.md) §6. A field whose only available value is zero is a lie in waiting — a reader seeing `0` concludes the answer disclosed nothing. A future disclosure-magnitude field gets a **new name**, not this one restored meaning something else | ~~answer~~ |
 | `decided_at` | A timestamp — [`core-model.md`](../../spec/core-model.md) §2.2 | answer, deny, escalate |
 | `responder` | the computation executor's identity | answer, deny, escalate |
 | `decision_class` | the normalized external class, or `escalate` — see below | deny, escalate |
@@ -178,12 +219,18 @@ established.
 
 ### 4.7 Audit storage
 
-Append-only, encrypted at rest, with a configured retention period after which
-events are deleted rather than archived.
+**Append-only** — and, before any real deployment, encrypted at rest with a
+configured retention period after which events are deleted rather than archived.
 
-Retention is a **deployment** decision this module does not choose, but the
-mechanism is mandatory: an audit store with no expiry is an ever-growing record
-of who asked what about whom. [`claims.md`](../../spec/claims.md) is explicit
+**Append-only is the part [`claims.md`](../../spec/claims.md) Q2D-C-10 rests on**,
+because an audit that can be rewritten attests to nothing. **Encryption and
+retention are deferred as hardening** by the 2026-08-19 reduction — see the note
+at the top of this PRD — and the paragraph below is why they are deferred rather
+than dropped.
+
+Retention is a **deployment** decision this module does not choose, and the
+mechanism is mandatory the moment there is a deployment: an audit store with no
+expiry is an ever-growing record of who asked what about whom. [`claims.md`](../../spec/claims.md) is explicit
 that receipts, logs, identifiers, and policy history may themselves be personal
 data.
 
@@ -221,10 +268,10 @@ less.
 | Group | Vectors |
 |---|---|
 | `receipt/fields/` | Every field present and correctly sourced, for answer, deny, and explicit escalate |
-| `receipt/escalate/` | An explicit `escalate` carries the reduced receipt with `decision_class: escalate`; an **opaque** escalation's receipt is byte-identical to a plain Tier C denial's — the pair is the vector, not either alone |
+| ~~`receipt/escalate/`~~ | **Deferred 2026-08-19** with the escalation lifecycle. ~~An explicit `escalate` carries the reduced receipt with `decision_class: escalate`; an **opaque** escalation's receipt is byte-identical to a plain Tier C denial's — the pair is the vector, not either alone |
 | `receipt/digests/` | `request_digest`, `response_digest`, `effective_contract_digest`, `entry_digest` against known bytes |
 | `receipt/verify/` | With response; without response; tampered response; wrong key; **`signature_suite` disagreeing with the response's `signature.profile`** — [`core-model.md`](../../spec/core-model.md) §6 requires rejection, since one of the two is false and a verifier cannot tell which |
-| `receipt/exclusion/` | Internal reason, step, policy reasoning, and budget state absent from every receipt |
+| `receipt/exclusion/` | Internal reason, step, and policy reasoning absent from every receipt. **Budget state removed from this list 2026-08-19** — there is none, and the capacity debit has left the receipt entirely |
 | `receipt/audit/` | Audit contains the §4.3 delta; contains no answer plaintext |
 
 ## 7. Acceptance
@@ -241,9 +288,14 @@ less.
       length across causes.
 - [ ] An explicit `escalate` carries a receipt; **no outcome is returned without
       one**.
-- [ ] An opaque escalation's receipt is byte-identical to a plain Tier C denial's,
-      asserted across the two together rather than per case.
-- [ ] Audit events are deleted at retention expiry, observably.
+- [ ] ~~An opaque escalation's receipt is byte-identical to a plain Tier C
+      denial's~~ — **struck 2026-08-19**, deferred with
+      [P-015](P-015-escalation-lifecycle.md).
+- [ ] The audit store is **append-only**, and a test shows an event cannot be
+      amended or removed.
+- [ ] ~~Audit events are deleted at retention expiry, observably.~~ **Struck
+      2026-08-19** — retention is deferred hardening. Restore before any real
+      deployment.
 
 ## 8. Negative acceptance
 
@@ -261,7 +313,7 @@ less.
 | `verify_receipt` silently checking less without a response | Result does not report the skipped check |
 | An acknowledgment field populated | It is reserved; populating it asserts semantics that do not exist |
 | Documentation calling a receipt proof of truth or proof of disclosure | Grep across artifacts |
-| An audit store with no expiry | Retention configuration absent or unbounded |
+| ~~An audit store with no expiry~~ | **Struck 2026-08-19** — retention machinery is deferred hardening, so an unbounded store is the expected state of a demonstration over synthetic fixtures. **Restore this row before any real deployment**: §4.7's argument that it becomes an ever-growing record of who asked what about whom is unchanged |
 
 Row 8 is subtle and worth a vector. A verifier that returns "valid" having
 checked less than the caller assumes is more dangerous than one that returns an
@@ -298,12 +350,12 @@ error, because the caller acts on it.
 | 2 | `build_receipt` from `ExchangeFacts` | `receipt/fields/` passes; open question 2 resolved |
 | 3 | `response_digest` definition and computation | `receipt/digests/` passes; computable pre-receipt |
 | 4 | `build_deny_receipt`, serving deny and both escalation modes | Five fields; constant length; feeds P-009 uniformity. One builder, with `decision_class` supplied by the caller — an opaque escalation must not be able to reach the `escalate` value, so the caller is [P-015](P-015-escalation-lifecycle.md)'s visibility verdict, never the internal reason |
-| 4a | `receipt/escalate/` uniformity pair | Explicit carries `escalate`; opaque is byte-identical to a Tier C denial |
+| ~~4a~~ | ~~`receipt/escalate/` uniformity pair~~ | **Cut 2026-08-19** — tests the explicit/opaque split, deferred with [P-015](P-015-escalation-lifecycle.md). ~~Explicit carries `escalate`; opaque is byte-identical to a Tier C denial |
 | 5 | `AuditEvent` type and the §4.3 delta | `receipt/audit/` passes; no answer plaintext |
-| 6 | Audit store: append-only, encrypted at rest | Encryption verified; append-only enforced |
-| 7 | Retention and deletion | Deletion observable; startup fails with no retention configured |
+| 6 | **Local append-only audit store** — *plain; encryption at rest deferred* | **Append-only enforced and observable.** Cut 2026-08-19 and **restored 2026-08-20**: `claims.md` Q2D-C-10 holds when the responder *retains detailed audit locally*, so a store is what the claim rests on. **Append-only is the load-bearing half** — an audit that can be rewritten attests to nothing. Encryption at rest is deferred as hardening, and restoring it is the first thing before any real deployment. ~~Encryption verified; append-only enforced |
+| ~~7~~ | ~~Retention and deletion~~ | **Deferred 2026-08-19** — enterprise hardening rather than a property Q2D-C-10 rests on. **§4.7's argument stands and is why this is deferred rather than dropped**: an audit store with no expiry is an ever-growing record of who asked what about whom, and `claims.md` says receipts and logs may themselves be personal data. Synthetic fixtures do not have that problem; a deployment does, immediately. ~~Deletion observable; startup fails with no retention configured |
 | 8 | `verify_receipt` including the skipped-check report | `receipt/verify/` passes both with and without a response |
-| 9 | Author `receipt/` corpus section | Five groups; `harness lint` clean |
+| 9 | Author `receipt/` corpus section | **Four** groups; `harness lint` clean. `receipt/escalate/` goes with issue 4a |
 | 10 | Claim-language audit across artifacts | No text describes a receipt as proof of truth or of disclosure |
 
 Issue 1 blocks 2 and 4. Issue 3 blocks 2 — the digest definition must settle

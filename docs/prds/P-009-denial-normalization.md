@@ -8,8 +8,55 @@
 | Size | M |
 | Risk | medium |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-007](P-007-policy-engine.md) |
-| Blocks | P-010, P-013, P-014, P-015, P-016 |
+| Blocks | P-010, P-016 — ~~P-013, P-014, P-015~~ **deferred 2026-08-19** |
 | Pairs with | [P-007](P-007-policy-engine.md) — P-007 separates the audit reason from the external class; this PRD is what stops the reason reaching the wire |
+
+
+> **Shrunk 2026-08-19 — scope reduction.**
+>
+> Q2D-C-08 reduces to **one refusal shape per normalized class, no
+> cause-specific text within it** — the part
+> that is true, testable and cheap. [`terminology.md`](../../spec/terminology.md)
+> §9 already forbade claiming the stronger property, and
+> [`claims.md`](../../spec/claims.md) Q2D-NC-05 already conceded that timing, size
+> and notification channels remain.
+>
+> **Kept:** the closed `InternalReason` enum, `classify`, `external_class`,
+> `build_denial`, the corpus section, the documentation audit — and issue 6,
+> **repurposed** from *Tier C uniformity* to **one refusal shape within a
+> normalized class**, asserted **across the causes in that class** rather than
+> per cause. That is now the only demonstration Q2D-C-08 has.
+>
+> **Not across every cause**, which an earlier draft of this note said and which
+> overstates the claim: [`claims.md`](../../spec/claims.md) Q2D-C-08 is
+> normalization *within a configured sensitivity class*, and
+> [`core-model.md`](../../spec/core-model.md) §5.2.1 keeps Tier A's values —
+> `malformed`, `unsupported_version`, `structurally_invalid` — **deliberately
+> distinct**, because each describes the requester's own message and tells it
+> something it can act on. Collapsing those would be a different protocol, not a
+> smaller one.
+>
+> **Cut:** Tier B uniformity, the `escalation_visible` gate and the escalate
+> receipt split (both belong to the deferred escalation lifecycle), and the timing
+> padding hook — whose only consumer was the measurement work, also cut.
+
+
+> **Reading this PRD after the 2026-08-19 scope reduction.**
+>
+> Where the sections below reason about the **disclosure-capacity budget**
+> ([`claims.md`](../../spec/claims.md) Q2D-C-09, *not attempted in this release*)
+> or the **escalation lifecycle** ([P-015](P-015-escalation-lifecycle.md),
+> deferred), that reasoning is **preserved as written and is not a requirement of
+> this release**.
+>
+> **What governs what gets built:** the **issue list**, the **acceptance** and
+> **negative-acceptance** tables, and the **corpus-section** table. Struck rows in
+> any of those say what does not. Design prose does not govern. Design prose has deliberately *not* been rewritten to
+> remove deferred concepts: it records why each decision was made, and deleting
+> it would leave the decisions standing with their reasons removed — which is
+> worse than a reader having to hold one caveat.
+>
+> Deferred PRDs keep their numbers and their issue lists. Nothing was withdrawn.
 
 ---
 
@@ -232,12 +279,11 @@ a new failure mode in whichever tier the fallback names.
 | Group | Vectors |
 |---|---|
 | `denial/tiers/` | Every `InternalReason`, asserting its tier |
-| `denial/uniformity-b/` | Every Tier B cause produces a byte-identical response |
-| `denial/uniformity-c/` | Every Tier C cause produces a byte-identical response |
+| `denial/uniformity/` | **Every cause inside a normalized class produces a byte-identical response**, asserted across causes. **Replaces `uniformity-b/` and `uniformity-c/` (2026-08-19)** — one assertion, not one per tier. This is the only demonstration Q2D-C-08 has |
 | `denial/tier-a/` | Protocol errors are distinct and informative |
-| `denial/escalation/` | Opaque by default; visible only where the class permits |
+| ~~`denial/escalation/`~~ | **Deferred 2026-08-19** with the escalation lifecycle; issue 7 is cut. | Opaque by default; visible only where the class permits |
 | `denial/no-retry/` | No retry metadata on any denial, including a rate-limit rejection |
-| `denial/receipt-uniformity/` | The reduced receipt is byte-identical across every Tier C cause, and an **opaque** escalation's receipt is indistinguishable from a plain denial's — only an explicit escalation carries `decision_class: escalate` |
+| ~~`denial/receipt-uniformity/`~~ | **Deferred 2026-08-19** — the escalation half is P-015's, and receipt uniformity across refusal causes rides in `denial/uniformity/`. ~~The reduced receipt is byte-identical across every Tier C cause, and an **opaque** escalation's receipt is indistinguishable from a plain denial's — only an explicit escalation carries `decision_class: escalate` |
 
 `denial/uniformity-b/` and `denial/uniformity-c/` are the P-001 cross-vector
 denial-uniformity assertion applied to this module — the same check
@@ -278,35 +324,43 @@ comparison as uniformity.
 
 ## 7. Acceptance
 
-- [ ] Every Tier C cause produces a **byte-identical** response in both
-      implementations, differing only in `request_digest` and `decided_at`.
-- [ ] Every Tier B cause likewise.
-- [ ] Response length is constant within a tier, across all causes.
+- [ ] Every cause **inside a normalized class** produces a **byte-identical**
+      response in both implementations, differing only in `request_digest` and
+      `decided_at`.
+- [ ] ~~Every Tier B cause likewise.~~ **Struck 2026-08-19** — folded into the
+      criterion above; one assertion, not one per tier.
+- [ ] Response length is constant within a class, across all causes.
 - [ ] `classify` is total; adding an `InternalReason` without a tier fails to
       compile.
-- [ ] Escalation is opaque unless the sensitivity class permits visibility.
-- [ ] **The receipt attached to a Tier C denial is byte-identical across causes**,
-      and an opaque escalation's receipt is indistinguishable from a plain
-      denial's.
-- [ ] A rate-limit rejection is one Tier C cause among the others, with no
-      distinguishing field, header, or timing treatment.
+- [ ] ~~Escalation is opaque unless the sensitivity class permits visibility.~~
+      **Struck 2026-08-19** — the escalation lifecycle is deferred with
+      [P-015](P-015-escalation-lifecycle.md).
+- [ ] **The receipt attached to a refusal is byte-identical across the causes
+      inside its normalized class.** The
+      escalation half of this criterion is struck with the lifecycle.
+- [ ] A **quota** rejection is one cause among the others inside its class, with
+      no distinguishing field, header, or timing treatment. (Was *rate-limit*
+      against Tier C; the quota is the same mechanism and the tier taxonomy is
+      cut.)
 - [ ] No denial carries retry metadata.
-- [ ] Documentation and code comments describe MVP as **not** timing-normalized.
+- [ ] Documentation and code comments describe this release as **not**
+      timing-normalized — which is now the whole of what is said about timing,
+      since the padding hook and its measurement are both cut.
 
 ## 8. Negative acceptance
 
 | Must fail | Observed as |
 |---|---|
-| Two Tier C causes producing different bytes | Cross-vector uniformity assertion fails |
-| Two Tier B causes distinguishable | Same, for Tier B |
+| Two causes **inside one normalized class** producing different bytes | Cross-vector uniformity assertion fails |
+| ~~Two Tier B causes distinguishable~~ | **Struck 2026-08-19** — the per-tier split is cut; the row above covers every class |
 | Response length varying with cause | Length comparison across `denial/uniformity-*/` |
 | `audit.reason` reaching a response | `build_denial` has no parameter it could arrive through |
 | An optional field on a denial present for some causes | Length varies; uniformity fails |
-| Explicit escalation where the class forbids it | `denial/escalation/` returns a visible response |
+| ~~Explicit escalation where the class forbids it~~ | **Struck 2026-08-19** — the escalation lifecycle is deferred, so there is no visible-escalation path to forbid. ~~`denial/escalation/` returns a visible response~~ |
 | A new `InternalReason` defaulting to a tier | Compile failure absent; a default branch exists |
 | Retry metadata appearing | `denial/no-retry/` fails |
-| A rate-limit rejection distinguishable from any other Tier C cause | `denial/uniformity-c/` fails once the rate-limit cause is in its input set |
-| **An opaque escalation's receipt carrying `decision_class: escalate`** | `denial/receipt-uniformity/` fails; the response bodies still match, which is why the receipt needs its own vector |
+| A **quota** rejection distinguishable from any other cause in its class | `denial/uniformity/` fails once the rate-limit cause is in its input set |
+| ~~**An opaque escalation's receipt carrying `decision_class: escalate`**~~ | **Struck 2026-08-19** with the escalation lifecycle. **Worth re-reading when [P-015](P-015-escalation-lifecycle.md) is picked up**: the trap it names is that the response bodies still match, so response-body uniformity passes while the exchange is fully distinguishable through the receipt. ~~`denial/receipt-uniformity/` fails; the response bodies still match, which is why the receipt needs its own vector |
 | A claim of timing normalization | Grep for the phrase in docs and comments |
 
 Row 4 is the one this module exists for, and it is enforced by a signature rather
@@ -351,15 +405,16 @@ one that should have been Tier C becomes silently distinct.
 | 2 | `classify`, total, no default branch | Adding a reason without a tier fails to compile |
 | 3 | `external_class` and the class vocabulary | Matches `registry/manifest.json`'s `denial_normalization` |
 | 4 | `build_denial` with the constrained signature | No path from `Decision` to a response |
-| 5 | Tier B uniformity | `denial/uniformity-b/` passes under the cross-vector check |
-| 6 | Tier C uniformity | `denial/uniformity-c/` passes; length constant |
-| 7 | `escalation_visible` gate | `denial/escalation/` passes; opaque by default |
-| 8 | Timing padding hook, default off | Configurable; off by default; measured in Stage 8 |
-| 8a | Rate-limit rejection wired in as a Tier C `InternalReason` | Present in `classify`; `denial/uniformity-c/` includes it; no header, field, or retry value distinguishes it |
-| 8b | Receipt uniformity across Tier C, and the explicit/opaque receipt split | `denial/receipt-uniformity/` passes |
-| 9 | Author `denial/` corpus section | Seven groups; `harness lint` clean |
+| ~~5~~ | ~~Tier B uniformity~~ | **Cut 2026-08-19.** Folded into issue 6 — one uniformity assertion, not one per tier |
+| 6 | **Uniformity within a normalized class**, asserted **across causes** | `denial/uniformity/` passes under the cross-vector check; length constant. **Repurposed 2026-08-19** from *Tier C uniformity*: one assertion covering every cause inside a class, rather than one per tier. **This is now the only demonstration Q2D-C-08 has.** Tier A's informative values stay distinct — `core-model.md` §5.2.1 |
+| ~~7~~ | ~~`escalation_visible` gate~~ | **Cut 2026-08-19** — separates explicit from opaque escalation, and the lifecycle is deferred with [P-015](P-015-escalation-lifecycle.md) |
+| ~~8~~ | ~~Timing padding hook, default off~~ | **Cut 2026-08-19** — shipped default-off and its only consumer was the measurement work, also cut. Q2D-NC-05's concession that timing channels remain is now the whole of what is said |
+| 8a | **Quota** rejection wired in as a normalized `InternalReason` *(was: rate-limit, Tier C)* | Present in `classify`; **`denial/uniformity/`** includes it; no header, field, or retry value distinguishes it from any other cause in its class |
+| ~~8b~~ | ~~Receipt uniformity across Tier C, and the explicit/opaque receipt split~~ | **Cut 2026-08-19** — the split is the escalation lifecycle's. Receipt uniformity across refusal causes rides in issue 6. ~~`denial/receipt-uniformity/` passes |
+| 9 | Author `denial/` corpus section | **Five** groups; `harness lint` clean. `uniformity-b/`, `escalation/` and `receipt-uniformity/` go with the cut issues |
 | 10 | Documentation audit for timing claims | No artifact describes MVP as timing-normalized |
 
-Issue 1 blocks 2 and 3. Issues 5, 6, and 8b are the ones that matter — they are
-the only place Q2D-C-08 is actually demonstrated rather than asserted, and 8b
-covers the half of the response that is not the response body.
+Issue 1 blocks 2 and 3. **Issue 6 is the one that matters** — since the
+2026-08-19 reduction it is the *only* place Q2D-C-08 is demonstrated rather than
+asserted, because issues 5 and 8b are cut. That concentration is the reason issue
+6 is escalate-if-changed: weakening it means the claim is not shown at all.

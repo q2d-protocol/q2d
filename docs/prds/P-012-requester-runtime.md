@@ -4,11 +4,32 @@
 |---|---|
 | PRD | P-012 |
 | Stage | 5 — the whole stage |
-| Status | **Ready for decomposition** |
+| Status | **Deferred 2026-08-19** — see the note below |
 | Size | M |
 | Risk | low |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-011](P-011-receipts-audit.md) |
 | Blocks | P-013, P-015, P-016 |
+
+
+> **Deferred 2026-08-19 — not withdrawn. Four issues survive.**
+>
+> The contained requester runtime asks agent developers to adopt a
+> sink-mediating runtime for a benefit that accrues to the **custodian**. That is
+> the weakest motivation in the project and it was a fifth of the issue count.
+> **Q2D-C-12** and **Q2D-C-13** are marked *not attempted in this release*.
+>
+> **Four issues survive as a test client**, because Q2D-C-01 is enforced
+> responder-side but still needs something that produces a signed contract:
+> `build_contract`, `build_query`, `issue`, and `verify_response`. A test client,
+> not a contained runtime.
+>
+> **What would bring it back:** a requester-side deployment that needs to mediate
+> sinks, or an implementer asking for Q2D-C-13. §4.8's claim-language discipline
+> survives the deferral and is the reason C-12 and C-13 are marked rather than
+> deleted.
+>
+> Full reasoning: `private-docs/scope-reduction-proposal.md`. **Everything below
+> is preserved as written**, and describes the scope that was planned.
 
 ---
 
@@ -389,7 +410,7 @@ must never be derived from.
 | `requester/receipt/` | Receipt binds the request sent; a receipt binding another request rejects; verification without a stored response reports the skipped check |
 | `requester/outcome/` | All three statuses; `escalate` unreadable as an answer; a denial carrying no cause; **an `external_reason` outside [`core-model.md`](../../spec/core-model.md) §5.2.1's vocabulary**, which is an opaque rejection rather than a malformed response — a requester that errored instead would break on the first value a later version adds |
 | `requester/profile/` | Requested profile returned passes; a lower profile rejects |
-| `requester/retry/` | Retry bytes identical to the original; expiry produces a local outcome, not a new query. The identical-bytes half is `retry_bytes` over one request; **showing that the retry is not a new query needs a sequence**, which is [E-51](../open-escalations.md)'s `process_sequence` |
+| ~~`requester/retry/`~~ | **Deferred 2026-08-19** with the contained runtime. ~~Retry bytes identical to the original; expiry produces a local outcome, not a new query. The identical-bytes half is `retry_bytes` over one request; **showing that the retry is not a new query needs a sequence**, which is [E-51](../open-escalations.md)'s `process_sequence` |
 | `requester/order/` | The [`core-model.md`](../../spec/core-model.md) §4.1 order: a response failing at each step is rejected without the later steps having run, and nothing reaches the caller before step 9 |
 
 `requester/sign/` is the Stage 5 cross-implementation gate. It is a byte
@@ -398,26 +419,43 @@ is also why §4.2 injects the nonce and the clock.
 
 ## 7. Acceptance
 
+> **Struck 2026-08-19 — scope reduction.** Only the criteria a **test client**
+> can meet survive. The contained runtime is deferred, so responder budget
+> totals, retry and no-reissue handling, receipt retention, projection and the
+> evidence-accessor property are all struck below: the surviving four issues
+> cannot satisfy them, and a PRD whose gates outrun its issues overstates what
+> the release demonstrates.
+>
+> **What survives:** byte-identical signed queries, and a response with a bad
+> suite, a failing signature, or a receipt binding a different request being
+> rejected. That is Q2D-C-01's requester half and nothing more.
+
 - [ ] Both implementations produce **byte-identical** signed queries for every
       `requester/sign/` vector.
-- [ ] Each implementation's requester query verifies in the other's responder,
-      and each verifies the other's response. **This is
-      [P-001](P-001-conformance-corpus.md) issue 19**, not the `harness cross`
-      that exists today — that one compares what two runners each produced,
-      which exercises both signers and neither verifier.
-- [ ] No path exists from response bytes to an `Answer` that skips verification
-      — asserted by the type, not by a test.
+- [ ] ~~Each implementation's requester query verifies in the other's
+      responder, and each verifies the other's response.~~ **Struck 2026-08-19**
+      — deferred with issue 13. Cross-implementation agreement is still asserted
+      by `harness cross` and [P-001](P-001-conformance-corpus.md) issue 19, both
+      of which survive.
+- [ ] ~~No path exists from response bytes to an `Answer` that skips
+      verification — asserted by the type.~~ **Struck 2026-08-19** — the
+      no-accessor property is issue 8's, deferred with Q2D-C-12.
 - [ ] A response below the requester's suite floor, with a failing signature, or
       with a receipt binding a different request, is rejected by both. This is
       the Stage 5 gate, stated in [`mvp-scope.md`](../mvp-scope.md) §4.
 - [ ] An assurance profile below the one requested is rejected, with no path that
       accepts it.
-- [ ] A result finer than the contract requested is rejected by both, identically.
-- [ ] A retry emits bytes identical to the original, and a responder budget total
-      is unchanged across one query and that query retried.
+- [ ] ~~A result finer than the contract requested is rejected by both,
+      identically.~~ **Struck 2026-08-19** — the §4.5 directional check is issue
+      7's, deferred.
+- [ ] ~~A retry emits bytes identical to the original, and a responder budget
+      total is unchanged.~~ **Struck 2026-08-19** — twice over: `retry_bytes` is
+      deferred, and Q2D-C-09 is not attempted so there is no total.
 - [ ] Two runs of every vector produce identical output — no ambient clock, no
-      ambient RNG.
-- [ ] Receipt retention is configured, and startup fails when it is not.
+      ambient RNG. **Survives**: determinism is P-001 §4.3's requirement on any
+      runner, not a runtime feature.
+- [ ] ~~Receipt retention is configured, and startup fails when it is not.~~
+      **Struck 2026-08-19** — the receipt store is deferred with the runtime.
 
 ## 8. Negative acceptance
 
@@ -491,20 +529,26 @@ channels.
 | # | Issue | Done when |
 |---|---|---|
 | 1 | ~~Escalate open question 1~~ — **done** | Resolved; `mvp-scope.md` §4 Stage 5 amended to claim Q2D-C-01 only; §4.8 cites the outcome |
-| 2 | `IssuedQuery` and the stored-bytes model | No path produces a second signature for one query |
+| ~~2~~ | ~~`IssuedQuery` and the stored-bytes model~~ — **deferred 2026-08-19** with the contained runtime. The test client holds bytes in a local variable; the no-reissue discipline the stored-bytes model enforced is issue 11's, also deferred |
 | 3 | `build_contract` over a resolved entry, with the local narrowing check | `requester/contract/` passes; comments describe it as convenience |
 | 4 | `build_query` with injected nonce and clock | Two runs of a vector are identical; no ambient call exists |
 | 5 | `issue` over [P-003](P-003-crypto-suites.md)'s `sign` | `requester/sign/` byte-matches across implementations |
 | 6 | `verify_response`, steps 1–7 of §4.3 | `requester/verify/`, `requester/receipt/`, `requester/profile/` pass; **the order matches [`core-model.md`](../../spec/core-model.md) §4.1**, asserted by an ordering vector rather than by review |
-| 7 | The §4.5 directional conformance check | Finer-than-requested rejects; coarser passes; both implementations agree |
-| 8 | `Outcome`, `Answer`, and the no-accessor property | No accessor exists in either language; recorded in `CONVENTIONS-{rust,go}.md` |
-| 9 | `project` and the caller-facing surface | `requester/outcome/` passes; nothing reaches a caller before §4.1 step 9 |
-| 10 | Receipt store with retention, response retention off by default | Startup fails with no retention configured; skipped-check report surfaces |
-| 11 | `retry_bytes` and the no-reissue rule | `requester/retry/` passes; responder budget unchanged across a retry |
-| 12 | Author `requester/` corpus section | Seven groups; `harness lint` clean |
-| 13 | Cross-implementation exchange | Rust requester ↔ Go custodian and the reverse, under `harness cross` |
-| 14 | Claim-language audit | No artifact claims containment, sink enforcement, or Q2D-C-12 |
+| ~~7~~ | ~~The §4.5 directional conformance check~~ — **deferred 2026-08-19** with the contained runtime |
+| ~~8~~ | ~~`Outcome`, `Answer`, and the no-accessor property~~ — **deferred 2026-08-19** with the contained runtime |
+| ~~9~~ | ~~`project` and the caller-facing surface~~ — **deferred 2026-08-19** with the contained runtime |
+| ~~10~~ | ~~Receipt store with retention, response retention off by default~~ — **deferred 2026-08-19** with the contained runtime |
+| ~~11~~ | ~~`retry_bytes` and the no-reissue rule~~ — **deferred 2026-08-19** with the contained runtime |
+| ~~12~~ | ~~Author `requester/` corpus section~~ — **deferred 2026-08-19** with the contained runtime |
+| ~~13~~ | ~~Cross-implementation exchange~~ — **deferred 2026-08-19** with the contained runtime |
+| ~~14~~ | ~~Claim-language audit~~ — **deferred 2026-08-19** with the contained runtime |
 
-Issue 2 blocks 5 and 11. Issue 13 is the first time
-[`mvp-scope.md`](../mvp-scope.md) §1 item 7 is testable, and it is the reason
-this stage exists.
+**Only issues 3, 4, 5 and 6 survive the 2026-08-19 reduction** (issue 1 was already done), as the test
+client Q2D-C-01 needs: build a contract, build a query, sign it, verify the
+response. Everything else is deferred with the contained runtime.
+
+Issue 13 was the first time [`mvp-scope.md`](../mvp-scope.md) §1 item 7 became
+testable, and it is deferred with the rest — **cross-implementation agreement is
+still asserted**, by `harness cross` over the corpus and by
+[P-001](P-001-conformance-corpus.md) issue 19, both of which survive and matter
+more now that further implementations are planned.

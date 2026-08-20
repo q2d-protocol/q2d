@@ -64,7 +64,16 @@ STEP_FOR_REASON = {
 # CC-2 on both: a responder validating public context against the registry's
 # schema, debiting once, and failing closed is doing CC-2's work whether the
 # vector ends in an answer or a denial.
-REQUIREMENTS_ANSWER = ["Q2D-C-03", "Q2D-C-09", "CC-2", "core-model.md#4"]
+# Q2D-C-09 was here until 2026-08-19. It is **not attempted in this release**
+# (claims.md), so these vectors no longer cite it and no longer assert a debit:
+# a vector citing a claim nothing implements reports coverage that does not
+# exist, which is the overstatement claims.md's traceability rule forbids.
+#
+# The manifest keeps its capacity values. Removing them would change what a
+# registry entry *is* -- terminology.md §3 makes capacity part of the
+# definition -- which is a registry-semantics change and a separate decision
+# from deferring the claim.
+REQUIREMENTS_ANSWER = ["Q2D-C-03", "CC-2", "core-model.md#4"]
 REQUIREMENTS_REJECTION = ["Q2D-C-08", "CC-2", "core-model.md#4"]
 
 
@@ -133,9 +142,12 @@ def translate(predicate: dict, vector: dict) -> dict:
             # determinism over how it is serialized. The values still have to
             # match exactly -- `semantic` is parse-then-deep-equal with no
             # coercion.
+            # The debit is **not** asserted since 2026-08-19: Q2D-C-09 is not
+            # attempted, so nothing computes one and a vector expecting a value
+            # no implementation produces would fail for the wrong reason. The
+            # manifest still carries it; the corpus stops checking it.
             "output": {
                 "result": expect["result"],
-                "capacity_debit_millibits": expect["capacity_debit_millibits"],
             },
             "comparison": "semantic",
         }
@@ -164,8 +176,7 @@ def describe(predicate: dict, vector: dict) -> str:
                            "assert it, because no §4 step is determined for "
                            "this reason")
     else:
-        detail = (f"answers {json.dumps(expect['result'])}, debiting "
-                  f"{expect['capacity_debit_millibits']} millibits")
+        detail = f"answers {json.dumps(expect['result'])}"
     return (f"{predicate['title']} ({short_name(predicate['id'])}): "
             f"{vector['name']} — {detail}. Folded from registry/manifest.json "
             f"by tools/fold_registry.py; edit the manifest, not this file.")

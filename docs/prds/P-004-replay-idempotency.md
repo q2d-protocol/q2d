@@ -8,15 +8,34 @@
 | Size | S |
 | Risk | medium |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md) |
-| Blocks | P-008, P-010, P-015, P-016 |
+| Blocks | P-010, P-016 — ~~P-008, P-015~~ **deferred 2026-08-19** |
+
+
+> **Reading this PRD after the 2026-08-19 scope reduction.**
+>
+> Where the sections below reason about the **disclosure-capacity budget**
+> ([`claims.md`](../../spec/claims.md) Q2D-C-09, *not attempted in this release*)
+> or the **escalation lifecycle** ([P-015](P-015-escalation-lifecycle.md),
+> deferred), that reasoning is **preserved as written and is not a requirement of
+> this release**.
+>
+> **What governs what gets built:** the **issue list**, the **acceptance** and
+> **negative-acceptance** tables, and the **corpus-section** table. Struck rows in
+> any of those say what does not. Design prose does not govern. Design prose has deliberately *not* been rewritten to
+> remove deferred concepts: it records why each decision was made, and deleting
+> it would leave the decisions standing with their reasons removed — which is
+> worse than a reader having to hold one caveat.
+>
+> Deferred PRDs keep their numbers and their issue lists. Nothing was withdrawn.
 
 ---
 
 ## 1. Purpose
 
 Nonce and replay caching, expiry and clock skew, and the idempotency rule that an
-identical retry returns the same outcome without re-evaluating, re-debiting, or
-changing its mind.
+identical retry returns the same outcome without re-evaluating or changing its
+mind. (*Re-debiting* until 2026-08-19 — Q2D-C-09 is not attempted, and not
+re-evaluating is the property Q2D-C-07 claims.)
 
 Small, but it is where the protocol's state lives, and state is where partial
 failure does its damage.
@@ -299,7 +318,7 @@ released, and step 18 is where that assertion is made.
 
 | Group | Vectors |
 |---|---|
-| `replay/idempotent/` | Retry returns byte-identical response; no second debit. A **`process_sequence`** vector of two identical requests — [E-51](../open-escalations.md) resolved the format question these two were blocked on |
+| `replay/idempotent/` | Retry returns byte-identical response; **no second evaluation** (was *no second debit*, retargeted 2026-08-19). A **`process_sequence`** vector of two identical requests — [E-51](../open-escalations.md) resolved the format question these two were blocked on |
 | `replay/id-reuse/` | Same `query_id`, different digest, rejects. Two requests, the second refused: what makes the identifier a *reuse* is the first, which is why neither of these could be one vector until E-51 |
 | `replay/nonce/` | A nonce below the **length floor** rejects; distinct nonces yield distinct digests. Not *below-minimum entropy*, which is what this row said and what no responder can detect — [`freshness.md`](../../spec/freshness.md) §3 |
 | `replay/expiry/` | Expired; issued-in-future; both skew boundaries; window above maximum |
@@ -308,8 +327,13 @@ released, and step 18 is where that assertion is made.
 ## 7. Acceptance
 
 - [ ] A retry returns **byte-identical** response bytes, in both implementations.
-- [ ] A retry produces no second debit — asserted against the budget total, not
-      against a call count.
+- [ ] A retry produces **no second evaluation and no second quota tick** —
+      asserted against the quota total and against the returned bytes, not
+      against a call count. **Retargeted 2026-08-19**: this said *no second
+      debit, asserted against the budget total*, and Q2D-C-09 is not attempted,
+      so there is no budget total to compare. The property Q2D-C-07 actually
+      claims is that the retry returns the **stored bytes**, which is the
+      stronger observable and was always available.
 - [ ] `query_id` reuse with a differing digest rejects.
 - [ ] Both skew boundaries behave identically in both implementations, **at
       exactly the tolerance** — [`freshness.md`](../../spec/freshness.md) §2 makes
@@ -326,7 +350,7 @@ released, and step 18 is where that assertion is made.
 
 | Must fail | Observed as |
 |---|---|
-| A second debit on retry | Budget total differs between one request and one request retried |
+| A second **evaluation** on retry | The retry reaches the predicate rather than returning stored bytes — the observable Q2D-C-07 actually claims. **Retargeted 2026-08-19** from *a second debit, observed as a differing budget total*: Q2D-C-09 is not attempted and there is no total to differ |
 | Re-signing on replay | Two retries return differing bytes |
 | Cached escalation outcome becoming an answer | The retry vector returns the normalized outcome after an approval is recorded |
 | An unauthenticated request creating a cache entry | `replay/ordering/` vector shows an entry after a bad-signature request |
@@ -334,7 +358,7 @@ released, and step 18 is where that assertion is made.
 | Expiry evaluated from `routing` rather than the signed object | Vector with disagreeing routing expiry is decided on the signed value |
 | Cache growth beyond retention | Entry survives past [`freshness.md`](../../spec/freshness.md) §1's retention instant |
 | An entry evicted while its request is still acceptable | A retry within the skew tail after `expires_at` is treated as fresh and debits again |
-| Under-charging after a partial failure | Injected fault between debit and cache leaves the budget short |
+| ~~Under-charging after a partial failure~~ | **Struck 2026-08-19** — an injected fault between debit and cache left the *budget* short, and there is no budget. The commit's remaining halves are the quota tick and the cache entry |
 
 The last row needs a fault-injection test, not an ordinary vector. It is the
 failure this PRD is most likely to actually have.
@@ -357,9 +381,12 @@ failure this PRD is most likely to actually have.
 5. **The maximum validity window bounds cache retention.** Relaxing the window
    relaxes memory bounds. Both are [`freshness.md`](../../spec/freshness.md) §1's
    now, so changing either is a specification change and not this PRD's to make.
-6. **The debit and the cache entry are committed together, and where they
-   cannot be, the debit goes first.** Over-charging is safe, under-charging is
-   not. The order is decided here and is built; the atomic commit is decided
+6. **The quota tick and the cache entry are committed together, and where they
+   cannot be, the tick goes first.** Over-counting is safe, under-counting is
+   not. **Retargeted 2026-08-19** — this said *debit*, and Q2D-C-09 is not
+   attempted. The ordering rule is unchanged and the reasoning in §4.6 stands
+   as written: it was never about what was being committed, only about which of
+   two writes survives a crash. The order is decided here and is built; the atomic commit is decided
    here and is **built elsewhere** — §4.6 and issue 5 say where. Both halves are
    escalate-if-changed, and the second is the one most likely to be quietly
    dropped, because the module that requires it is not the module that provides
@@ -385,11 +412,11 @@ failure this PRD is most likely to actually have.
 | 2 | Replay cache store with retention and eviction | **Built** — [`src/replay.rs`](../../src/replay.rs) and [`replay.go`](../../replay.go). Eviction reports a count, so it is observable rather than inferred: a sweep that silently did nothing looks identical to one that worked. **Retention is applied on read as well as by the sweep**, so idempotency does not depend on when a timer last fired, and the boundary is inclusive at [`freshness.md`](../../spec/freshness.md) §1's instant — an entry hidden one second early lets a retry through as fresh and debits twice. The store holds no opinion about whether a digest matches; that is issue 3, and a store with one would be a second place the idempotency rule lives. **Open question 1's cache-failure path is issue 9** and is not built. The **nonce index** landed with [E-50](../open-escalations.md): written and evicted with the primary one, scoped to the requester, and reporting what a nonce was last attached to without drawing a conclusion from it |
 | 3 | `check_replay` with the **four**-way outcome | **Built**; the vectors wait on issue 8. Fresh, replay, `query_id` reuse, nonce reuse — [E-50](../open-escalations.md) added the fourth and issue 2 built the index it reads. **The `query_id` index is consulted first**, because a genuine retry matches both and a nonce-first order would have to special-case it; a rule with an exception carved out for the common case is a rule waiting to be got wrong. The two rejections are a **separate type from `Rejected`**, which settles what this row asked: every reason in that type maps to a value [`core-model.md`](../../spec/core-model.md) §5.2.1 fixes, and these two do not — §5.2.1 gives everything from step 9 onward the value the responder's **pinned registry** declares, which is data. A constant would compile one deployment's configuration into every deployment, so the type reports the internal reason and the step and says nothing about the wire. P-009 reads the registry |
 | 4 | `check_freshness` with skew and window bound | **Built**; `replay/expiry/` waits on issue 8. Both boundaries asserted **at** the tolerance, not near it, in both implementations. The window is a range and a test walks the interval [`freshness.md`](../../spec/freshness.md) §2's counterexample describes — 111 values of `now` for which a ceiling-only implementation calls a negative window fresh — so the lower bound cannot be dropped silently. A timestamp §2.2 refuses is reported `malformed` rather than `expired`: the fault is in the requester's serializer, and `expired` would send them to their clock |
-| 5 | `record` — atomic debit and cache commit | **Half done, and the half that is left is not this module's** — [`src/replay.rs`](../../src/replay.rs) and [`replay.go`](../../replay.go). What is built is §4.6's **first row**: `record` settles, then writes, in one call. What is *not* built is the third row, and review established that `record` cannot reach it at any store or by any caller — it settles and then writes, and the write is not inside anything a caller can open or close. The atomic row needs the transaction [P-010](P-010-responder-pipeline.md) §5 already describes, staging the debit at step 18 and committing it with the bytes step 19 produces, over the single store [P-008](P-008-capacity-accounting.md)'s open question 3 resolved to. Both are those PRDs'. **`record` settles a reservation and never sees an amount.** Built first taking a millibit `debit`, and that was wrong: P-008 §5 has always said `settle(reservation)` is called from here, and `check` returns a reservation precisely so a caller *"cannot check and then debit later without holding the thing that reserved the capacity"* — which a number as a parameter hands straight back. Opaque, so this module has no arithmetic to do and no value to get wrong, and the negative-value refusal an earlier version made here belongs where the arithmetic is. **The reservation is optional**, since §4.7 caches denials and [E-01](../open-escalations.md) gives them nothing to settle — review found the first version requiring one, which would have forced a caller to skip caching them or to mint an empty one. **`insert` is now private**: with a commit path that carries the debit, an exported writer that took none was a second path with the debit left out. **The fault injection refuses the way the contract says a refusal works** — nothing committed — and the crash *after* a successful settle is reached without it, by doing what `record` does and stopping where it would have stopped; the first version produced that state by having the sink apply a debit and then report failure, which contradicts the one thing `record` relies on. The retry then pays **twice**, which is §4.6's accepted direction written down as a test rather than as prose |
+| 5 | `record` — atomic **quota tick** and cache commit *(was: debit)* | **Half done, and the half that is left is not this module's** — [`src/replay.rs`](../../src/replay.rs) and [`replay.go`](../../replay.go). What is built is §4.6's **first row**: `record` settles, then writes, in one call. What is *not* built is the third row, and review established that `record` cannot reach it at any store or by any caller — it settles and then writes, and the write is not inside anything a caller can open or close. The atomic row needs the transaction [P-010](P-010-responder-pipeline.md) §5 already describes, staging the debit at step 18 and committing it with the bytes step 19 produces, over the single store [P-008](P-008-capacity-accounting.md)'s open question 3 resolved to. Both are those PRDs'. **`record` settles a reservation and never sees an amount.** Built first taking a millibit `debit`, and that was wrong: P-008 §5 has always said `settle(reservation)` is called from here, and `check` returns a reservation precisely so a caller *"cannot check and then debit later without holding the thing that reserved the capacity"* — which a number as a parameter hands straight back. Opaque, so this module has no arithmetic to do and no value to get wrong, and the negative-value refusal an earlier version made here belongs where the arithmetic is. **The reservation is optional**, since §4.7 caches denials and [E-01](../open-escalations.md) gives them nothing to settle — review found the first version requiring one, which would have forced a caller to skip caching them or to mint an empty one. **`insert` is now private**: with a commit path that carries the debit, an exported writer that took none was a second path with the debit left out. **The fault injection refuses the way the contract says a refusal works** — nothing committed — and the crash *after* a successful settle is reached without it, by doing what `record` does and stopping where it would have stopped; the first version produced that state by having the sink apply a debit and then report failure, which contradicts the one thing `record` relies on. The retry then pays **twice**, which is §4.6's accepted direction written down as a test rather than as prose |
 | 6 | Verbatim response storage and return | **Built**, and asserted as *two retries are equal* rather than as *the bytes are right* — the property is that nothing regenerates. Re-signing would remake `decided_at`, so two retries would differ, and that difference tells a requester the responder re-evaluated, which under opaque escalation is the transition [`core-model.md`](../../spec/core-model.md) §5.3 forbids revealing. Caching bytes rather than decisions makes it structural. Go copies on the way in and out (`CONVENTIONS-go.md`); Rust has it from the borrow checker |
 | 7 | Ordering assertion: cache unreachable before step 9 | **Blocked on [P-010](P-010-responder-pipeline.md), and not on anything here.** Ordering is a property of the pipeline: a vector must show that a bad-signature request left no entry, which needs `process_query` — every `ordering/` vector uses it, because a `verify_query` vector cannot show that one step ran before another. The store deliberately does **not** enforce the ordering itself and says so at the type: a caller could insert at any point, and the assertion that the pipeline does not is this issue's |
 | 8 | Author `replay/` corpus section | **Not authorable yet, and not for one reason.** Checked group by group rather than assumed: `expiry/` asserts step 6 and `ordering/` asserts step 9, both of which need `process_query` — a `verify_query` vector cannot show one step ran before another, which is why every existing `ordering/` vector uses it. `nonce/` needs an operation that calls this module's floor check, and `verify_query` is not it: P-003's sequence must not depend on P-004, or the two PRDs' dependency runs both ways. All three therefore wait on [P-010](P-010-responder-pipeline.md). `idempotent/` and `id-reuse/` waited on something else entirely — a vector could not describe a sequence — and **[E-51](../open-escalations.md) is now closed as C**, adding `process_sequence`: one operation whose input is an ordered list of requests. Those two are therefore no longer blocked on the *format*. They are still blocked on [P-010](P-010-responder-pipeline.md), because what the sequence runs through is the §4 pipeline and nothing implements it yet — so the whole issue moves behind one blocker instead of two, which is the useful change |
-| 9 | Cache-failure rejection, eviction semantics, and the window bound | A store failure produces a Tier C denial with no debit; an evicted entry does not suppress a debit; a configured window above [`freshness.md`](../../spec/freshness.md) §1's maximum fails at startup |
+| 9 | Cache-failure rejection, eviction semantics, and the window bound | A store failure produces a **normalized denial**, and — since Q2D-C-09 is not attempted — **nothing is debited because there is nothing to debit**; an evicted entry does not suppress a **quota tick**, which is counted at step 9a and never rolled back (§9.1); a configured window above [`freshness.md`](../../spec/freshness.md) §1's maximum fails at startup |
 
 Issue 5 was expected to be the one to schedule time for, on the reasoning that a
 fault-injection harness is more work than the logic it tests. **It was not**, and
