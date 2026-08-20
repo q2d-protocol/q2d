@@ -1009,7 +1009,8 @@ would reveal how far a request got.
 
 **Not every step 9 outcome is a rejection.** An identical retry — the same
 `query_id` over the same bytes — replays the stored response verbatim, which is
-what makes a retry idempotent and is why it debits nothing a second time (§7).
+what makes a retry idempotent — and, where a budget exists, why it debits
+nothing a second time (§7).
 Step 9 rejects the *other* case: a `query_id` or nonce reused over different
 content, which is a replay attempt rather than a retry.
 
@@ -1178,8 +1179,15 @@ and policy detail stays local and is not disclosed to the requester by default.
 ## 7. Idempotency and replay
 
 An identical retry — same signed `query_id` and `nonce` — returns the same
-cached outcome. It must not debit the budget twice, and must not transition from
-a normalized outcome to an answer.
+cached outcome, **replaying the stored response bytes rather than re-evaluating**.
+It must not transition from a normalized outcome to an answer.
+
+**Returning the stored bytes is the requirement, and no-second-debit is its
+consequence** where a budget exists. This rule read *"must not debit the budget
+twice"* until 2026-08; that named a consequence of a mechanism
+[`claims.md`](claims.md) now marks **not attempted**, while the property it
+depended on — nothing is regenerated, so two retries cannot differ — holds
+regardless and is what Q2D-C-07 claims.
 
 A changed purpose, sink set, public context, predicate version, or answer
 contract is a **different request** requiring a new signature and a new policy

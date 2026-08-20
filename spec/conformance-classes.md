@@ -82,8 +82,9 @@ one has to rediscover that it belonged here.
 **Must not.** Read private input before step 16; parse the core object before
 its signature verifies; use `routing` for any decision the signature covers;
 accept a requester-asserted answer domain or capacity debit; **debit capacity for
-a denial, an escalation, or a rate-limit rejection** (§9.1); rate-limit *after*
-registry resolution, which would leave unknown predicates unlimited; start with
+a denial, an escalation, or a rate-limit rejection** (§9.1) — both vacuous while
+Q2D-C-09 is not attempted, and kept because they bind the moment it is; rate-limit
+*after* registry resolution, which would leave unknown predicates unlimited; start with
 no rate limit configured; accept a suite below its policy floor or offer an alternative
 suite in a rejection; silently downgrade a requested assurance profile;
 serialize private input into an error.

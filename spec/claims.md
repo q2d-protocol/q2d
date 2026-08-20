@@ -219,7 +219,9 @@ signature; responder replay cache; idempotent retry handling; the bounds in
 compromised.
 **Not.** Prevention of fresh repeated queries by a legitimate requester — that
 is Q2D-C-09's problem, and it is a throttle, not a bar.
-**Verified by.** `conformance/replay`, `conformance/duplicate-debit`,
+**Verified by.** `conformance/replay`, ~~`conformance/duplicate-debit`~~ — struck
+2026-08 with the budget it would have measured; the stored-bytes property is what
+`conformance/replay` asserts —
 `conformance/expiry-skew` — planned.
 
 ### Q2D-C-08 — Denial normalization

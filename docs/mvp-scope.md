@@ -206,7 +206,7 @@ means discovering divergence last.
   diffs against expectations.
 - Message vectors: known keys, known payloads, known-good signatures.
 - Processing-order vectors: which step rejects which malformed request.
-- Budget vectors: debit sequences and running totals in millibits.
+- ~~Budget vectors: debit sequences and running totals in millibits.~~ **Deferred 2026-08-19** with Q2D-C-09; a small `quota/` group belongs with the request quota when it is built.
 - Receipt vectors: field binding and digest computation.
 - The existing [`registry/`](../registry/) vectors plug in as the
   predicate-validation section.
