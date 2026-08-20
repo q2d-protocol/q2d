@@ -474,7 +474,7 @@ it gained the `injection/` groups rather than losing scope.
 | Escalation semantics prove underspecified | Stage 7 stalls | Appendix C items are already open. Expect spec changes; budget for them rather than working around them |
 | A PRD silently resolves a spec ambiguity | Implementations diverge while both pass their PRDs | Spec-citation rule; ambiguity is escalated to `spec/`, not decided locally |
 | Policy engine scope creep | Q2D reinvents a policy language it explicitly declined to build | The engine's contract is input/output only. A rule syntax richer than the MVP needs is out of scope |
-| Timing side channels ignored until late | A claim about denial normalization that testing does not support | Timing measurement is in Stage 8's adversarial suite, and `Q2D-NC-05` already scopes the claim honestly |
+| Timing side channels never measured | A claim about denial normalization that testing does not support | **Timing measurement is cut** (2026-08-19), so nothing in this release measures the channel. `Q2D-NC-05` already concedes it remains open, and that concession is now the *whole* mitigation rather than a placeholder for a measurement. ~~Timing measurement is in Stage 8's adversarial suite, and `Q2D-NC-05` already scopes the claim honestly |
 
 ---
 

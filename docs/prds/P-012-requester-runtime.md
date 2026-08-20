@@ -410,7 +410,7 @@ must never be derived from.
 | `requester/receipt/` | Receipt binds the request sent; a receipt binding another request rejects; verification without a stored response reports the skipped check |
 | `requester/outcome/` | All three statuses; `escalate` unreadable as an answer; a denial carrying no cause; **an `external_reason` outside [`core-model.md`](../../spec/core-model.md) §5.2.1's vocabulary**, which is an opaque rejection rather than a malformed response — a requester that errored instead would break on the first value a later version adds |
 | `requester/profile/` | Requested profile returned passes; a lower profile rejects |
-| `requester/retry/` | Retry bytes identical to the original; expiry produces a local outcome, not a new query. The identical-bytes half is `retry_bytes` over one request; **showing that the retry is not a new query needs a sequence**, which is [E-51](../open-escalations.md)'s `process_sequence` |
+| ~~`requester/retry/`~~ | **Deferred 2026-08-19** with the contained runtime. ~~Retry bytes identical to the original; expiry produces a local outcome, not a new query. The identical-bytes half is `retry_bytes` over one request; **showing that the retry is not a new query needs a sequence**, which is [E-51](../open-escalations.md)'s `process_sequence` |
 | `requester/order/` | The [`core-model.md`](../../spec/core-model.md) §4.1 order: a response failing at each step is rejected without the later steps having run, and nothing reaches the caller before step 9 |
 
 `requester/sign/` is the Stage 5 cross-implementation gate. It is a byte
@@ -445,12 +445,17 @@ is also why §4.2 injects the nonce and the clock.
       the Stage 5 gate, stated in [`mvp-scope.md`](../mvp-scope.md) §4.
 - [ ] An assurance profile below the one requested is rejected, with no path that
       accepts it.
-- [ ] A result finer than the contract requested is rejected by both, identically.
-- [ ] A retry emits bytes identical to the original, and a responder budget total
-      is unchanged across one query and that query retried.
+- [ ] ~~A result finer than the contract requested is rejected by both,
+      identically.~~ **Struck 2026-08-19** — the §4.5 directional check is issue
+      7's, deferred.
+- [ ] ~~A retry emits bytes identical to the original, and a responder budget
+      total is unchanged.~~ **Struck 2026-08-19** — twice over: `retry_bytes` is
+      deferred, and Q2D-C-09 is not attempted so there is no total.
 - [ ] Two runs of every vector produce identical output — no ambient clock, no
-      ambient RNG.
-- [ ] Receipt retention is configured, and startup fails when it is not.
+      ambient RNG. **Survives**: determinism is P-001 §4.3's requirement on any
+      runner, not a runtime feature.
+- [ ] ~~Receipt retention is configured, and startup fails when it is not.~~
+      **Struck 2026-08-19** — the receipt store is deferred with the runtime.
 
 ## 8. Negative acceptance
 

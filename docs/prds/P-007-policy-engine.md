@@ -268,7 +268,7 @@ discover the problem on a live request.
 | `policy/determinism/` | Same input twice; permuted authority order; permuted rule-set map order |
 | `policy/separation/` | An audit reason never appears in `external` |
 | `policy/rules/` | A rule set overriding an invariant fails at load |
-| `policy/grant/` | A matching grant is an input, not an outcome: a revoked authority still denies, an expired grant does not appear, and an already-consumed one does not appear |
+| ~~`policy/grant/`~~ | **Deferred 2026-08-19** with the escalation lifecycle. ~~A matching grant is an input, not an outcome: a revoked authority still denies, an expired grant does not appear, and an already-consumed one does not appear |
 
 ## 7. Acceptance
 

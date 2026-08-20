@@ -250,10 +250,10 @@ less.
 | Group | Vectors |
 |---|---|
 | `receipt/fields/` | Every field present and correctly sourced, for answer, deny, and explicit escalate |
-| `receipt/escalate/` | An explicit `escalate` carries the reduced receipt with `decision_class: escalate`; an **opaque** escalation's receipt is byte-identical to a plain Tier C denial's — the pair is the vector, not either alone |
+| ~~`receipt/escalate/`~~ | **Deferred 2026-08-19** with the escalation lifecycle. ~~An explicit `escalate` carries the reduced receipt with `decision_class: escalate`; an **opaque** escalation's receipt is byte-identical to a plain Tier C denial's — the pair is the vector, not either alone |
 | `receipt/digests/` | `request_digest`, `response_digest`, `effective_contract_digest`, `entry_digest` against known bytes |
 | `receipt/verify/` | With response; without response; tampered response; wrong key; **`signature_suite` disagreeing with the response's `signature.profile`** — [`core-model.md`](../../spec/core-model.md) §6 requires rejection, since one of the two is false and a verifier cannot tell which |
-| `receipt/exclusion/` | Internal reason, step, policy reasoning, and budget state absent from every receipt |
+| `receipt/exclusion/` | Internal reason, step, and policy reasoning absent from every receipt. **Budget state removed from this list 2026-08-19** — there is none, and the capacity debit has left the receipt entirely |
 | `receipt/audit/` | Audit contains the §4.3 delta; contains no answer plaintext |
 
 ## 7. Acceptance

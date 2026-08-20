@@ -251,12 +251,11 @@ a new failure mode in whichever tier the fallback names.
 | Group | Vectors |
 |---|---|
 | `denial/tiers/` | Every `InternalReason`, asserting its tier |
-| `denial/uniformity-b/` | Every Tier B cause produces a byte-identical response |
-| `denial/uniformity-c/` | Every Tier C cause produces a byte-identical response |
+| `denial/uniformity/` | **Every cause inside a normalized class produces a byte-identical response**, asserted across causes. **Replaces `uniformity-b/` and `uniformity-c/` (2026-08-19)** — one assertion, not one per tier. This is the only demonstration Q2D-C-08 has |
 | `denial/tier-a/` | Protocol errors are distinct and informative |
 | `denial/escalation/` | Opaque by default; visible only where the class permits |
 | `denial/no-retry/` | No retry metadata on any denial, including a rate-limit rejection |
-| `denial/receipt-uniformity/` | The reduced receipt is byte-identical across every Tier C cause, and an **opaque** escalation's receipt is indistinguishable from a plain denial's — only an explicit escalation carries `decision_class: escalate` |
+| ~~`denial/receipt-uniformity/`~~ | **Deferred 2026-08-19** — the escalation half is P-015's, and receipt uniformity across refusal causes rides in `denial/uniformity/`. ~~The reduced receipt is byte-identical across every Tier C cause, and an **opaque** escalation's receipt is indistinguishable from a plain denial's — only an explicit escalation carries `decision_class: escalate` |
 
 `denial/uniformity-b/` and `denial/uniformity-c/` are the P-001 cross-vector
 denial-uniformity assertion applied to this module — the same check
@@ -310,10 +309,14 @@ comparison as uniformity.
       [P-015](P-015-escalation-lifecycle.md).
 - [ ] **The receipt attached to a refusal is byte-identical across causes.** The
       escalation half of this criterion is struck with the lifecycle.
-- [ ] A rate-limit rejection is one Tier C cause among the others, with no
-      distinguishing field, header, or timing treatment.
+- [ ] A **quota** rejection is one cause among the others inside its class, with
+      no distinguishing field, header, or timing treatment. (Was *rate-limit*
+      against Tier C; the quota is the same mechanism and the tier taxonomy is
+      cut.)
 - [ ] No denial carries retry metadata.
-- [ ] Documentation and code comments describe MVP as **not** timing-normalized.
+- [ ] Documentation and code comments describe this release as **not**
+      timing-normalized — which is now the whole of what is said about timing,
+      since the padding hook and its measurement are both cut.
 
 ## 8. Negative acceptance
 

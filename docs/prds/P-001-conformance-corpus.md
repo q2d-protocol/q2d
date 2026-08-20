@@ -328,11 +328,11 @@ applies to the harness too.
 | `process_sequence` | 4 | **One responder, several requests, in order** — [E-51](../open-escalations.md). Idempotency is a property of the *second* request and no vector could describe one; the sequence lives inside `input`, where the projection already passes it through untouched, so the vector format, the projection and the runner contract are unchanged. §4.6 fixes what it returns |
 | `process_response` | 5 | The requester's §4.1 order, and **which of its steps rejected** — the mirror of `process_query`, for the same reason `ordering/` cannot be assembled from `verify_response` vectors |
 | `build_contract` | 5 | [P-012](P-012-requester-runtime.md) `requester/contract/` |
-| `project_outcome` | 5 | [P-012](P-012-requester-runtime.md) `requester/outcome/`, `requester/projection/` |
-| `retry_bytes` | 5 | [P-012](P-012-requester-runtime.md) `requester/retry/` |
+| `project_outcome` | 5 | ~~[P-012](P-012-requester-runtime.md) `requester/outcome/`, `requester/projection/`~~ — **Deferred 2026-08-19** with the contained runtime. Name settled, no vector |
+| `retry_bytes` | 5 | ~~[P-012](P-012-requester-runtime.md) `requester/retry/`~~ — **Deferred 2026-08-19**. Name settled, no vector |
 | `http_exchange` | 5 | [P-017](P-017-mcp-binding.md) `binding/` — **repointed 2026-08-19**. P-013 is deferred and P-017 reuses the name rather than naming one of its own, which is exactly what settling the vocabulary was for: the MCP binding moves opaque bytes over HTTP, and the harness never speaks MCP any more than it spoke Q2D |
-| `fingerprint` | 6 | [P-014](P-014-identity-pairing.md) `identity/fingerprint/` |
-| `resolve_identity`, `verify_delegation` | 6 | [P-014](P-014-identity-pairing.md) `identity/` |
+| `fingerprint` | 6 | ~~[P-014](P-014-identity-pairing.md) `identity/fingerprint/`~~ — **Deferred 2026-08-19** with the pairing profile |
+| `resolve_identity`, `verify_delegation` | 6 | ~~[P-014](P-014-identity-pairing.md) `identity/`~~ — **Deferred 2026-08-19** |
 | `escalate_poll`, `approve` | 7 | [P-015](P-015-escalation-lifecycle.md) `escalation/` |
 
 Later stages extend the table; they do not redefine existing entries.
@@ -760,7 +760,7 @@ issues 12, 13, and 14.
 | `message/` | envelope construction, signing, verification, routing projection, routing/signed disagreement | new |
 | `suite/` | suite resolution, downgrade rejection, unknown suite | new |
 | `replay/` | nonce reuse, expiry, clock skew, idempotent retry | new |
-| `registry/` | schema validation, evaluation, capacity debit, normalized denial | **folded in from [`registry/manifest.json`](../../registry/manifest.json)** — done, by [`tools/fold_registry.py`](../../tools/fold_registry.py). Resolution, pinning, and digest mismatch are *not* among them: the manifest's vectors exercise a predicate's evaluation and validation, not the act of resolving the entry, so those three remain to author |
+| `registry/` | schema validation, evaluation, normalized denial — **no capacity debit since 2026-08-19** | **folded in from [`registry/manifest.json`](../../registry/manifest.json)** — done, by [`tools/fold_registry.py`](../../tools/fold_registry.py). Resolution, pinning, and digest mismatch are *not* among them: the manifest's vectors exercise a predicate's evaluation and validation, not the act of resolving the entry, so those three remain to author |
 | `domain/` | narrowing, understatement, expansion attempt | new |
 | ~~`budget/`~~ | ~~debit sequences, permutation equality, exhaustion~~ — **deferred 2026-08-19** with Q2D-C-09. A small `quota/` group belongs with the request quota when it is built | ~~new~~ |
 | `receipt/` | field binding, digest computation | new |

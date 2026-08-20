@@ -299,7 +299,7 @@ released, and step 18 is where that assertion is made.
 
 | Group | Vectors |
 |---|---|
-| `replay/idempotent/` | Retry returns byte-identical response; no second debit. A **`process_sequence`** vector of two identical requests — [E-51](../open-escalations.md) resolved the format question these two were blocked on |
+| `replay/idempotent/` | Retry returns byte-identical response; **no second evaluation** (was *no second debit*, retargeted 2026-08-19). A **`process_sequence`** vector of two identical requests — [E-51](../open-escalations.md) resolved the format question these two were blocked on |
 | `replay/id-reuse/` | Same `query_id`, different digest, rejects. Two requests, the second refused: what makes the identifier a *reuse* is the first, which is why neither of these could be one vector until E-51 |
 | `replay/nonce/` | A nonce below the **length floor** rejects; distinct nonces yield distinct digests. Not *below-minimum entropy*, which is what this row said and what no responder can detect — [`freshness.md`](../../spec/freshness.md) §3 |
 | `replay/expiry/` | Expired; issued-in-future; both skew boundaries; window above maximum |
