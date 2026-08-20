@@ -68,8 +68,16 @@ limit at step 9a**, keyed on the relationship only
 registry and fail closed on anything unknown; compute the effective answer domain
 itself by narrowing composition, per shape, per §3.2 **and §3.3**; validate
 output against it **and against the entry's `output_schema`** (§4 step 17);
-debit capacity once; issue a receipt with every outcome; record the suite in the
+~~debit capacity once~~ — **not required in this release**, because Q2D-C-09 is
+**not attempted** ([`claims.md`](claims.md)) and there is no budget to debit; a
+required request quota bounds probing instead, and it is checked at §4 step 9a
+rather than here. Issue a receipt with every outcome; record the suite in the
 receipt; sign the response.
+
+**A struck must is not a weakened class.** The clause is kept and marked rather
+than deleted so that a deployment reading CC-2 sees what conformance requires
+when the claim it serves is attempted. Restoring Q2D-C-09 restores the must; no
+one has to rediscover that it belonged here.
 
 **Must not.** Read private input before step 16; parse the core object before
 its signature verifies; use `routing` for any decision the signature covers;
@@ -89,8 +97,13 @@ claim is attempted.
 
 ### CC-3 — Policy engine
 
-**Must.** Return deterministic `allow` / `deny` / `escalate` plus modifiers, from
-the input contract in [`core-model.md`](core-model.md) §2; fail closed when
+**Must.** Return deterministic `allow` / `deny` — and, where the escalation
+lifecycle is implemented, `escalate`; ~~plus modifiers~~ — from the input
+contract in [`core-model.md`](core-model.md) §2. **`escalate` and coarsening
+modifiers are not required in this release**: the escalation lifecycle is
+deferred, and policy-side coarsening was deferred with the capacity budget it
+existed to keep computable. Both clauses are kept and marked rather than deleted,
+for the reason CC-2 gives above; fail closed when
 authorities conflict or required context cannot be resolved; compose multiple
 authorities restrictively — every mandatory authority must permit, any mandatory
 deny prevents; keep detailed reasons local.

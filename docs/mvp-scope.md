@@ -55,14 +55,16 @@ At the end of MVP, **five of the thirteen claims** will have no passing test:
 | Q2D-C-13 conditional flow confinement | Same |
 | Q2D-C-07 replay resistance *(partially)* | Holds for the responder's half; the requester-side entropy obligation has no responder-side check — [E-49](open-escalations.md) |
 
-**[`claims.md`](../spec/claims.md) has not been edited yet, and this document
-must not describe it as though it had.** The intended treatment is *not attempted
-in this release* rather than deletion — stronger, and honest about what the
-demonstration shows — but the wording of each entry, and whether Q2D-C-10's
-receipt field list loses its capacity-debit entry, is a `claims.md` change and
-therefore not this document's to make. **Tracked as Q2D-234; until it lands,
-`claims.md` still states all thirteen as planned claims and this table is the
-plan rather than the record.**
+**[`claims.md`](../spec/claims.md) now carries this**, as of the same branch that
+restaged this document. Each deferred claim is marked *not attempted in this
+release* rather than deleted — stronger, and honest about what the demonstration
+shows — and **Q2D-C-10's receipt field list has lost its capacity-debit entry**,
+because a field whose only available value is zero is a lie in waiting.
+
+This paragraph said the opposite until it was caught by review: it was written
+while `claims.md` was deliberately untouched, and went stale inside its own
+branch when the claims work landed two commits later. **The table above is the
+record, not the plan.**
 
 They are design intentions with no passing test, and
 [P-016](prds/P-016-demonstration-adversarial.md)'s coverage reporting shows them

@@ -74,7 +74,7 @@ PRD adds no transport of its own and specifies no authorization scheme.
 | Predicate id | `name` |
 | Registered question | `description` |
 | Input schema | `inputSchema` |
-| **Answer domain** | **`outputSchema`** |
+| **Answer domain *composed with* the entry's `output_schema`** | **`outputSchema`** |
 
 The last row is why this binding is worth building rather than merely
 convenient.
@@ -84,7 +84,8 @@ convenient.
 
 Here the shape comes from a **registry the custodian pinned**, and
 [`core-model.md`](../../spec/core-model.md) §4 step 17 validates the released
-value against it before the response is signed. The bound is checkable against a
+value against **both** the effective domain and the entry's `output_schema`
+before the response is signed. The bound is checkable against a
 third artifact rather than trusted because the server said so, and a requester
 can confirm from the receipt which entry it came from.
 
@@ -281,8 +282,11 @@ rests on filesystem permissions.**
 
 - [ ] For the same envelope bytes, the MCP result byte-matches `process` — both
       implementations, `binding/transparency/`.
-- [ ] A manifest's answer domain appears as the tool's `outputSchema`, and a
-      value outside it never leaves the server.
+- [ ] A manifest's answer domain **and the entry's `output_schema`** both appear
+      in the tool's `outputSchema`, and a value violating either never leaves the
+      server. **Asserted for an `attribute` release specifically**, where the
+      schema is the only bound and a domain-only mapping would pass every other
+      vector.
 - [ ] A signed contract in `_meta` is honoured; **an absent one fails closed**.
 - [ ] Every refusal cause produces one shape, asserted **across causes**.
 - [ ] A retry with the same signed identifiers returns the stored response, under
@@ -326,6 +330,7 @@ different things and are reported in different fields.
 | A transport idempotency key honoured | Two requests with one signed `query_id` and differing transport ids produce **two quota ticks and two evaluations**, rather than the second returning the stored response bytes verbatim |
 | `tools/list` naming the registry or its digest | A `binding/tools/` vector finds the field |
 | An out-of-domain value reaching `structuredContent` | Step 17 did not run, or ran after serialization |
+| A value inside the domain and **longer than `output_schema` permits** reaching `structuredContent` | The mapping carried the domain and dropped the schema — the failure no `boolean` or `enum` vector catches |
 | A tool defined for a predicate with no implementation | Startup succeeded when §4.6 row 3 says it must not |
 
 ## 9. Escalate-if-changed decisions
