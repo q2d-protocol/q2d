@@ -249,11 +249,11 @@ already closed.
 | Group | Vectors |
 |---|---|
 | `budget/lookup/` | Enumerated and computed domains; a cardinality absent from the table rejects |
-| `budget/accumulate/` | A debit sequence and its permutations reach the same total |
+| `budget/accumulate/` | A debit sequence and its permutations reach the same total. **Not a `process_sequence` group**, and it never needed [E-51](../open-escalations.md): `capacity_debit` already takes `{"debits": [...]}` and P-001 §4.8's cross-vector check compares permutations *across* vectors. A running total over separate requests is the sequence problem; a list of debits to one call is not |
 | `budget/exhaustion/` | At, below, and above the limit; the boundary is exact |
 | `budget/reserve/` | Concurrent checks; settle; release; reservation expiry |
 | `budget/window/` | Debits ageing out of a rolling window |
-| `budget/idempotent/` | A retry settles once — cross-references `replay/idempotent/` |
+| `budget/idempotent/` | A retry settles once — cross-references `replay/idempotent/`, and like it is a **`process_sequence`** vector, since settling once is a property of the second request ([E-51](../open-escalations.md)) |
 | `budget/nodebit/` | A denial, an escalation, and a rate-limit rejection each leave `spent` unchanged ([`core-model.md`](../../spec/core-model.md) §9.1) |
 | `budget/ratelimit/` | A rate-limit rejection is byte-identical to every other Tier C denial; no retry metadata; no header varies — asserted **across** causes, not per cause |
 

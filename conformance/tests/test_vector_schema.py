@@ -136,11 +136,23 @@ class MalformedVectorTest(unittest.TestCase):
         vector["expect"]["comparison"] = "approximate"
         self.assert_rejected(vector, "invents a comparison mode")
 
-    def test_unsettled_operation_name(self):
-        # An anticipated Stage 5-8 name. It becomes valid when P-001 issue 17
-        # settles the vocabulary, and not before.
+    def test_settled_stage_five_name_is_now_valid(self):
+        # This test used to hold `http_exchange` *invalid*, because P-001 issue
+        # 17 had not settled the Stage 5-8 vocabulary. It has, so the assertion
+        # inverts rather than disappears: the name a runner will dispatch on is
+        # in the enum, and a typo in it is still refused by the case below.
         vector = self.mutate()
         vector["operation"] = "http_exchange"
+        self.assertEqual([], schema_module.validate(vector, self.schema),
+                         "a settled operation name must validate")
+
+    def test_the_undecided_timing_capability_has_no_name_yet(self):
+        # The one name issue 17 deliberately did not settle: P-001 issue 18's
+        # minimal timing capability is undecided, so any spelling of it is
+        # refused. This turns red the day issue 18 lands without the enum being
+        # updated with it, which is the point of asserting an absence.
+        vector = self.mutate()
+        vector["operation"] = "timing_band"
         self.assert_rejected(vector, "uses an operation the vocabulary does not carry")
 
     def test_unknown_section(self):

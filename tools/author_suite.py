@@ -30,8 +30,8 @@ reasons, and a message broken in two ways cannot establish which.
 ## What is not here
 
 **`suite/rfc8032/` is retired**, not owed. Signing a raw message needs an
-operation P-001 §4.5's protocol-level vocabulary does not have, and adding one
-is issue 17's Stage 5–8 change. A group would have asserted the same three
+operation P-001 §4.5's protocol-level vocabulary does not have, and issue 17 has
+since settled that vocabulary without adding one. A group would have asserted the same three
 answers the unit gates assert — TEST 1, 2 and 3, the ones `conformance/keys/`
 commits — at the cost of extending a closed vocabulary. It is not a claim about
 coverage: §7.1 publishes five and P-003 §7's first criterion is unticked because

@@ -9,9 +9,12 @@
 // P-001 issue 19's cross-verification has two runners to put an artefact
 // between.
 //
-// It implements no Q2D behaviour, and adding some is a deliberate act. Every
-// operation reports error. What it does implement is the half of the contract
-// that is not protocol: read the projection, parse it as RFC 8259 JSON rather
+// It implements no Q2D behaviour, and adding some is a deliberate act. What it
+// does with a given operation is RUNNER-CONTRACT.md's to state and is not
+// restated here: the answer differs between a name this runner recognises and
+// one it does not, and P-001 issue 17 settled names it will not recognise for
+// several stages yet. What it does implement is the half of the contract that
+// is not protocol: read the projection, parse it as RFC 8259 JSON rather
 // than as what a library tolerates, recognise the operation or exit 1, and emit
 // a well-formed result. That much has to be right, because the harness is
 // entitled to assume it.
@@ -58,14 +61,20 @@ const (
 // projectedFields is P-001 §6's VectorInput, and nothing else.
 var projectedFields = []string{"id", "operation", "input"}
 
-// knownOperations is P-001 §4.5's vocabulary, embedded rather than read from
-// vector.schema.json.
+// knownOperations is what this runner answers to — a subset of P-001 §4.5's
+// vocabulary, not the vocabulary itself.
 //
-// A runner reads the vector it was given and nothing else. One that consulted
-// the schema would answer differently depending on the checkout it ran in, and
-// this binary ships without the corpus beside it. Drift is caught where it
-// should be: an operation a runner does not recognise is exit 1 and the vector
-// fails loudly.
+// §4.5 is settled through Stage 8 (its issue 17), and this list is the Stage 1-4
+// part of it that exists. RUNNER-CONTRACT.md's Operations section says a runner
+// need not carry the whole list: reaching a name it has not built, it exits 1,
+// which is what P-001 §7 expects of an unbuilt stage. The list grows as the
+// stages land.
+//
+// Embedded rather than read from vector.schema.json, because a runner reads the
+// vector it was given and nothing else. One that consulted the schema would
+// answer differently depending on the checkout it ran in, and this binary ships
+// without the corpus beside it. Drift is caught where it should be: an operation
+// a runner does not recognise is exit 1 and the vector fails loudly.
 var knownOperations = map[string]bool{
 	"sign_query":         true,
 	"sign_response":      true,

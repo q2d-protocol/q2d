@@ -224,9 +224,10 @@ in a message. There is no code path that derives it from received data.
 
 **Five groups, not six.** `suite/rfc8032/` was listed here and is **retired**:
 a raw Ed25519 signature is not a Q2D operation, [P-001](P-001-conformance-corpus.md)
-§4.5's vocabulary has no name for one, and adding a name is issue 17's Stage 5–8
-change rather than this PRD's. Retiring it was the alternative to extending that
-vocabulary, and it is the right trade because a corpus group would have asserted
+§4.5's vocabulary has no name for one, and adding a name would have been issue
+17's Stage 5–8 change rather than this PRD's. **Issue 17 has since settled that
+vocabulary and did not add one**, which confirms the retirement rather than
+leaving it owed. Retiring it was the alternative to extending that vocabulary, and it is the right trade because a corpus group would have asserted
 **the same three answers** the unit gates already assert — TEST 1, 2 and 3, the
 ones `conformance/keys/` commits — at the cost of extending a closed vocabulary.
 It would not have added the two that are missing.

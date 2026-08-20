@@ -52,7 +52,7 @@
       "minLength": 1
     },
     "operation": {
-      "description": "From the closed vocabulary in P-001 §4.5. Stages 5-8 extend this list, as one coordinated change, under P-001 issue 17 — the names anticipated there are proposals, not decisions, so they are deliberately absent here. An operation a runner does not recognise is exit 1, never a skip.",
+      "description": "From the closed vocabulary in P-001 §4.5, settled as one change by P-001 issue 17 so that no PRD names an operation unilaterally — four choosing separately would diverge at the *runner* level, where it surfaces as an unknown-operation error rather than a failing vector. The Stage 5-8 names are therefore present and decided rather than absent and anticipated, and an operation no runner implements yet is exit 1, which is what P-001 §7 already expects of an unbuilt stage. One name is still missing on purpose: the minimal timing capability is P-001 issue 18 and is undecided. An operation a runner does not recognise is exit 1, never a skip.",
       "type": "string",
       "enum": [
         "sign_query",
@@ -65,7 +65,18 @@
         "capacity_debit",
         "policy_decide",
         "evaluate_predicate",
-        "process_query"
+        "process_query",
+        "process_response",
+        "process_sequence",
+        "build_contract",
+        "project_outcome",
+        "retry_bytes",
+        "http_exchange",
+        "fingerprint",
+        "resolve_identity",
+        "verify_delegation",
+        "escalate_poll",
+        "approve"
       ]
     },
     "input": {

@@ -11,7 +11,11 @@
 //! between.
 //!
 //! **It implements no Q2D behaviour, and adding some is a deliberate act.**
-//! Every operation reports `error`. What it does implement is the half of the
+//! What it does with a given operation is
+//! [`RUNNER-CONTRACT.md`](../../conformance/RUNNER-CONTRACT.md)'s to state and
+//! is not restated here: the answer differs between a name this runner
+//! recognises and one it does not, and P-001 issue 17 settled names it will not
+//! recognise for several stages yet. What it does implement is the half of the
 //! contract that is not protocol: read the projection, parse it as RFC 8259
 //! JSON rather than as what a library tolerates, recognise the operation or
 //! exit 1, and emit a well-formed result. That much has to be right, because
@@ -43,13 +47,21 @@ const EXIT_INTERNAL: u8 = 2;
 /// P-001 §6's `VectorInput`, and nothing else.
 const PROJECTED_FIELDS: [&str; 3] = ["id", "operation", "input"];
 
-/// P-001 §4.5's vocabulary, embedded rather than read from `vector.schema.json`.
+/// What **this runner** answers to — a subset of P-001 §4.5's vocabulary, not
+/// the vocabulary itself.
 ///
-/// A runner reads the vector it was given and nothing else. One that consulted
-/// the schema would answer differently depending on the checkout it ran in, and
-/// this binary ships without the corpus beside it. Drift is caught where it
-/// should be: an operation a runner does not recognise is exit 1 and the vector
-/// fails loudly.
+/// §4.5 is settled through Stage 8 (its issue 17), and this list is the Stage
+/// 1-4 part of it that exists. RUNNER-CONTRACT.md's *Operations* section says a
+/// runner need not carry the whole list: reaching a name it has not built, it
+/// exits 1, which is what P-001 §7 expects of an unbuilt stage. The list grows
+/// as the stages land.
+///
+/// Embedded rather than read from `vector.schema.json`, because a runner reads
+/// the vector it was given and nothing else. One that consulted the schema
+/// would answer differently depending on the checkout it ran in, and this
+/// binary ships without the corpus beside it. Drift is caught where it should
+/// be: an operation a runner does not recognise is exit 1 and the vector fails
+/// loudly.
 const KNOWN_OPERATIONS: [&str; 11] = [
     "sign_query",
     "sign_response",
@@ -596,8 +608,10 @@ mod tests {
     #[test]
     fn the_operation_vocabulary_matches_the_projected_field_count() {
         // Guards the two constants against a careless edit: the contract fixes
-        // VectorInput at exactly three fields, and P-001 §4.5's Stage 1-4
-        // vocabulary at eleven operations.
+        // VectorInput at exactly three fields, and this runner implements
+        // eleven operations. The second number is **this runner's**, not
+        // §4.5's — that list is settled through Stage 8 and is longer, and this
+        // one grows as the stages land rather than tracking it.
         assert_eq!(PROJECTED_FIELDS.len(), 3);
         assert_eq!(KNOWN_OPERATIONS.len(), 11);
     }

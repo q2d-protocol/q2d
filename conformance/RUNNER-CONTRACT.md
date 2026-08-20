@@ -134,6 +134,36 @@ it** — not here, and not in one list. `verify_query` and `digest` each take mo
 than one kind of input and say which by the field name;
 [P-002](../docs/prds/P-002-message-envelope.md) §5 is where those are stated.
 
+**Most of the vocabulary is not implemented yet**, and that is the expected
+state rather than a gap: P-001 issue 17 settled every name at once so that two
+runners could not pick different ones, years before either builds them all.
+
+A runner is **not** required to carry the whole list. Reaching a name it has not
+built, it exits 1; carrying the name and reporting `error` is equally
+conforming, and the reference stub does exactly that because modelling the
+contract is its whole job. What neither may do is skip. The two implementation
+runners therefore recognise what they implement and no more, and that is why
+settling the vocabulary early costs them nothing.
+
+### `process_sequence` — the one operation whose input is several requests
+
+`input.requests` is an ordered list; each entry is what `process_query` takes.
+The runner processes them **in the order given, against one responder state**,
+and returns `output.results` — one entry per request, in the same order, each
+either `{"outcome": "ok", "output": …}` or `{"outcome": "rejected",
+"rejection": …}` in the shapes above.
+
+The result's **top-level `outcome` is `ok`** whenever the runner processed the
+list, including when a request inside it was refused: a refusal there is what
+the vector is asserting, not the runner failing to function. P-001 §4.6 has the
+reasoning and the worked example.
+
+This exists because a vector could not describe a sequence, and idempotency is
+a property of the *second* request — [E-51](../docs/open-escalations.md). The
+sequence lives inside `input`, so the invocation rule above is untouched: still
+one vector per invocation, still one result, still a runner that reads nothing
+else and holds no state between invocations.
+
 ### `input.verifier` — the one member every operation shares
 
 A responder's configuration is ambient state, and P-001 §9 item 3 forbids
@@ -194,8 +224,17 @@ that shares an author with the corpus.
 
 [`src/bin/q2d-conform.rs`](../src/bin/q2d-conform.rs) and
 [`cmd/q2d-conform/main.go`](../cmd/q2d-conform/main.go) are the Rust and Go
-runners. They implement this contract and, today, no Q2D behaviour: every
-operation reports `error`, exactly as the stub does.
+runners. They implement this contract and, today, no Q2D behaviour.
+
+**They are not the stub, and their two ways of answering nothing differ.** Each
+recognises the Stage 1–4 subset it has built — see *Operations* above — and
+reports `error` for those, meaning it functioned and produced nothing. A name
+outside that subset is exit 1, including a **settled** Stage 5–8 name like
+`http_exchange`: settling the vocabulary named the operations, it did not build
+them. Both outcomes fail the vector loudly, which is what P-001 §7 expects of an
+unbuilt stage; neither is a skip. The stub differs because modelling the whole
+contract is its job, so it recognises every name and reports `error` for all of
+them.
 
 **Unlike the stub, they may learn to answer.** They are the reference
 implementations' runners and the corpus exists to be run against them; the stub

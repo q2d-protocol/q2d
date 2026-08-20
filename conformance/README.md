@@ -59,9 +59,11 @@ Standard library only, like [`registry/validate.py`](../registry/validate.py).
 **Three runners exist and none answers a vector.** The Python stub, and now the
 Rust and Go ones — [`src/bin/q2d-conform.rs`](../src/bin/q2d-conform.rs) and
 [`cmd/q2d-conform/main.go`](../cmd/q2d-conform/main.go). All three implement
-[`RUNNER-CONTRACT.md`](RUNNER-CONTRACT.md)'s non-protocol half and report
-`error` for every operation; the stub may never do more, and the other two are
-where the implementations will attach.
+[`RUNNER-CONTRACT.md`](RUNNER-CONTRACT.md)'s non-protocol half and none
+implements any Q2D behaviour; the stub may never do more, and the other two are
+where the implementations will attach. **What each does with an operation is
+the contract's to state**, not this file's — the two differ, and a summary here
+would be a second answer to a question that has one.
 
 Having both now is what makes `cross` interpretable later. It reports a
 disagreement as two implementations reading the specification differently, and
@@ -268,11 +270,22 @@ reason for rather than a preference:
 - **Everything that would otherwise vary comes from `input`** — keys, nonces,
   timestamps, identifiers. A runner that reads a clock or generates a nonce
   produces an unreproducible result and is non-conforming. P-001 §4.3.
-- **`operation` is a closed vocabulary.** The Stage 5–8 additions are named in
-  P-001 §4.5 as *proposals* and are deliberately absent from the schema until
-  P-001 issue 17 settles them as one change; four PRDs choosing separately would
-  diverge at the runner level, where it surfaces as an unknown-operation error
-  rather than a failing vector.
+- **`operation` is a closed vocabulary, and it is settled.** P-001 issue 17
+  named every operation through Stage 8 in one change — four PRDs choosing
+  separately would diverge at the runner level, where it surfaces as an
+  unknown-operation error rather than a failing vector — so §4.5's table and the
+  schema's enum are one list. A runner need not carry all of it: reaching a name
+  it has not built, it exits 1, which is what P-001 §7 expects of an unbuilt
+  stage. One name is missing on purpose, because issue 18's timing capability is
+  undecided.
+- **`process_sequence` is the one operation whose input is several requests.**
+  [E-51](../docs/open-escalations.md): idempotency is a property of the *second*
+  request, and a vector could not describe one. The sequence lives inside
+  `input`, so none of the rules above change — the projection still passes it
+  through untouched, and a runner still reads one vector and holds no state
+  between invocations. Its per-request outcomes are the operation's `output`,
+  and the result's top-level `outcome` stays `ok` when a request inside it is
+  refused: the runner processed what it was given. P-001 §4.6.
 
 `expect.outcome` is `ok` or `rejected`. `error` is a third outcome a *runner*
 may report (P-001 §6) and means the runner faulted — never something a vector

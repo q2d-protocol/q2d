@@ -502,6 +502,7 @@ right.
 
 | Question | Belongs to |
 |---|---|
+| **8.** **A vector cannot describe two queries with a human approval between them.** [E-51](../open-escalations.md) added `process_sequence` — one operation, an ordered list of requests, one responder — and closed as C with its limit stated: it is right for a sequence *one responder processes end to end*, and wrong for anything needing an external event mid-sequence. §5.3's shape is exactly that: query, escalate, an authority approves out of band, second query. The approval is not a request, so no list of requests expresses it. **Raised as [E-52](../open-escalations.md)**, which E-51's resolution says to do — recorded now rather than when `escalation/` is authored, because a question living only in the PRD that found it is findable by nobody else. It names the four groups it blocks, recommends **B** (the sequence's entries become a tagged union of request-or-approval), and recommends **deciding it when issue 12 is picked up** rather than now: settling an operation's shape against no vector is how E-51's own brief got two details wrong | [E-52](../open-escalations.md) · this PRD, issues 4 and 12 |
 | **1.** ~~Is a grant single-use or multi-use within its window?~~ | **Resolved: single-use.** [`core-model.md`](../../spec/core-model.md) §5.3; see §4.5. Consumption is a release-time act, so [P-007](P-007-policy-engine.md) §4.2's new `grant` field reports an *unconsumed* match and policy never consumes it |
 | **2.** ~~Does an `escalate` response carry a receipt?~~ | **Resolved: yes**, the reduced shape with `decision_class: escalate` — **for explicit escalation only.** An opaque escalation carries the ordinary deny receipt, byte-identical to any other Tier C denial. §5.3 and [P-011](P-011-receipts-audit.md) §4.1 amended together; §4.1 here carries the table |
 | **3.** ~~[`core-model.md`](../../spec/core-model.md) §7's "even when the approval-scope digest matches" is vacuous~~ | **Resolved.** §7 now states the clause as a **floor** on whatever list §9 settles, with an explicit instruction not to infer a narrower digest from it. Deleting the clause was declined — it becomes load-bearing precisely if §9 narrows the list. See §4.6 |
@@ -526,7 +527,7 @@ right.
 | 9 | Fresh-query revalidation path | `escalation/fresh/` shows every step running |
 | 10 | `issue_token` and `poll` | `escalation/explicit/` and `escalation/poll/` pass; two polls leave identical state |
 | 11 | Approval CLI | An operator approves and refuses locally; no network surface added |
-| 12 | Author `escalation/` corpus section | Seven groups; `harness lint` clean |
+| 12 | Author `escalation/` corpus section | **Eight** groups; `harness lint` clean. This row said seven and §6 has listed eight since `escalation/scope/` was added — a count nobody re-read, which would have closed the issue a group short. **Four of the eight are blocked on [E-52](../open-escalations.md)**: `retry/`, `fresh/`, `grant/` and `poll/`'s decided outcome each need an approval *between* two requests, and [E-51](../open-escalations.md)'s `process_sequence` carries requests only. The other four are single requests and are authorable when the pipeline is |
 | 13 | Claim-language audit | Nothing calls explicit escalation normalized, or claims a §4.9 channel is closed |
 
 Issue 4 is the one to schedule properly: a

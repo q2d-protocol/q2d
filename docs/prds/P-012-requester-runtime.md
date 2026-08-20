@@ -389,7 +389,7 @@ must never be derived from.
 | `requester/receipt/` | Receipt binds the request sent; a receipt binding another request rejects; verification without a stored response reports the skipped check |
 | `requester/outcome/` | All three statuses; `escalate` unreadable as an answer; a denial carrying no cause; **an `external_reason` outside [`core-model.md`](../../spec/core-model.md) §5.2.1's vocabulary**, which is an opaque rejection rather than a malformed response — a requester that errored instead would break on the first value a later version adds |
 | `requester/profile/` | Requested profile returned passes; a lower profile rejects |
-| `requester/retry/` | Retry bytes identical to the original; expiry produces a local outcome, not a new query |
+| `requester/retry/` | Retry bytes identical to the original; expiry produces a local outcome, not a new query. The identical-bytes half is `retry_bytes` over one request; **showing that the retry is not a new query needs a sequence**, which is [E-51](../open-escalations.md)'s `process_sequence` |
 | `requester/order/` | The [`core-model.md`](../../spec/core-model.md) §4.1 order: a response failing at each step is rejected without the later steps having run, and nothing reaches the caller before step 9 |
 
 `requester/sign/` is the Stage 5 cross-implementation gate. It is a byte
