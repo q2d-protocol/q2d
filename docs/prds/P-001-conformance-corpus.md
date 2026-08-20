@@ -7,8 +7,25 @@
 | Status | **Ready for decomposition** |
 | Size | M |
 | Risk | low |
-| Blocks | P-002, P-003, P-004, P-005, P-006, P-007, P-008, P-009, P-010, P-011, P-012, P-013, P-014, P-015, P-016 — every other PRD |
+| Blocks | P-002, P-003, P-004, P-005, P-006, P-007, P-009, P-010, P-011, P-016 — every other PRD — ~~P-008, P-012, P-013, P-014, P-015~~ **deferred 2026-08-19** |
 | Depends on | nothing |
+
+
+> **Reading this PRD after the 2026-08-19 scope reduction.**
+>
+> Where the sections below reason about the **disclosure-capacity budget**
+> ([`claims.md`](../../spec/claims.md) Q2D-C-09, *not attempted in this release*)
+> or the **escalation lifecycle** ([P-015](P-015-escalation-lifecycle.md),
+> deferred), that reasoning is **preserved as written and is not a requirement of
+> this release**.
+>
+> **The issue list in the last section governs what gets built**, and struck rows
+> there say what does not. Design prose has deliberately *not* been rewritten to
+> remove deferred concepts: it records why each decision was made, and deleting
+> it would leave the decisions standing with their reasons removed — which is
+> worse than a reader having to hold one caveat.
+>
+> Deferred PRDs keep their numbers and their issue lists. Nothing was withdrawn.
 
 ---
 

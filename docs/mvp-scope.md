@@ -68,10 +68,14 @@ while `claims.md` was deliberately untouched, and went stale inside its own
 branch when the claims work landed two commits later. **The table above is the
 record, not the plan.**
 
-They are design intentions with no passing test, and
-[P-016](prds/P-016-demonstration-adversarial.md)'s coverage reporting shows them
-that way — in the same table as the ones that pass, rather than omitted or
-footnoted.
+They are design intentions with no passing test, and **`harness coverage`**
+reports them that way — in the same table as the ones that pass, rather than
+omitted or footnoted. That mode already exists and already lists every claim in
+[`claims.md`](../spec/claims.md).
+
+**Not P-016's `--matrix`**, which this paragraph named until review caught it:
+that extension is cut with the rest of the measurement work, and pointing at it
+would have promised traceability evidence the release no longer builds.
 
 **No artifact may describe finishing this walkthrough as completing Phase 1.**
 The two documents use "done" for different things, and only one of them is read

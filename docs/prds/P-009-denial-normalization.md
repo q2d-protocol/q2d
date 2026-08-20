@@ -8,7 +8,7 @@
 | Size | M |
 | Risk | medium |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-007](P-007-policy-engine.md) |
-| Blocks | P-010, P-013, P-014, P-015, P-016 |
+| Blocks | P-010, P-016 — ~~P-013, P-014, P-015~~ **deferred 2026-08-19** |
 | Pairs with | [P-007](P-007-policy-engine.md) — P-007 separates the audit reason from the external class; this PRD is what stops the reason reaching the wire |
 
 
@@ -39,6 +39,23 @@
 > **Cut:** Tier B uniformity, the `escalation_visible` gate and the escalate
 > receipt split (both belong to the deferred escalation lifecycle), and the timing
 > padding hook — whose only consumer was the measurement work, also cut.
+
+
+> **Reading this PRD after the 2026-08-19 scope reduction.**
+>
+> Where the sections below reason about the **disclosure-capacity budget**
+> ([`claims.md`](../../spec/claims.md) Q2D-C-09, *not attempted in this release*)
+> or the **escalation lifecycle** ([P-015](P-015-escalation-lifecycle.md),
+> deferred), that reasoning is **preserved as written and is not a requirement of
+> this release**.
+>
+> **The issue list in the last section governs what gets built**, and struck rows
+> there say what does not. Design prose has deliberately *not* been rewritten to
+> remove deferred concepts: it records why each decision was made, and deleting
+> it would leave the decisions standing with their reasons removed — which is
+> worse than a reader having to hold one caveat.
+>
+> Deferred PRDs keep their numbers and their issue lists. Nothing was withdrawn.
 
 ---
 

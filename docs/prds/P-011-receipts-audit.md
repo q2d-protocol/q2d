@@ -7,8 +7,8 @@
 | Status | **Ready for decomposition** |
 | Size | M |
 | Risk | medium |
-| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-005](P-005-registry-client.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-010](P-010-responder-pipeline.md) |
-| Blocks | P-012, P-013, P-016 |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-005](P-005-registry-client.md), [P-007](P-007-policy-engine.md), [P-010](P-010-responder-pipeline.md) — ~~P-008~~ **deferred 2026-08-19** |
+| Blocks | P-016, [P-017](P-017-mcp-binding.md) — ~~P-012, P-013~~ **deferred 2026-08-19** |
 
 
 > **Partially shrunk 2026-08-19 — and one cut was reversed by review.**
@@ -32,6 +32,23 @@
 > that an audit store with no expiry is an ever-growing record of who asked what
 > about whom remains true**, and is the first thing to restore if this is ever
 > deployed rather than demonstrated.
+
+
+> **Reading this PRD after the 2026-08-19 scope reduction.**
+>
+> Where the sections below reason about the **disclosure-capacity budget**
+> ([`claims.md`](../../spec/claims.md) Q2D-C-09, *not attempted in this release*)
+> or the **escalation lifecycle** ([P-015](P-015-escalation-lifecycle.md),
+> deferred), that reasoning is **preserved as written and is not a requirement of
+> this release**.
+>
+> **The issue list in the last section governs what gets built**, and struck rows
+> there say what does not. Design prose has deliberately *not* been rewritten to
+> remove deferred concepts: it records why each decision was made, and deleting
+> it would leave the decisions standing with their reasons removed — which is
+> worse than a reader having to hold one caveat.
+>
+> Deferred PRDs keep their numbers and their issue lists. Nothing was withdrawn.
 
 ---
 

@@ -7,8 +7,25 @@
 | Status | **Ready for decomposition** |
 | Size | L |
 | Risk | medium |
-| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md), [P-009](P-009-denial-normalization.md) — **P-008 removed 2026-08-19**, deferred with Q2D-C-09 |
-| Blocks | P-011, P-016, [P-017](P-017-mcp-binding.md) — ~~P-013, P-015~~ deferred |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md), [P-009](P-009-denial-normalization.md) — ** removed 2026-08-19**, deferred with Q2D-C-09 — ~~P-008~~ **deferred 2026-08-19** |
+| Blocks | P-011, P-016, [P-017](P-017-mcp-binding.md) — ~~P-013, P-015~~ **deferred 2026-08-19** |
+
+
+> **Reading this PRD after the 2026-08-19 scope reduction.**
+>
+> Where the sections below reason about the **disclosure-capacity budget**
+> ([`claims.md`](../../spec/claims.md) Q2D-C-09, *not attempted in this release*)
+> or the **escalation lifecycle** ([P-015](P-015-escalation-lifecycle.md),
+> deferred), that reasoning is **preserved as written and is not a requirement of
+> this release**.
+>
+> **The issue list in the last section governs what gets built**, and struck rows
+> there say what does not. Design prose has deliberately *not* been rewritten to
+> remove deferred concepts: it records why each decision was made, and deleting
+> it would leave the decisions standing with their reasons removed — which is
+> worse than a reader having to hold one caveat.
+>
+> Deferred PRDs keep their numbers and their issue lists. Nothing was withdrawn.
 
 ---
 
@@ -271,8 +288,9 @@ bytes** — which do not exist until step 19 has signed them. So step 18 does no
 write through: it opens the transaction and stages the debit, step 19 produces
 the bytes, and the commit is the last act of the exchange.
 
-Three things commit together or none do: the **debit**, the **consumption of a
-single-use escalation grant** ([`core-model.md`](../../spec/core-model.md) §5.3),
+Three things commit together or none do — **and in this release only the third
+exists**, because the budget and the escalation lifecycle are both deferred: the
+**debit**, the **consumption of a single-use escalation grant** ([`core-model.md`](../../spec/core-model.md) §5.3),
 and the **cache entry with its response bytes**. Committing the debit at step 18
 and the cache at step 19 is the "debit, then cache" row of
 [P-004](P-004-replay-idempotency.md) §4.6's table — a crash between them

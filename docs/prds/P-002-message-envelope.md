@@ -8,7 +8,7 @@
 | Size | M |
 | Risk | medium |
 | Depends on | [P-001](P-001-conformance-corpus.md) — corpus format |
-| Blocks | P-003, P-004, P-005, P-006, P-010, P-011, P-012, P-016 |
+| Blocks | P-003, P-004, P-005, P-006, P-010, P-011, P-016 — ~~P-012~~ **deferred 2026-08-19** |
 | Pairs with | [P-003](P-003-crypto-suites.md) — this PRD produces the bytes P-003 signs |
 
 ---
