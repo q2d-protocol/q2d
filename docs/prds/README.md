@@ -42,7 +42,7 @@ for what is open; this file states the shape and links.
 | [P-006](P-006-request-validation.md) | Request validation and effective answer domain | 2 | **Ready for decomposition** |
 | [P-007](P-007-policy-engine.md) | Policy engine contract and fail-closed invariants | 3 | **Ready for decomposition** — shrunk |
 | [P-008](P-008-capacity-accounting.md) | Disclosure-capacity accounting | — | **Deferred** — a request quota replaces it |
-| [P-009](P-009-denial-normalization.md) | Denial normalization | 3 | **Ready for decomposition** — shrunk to one refusal shape |
+| [P-009](P-009-denial-normalization.md) | Denial normalization | 3 | **Ready for decomposition** — shrunk to one refusal shape per normalized class |
 | [P-010](P-010-responder-pipeline.md) | Responder pipeline, predicate execution, output validation | 4 | **Ready for decomposition** |
 | [P-011](P-011-receipts-audit.md) | Receipts and local audit | 4 | **Ready for decomposition** |
 | [P-012](P-012-requester-runtime.md) | Requester runtime | 5 | **Deferred** — four issues survive as a test client |

@@ -167,8 +167,16 @@ MCP has two error mechanisms and the split is load-bearing:
 | **Protocol errors** (JSON-RPC) | Requests that never became a Q2D exchange — unknown tool, malformed request |
 | **Tool execution errors** (`isError: true`) | **Every Q2D refusal** |
 
-Every refusal takes **one shape, with no cause-specific text, no retry guidance,
-and no field that varies with cause**. This is where
+Every refusal **inside a normalized class** takes **one shape, with no
+cause-specific text, no retry guidance, and no field that varies with cause**.
+
+**Not every refusal**, and the distinction is
+[`core-model.md`](../../spec/core-model.md) §5.2.1's rather than this PRD's: Tier
+A's `malformed`, `unsupported_version` and `structurally_invalid` stay distinct
+because each describes the requester's **own message** and tells it something it
+can act on. A binding that collapsed those would reject conforming
+implementations and would make a Q2D refusal less useful than an ordinary MCP
+error for the one class of failure the requester can actually fix. This is where
 [P-013](P-013-https-binding.md)'s status-and-header discipline lands: that PRD
 forbade a `403` or a `429` because one distinguishing status would undo three
 PRDs of body-level uniformity, and **the same trap exists here in a more
@@ -230,7 +238,7 @@ merged. That separation is §4.2's rule in the signature.
 | `binding/transparency/` | The MCP result byte-matches the direct `process` call, for an answer and for a refusal |
 | `binding/tools/` | A manifest produces the expected `tools/list`; the answer domain is the `outputSchema`; no registry identifier or digest appears |
 | `binding/contract/` | Contract in `_meta` verifies; **absent contract fails closed**; contract in a tool argument is ignored rather than honoured |
-| `binding/errors/` | Every refusal cause returns one shape; a quota rejection is byte-identical to a policy denial; no retry metadata |
+| `binding/errors/` | Every cause **within a normalized class** returns one shape — a quota rejection byte-identical to a policy denial — and **Tier A's informative values stay distinct**; no retry metadata anywhere |
 | `binding/idempotent/` | A retry with the same signed identifiers returns the stored response; a differing JSON-RPC id changes nothing |
 | `binding/startup/` | Each §4.6 row refuses to start, observably |
 
@@ -288,7 +296,8 @@ rests on filesystem permissions.**
       schema is the only bound and a domain-only mapping would pass every other
       vector.
 - [ ] A signed contract in `_meta` is honoured; **an absent one fails closed**.
-- [ ] Every refusal cause produces one shape, asserted **across causes**.
+- [ ] Every cause **inside a normalized class** produces one shape, asserted
+      **across those causes**; Tier A's values remain distinguishable.
 - [ ] A retry with the same signed identifiers returns the stored response, under
       a different JSON-RPC request id.
 - [ ] Each §4.6 row refuses to start.

@@ -115,7 +115,7 @@ hardened for adoption. Each says what would bring it back.
 | **Identity and the local pairing profile** | A configured key list does what the demonstration needs. MCP moved toward standard OAuth/CIMD; a bespoke pairing profile is a worse answer to a solved problem | — |
 | **Escalation lifecycle** | Human approval, grants, tokens and polling are how a deployment handles a `deny` — a product feature, not a protocol primitive | — |
 | **Encrypted-at-rest audit storage, and retention/deletion machinery** | Enterprise infrastructure. **A minimal local audit store is *not* cut** — see below | — |
-| **Denial tier taxonomy** | Shrunk to *one refusal shape, no cause-specific text* — the part that is true, testable and cheap. `terminology.md` §9 already forbade claiming more | — |
+| **Denial tier taxonomy** | Shrunk to *one refusal shape per normalized class, no cause-specific text within it* — Tier A's informative values stay distinct — the part that is true, testable and cheap. `terminology.md` §9 already forbade claiming more | — |
 | **Disclosure and timing measurement** | Removes the ability to make an empirical claim in a future draft, which is the clearest cost of the reduction | — |
 | **Policy-side coarsening modifiers** | Existed largely to keep capacity computable under policy narrowing. Six escalations (E-25 … E-30) were about making coarsening well-defined; they park with the budget | — |
 | A2A binding | MCP is the reference binding | CC-9 |

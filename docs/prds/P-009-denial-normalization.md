@@ -14,7 +14,8 @@
 
 > **Shrunk 2026-08-19 — scope reduction.**
 >
-> Q2D-C-08 reduces to **one refusal shape, no cause-specific text** — the part
+> Q2D-C-08 reduces to **one refusal shape per normalized class, no
+> cause-specific text within it** — the part
 > that is true, testable and cheap. [`terminology.md`](../../spec/terminology.md)
 > §9 already forbade claiming the stronger property, and
 > [`claims.md`](../../spec/claims.md) Q2D-NC-05 already conceded that timing, size
@@ -22,9 +23,18 @@
 >
 > **Kept:** the closed `InternalReason` enum, `classify`, `external_class`,
 > `build_denial`, the corpus section, the documentation audit — and issue 6,
-> **repurposed** from *Tier C uniformity* to **one refusal shape across every
-> cause**, asserted across causes rather than per cause. That is now the only
-> demonstration Q2D-C-08 has.
+> **repurposed** from *Tier C uniformity* to **one refusal shape within a
+> normalized class**, asserted **across the causes in that class** rather than
+> per cause. That is now the only demonstration Q2D-C-08 has.
+>
+> **Not across every cause**, which an earlier draft of this note said and which
+> overstates the claim: [`claims.md`](../../spec/claims.md) Q2D-C-08 is
+> normalization *within a configured sensitivity class*, and
+> [`core-model.md`](../../spec/core-model.md) §5.2.1 keeps Tier A's values —
+> `malformed`, `unsupported_version`, `structurally_invalid` — **deliberately
+> distinct**, because each describes the requester's own message and tells it
+> something it can act on. Collapsing those would be a different protocol, not a
+> smaller one.
 >
 > **Cut:** Tier B uniformity, the `escalation_visible` gate and the escalate
 > receipt split (both belong to the deferred escalation lifecycle), and the timing

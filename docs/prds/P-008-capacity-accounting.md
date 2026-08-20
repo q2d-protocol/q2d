@@ -25,8 +25,15 @@
 > reservation expiry, [P-004](P-004-replay-idempotency.md) issue 5's atomic commit,
 > and the whole [E-25 … E-30](../open-escalations.md) coarsening chain.
 >
-> **What replaces it:** a **request quota** keyed on `(requester, predicate,
-> subject, window)`, required configuration with no default, checked at step 9a.
+> **What replaces it:** a **request quota keyed on the relationship, and on
+> nothing finer** — required configuration with no default, checked at step 9a.
+> An earlier draft of this note said `(requester, predicate, subject, window)`,
+> which is wrong and contradicts [`core-model.md`](../../spec/core-model.md)
+> §9.1: predicate and sensitivity class are known only **after** registry
+> resolution at step 10, so a limiter keyed on them would either run too late or
+> skip unresolved requests — leaving unknown predicates unlimited, which is a
+> difference a requester can measure and therefore the existence oracle the quota
+> exists to close.
 > E-01 had already established that a rate limit is the mechanism bounding probing;
 > this makes it the only one. Issue 5a survives as that quota.
 >

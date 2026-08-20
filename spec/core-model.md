@@ -727,6 +727,25 @@ A conforming responder processes in this order:
 | 18 | Budget debited | Once, idempotently. |
 | 19 | Receipt constructed; response signed | Q2D-C-10. |
 
+**Steps 15 and 18 have nothing to do where Q2D-C-09 is not attempted, and the
+order is unchanged.** [`claims.md`](claims.md) marks disclosure-capacity
+accounting *not attempted in this release*, so there is no budget to check at 15
+or debit at 18. Both steps remain in this order and remain numbered as they are:
+a step that does nothing under a profile is not a change to the processing
+order, and §4's numbers are cited throughout this specification and its
+conformance classes. [`conformance-classes.md`](conformance-classes.md) CC-2
+marks the corresponding must as not required in this release.
+
+**Step 15 still runs.** What it gates is not what it checks: nothing at or below
+step 16 is reachable without having passed every step above it, and that property
+is independent of whether step 15 has a budget to consult. An implementation that
+skipped the step because it had nothing to consult would make private access
+reachable one step early, which is the invariant §4 exists to state.
+
+The same reading applies to **step 7** wherever an identity profile has no
+delegation to verify. The step is present, it verifies what the profile defines,
+and where that is nothing it refuses nothing.
+
 Steps 5a, 9a and 11a are lettered rather than numbered because the step numbers
 are cited throughout this repository and renumbering them silently would be worse
 than an irregular label.
