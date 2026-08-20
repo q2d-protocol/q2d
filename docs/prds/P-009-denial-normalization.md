@@ -49,8 +49,9 @@
 > deferred), that reasoning is **preserved as written and is not a requirement of
 > this release**.
 >
-> **The issue list in the last section governs what gets built**, and struck rows
-> there say what does not. Design prose has deliberately *not* been rewritten to
+> **What governs what gets built:** the **issue list**, the **acceptance** and
+> **negative-acceptance** tables, and the **corpus-section** table. Struck rows in
+> any of those say what does not. Design prose does not govern. Design prose has deliberately *not* been rewritten to
 > remove deferred concepts: it records why each decision was made, and deleting
 > it would leave the decisions standing with their reasons removed — which is
 > worse than a reader having to hold one caveat.
@@ -280,7 +281,7 @@ a new failure mode in whichever tier the fallback names.
 | `denial/tiers/` | Every `InternalReason`, asserting its tier |
 | `denial/uniformity/` | **Every cause inside a normalized class produces a byte-identical response**, asserted across causes. **Replaces `uniformity-b/` and `uniformity-c/` (2026-08-19)** — one assertion, not one per tier. This is the only demonstration Q2D-C-08 has |
 | `denial/tier-a/` | Protocol errors are distinct and informative |
-| `denial/escalation/` | Opaque by default; visible only where the class permits |
+| ~~`denial/escalation/`~~ | **Deferred 2026-08-19** with the escalation lifecycle; issue 7 is cut. | Opaque by default; visible only where the class permits |
 | `denial/no-retry/` | No retry metadata on any denial, including a rate-limit rejection |
 | ~~`denial/receipt-uniformity/`~~ | **Deferred 2026-08-19** — the escalation half is P-015's, and receipt uniformity across refusal causes rides in `denial/uniformity/`. ~~The reduced receipt is byte-identical across every Tier C cause, and an **opaque** escalation's receipt is indistinguishable from a plain denial's — only an explicit escalation carries `decision_class: escalate` |
 
@@ -350,15 +351,15 @@ comparison as uniformity.
 
 | Must fail | Observed as |
 |---|---|
-| Two Tier C causes producing different bytes | Cross-vector uniformity assertion fails |
-| Two Tier B causes distinguishable | Same, for Tier B |
+| Two causes **inside one normalized class** producing different bytes | Cross-vector uniformity assertion fails |
+| ~~Two Tier B causes distinguishable~~ | **Struck 2026-08-19** — the per-tier split is cut; the row above covers every class |
 | Response length varying with cause | Length comparison across `denial/uniformity-*/` |
 | `audit.reason` reaching a response | `build_denial` has no parameter it could arrive through |
 | An optional field on a denial present for some causes | Length varies; uniformity fails |
-| Explicit escalation where the class forbids it | `denial/escalation/` returns a visible response |
+| ~~Explicit escalation where the class forbids it~~ | **Struck 2026-08-19** — the escalation lifecycle is deferred, so there is no visible-escalation path to forbid. ~~`denial/escalation/` returns a visible response~~ |
 | A new `InternalReason` defaulting to a tier | Compile failure absent; a default branch exists |
 | Retry metadata appearing | `denial/no-retry/` fails |
-| A rate-limit rejection distinguishable from any other Tier C cause | `denial/uniformity-c/` fails once the rate-limit cause is in its input set |
+| A **quota** rejection distinguishable from any other cause in its class | `denial/uniformity/` fails once the rate-limit cause is in its input set |
 | **An opaque escalation's receipt carrying `decision_class: escalate`** | `denial/receipt-uniformity/` fails; the response bodies still match, which is why the receipt needs its own vector |
 | A claim of timing normalization | Grep for the phrase in docs and comments |
 

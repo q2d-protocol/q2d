@@ -19,8 +19,9 @@
 > deferred), that reasoning is **preserved as written and is not a requirement of
 > this release**.
 >
-> **The issue list in the last section governs what gets built**, and struck rows
-> there say what does not. Design prose has deliberately *not* been rewritten to
+> **What governs what gets built:** the **issue list**, the **acceptance** and
+> **negative-acceptance** tables, and the **corpus-section** table. Struck rows in
+> any of those say what does not. Design prose does not govern. Design prose has deliberately *not* been rewritten to
 > remove deferred concepts: it records why each decision was made, and deleting
 > it would leave the decisions standing with their reasons removed — which is
 > worse than a reader having to hold one caveat.
@@ -308,11 +309,11 @@ discover the problem on a live request.
 | A policy conditioning on the answer | No such field exists in `PolicyInput`; the type does not permit it |
 | A configuration overriding F1–F6 | Rejected at load, not at decision time |
 | An unreachable authority treated as absent | Composition returns `allow` where it must return `deny` |
-| A modifier producing a strict subset | `apply_modifiers` errors; the decision is an implementation error, not a restriction |
+| ~~A modifier producing a strict subset~~ | **Struck 2026-08-19** — modifiers deferred. ~~`apply_modifiers` errors; the decision is an implementation error, not a restriction |
 | A clock read inside the engine | Dependency check finds a time source |
 | Authority order changing the outcome | `policy/determinism/` permutation vector fails |
 | An audit reason reaching `external` | `policy/separation/` fails |
-| An engine returning `allow` with an empty modifier set where an authority required one | Modifier union drops a narrowing |
+| ~~An engine returning `allow` with an empty modifier set where an authority required one~~ | **Struck 2026-08-19** — modifiers deferred. ~~Modifier union drops a narrowing |
 
 Row 1 is the important one, and it is enforced by a type rather than a test —
 there is no way to write the offending policy because the input does not carry

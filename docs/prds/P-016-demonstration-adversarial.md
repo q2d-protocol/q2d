@@ -45,8 +45,9 @@
 > deferred), that reasoning is **preserved as written and is not a requirement of
 > this release**.
 >
-> **The issue list in the last section governs what gets built**, and struck rows
-> there say what does not. Design prose has deliberately *not* been rewritten to
+> **What governs what gets built:** the **issue list**, the **acceptance** and
+> **negative-acceptance** tables, and the **corpus-section** table. Struck rows in
+> any of those say what does not. Design prose does not govern. Design prose has deliberately *not* been rewritten to
 > remove deferred concepts: it records why each decision was made, and deleting
 > it would leave the decisions standing with their reasons removed — which is
 > worse than a reader having to hold one caveat.
@@ -432,7 +433,7 @@ for that reason.
 | Any measurement reported as fewer than three numbers | A single "bytes" figure appears anywhere |
 | Model-context bytes cited as evidence of evidence segregation | Q2D-C-12 referenced in a measurement context |
 | Capacity debit presented as a severity measure | "Only one bit" framing anywhere — Q2D-NC-07 |
-| The coverage matrix omitting claims with no passing test | Fewer than thirteen rows |
+| ~~The coverage matrix omitting claims with no passing test~~ | **Struck 2026-08-19** — `--matrix` is cut. `harness coverage` already lists every claim in `claims.md`, and the honesty property it protected now lives there |
 | Any artifact describing Phase 1 or MVP as complete in `claims.md`'s terms | Grep plus review |
 | A conformance class claimed whose checks do not all pass | The honesty rule |
 | Demo fixtures resembling a real person's dietary or religious profile | Review of the fixture files |

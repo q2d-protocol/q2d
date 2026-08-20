@@ -20,8 +20,9 @@
 > deferred), that reasoning is **preserved as written and is not a requirement of
 > this release**.
 >
-> **The issue list in the last section governs what gets built**, and struck rows
-> there say what does not. Design prose has deliberately *not* been rewritten to
+> **What governs what gets built:** the **issue list**, the **acceptance** and
+> **negative-acceptance** tables, and the **corpus-section** table. Struck rows in
+> any of those say what does not. Design prose does not govern. Design prose has deliberately *not* been rewritten to
 > remove deferred concepts: it records why each decision was made, and deleting
 > it would leave the decisions standing with their reasons removed — which is
 > worse than a reader having to hold one caveat.

@@ -230,6 +230,13 @@ is Q2D-C-09's problem, and it is a throttle, not a bar.
 data, policy refusal, budget exhaustion, rate-limit rejection, unsupported
 predicate, failed freshness, and internal escalation onto one external class,
 reducing explicit existence and policy oracles.
+
+**Two of those causes are unreachable in this release**, and the claim is a
+statement about what a responder *can* map rather than about which causes a given
+deployment produces. **Budget exhaustion** needs Q2D-C-09, *not attempted*; and
+**internal escalation** needs the escalation lifecycle, deferred. The remaining
+five are the surface this release actually normalizes, and the two are kept in
+the list because the claim binds them the moment they exist.
 **Holds when.** The external envelope, its size, and its retry semantics are
 identical for every internal cause in the class.
 **Enforced by.** A **closed** external schema — `core-model.md` §5.2's four
@@ -446,8 +453,12 @@ injection, because that framing invites both misreadings.
 | **Q2D-NC-12** | Novelty for source-side predicate APIs, information-flow control, capability authorization, cumulative leakage budgets, selective disclosure, trusted execution, or tamper-evident logs. The contribution is the composition. |
 | **Q2D-NC-13** | That a query is confidential from an intermediary. The 0.1 suite signs the payload and does not encrypt it, so a party holding the envelope reads every field of the core object — `routing`'s minimality (`core-model.md` §2.1) governs what is legible *without decoding*, which is a real difference and not a confidentiality boundary. A deployment needing one uses transport confidentiality or a suite 0.1 does not register. |
 
-| **Q2D-NC-14** | *(stated first in this table — see above)* That a bounded answer domain prevents prompt injection. |
-| **Q2D-NC-15** | *(stated first in this table — see above)* That Q2D constrains a hostile custodian. |
+**The table is ordered by likelihood of being assumed, not by identifier.**
+Q2D-NC-14 and Q2D-NC-15 sit at the top for that reason and appear **once**. An
+earlier draft also placed placeholder rows for them here, in numeric position,
+which gave two entries the same identifier — and this document is the traceability
+source for claim language, so an identifier that resolves to two rows is a defect
+rather than a convenience.
 
 Claims of being "the first" anything require a literature and patent search that
 has not been performed.

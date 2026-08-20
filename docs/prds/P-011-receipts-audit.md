@@ -42,8 +42,9 @@
 > deferred), that reasoning is **preserved as written and is not a requirement of
 > this release**.
 >
-> **The issue list in the last section governs what gets built**, and struck rows
-> there say what does not. Design prose has deliberately *not* been rewritten to
+> **What governs what gets built:** the **issue list**, the **acceptance** and
+> **negative-acceptance** tables, and the **corpus-section** table. Struck rows in
+> any of those say what does not. Design prose does not govern. Design prose has deliberately *not* been rewritten to
 > remove deferred concepts: it records why each decision was made, and deleting
 > it would leave the decisions standing with their reasons removed — which is
 > worse than a reader having to hold one caveat.
@@ -312,7 +313,7 @@ less.
 | `verify_receipt` silently checking less without a response | Result does not report the skipped check |
 | An acknowledgment field populated | It is reserved; populating it asserts semantics that do not exist |
 | Documentation calling a receipt proof of truth or proof of disclosure | Grep across artifacts |
-| An audit store with no expiry | Retention configuration absent or unbounded |
+| ~~An audit store with no expiry~~ | **Struck 2026-08-19** — retention machinery is deferred hardening, so an unbounded store is the expected state of a demonstration over synthetic fixtures. **Restore this row before any real deployment**: §4.7's argument that it becomes an ever-growing record of who asked what about whom is unchanged |
 
 Row 8 is subtle and worth a vector. A verifier that returns "valid" having
 checked less than the caller assumes is more dangerous than one that returns an
