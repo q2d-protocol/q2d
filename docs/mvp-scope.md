@@ -82,8 +82,10 @@ by people deciding whether to trust the protocol.
 The published artifacts must let someone attempt, without our help: **injection
 through the custodian's own data**, **injection through `public_context`**, **an
 out-of-domain value from a compromised predicate**, answer-domain understatement,
-suite downgrade, replay, duplicate debit, purpose substitution, sink
-substitution, and registry-digest substitution. Every one has a claim it would
+suite downgrade, replay, **duplicate evaluation on retry**, purpose substitution,
+sink substitution, and registry-digest substitution. (*Duplicate debit* until
+2026-08-20 — the budget is deferred, and what a retry must not do is evaluate
+again.) Every one has a claim it would
 break in [`spec/claims.md`](../spec/claims.md).
 
 **The first three are new, and they are the headline.** Tool poisoning works

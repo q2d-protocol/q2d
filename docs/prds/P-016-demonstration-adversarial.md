@@ -372,8 +372,10 @@ vectors carry `requirement` entries naming the claim — which is what lets
 - [ ] **`demo inject` shows the injected payload reaching the caller through a
       plain MCP tool and structurally unable to reach it through Q2D**, over the
       same fixture data. This is the demonstration.
-- [ ] Attacks **1–8** run, and each reports its actual outcome against its
-      expected one.
+- [ ] Attacks **1 and 3–8** run, and each reports its actual outcome against its
+      expected one. **Not attack 2** — capacity-debit forgery, struck with the
+      budget; the table above marks it, and this line said *1–8* until review
+      caught the two disagreeing.
 - [ ] ~~All ten attacks run; attack 10's expected outcome is *succeeds*.~~
       **Struck 2026-08-19** — attacks 9 and 10 are cut with the budget and the
       timing work.

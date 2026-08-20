@@ -247,8 +247,22 @@ profile is not a change to the order; a step that has moved is.
 `PrivateAccessAuthorized` — the capability token is what makes step 16
 unreachable without passing everything above it, and that property is
 independent of what step 15 checks. Step 18 still opens the transaction that
-step 19's bytes commit into, because the replay-cache entry and the quota tick
-commit together; what it no longer stages is a capacity debit.
+step 19's bytes commit into, for the replay-cache entry; what it no longer stages
+is a capacity debit.
+
+**The quota tick is not in that transaction, and must not be.** An earlier draft
+of this paragraph said the cache entry and the quota tick commit together, which
+inverts what the quota is for.
+[`core-model.md`](../../spec/core-model.md) §9.1 counts the request at **step
+9a** — it counts *authenticated requests*, not successful ones — and a tick that
+rolled back when a later step failed would make every failing path free. An
+attacker probing with requests that fail output validation would consume no
+quota at all, which is precisely the unbounded probing E-01 introduced the limit
+to close.
+
+So: **counted at 9a, never rolled back, whatever happens afterwards.** The
+transaction at 18–19 governs the cache entry, and a capacity debit if one ever
+exists again.
 
 **The transaction spans steps 18 and 19, and this is easy to get wrong.**
 [P-004](P-004-replay-idempotency.md) §4.6 requires the debit and the replay-cache
@@ -326,7 +340,7 @@ run through the whole responder rather than against a reference function.
 | A private value in an error | `EvaluationError` has no field that could hold one |
 | A panic payload surviving the boundary | Payload inspected or logged anywhere |
 | Out-of-domain output released | `validate/` vector returns an answer |
-| Out-of-domain output **committing anything** | A validation failure leaves a quota tick or a cache entry behind. **Retargeted 2026-08-19** from *debiting*, observed as a changed budget total |
+| ~~Out-of-domain output debiting~~ | **Struck 2026-08-20.** The property was *a validation failure must not debit*, which is Q2D-C-09's and is not attempted. **The quota is not its analogue**: it is counted at step 9a and deliberately never rolled back (§9.1), so a validation failure leaves the tick standing by design. And §4.7 caches every outcome from step 9 onward, so it leaves a cache entry by design too. A retarget of this row in the previous commit asserted the opposite of both and was wrong |
 | A step silently reordered | `ordering/` vector rejects at a different step |
 | An answer field derived from private input other than the result | Review of the answer builder; no test can catch this |
 | A predicate disagreeing with its registry entry | `evaluate/` vector produces a different result |

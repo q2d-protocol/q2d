@@ -764,7 +764,7 @@ issues 12, 13, and 14.
 | `domain/` | narrowing, understatement, expansion attempt | new |
 | ~~`budget/`~~ | ~~debit sequences, permutation equality, exhaustion~~ — **deferred 2026-08-19** with Q2D-C-09. A small `quota/` group belongs with the request quota when it is built | ~~new~~ |
 | `receipt/` | field binding, digest computation | new |
-| `ordering/` | one vector per rejection step, 1–15 **and the lettered steps among them, 5a, 9a and 11a** | new |
+| `ordering/` | one vector per rejection step, **1–14** — **not 15**, whose only rejection cause was budget exhaustion and which has none since Q2D-C-09 was marked not attempted (2026-08-20) — **and the lettered steps among them, 5a, 9a and 11a** | new |
 
 Stage 0 authors the format, the harness, and `message/`, `suite/`, and
 `ordering/`. Remaining sections are authored by the PRD that owns the behaviour,
