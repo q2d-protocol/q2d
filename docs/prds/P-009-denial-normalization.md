@@ -317,7 +317,8 @@ comparison as uniformity.
 - [ ] ~~Escalation is opaque unless the sensitivity class permits visibility.~~
       **Struck 2026-08-19** — the escalation lifecycle is deferred with
       [P-015](P-015-escalation-lifecycle.md).
-- [ ] **The receipt attached to a refusal is byte-identical across causes.** The
+- [ ] **The receipt attached to a refusal is byte-identical across the causes
+      inside its normalized class.** The
       escalation half of this criterion is struck with the lifecycle.
 - [ ] A **quota** rejection is one cause among the others inside its class, with
       no distinguishing field, header, or timing treatment. (Was *rate-limit*

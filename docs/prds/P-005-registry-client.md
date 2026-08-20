@@ -207,7 +207,7 @@ consumed by [P-010](P-010-responder-pipeline.md).
 - [ ] Both reject a validly-signed manifest whose digest is not pinned.
 - [ ] A load failure leaves the responder rejecting every query, not serving from
       a previous manifest.
-- [ ] All nine failure modes in §4.7 produce a **byte-identical** wire response —
+- [ ] All nine failure modes in §4.7 produce a **byte-identical** wire response — they are all in one normalized class, which is what makes the comparison meaningful —
       asserted by the P-001 cross-vector denial-uniformity check, not per-case.
 - [ ] A requester-declared entry-digest mismatch rejects, under the same wire
       response as every other resolution failure.

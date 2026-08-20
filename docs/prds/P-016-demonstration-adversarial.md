@@ -380,12 +380,16 @@ vectors carry `requirement` entries naming the claim — which is what lets
 - [ ] ~~`measure bytes`~~ · ~~`measure timing`~~ · ~~`harness coverage --matrix`~~
       · ~~`repro`~~ — **all struck 2026-08-19**. With measurement cut, nothing in
       this project can make an empirical claim in a future paper draft.
-- [ ] ~~An outsider reproduces the deterministic **measurements**~~ — **struck
-      2026-08-19** with `measure bytes`, `measure timing` and `repro`. Nothing
-      in this release produces a measurement to reproduce.
 - [ ] An outsider completes the [`mvp-scope.md`](../mvp-scope.md) §1 walkthrough
-      and reproduces the deterministic measurements from published artifacts
-      alone.
+      from published artifacts alone. ~~and reproduces the deterministic
+      measurements~~ — **struck 2026-08-19** with `measure bytes`, `measure
+      timing` and `repro`: nothing in this release produces a measurement to
+      reproduce.
+
+      *(Struck in place. Two earlier attempts added a corrected bullet above this
+      one and left the original standing, which is why review flagged it three
+      times — a correction that does not remove what it corrects is not a
+      correction.)*
 - [ ] Every published artifact passes a [`terminology.md`](../../spec/terminology.md)
       §9 vocabulary check.
 

@@ -158,7 +158,7 @@ The handler is constructed from `process`'s output **and nothing else**: no
 access to the `Decision`, the `InternalReason`, or the step recorder. The same
 shape as `build_denial`, one layer out.
 
-### 4.4 One refusal shape, and MCP's own guidance cuts against it
+### 4.4 One refusal shape per normalized class, and MCP's own guidance cuts against it
 
 MCP has two error mechanisms and the split is load-bearing:
 
@@ -348,7 +348,10 @@ different things and are reported in different fields.
    input schema is model-authored.
 2. **`outputSchema` comes from the pinned registry entry**, not from the server's
    own declaration. This is the PRD's reason to exist.
-3. **One refusal shape**, against MCP's stated convention for tool errors.
+3. **One refusal shape *within a normalized class***, against MCP's stated
+   convention for tool errors — and **Tier A's informative values stay
+   distinct**, which is `core-model.md` §5.2.1's rule and not this PRD's to
+   collapse.
 4. **Idempotency is the signed identifier.** No transport key, ever.
 5. **`tools/list` discloses no registry state.**
 6. **This binding claims transparency, not equivalence.** Q2D-C-11 needs two.
@@ -368,7 +371,7 @@ different things and are reported in different fields.
 | 1 | Registry entry → MCP tool definition | A manifest produces `tools/list`; the answer domain is the `outputSchema`; no registry state disclosed |
 | 2 | Contract carriage in `_meta` under `dev.q2d/` | `binding/contract/` passes, **including the absent-contract case failing closed** |
 | 3 | `tools/call` → `process` → answer and receipt in `structuredContent` | `binding/transparency/` byte-matches the direct call; open question 1 resolved |
-| 4 | Refusals map to one MCP error shape | `binding/errors/` passes **across causes**, not per cause |
+| 4 | Refusals **within a normalized class** map to one MCP error shape | `binding/errors/` passes **across the causes in that class**, not per cause — and asserts that **Tier A's values remain distinguishable** |
 | 5 | Server identity and key configuration | Configured key list; delegation documented as a no-op; loose key permissions refuse startup |
 | 6 | Config loading and startup validation | Each §4.6 row observable |
 | 7 | Author `binding/` corpus section | Six groups; `harness lint` clean |

@@ -194,8 +194,16 @@ true. This is origin and integrity only. See Q2D-NC-01 and Q2D-NC-10.
 ### Q2D-C-07 — Replay resistance
 
 **Claim.** An intercepted request cannot be reused within the supported window.
-An identical retry returns the cached outcome and does not debit the disclosure
-budget again.
+An identical retry returns **the stored response bytes**, without re-evaluating
+the predicate or reading private input again.
+
+**The second sentence said *"and does not debit the disclosure budget again"***
+until 2026-08-19. Q2D-C-09 is **not attempted in this release**, so there is no
+budget and no debit; promising duplicate-debit protection for an unbuilt
+mechanism would state more than the release can demonstrate. Returning the
+stored bytes is the stronger property anyway and was always the observable —
+nothing is regenerated, so two retries cannot differ, and where a budget exists
+returning stored bytes is *why* it is not debited twice.
 **Holds when.** The replay cache covers the expiry window and nonces have
 sufficient entropy. **Both halves are supplied by different parties.** The
 first is a responder's and [`freshness.md`](freshness.md) §1 makes it structural

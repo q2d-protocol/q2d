@@ -22,7 +22,9 @@ artifacts alone:
 4. run an **injected payload** through the custodian's own data and watch it fail
    to reach the caller — then see the same payload succeed against a plain MCP
    tool over the same data;
-5. observe a **refusal** and be unable to distinguish its cause from any other;
+5. observe a **refusal** and be unable to distinguish its cause from any other
+   **in the same normalized class** — Tier A's informative values stay distinct
+   on purpose ([`core-model.md`](../spec/core-model.md) §5.2.1);
 6. run the **conformance harness** against both implementations and see them
    agree;
 7. swap them — the **Rust responder against the Go one and vice versa** — and see
@@ -341,7 +343,7 @@ The last stage. Where the previous four become something somebody can import.
 - **[P-017](prds/P-017-mcp-binding.md) — the MCP binding.** A library that turns
   a pinned manifest into an MCP server: the answer domain becomes the tool's
   `outputSchema`, the signed contract rides in `_meta` under `dev.q2d/`, and
-  every refusal takes one shape.
+  every refusal **within a normalized class** takes one shape.
 - **A minimal test client** — enough to build a contract, sign it, and verify a
   response. Four issues out of [P-012](prds/P-012-requester-runtime.md), not its
   contained runtime.
