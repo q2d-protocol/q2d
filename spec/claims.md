@@ -210,6 +210,24 @@ indistinguishability property in 0.1. See Q2D-NC-05.
 
 ### Q2D-C-09 — Disclosure-capacity accounting
 
+> **Not attempted in this release.** Deferred 2026-08-19, and the reason is a
+> finding rather than a schedule: this claim measures a quantity that is not the
+> one anyone is worried about. Its own *Fails if* list below already concedes that
+> collusion, correlated predicates, auxiliary knowledge and cross-custodian
+> spreading each defeat it — and no operator can say what a budget of *N*
+> millibits permits or prevents.
+>
+> **What bounds probing instead is a required request quota**, keyed on the
+> relationship, checked at §9.1's step 9a, with no default. That is a rate limit;
+> it carries **no claim** and is not measured in these units, exactly as
+> [E-01](../docs/open-escalations.md) decided when it introduced one.
+>
+> **The claim is kept rather than deleted**, because it is cited by
+> [`core-model.md`](core-model.md) §2.5 — where the prohibition on subsetting is
+> justified by it — and by `conformance-classes.md` CC-2 and CC-3, and by seven
+> PRDs. It also remains the right claim to make if a deployment ever asks for a
+> subject-level cap enforced in bits. Nothing below is withdrawn; it is unbuilt.
+
 **Claim.** Each released finite-domain answer debits `log2(cardinality)` of the
 **effective** domain from a policy-defined budget, computed by the responder.
 Exhaustion escalates or denies.
@@ -233,7 +251,9 @@ unbounded.
 measures the capacity of an answer alphabet, not what an adversary learned. See
 Q2D-NC-04.
 **Verified by.** `conformance/budget-debit`, `conformance/adaptive-probing`,
-`conformance/sybil-relationship` — planned.
+`conformance/sybil-relationship` — **not attempted in this release**. The
+`registry/` vectors that cited this claim no longer do: they asserted a debit
+value, and there is nothing computing one.
 
 ### Q2D-C-10 — Exchange-bound accountability
 
@@ -242,8 +262,8 @@ receipt's contents depend on the outcome:
 
 - an **`answer`** binds the request digest, response digest, predicate and
   version, registry-entry digest, effective answer-contract digest, policy
-  version, release shape, assurance profile, capacity debit, decision time, and
-  responder identity;
+  version, release shape, assurance profile, decision time, and responder
+  identity;
 - a **`deny`**, and an **explicit `escalate`**, bind the request digest, decision
   class, decision time, responder identity, and signature suite — and nothing
   else.
@@ -255,8 +275,17 @@ the predicate would partition denials by predicate, defeating Q2D-C-08 through
 the evidence attached to the response. What a reduced receipt attests is *this
 exchange happened, at this time, and produced this external class* — which is the
 accountability a denial can honestly support.
+**The capacity debit left this list on 2026-08-19**, with Q2D-C-09. A field whose
+only available value is zero is a lie in waiting — a reader seeing `0` would
+conclude the answer disclosed nothing. The list is closed
+([E-22](../docs/open-escalations.md)), so removing a field is a specification
+change and is recorded as one. If a disclosure-magnitude field is ever wanted, it
+gets a **new name and its own reasoning**, rather than this one restored with a
+different meaning.
 **Holds when.** The responder issues a receipt for every outcome and retains
 detailed audit locally ([`core-model.md`](core-model.md) §5.2, §5.3, §6).
+**The local audit is load-bearing, not incidental**: a receipt with no retained
+audit behind it satisfies half of this claim.
 **Enforced by.** Receipt construction under the response signature.
 **Fails if.** A binding omits receipt fields; audit and receipt diverge; an
 outcome is returned with no receipt at all; a reduced receipt is read as
@@ -271,6 +300,9 @@ a runtime processed an exchange.
 ## Composition claim
 
 ### Q2D-C-11 — Binding equivalence
+
+> **Not attempted in this release.** Deferred 2026-08-19. Binding equivalence is a statement **between** bindings, and this release builds one — MCP. A second binding is what would make it testable. Kept rather
+> than deleted: it is the claim to make when the work exists.
 
 **Claim.** Two conforming bindings carrying the same core exchange preserve
 identical semantics: identity and delegation, predicate and registry reference,
@@ -294,6 +326,9 @@ without it may claim everything above and nothing below.
 
 ### Q2D-C-12 — Evidence segregation
 
+> **Not attempted in this release.** Deferred 2026-08-19. Conditional on `q2d-contained-runtime-0.1`. The contained requester runtime is deferred, CC-10 is not built, and there is no model in the loop to segregate evidence from. Kept rather
+> than deleted: it is the claim to make when the work exists.
+
 **Claim.** Signatures, credentials, proofs, policy traces, and receipts are
 verified in the requester runtime and do not enter model context. The agent
 receives the semantic answer and the minimum metadata policy permits.
@@ -308,6 +343,9 @@ available to injection; it does not declassify the answer.
 **Verified by.** `conformance/model-context-content` — planned.
 
 ### Q2D-C-13 — Conditional flow confinement
+
+> **Not attempted in this release.** Deferred 2026-08-19. Same. Confining answer-derived flows requires **every** relevant sink to be mediated, and this release mediates none. Kept rather
+> than deleted: it is the claim to make when the work exists.
 
 **Claim.** Answer-derived machine outputs reach only sinks permitted by the
 effective contract and local policy.

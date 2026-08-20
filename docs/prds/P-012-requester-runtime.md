@@ -419,15 +419,27 @@ is also why §4.2 injects the nonce and the clock.
 
 ## 7. Acceptance
 
+> **Struck 2026-08-19 — scope reduction.** Only the criteria a **test client**
+> can meet survive. The contained runtime is deferred, so responder budget
+> totals, retry and no-reissue handling, receipt retention, projection and the
+> evidence-accessor property are all struck below: the surviving four issues
+> cannot satisfy them, and a PRD whose gates outrun its issues overstates what
+> the release demonstrates.
+>
+> **What survives:** byte-identical signed queries, and a response with a bad
+> suite, a failing signature, or a receipt binding a different request being
+> rejected. That is Q2D-C-01's requester half and nothing more.
+
 - [ ] Both implementations produce **byte-identical** signed queries for every
       `requester/sign/` vector.
-- [ ] Each implementation's requester query verifies in the other's responder,
-      and each verifies the other's response. **This is
-      [P-001](P-001-conformance-corpus.md) issue 19**, not the `harness cross`
-      that exists today — that one compares what two runners each produced,
-      which exercises both signers and neither verifier.
-- [ ] No path exists from response bytes to an `Answer` that skips verification
-      — asserted by the type, not by a test.
+- [ ] ~~Each implementation's requester query verifies in the other's
+      responder, and each verifies the other's response.~~ **Struck 2026-08-19**
+      — deferred with issue 13. Cross-implementation agreement is still asserted
+      by `harness cross` and [P-001](P-001-conformance-corpus.md) issue 19, both
+      of which survive.
+- [ ] ~~No path exists from response bytes to an `Answer` that skips
+      verification — asserted by the type.~~ **Struck 2026-08-19** — the
+      no-accessor property is issue 8's, deferred with Q2D-C-12.
 - [ ] A response below the requester's suite floor, with a failing signature, or
       with a receipt binding a different request, is rejected by both. This is
       the Stage 5 gate, stated in [`mvp-scope.md`](../mvp-scope.md) §4.

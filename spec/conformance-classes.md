@@ -80,7 +80,10 @@ no rate limit configured; accept a suite below its policy floor or offer an alte
 suite in a rejection; silently downgrade a requested assurance profile;
 serialize private input into an error.
 
-**Supports.** Q2D-C-02, Q2D-C-03, Q2D-C-04, Q2D-C-06, Q2D-C-07, Q2D-C-09, Q2D-C-10.
+**Supports.** Q2D-C-02, Q2D-C-03, Q2D-C-04, Q2D-C-06, Q2D-C-07, Q2D-C-10 — and
+Q2D-C-09, which is **not attempted in this release** ([`claims.md`](claims.md)).
+A class supports a claim it would help establish; it does not assert that the
+claim is attempted.
 
 **Requires.** CC-3 and at least one assurance-profile class.
 
@@ -96,7 +99,7 @@ deny prevents; keep detailed reasons local.
 disclose policy reasoning in an externally visible response unless a policy
 explicitly permits it.
 
-**Supports.** Q2D-C-08, Q2D-C-09.
+**Supports.** Q2D-C-08 — and Q2D-C-09, **not attempted in this release**.
 
 **Note.** Q2D specifies the policy input and output contract, not a policy
 language. XACML, OPA/Rego, or local code may implement this class.
@@ -275,7 +278,7 @@ with no owning class is a specification gap.
 | Q2D-C-06 response authentication | CC-2, CC-4 |
 | Q2D-C-07 replay resistance | CC-1, CC-2 |
 | Q2D-C-08 denial normalization | CC-2, CC-3 |
-| Q2D-C-09 disclosure-capacity accounting | CC-2, CC-3 |
+| Q2D-C-09 disclosure-capacity accounting — **not attempted in this release** | CC-2, CC-3 |
 | Q2D-C-10 exchange-bound accountability | CC-2, CC-11 |
 | Q2D-C-11 binding equivalence | CC-8, CC-9, CC-12 |
 | Q2D-C-12 evidence segregation | CC-10 |

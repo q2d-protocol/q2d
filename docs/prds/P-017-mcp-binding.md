@@ -45,6 +45,7 @@ where a caller can read it. **Not Q2D-C-11** — binding equivalence is a statem
 | [`scope.md`](../../spec/scope.md) §6 | What makes a binding non-conformant: dropping a field the transport has no place for |
 | [`claims.md`](../../spec/claims.md) Q2D-C-03 | Bounded output |
 | [`claims.md`](../../spec/claims.md) Q2D-C-10 | Receipt binding |
+| [`conformance-classes.md`](../../spec/conformance-classes.md) **CC-8** | **The MCP binding class.** Its musts and must-nots are this PRD's acceptance, not a subset chosen here |
 
 ## 3. Module boundary
 
@@ -103,11 +104,19 @@ oracle in the one place every client reads first.
 
 `_meta["dev.q2d/contract"]` carries the signed answer contract.
 
-**The decisive argument is about who writes it.** MCP tools are model-controlled:
-the language model reads `inputSchema` and fills in the parameters. Putting the
-contract there asks a model to produce a signed commitment to purpose, recipient
-and permitted sinks — which it cannot do, must not do, and would produce
-something plausible-looking instead.
+**This is CC-8's requirement and not a judgement made here.**
+[`conformance-classes.md`](../../spec/conformance-classes.md) CC-8 already
+states that a conforming MCP binding must *"construct and verify the signed core
+object in the **host-side runtime, not in model-visible tool arguments or
+results**."* An earlier draft of this section derived that from first principles
+without citing it, which is the paraphrase CLAUDE.md forbids — and it arrived at
+the same answer, which is the useful part: the reasoning below is why the class
+says what it says, not an independent argument for it.
+
+MCP tools are model-controlled: the language model reads `inputSchema` and fills
+in the parameters. Putting the contract there asks a model to produce a signed
+commitment to purpose, recipient and permitted sinks — which it cannot do, must
+not do, and would produce something plausible-looking instead.
 
 > Anything in `inputSchema` is model-authored by construction. The contract comes
 > from the runtime.
@@ -121,9 +130,11 @@ Secondary reasons, neither sufficient alone: a contract in `inputSchema` would
 appear in every `tools/list` response and burn context, and it would make a
 missing contract a schema error rather than a protocol refusal.
 
-**A missing or stripped contract fails closed.** An intermediary that drops
-unknown `_meta` keys therefore makes every request fail — safe, but it means
-Q2D-over-MCP cannot traverse arbitrary proxies. That is a documented limitation
+**A missing or stripped contract fails closed**, which is CC-8's must-not:
+*"broaden an answer domain or drop a declared sink because the transport lacks a
+native field for it — **fail instead**."* An intermediary that drops unknown
+`_meta` keys therefore makes every request fail — safe, but it means Q2D-over-MCP
+cannot traverse arbitrary proxies. That is a documented limitation
 rather than one to be discovered, and if it proves common the fallback is a
 dedicated HTTP header. **Never a tool argument.**
 
@@ -278,6 +289,32 @@ rests on filesystem permissions.**
       a different JSON-RPC request id.
 - [ ] Each §4.6 row refuses to start.
 - [ ] Someone who did not write it stands up a server from the quickstart alone.
+
+**CC-8's musts and must-nots, each with a check.**
+[`conformance-classes.md`](../../spec/conformance-classes.md)'s honesty rule
+means the class is claimed only when every one passes, so a must with no check is
+a class that cannot honestly be claimed.
+
+- [ ] **Every field and security semantic in `core-model.md` preserved** —
+      `binding/transparency/`, which is a byte comparison and therefore covers
+      the whole object rather than a field list someone maintained.
+- [ ] **The signed core object is constructed and verified in the host-side
+      runtime, not in model-visible tool arguments or results** — §4.2, and
+      `binding/contract/`'s vector asserting a contract in a tool argument is
+      ignored rather than honoured.
+- [ ] **Evidence stays out of the model-visible result where containment is
+      claimed** — vacuous here and stated as such: **containment is not claimed**,
+      Q2D-C-12 is not attempted, and CC-10 is not built.
+- [ ] **Composes with rather than duplicates MCP authorization** — §4.7 adds no
+      authorization scheme; MCP's is MCP's. A binding that introduced its own
+      would be deciding something the signature covers.
+- [ ] **Must not** broaden an answer domain or drop a declared sink because the
+      transport lacks a native field — `binding/contract/`'s stripped-contract
+      vector, which fails closed.
+
+**CC-8 supports Q2D-C-11, and passing CC-8 does not establish it.** Equivalence
+is a statement between bindings; class conformance and claim coverage are
+different things and are reported in different fields.
 
 ## 8. Negative acceptance
 

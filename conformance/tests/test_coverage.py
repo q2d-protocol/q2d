@@ -50,7 +50,16 @@ def coverage(corpus: Path) -> tuple[int, str]:
 #
 # Every other claim is still uncovered, and stays named in the report for that
 # reason.
-COVERED_TODAY = ("Q2D-C-03", "Q2D-C-05", "Q2D-C-08", "Q2D-C-09")
+# Q2D-C-09 left this tuple on 2026-08-19 and the drop from four to three is
+# deliberate. It is **not attempted in this release** (claims.md), so the nine
+# `registry/` vectors stopped citing it and stopped asserting a debit -- a
+# vector citing a claim nothing implements reports coverage that does not
+# exist.
+#
+# This test failing was the intended behaviour of the change, not a casualty of
+# it: the assertion exists so that a vector starting or stopping citing a claim
+# turns red until someone updates this line deliberately.
+COVERED_TODAY = ("Q2D-C-03", "Q2D-C-05", "Q2D-C-08")
 
 
 class StageZeroExpectedStateTest(unittest.TestCase):

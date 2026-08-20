@@ -3,11 +3,10 @@
   "section": "registry",
   "requirement": [
     "Q2D-C-03",
-    "Q2D-C-09",
     "CC-2",
     "core-model.md#4"
   ],
-  "description": "Menu compatibility (menu-compatible): no-constraints-is-always-compatible — answers true, debiting 1000 millibits. Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
+  "description": "Menu compatibility (menu-compatible): no-constraints-is-always-compatible — answers true. Folded from registry/manifest.json by tools/fold_registry.py; edit the manifest, not this file.",
   "operation": "evaluate_predicate",
   "input": {
     "predicate": {
@@ -31,8 +30,7 @@
   "expect": {
     "outcome": "ok",
     "output": {
-      "result": true,
-      "capacity_debit_millibits": 1000
+      "result": true
     },
     "comparison": "semantic"
   }

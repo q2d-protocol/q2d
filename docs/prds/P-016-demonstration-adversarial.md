@@ -380,15 +380,23 @@ vectors carry `requirement` entries naming the claim — which is what lets
 - [ ] ~~`measure bytes`~~ · ~~`measure timing`~~ · ~~`harness coverage --matrix`~~
       · ~~`repro`~~ — **all struck 2026-08-19**. With measurement cut, nothing in
       this project can make an empirical claim in a future paper draft.
+- [ ] ~~An outsider reproduces the deterministic **measurements**~~ — **struck
+      2026-08-19** with `measure bytes`, `measure timing` and `repro`. Nothing
+      in this release produces a measurement to reproduce.
 - [ ] An outsider completes the [`mvp-scope.md`](../mvp-scope.md) §1 walkthrough
       and reproduces the deterministic measurements from published artifacts
       alone.
 - [ ] Every published artifact passes a [`terminology.md`](../../spec/terminology.md)
       §9 vocabulary check.
 
-The seventh cannot be self-certified, and neither can the eighth be delegated to
-grep alone — §9's prohibitions are about meaning, and a sentence can overstate
-without using a listed phrase.
+**Two of these cannot be delegated.** The outsider walkthrough cannot be
+self-certified — that is the part of the cut release ritual worth keeping — and
+the vocabulary check cannot be handed to grep, because §9's prohibitions are
+about meaning and a sentence can overstate without using a listed phrase.
+
+The ordinal references in this section were written against the pre-reduction
+list and are no longer counted; the two criteria are named rather than numbered
+for that reason.
 
 ## 8. Negative acceptance
 

@@ -283,12 +283,24 @@ rather than an error.
 prohibited because a result among the discarded values would fall outside the
 requested domain and fail closed. **That failure is informative.** A requester
 asking a boolean predicate with a requested domain of `[true]` receives `true`
-for a true result and a denial for a false one, learning the answer either way
-while debiting `log2(1)` — nothing. Denial normalization cannot help: the
-requester constructed a question whose only failure mode is the answer it
-wanted, and no uniformity of response erases what it knows about its own
-request. Permitting subsets would defeat Q2D-C-09 for every predicate whose
-domain can be subsetted.
+for a true result and a denial for a false one, **learning the answer either
+way**. Denial normalization cannot help: the requester constructed a question
+whose only failure mode is the answer it wanted, and no uniformity of response
+erases what it knows about its own request.
+
+**The prohibition rests on that oracle and not on any accounting.** A subset of
+one turns a bounded answer into a membership test, and a membership test answered
+by the *shape* of the reply is an oracle whether or not anything is metered. This
+paragraph previously derived the rule from the debit — *the requester learns the
+answer while debiting `log2(1)`, nothing* — which was true and was the weaker
+reason: it made a rule about disclosure depend on a mechanism that could be
+configured, deferred, or absent. Q2D-C-09 is **not attempted in this release**
+([`claims.md`](claims.md)) and the rule is unchanged, which is the test that it
+never needed the budget.
+
+Where a budget does exist, subsetting defeats Q2D-C-09 as well, for every
+predicate whose domain can be subsetted. That is a consequence of the rule rather
+than its justification.
 
 The same rule binds policy modifiers (§3, [`terminology.md`](terminology.md) §6):
 a modifier coarsens and never subsets, so every result retains an image
@@ -1091,7 +1103,6 @@ field list**; where any other document disagrees, this one governs.
 | `release_shape` | the effective domain's shape |
 | `assurance_profile` | the profile actually used |
 | `signature_suite` | so the receipt stays assessable after that suite is deprecated |
-| `disclosure_capacity_debit_millibits` | integer |
 | `decided_at` | A timestamp — §2.2 |
 | `responder` | the computation executor's identity |
 
@@ -1215,11 +1226,17 @@ a difference a requester can measure, and therefore an existence oracle. See §4
 The reason is that the two mechanisms measure different things. Q2D-C-09 accounts
 for *disclosure*, in millibits of answer alphabet. A denial discloses nothing
 from the answer alphabet; what it can leak is policy structure, which has no
-bit-count in this model. Debiting it would make
-`disclosure_capacity_debit_millibits` a number that no longer means what
-Q2D-C-09 says it means. Debiting would also let any party that can reach a
-custodian spend a subject's budget without ever receiving an answer, so that
-legitimate requesters are refused — a harm to a third party that no claim covers.
+bit-count in this model. Debiting it would make the recorded debit a number that
+no longer means what Q2D-C-09 says it means. Debiting would also let any party
+that can reach a custodian spend a subject's budget without ever receiving an
+answer, so that legitimate requesters are refused — a harm to a third party that
+no claim covers.
+
+**The rate limit is the whole of this in the current release**, because
+Q2D-C-09 is not attempted and no budget exists to debit
+([`claims.md`](claims.md)). The two requirements below were written as conditions
+on *not debiting*; with nothing to debit they are simply the requirements, and
+the first is the one that carries the weight.
 
 Two requirements come with this, and without them the decision is unsafe:
 
