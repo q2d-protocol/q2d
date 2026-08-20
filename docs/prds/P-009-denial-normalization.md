@@ -11,6 +11,25 @@
 | Blocks | P-010, P-013, P-014, P-015, P-016 |
 | Pairs with | [P-007](P-007-policy-engine.md) — P-007 separates the audit reason from the external class; this PRD is what stops the reason reaching the wire |
 
+
+> **Shrunk 2026-08-19 — scope reduction.**
+>
+> Q2D-C-08 reduces to **one refusal shape, no cause-specific text** — the part
+> that is true, testable and cheap. [`terminology.md`](../../spec/terminology.md)
+> §9 already forbade claiming the stronger property, and
+> [`claims.md`](../../spec/claims.md) Q2D-NC-05 already conceded that timing, size
+> and notification channels remain.
+>
+> **Kept:** the closed `InternalReason` enum, `classify`, `external_class`,
+> `build_denial`, the corpus section, the documentation audit — and issue 6,
+> **repurposed** from *Tier C uniformity* to **one refusal shape across every
+> cause**, asserted across causes rather than per cause. That is now the only
+> demonstration Q2D-C-08 has.
+>
+> **Cut:** Tier B uniformity, the `escalation_visible` gate and the escalate
+> receipt split (both belong to the deferred escalation lifecycle), and the timing
+> padding hook — whose only consumer was the measurement work, also cut.
+
 ---
 
 ## 1. Purpose

@@ -4,11 +4,40 @@
 |---|---|
 | PRD | P-008 |
 | Stage | 3 |
-| Status | **Ready for decomposition** |
+| Status | **Deferred 2026-08-19** — see the note below |
 | Size | M |
 | Risk | medium |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md) |
 | Blocks | P-010, P-011, P-015, P-016 |
+
+
+> **Deferred 2026-08-19 — not withdrawn.**
+>
+> Q2D-C-09 metered disclosure in millibits of answer-alphabet capacity. But
+> [`claims.md`](../../spec/claims.md) already recorded that it is **not** an
+> inference or privacy guarantee, and its own *Fails if* list conceded that
+> collusion, correlated predicates, auxiliary knowledge and cross-custodian
+> spreading all defeat it — so it measured a quantity nobody is worried about. No
+> operator can say what a budget of *N* millibits permits.
+>
+> It was also the largest complexity source in the repository: integer millibits,
+> capacity tables, the no-runtime-`log2` rule, reservations, `settle`/`release`,
+> reservation expiry, [P-004](P-004-replay-idempotency.md) issue 5's atomic commit,
+> and the whole [E-25 … E-30](../open-escalations.md) coarsening chain.
+>
+> **What replaces it:** a **request quota** keyed on `(requester, predicate,
+> subject, window)`, required configuration with no default, checked at step 9a.
+> E-01 had already established that a rate limit is the mechanism bounding probing;
+> this makes it the only one. Issue 5a survives as that quota.
+>
+> **What would bring it back:** a deployment that genuinely wants a subject-level
+> cap enforced in bits — a data-protection authority asking *how much did this
+> subject disclose this quarter, and cap it*. **[E-01](../open-escalations.md) and
+> [E-25 … E-30](../open-escalations.md) park here** rather than being closed:
+> nothing was decided, the questions simply have no consumer.
+>
+> Full reasoning: `private-docs/scope-reduction-proposal.md`. **Everything below
+> is preserved as written**, and describes the scope that was planned.
 
 ---
 

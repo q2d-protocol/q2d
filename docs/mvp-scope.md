@@ -14,20 +14,30 @@ more PRDs, each PRD enumerates issues, each issue is tracked.
 MVP is reached when a person who has never seen this repository can, from public
 artifacts alone:
 
-1. run a **custodian** on one machine and a **requester** on another;
-2. pair them under the local pairing profile;
-3. have the requester ask `menu_compatible` and receive a bounded, signed answer
-   with a receipt it can verify;
-4. observe a **denial** and a **normalized denial** and be unable to distinguish
-   causes on the wire;
-5. exhaust a disclosure-capacity budget and watch the next query escalate;
+1. stand up a **custodian as an MCP server** from a pinned predicate manifest;
+2. configure a requester key and ask `menu_compatible`, receiving a bounded,
+   signed answer with a receipt it can verify;
+3. see the tool's `outputSchema` **come from the pinned registry entry**, and a
+   value outside it never leave the server;
+4. run an **injected payload** through the custodian's own data and watch it fail
+   to reach the caller — then see the same payload succeed against a plain MCP
+   tool over the same data;
+5. observe a **refusal** and be unable to distinguish its cause from any other;
 6. run the **conformance harness** against both implementations and see them
    agree;
-7. swap them — the **Rust requester against the Go custodian and vice versa** —
-   and see identical behaviour.
+7. swap them — the **Rust responder against the Go one and vice versa** — and see
+   identical behaviour.
 
-Item 7 is the one that matters. Anything less than cross-implementation
-interoperability is one implementation with a spare copy.
+Items 4 and 7 are the ones that matter. Item 4 is the demonstration: it is the
+difference between a design argument and something a skeptic can run. Item 7 is
+the evidence the specification is unambiguous — anything less than
+cross-implementation agreement is one implementation with a spare copy.
+
+**This list changed on 2026-08-19.** It previously required a two-machine pairing
+ceremony, a bespoke HTTPS daemon, and exhausting a disclosure-capacity budget to
+watch a query escalate. The pairing profile, the daemon and the budget are all
+deferred (§2), and the walkthrough is the one the reduced scope can actually
+complete.
 
 ### MVP completion is not Phase 1 completion
 
@@ -35,18 +45,26 @@ The list above is the walkthrough. It is **not** the condition
 [`spec/claims.md`](../spec/claims.md) sets for describing Phase 1 as complete,
 which is that every claim maps to at least one passing executable check.
 
-At the end of MVP, three of the thirteen claims will still have no passing test:
+At the end of MVP, **five of the thirteen claims** will have no passing test:
 
 | Claim | Why |
 |---|---|
+| Q2D-C-09 disclosure-capacity accounting | **Deferred 2026-08-19.** A request quota bounds probing instead; the budget measured a quantity `claims.md`'s own *Fails if* list conceded was defeated by collusion, correlated predicates and cross-custodian spreading |
 | Q2D-C-11 binding equivalence | Equivalence is a statement between two bindings. MVP builds one |
 | Q2D-C-12 evidence segregation | Conditional on `q2d-contained-runtime-0.1`; CC-10 is not built |
 | Q2D-C-13 conditional flow confinement | Same |
+| Q2D-C-07 replay resistance *(partially)* | Holds for the responder's half; the requester-side entropy obligation has no responder-side check — [E-49](open-escalations.md) |
+
+**Deferred is not withdrawn.** They stay in [`claims.md`](../spec/claims.md)
+marked *not attempted in this release*, which is stronger than deleting them and
+honest about what the demonstration shows. Exactly how C-09 is worded, and
+whether Q2D-C-10's receipt field list loses its capacity-debit entry, is a
+`claims.md` change and therefore not this document's — it is tracked as **Q2D-234**.
 
 They are design intentions with no passing test, and
-[P-016](prds/P-016-demonstration-adversarial.md) §4.6's traceability matrix
-reports them that way — in the same table as the ten that pass, rather than
-omitted or footnoted.
+[P-016](prds/P-016-demonstration-adversarial.md)'s coverage reporting shows them
+that way — in the same table as the ones that pass, rather than omitted or
+footnoted.
 
 **No artifact may describe finishing this walkthrough as completing Phase 1.**
 The two documents use "done" for different things, and only one of them is read
@@ -54,12 +72,24 @@ by people deciding whether to trust the protocol.
 
 ### What "attackable" means concretely
 
-The published artifacts must let someone attempt, without our help: answer-domain
-understatement, capacity-debit forgery, suite downgrade, replay, duplicate debit,
-purpose substitution, sink substitution, registry-digest substitution, adaptive
-probing to reconstruct a constraint set, and timing analysis of denial paths.
-Every one of those has a claim it would break in
-[`spec/claims.md`](../spec/claims.md).
+The published artifacts must let someone attempt, without our help: **injection
+through the custodian's own data**, **injection through `public_context`**, **an
+out-of-domain value from a compromised predicate**, answer-domain understatement,
+suite downgrade, replay, duplicate debit, purpose substitution, sink
+substitution, and registry-digest substitution. Every one has a claim it would
+break in [`spec/claims.md`](../spec/claims.md).
+
+**The first three are new, and they are the headline.** Tool poisoning works
+because an ordinary tool's response channel is wide enough to carry an
+instruction. A Q2D predicate returns a boolean, a small enum, or a slot, and
+[`core-model.md`](../spec/core-model.md) §4 step 17 validates before release —
+so a payload in the data has nowhere to ride out. The third vector is the one
+that makes it structural rather than incidental: it rigs the predicate itself to
+return the payload and shows step 17 refusing anyway.
+
+**Two attacks left this list**: adaptive probing to reconstruct a constraint set,
+which attacked the deferred budget, and timing analysis of denial paths, which
+[`claims.md`](../spec/claims.md) Q2D-NC-05 already concedes succeeds.
 
 ---
 
@@ -68,11 +98,22 @@ Every one of those has a claim it would break in
 Deferring these is what makes MVP finishable. Each is deferred in
 [`spec/scope.md`](../spec/scope.md) §7 or by conformance class.
 
+**Nine rows were added on 2026-08-19**, when the project's goal was restated as a
+*demonstration people can import and configure* rather than a protocol being
+hardened for adoption. Each says what would bring it back.
+
 | Not building | Why | Class |
 |---|---|---|
-| Contained requester runtime | Large, and the source-side claims stand without it | CC-10 |
-| MCP binding | HTTPS is the reference binding; MCP follows once semantics are proven | CC-8 |
-| A2A binding | Same | CC-9 |
+| **Disclosure-capacity budget** | Metered a quantity `claims.md` already conceded was defeated by collusion and correlated predicates, and no operator can say what *N* millibits permits. A **request quota** bounds probing instead. Back when a deployment asks for a subject-level cap in bits | — |
+| **Contained requester runtime** | Asks agent developers to adopt a sink-mediating runtime for a benefit accruing to the custodian. A minimal test client supplies what Q2D-C-01 needs | CC-10 |
+| **Direct HTTPS binding** | Superseded by the MCP binding. Re-solving transport worse is not a contribution | CC-12 |
+| **Identity and the local pairing profile** | A configured key list does what the demonstration needs. MCP moved toward standard OAuth/CIMD; a bespoke pairing profile is a worse answer to a solved problem | — |
+| **Escalation lifecycle** | Human approval, grants, tokens and polling are how a deployment handles a `deny` — a product feature, not a protocol primitive | — |
+| **Local audit store** | Receipts are returned, not stored. Append-only encrypted storage with retention is enterprise infrastructure. **The cut most worth revisiting**: the auditor is one of two identified buyers | — |
+| **Denial tier taxonomy** | Shrunk to *one refusal shape, no cause-specific text* — the part that is true, testable and cheap. `terminology.md` §9 already forbade claiming more | — |
+| **Disclosure and timing measurement** | Removes the ability to make an empirical claim in a future draft, which is the clearest cost of the reduction | — |
+| **Policy-side coarsening modifiers** | Existed largely to keep capacity computable under policy narrowing. Six escalations (E-25 … E-30) were about making coarsening well-defined; they park with the budget | — |
+| A2A binding | MCP is the reference binding | CC-9 |
 | Credential, verifiable-computation, attested-use profiles | Deferred by scope; each needs separate cryptographic review | CC-5/6/7 |
 | Store-and-forward relay, HPKE payload protection | Needs the relay profile, which 0.1 does not specify | — |
 | Registry federation | Needs implementation experience first | — |
@@ -82,6 +123,15 @@ Deferring these is what makes MVP finishable. Each is deferred in
 **Compatibility mode is the MVP posture.** A deployment built to this plan may
 claim *"bounded authenticated answer from a participating custodian."* It may not
 claim *"answer-derived flow restricted to permitted sinks."*
+
+**Two things this plan does not defend against, and they belong here rather than
+only in the threat model.** Q2D constrains a **participating** custodian; it does
+nothing about a hostile or compromised MCP server, and it is a way for an honest
+custodian to prove it is honest rather than a way to constrain a dishonest one.
+And a bounded answer domain closes the **response** channel only — a poisoned
+tool `description` or `inputSchema` still reaches model context untouched. Both
+are being added to [`claims.md`](../spec/claims.md)'s non-claims list under
+**Q2D-233**.
 
 ---
 
@@ -191,31 +241,36 @@ refused before any private access.
 
 ---
 
-### Stage 3 — Policy engine, budget, denial normalization
+### Stage 3 — Policy engine, quota, refusal shape
 
-- Policy input/output contract; `allow` / `deny` / `escalate` plus modifiers.
+- Policy input/output contract; `allow` / `deny`. **No coarsening modifiers** —
+  they existed largely to keep the deferred capacity budget computable, and the
+  six escalations that defined them (E-25 … E-30) park with it.
 - Fail-closed invariants as **property tests**, not examples: unknown scope,
   missing mandatory authority, conflicting authorities, unresolvable context.
 - Restrictive composition across multiple authorities.
-- Budget store keyed by a policy-defined tuple; integer millibit accumulation;
-  debit-once idempotency. **Only a released answer debits** — a denial, an
-  escalation, and a rate-limit rejection do not
-  ([`core-model.md`](../spec/core-model.md) §9.1).
-- Rate limiting at [`core-model.md`](../spec/core-model.md) §4 **step 9a**, keyed
-  on the **relationship only** — not the full budget key, because sensitivity
-  class is not known until step 10, and a limiter that skipped unresolved
-  predicates would leave unknown ones unlimited and become an existence oracle.
-  **Required configuration with no default**; the responder refuses to start
-  without it, and a rate-limit rejection is normalized like any other cause.
-- Denial normalization: one external class per sensitivity class, identical
-  payload, identical size, identical retry semantics.
+- **Request quota** at [`core-model.md`](../spec/core-model.md) §4 **step 9a**,
+  keyed on the **relationship only** — not on anything requiring registry
+  resolution, because sensitivity class is unknown until step 10 and a limiter
+  that skipped unresolved predicates would leave unknown ones unlimited and
+  become an existence oracle. **Required configuration with no default**; the
+  server refuses to start without it, and a quota rejection is normalized like
+  any other cause.
+- **One refusal shape**: every cause produces a byte-identical response, with no
+  cause-specific text, no retry guidance, and no size that varies with cause.
 
 **Gate:** a property test asserts no user-authored rule can override a
-fail-closed invariant. A test asserts that every rejection cause in a normalized
-class produces a byte-identical response — the same cross-vector invariant
-`registry/validate.py` already applies to registry rejections.
+fail-closed invariant. A test asserts that every refusal cause produces a
+byte-identical response, **compared across causes rather than per cause** — the
+same cross-vector invariant `registry/validate.py` already applies to registry
+rejections. A per-case test compares a response to itself and cannot fail.
 
-**Claims:** Q2D-C-08, Q2D-C-09 · **Size:** L · **Risk:** medium
+**Claims:** Q2D-C-08, in its shrunk form. **Not Q2D-C-09** — deferred.
+· **Size:** M · **Risk:** low
+
+**Changed 2026-08-19.** This stage was *Policy engine, budget, denial
+normalization* at size L. The budget is gone, the tier taxonomy is gone, and what
+remains is the part that is checkable.
 
 ---
 
@@ -240,100 +295,54 @@ digests match Stage 0 vectors.
 
 **Claims:** Q2D-C-03, Q2D-C-04, Q2D-C-06, Q2D-C-10 · **Size:** L · **Risk:** medium
 
----
-
-### Stage 5 — Requester runtime
-
-- Query construction and signing; answer-contract derivation.
-- Response verification **before** the answer is exposed to a caller, in the
-  order [`core-model.md`](../spec/core-model.md) §4.1 makes normative.
-- Receipt storage and verification.
-- Semantic-answer projection: the caller receives the answer, not the evidence.
-
-**Gate:** a requester rejects a response whose suite is below its floor, whose
-signature fails, or whose receipt does not bind the request it sent.
-
-**Claims:** Q2D-C-01. **Not Q2D-C-12** — it is conditional on
-`q2d-contained-runtime-0.1`, CC-10's honesty rule forbids claiming containment
-for a path that is not mediated, and this stage mediates no sinks. The
-verification boundary it does build is a design intention with no passing test
-([P-012](prds/P-012-requester-runtime.md) §4.8). "Partial" is not a state
-[`spec/claims.md`](../spec/claims.md) defines.
-· **Size:** M · **Risk:** low
+**Q2D-C-03 is now the headline claim**, and this stage is where it is enforced.
+Step 17's output validation is what gives an injected payload nowhere to ride out
+— see §1's walkthrough item 4 and [P-001](prds/P-001-conformance-corpus.md)'s
+`injection/` groups. The claim is narrow and must stay so: it closes the
+**response** channel, not the tool-description channel.
 
 ---
 
-### Stage 6 — Direct HTTPS binding and runnable daemon
+### Stage 5 — MCP binding and the demonstration
 
-- `POST /.well-known/q2d/query`, `GET /capabilities`, `GET /pending/{token}`.
-  **No `GET /predicates/{id}/{version}`** — it answers "does this custodian
-  support this predicate?" with a status code, which is the existence oracle
-  [P-005](prds/P-005-registry-client.md) §4.7 spends nine uniform failure paths
-  closing, and it makes [`../spec/core-model.md`](../spec/core-model.md) §2.4.1's
-  entry-digest check vacuous by handing the requester the entry it is meant to
-  have obtained independently. Registry distribution stays out of band. If
-  discovery is ever needed, the shape is authenticated and policy-gated.
-- A custodian daemon someone can actually run, with configuration for pinned
-  registry, keys, and policy.
-- Identity: **local pairing profile only** — the smallest of the three profiles.
+The last stage. Where the previous four become something somebody can import.
 
-**Gate:** the definition-of-done walkthrough in §1 completes on two machines,
-executed by following the published quickstart and nothing else.
+- **[P-017](prds/P-017-mcp-binding.md) — the MCP binding.** A library that turns
+  a pinned manifest into an MCP server: the answer domain becomes the tool's
+  `outputSchema`, the signed contract rides in `_meta` under `dev.q2d/`, and
+  every refusal takes one shape.
+- **A minimal test client** — enough to build a contract, sign it, and verify a
+  response. Four issues out of [P-012](prds/P-012-requester-runtime.md), not its
+  contained runtime.
+- **The injection corpus** — a payload in private input, a payload through
+  `public_context`, and a compromised predicate returning out-of-domain text.
+- **The side-by-side demo**: the same data behind a plain MCP tool and behind
+  Q2D, with the injection succeeding against one and structurally unable to reach
+  the other.
+- Quickstart, and the claim-language audit across every published artifact.
 
-**Claims:** none. Q2D-C-11 is a statement *between* bindings and this stage
-builds one, so it is not attributable here — a qualifier in this cell would not
-survive being copied into a coverage table.
-**Conformance:** CC-12, the direct HTTPS binding class
-([`../spec/conformance-classes.md`](../spec/conformance-classes.md)). Class
-conformance and claim coverage are different things and are stated in different
-fields for that reason.
-· **Size:** L · **Risk:** medium
+**Gate:** §1's walkthrough completes for someone following the quickstart and
+nothing else — including item 4, the injection demonstration.
 
----
+**Claims:** Q2D-C-01, via the test client's pre-evaluation commitment, which the
+responder verifies. **Not Q2D-C-11** — binding equivalence is a statement
+*between* bindings and this stage builds one, so it is not attributable here; a
+qualifier in this cell would not survive being copied into a coverage table.
+· **Size:** M · **Risk:** medium
 
-### Stage 7 — Escalation lifecycle
-
-Last MVP item. The consent path is central to the value proposition but not to
-standing the system up.
-
-- Explicit escalation: pending token, status polling, and a receipt on the
-  `escalate` response ([`core-model.md`](../spec/core-model.md) §5.3).
-- Opaque escalation: normalized outcome — response *and* receipt — out-of-band
-  prompt, approval-scope digest, time-bounded **single-use** grant, fresh-query
-  revalidation.
-- Idempotency: an identical retry never becomes an answer after approval.
-
-**Gate:** a test asserts that replaying the original query after approval returns
-the cached normalized outcome; that a fresh query with a matching approval-scope
-digest is revalidated end to end rather than served from the grant; and that a
-*second* fresh query under the same grant escalates again rather than answering.
-
-**Claims:** Q2D-C-07 (extended) · **Size:** M · **Risk:** **high** — this is the
-most intricate semantics in the protocol, and while several of its Appendix C
-items are now decided ([`core-model.md`](../spec/core-model.md) §9), the
-approval-scope field list and grant lifetime remain open
-
----
-
-### Stage 8 — Reproducible demonstration
-
-- Two-party scenario with synthetic data, scripted and deterministic.
-- The adversarial suite: probing, replay, understatement, substitution, timing.
-- Disclosure measurement, reporting source bytes, model-context bytes, and total
-  wire bytes **separately**.
-- Quickstart, deployment, and operational-security documentation.
-
-**Gate:** an outsider reproduces the demo and the measurements from the published
-artifacts.
-
-**Size:** M · **Risk:** low
+**Changed 2026-08-19.** Stages 5 through 8 were the requester runtime, a bespoke
+HTTPS daemon, the escalation lifecycle, and a measurement-bearing demonstration.
+They are one stage now. The four they replace are recorded in §2 with what would
+bring each back.
 
 ---
 
 ## 5. PRD set
 
-Sixteen PRDs. Numbers are permanent once assigned; a PRD that is abandoned keeps
-its number and is marked withdrawn.
+**Seventeen PRDs; twelve active and five deferred.** Numbers are permanent once
+assigned; a PRD that is abandoned keeps its number and is marked withdrawn, and a
+PRD that is **deferred** keeps its number, its issues and its reasoning so a
+reader can see what was planned.
 
 | # | PRD | Stage | Size |
 |---|---|---|---|
@@ -343,20 +352,29 @@ its number and is marked withdrawn.
 | P-004 | Replay, expiry, idempotency | 1 | S |
 | P-005 | Registry client: pinning, resolution, fail-closed | 2 | M |
 | P-006 | Request validation and effective answer domain | 2 | M |
-| P-007 | Policy engine contract and fail-closed invariants | 3 | L |
-| P-008 | Disclosure-capacity accounting | 3 | M |
-| P-009 | Denial normalization | 3 | M |
+| P-007 | Policy engine contract and fail-closed invariants | 3 | M |
+| P-008 | ~~Disclosure-capacity accounting~~ — **deferred** | — | — |
+| P-009 | Denial normalization | 3 | S |
 | P-010 | Responder pipeline, predicate execution, output validation | 4 | L |
 | P-011 | Receipts and local audit | 4 | M |
-| P-012 | Requester runtime | 5 | M |
-| P-013 | Direct HTTPS binding and custodian daemon | 6 | L |
-| P-014 | Identity and the local pairing profile | 6 | M |
-| P-015 | Escalation lifecycle | 7 | M |
-| P-016 | Reference demonstration and adversarial suite | 8 | M |
+| P-012 | ~~Requester runtime~~ — **deferred**; four issues survive as a test client | 5 | S |
+| P-013 | ~~Direct HTTPS binding and custodian daemon~~ — **deferred**, superseded by P-017 | — | — |
+| P-014 | ~~Identity and the local pairing profile~~ — **deferred** | — | — |
+| P-015 | ~~Escalation lifecycle~~ — **deferred** | — | — |
+| P-016 | Reference demonstration and adversarial suite | 5 | S |
+| P-017 | [MCP binding](prds/P-017-mcp-binding.md) | 5 | M |
 
-Sixteen, where the first cut of this plan said twelve — the count grew while
-enumerating gates, which is itself information: Stages 1, 3, and 4 each carry
-more than one separable concern.
+The first cut of this plan said twelve; enumerating gates grew it to sixteen,
+which was itself information — Stages 1, 3 and 4 each carry more than one
+separable concern. **The 2026-08-19 reduction then deferred five and added one**,
+and that is information too: what it removed was the machinery around the idea
+rather than the idea, and none of the five deferred PRDs is load-bearing for
+Q2D-C-03 or Q2D-C-10.
+
+**Deferred PRDs keep their issue lists.** Each carries a status header saying why
+it stopped and what would bring it back. Nothing was deleted, because a reader
+evaluating this project needs to see the scope that was considered as well as the
+scope that was built.
 
 ### What every PRD must contain
 
@@ -397,14 +415,23 @@ the conventions document instead.
 
 ### Honesty about independence
 
-Both implementations will be written by the same author. That demonstrates the
+Every implementation is written by the same author. That demonstrates the
 specification is *implementable* — which is the real purpose — but it does not
-make either implementation *independent* in the standards sense. Describe them as
-"two implementations", never "an independent implementation", until someone
-unaffiliated builds a third.
+make any of them *independent* in the standards sense. Describe them by count,
+never as "an independent implementation", until someone unaffiliated builds one.
 
-The discipline that makes two worth having is the shared corpus. Every divergence
-it catches is a specification ambiguity found before an outsider finds it.
+The discipline that makes more than one worth having is the shared corpus. Every
+divergence it catches is a specification ambiguity found before an outsider finds
+it.
+
+**The count is going up, and that raises the corpus from a formality to the
+load-bearing artifact.** Rust and Go exist and agree through Stage 1; a thin
+Python wrapper is planned so the library is importable in the ecosystem that
+would use it, and full Python and TypeScript implementations after that. With
+four, every specification ambiguity costs four fixes rather than two, and nothing
+but [P-001](prds/P-001-conformance-corpus.md) keeps them honest. That is the
+argument for keeping P-001 at full strength through the reduction, and it is why
+it gained the `injection/` groups rather than losing scope.
 
 ---
 

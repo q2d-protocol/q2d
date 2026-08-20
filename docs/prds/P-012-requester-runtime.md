@@ -4,11 +4,32 @@
 |---|---|
 | PRD | P-012 |
 | Stage | 5 — the whole stage |
-| Status | **Ready for decomposition** |
+| Status | **Deferred 2026-08-19** — see the note below |
 | Size | M |
 | Risk | low |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-011](P-011-receipts-audit.md) |
 | Blocks | P-013, P-015, P-016 |
+
+
+> **Deferred 2026-08-19 — not withdrawn. Four issues survive.**
+>
+> The contained requester runtime asks agent developers to adopt a
+> sink-mediating runtime for a benefit that accrues to the **custodian**. That is
+> the weakest motivation in the project and it was a fifth of the issue count.
+> **Q2D-C-12** and **Q2D-C-13** are marked *not attempted in this release*.
+>
+> **Four issues survive as a test client**, because Q2D-C-01 is enforced
+> responder-side but still needs something that produces a signed contract:
+> `build_contract`, `build_query`, `issue`, and `verify_response`. A test client,
+> not a contained runtime.
+>
+> **What would bring it back:** a requester-side deployment that needs to mediate
+> sinks, or an implementer asking for Q2D-C-13. §4.8's claim-language discipline
+> survives the deferral and is the reason C-12 and C-13 are marked rather than
+> deleted.
+>
+> Full reasoning: `private-docs/scope-reduction-proposal.md`. **Everything below
+> is preserved as written**, and describes the scope that was planned.
 
 ---
 

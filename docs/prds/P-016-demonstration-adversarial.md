@@ -10,6 +10,25 @@
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-009](P-009-denial-normalization.md), [P-010](P-010-responder-pipeline.md), [P-011](P-011-receipts-audit.md), [P-012](P-012-requester-runtime.md), [P-013](P-013-https-binding.md), [P-014](P-014-identity-pairing.md), [P-015](P-015-escalation-lifecycle.md) — everything |
 | Blocks | nothing |
 
+
+> **Shrunk 2026-08-19 — scope reduction.**
+>
+> The demonstration keeps its fixtures, `demo run`, attacks 1–8, the
+> misconfiguration demonstration, the quickstart and the claim-language audit, and
+> **gains the side-by-side injection demo** — the same data behind a plain MCP
+> tool and behind Q2D, with an injected payload succeeding against one and
+> structurally unable to reach the other. That demo is now the point of this PRD.
+>
+> **Cut:** all measurement (`measure bytes`, `measure timing`, the coverage
+> matrix), the `repro` entry point, the deployment document, the new-attack
+> template, and the outsider-runs-the-gate ritual. Attack 9 (adaptive probing)
+> attacked the deferred budget; attack 10 (timing) probes a channel
+> [`claims.md`](../../spec/claims.md) Q2D-NC-05 already concedes succeeds.
+>
+> **The clearest cost of the whole reduction is here**: with measurement cut,
+> nothing in this project can make an empirical claim in a future paper draft.
+> Recorded rather than left to be noticed.
+
 ---
 
 ## 1. Purpose

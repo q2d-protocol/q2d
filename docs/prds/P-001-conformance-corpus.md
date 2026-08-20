@@ -57,8 +57,9 @@ reporting; test key material.
 subprocess, and compares. It implements no Q2D behaviour, and a change that gives
 it protocol knowledge is out of scope and an escalation.
 
-**Also outside:** timing and side-channel measurement (Stage 8), performance
-benchmarking (Stage 8), and fuzzing corpora (owned by the PRD for the module
+**Also outside:** timing and side-channel measurement, performance benchmarking
+— both **cut** by the 2026-08-19 reduction rather than deferred to a later stage
+— and fuzzing corpora (owned by the PRD for the module
 being fuzzed).
 
 ## 4. Design

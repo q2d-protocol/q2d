@@ -174,7 +174,7 @@ question is still fresh than after the answer arrives.
 
 | ID | Question | Raised by | Decides | Status |
 |---|---|---|---|---|
-| **E-01** | Do `deny` and `escalate` debit the disclosure-capacity budget? | P-008 §4.7 | `core-model.md` §9 | **Closed** |
+| **E-01** | Do `deny` and `escalate` debit the disclosure-capacity budget? | P-008 §4.7 | `core-model.md` §9 | **Closed**; its cascade **parks** with P-008 |
 | **E-02** | Is an approval grant single-use or multi-use? | P-015 §4.5 | `core-model.md` §5.3 | **Closed** |
 | **E-03** | Does an `escalate` response carry a receipt? | P-015, P-011 | `core-model.md` §5.3, P-011 §4.1 | **Closed** |
 | **E-04** | `core-model.md` §7's "even when the approval-scope digest matches" is vacuous | P-015 §4.6 | `core-model.md` §7 | **Closed** |
@@ -214,7 +214,7 @@ question is still fresh than after the answer arrives.
 | **E-46** | Which `external_reason` for a `signed` string that is not a well-formed compact JWS? | P-003 issue 2 | `core-model.md` §5.2.1 · `crypto-suites.md` §3 · P-003 §4.2, issues 6–8 · `suite/verify/` · both implementations | **Closed** |
 | **E-47** | Ed25519 in Rust needs a dependency policy, and there is no conventions document | P-003 issue 1 | `CONVENTIONS-rust.md`, `CONVENTIONS-go.md` (both new) · `Cargo.toml`, `go.mod` · both implementations · `testdata/ed25519-acceptance.txt` · CI | **Closed** |
 | **E-51** | A vector cannot describe a sequence, and idempotency is a property of the second request | P-004 issue 8 | `conformance/vector.schema.json` + served copy · `conformance/RUNNER-CONTRACT.md` · `conformance/harness/lint.py` · the reference stub · P-001 §4.5, §4.6, §10, issue 17 · P-004 §6, issue 8 · P-008 §6 · P-012 §6 · P-015 §10 | **Closed** |
-| **E-52** | A sequence cannot carry an event between its requests, and an approval is one | E-51's resolution, via P-015 §10 | `conformance/vector.schema.json` + served copy · P-001 §4.5, §4.6 · P-015 §6, §10, issues 4 and 12 | **Open** |
+| **E-52** | A sequence cannot carry an event between its requests, and an approval is one | E-51's resolution, via P-015 §10 | `conformance/vector.schema.json` + served copy · P-001 §4.5, §4.6 · P-015 §6, §10, issues 4 and 12 | **Parked** with P-015 |
 | **E-50** | Does the replay check track nonces, or only `query_id`s? | P-004 issue 2 (review) | `freshness.md` §1, §3.1 (new) · `core-model.md` §5.2.1 unchanged · P-004 §4.2, §4.3, §9 item 2, §10, issues 2 and 3 · both implementations' `replay` | **Closed** |
 | **E-49** | Every freshness and replay constant lives in a PRD, not in `spec/` | P-004 issue 1 | `freshness.md` (new) · `core-model.md` §2.2, §4 steps 6 and 9, §5.2.1 · `claims.md` Q2D-C-07 · `conformance-classes.md` · P-004 §2, §4.3, §4.4, §6, §7, §8, §9, §10, issues 1, 4 and 9 · P-008 §4.5 · P-015 §4.2, §4.7 · both implementations' `timestamp` | **Closed** |
 | **E-48** | A vector can describe a message, but not the verifier that receives it | P-003 issue 11 | `conformance/vector.schema.json` + its served copy · P-001 §4.3, §6, RUNNER-CONTRACT · P-003 §6, §7, issues 8 and 11 · `suite/status/`, `suite/downgrade/below-floor` · both implementations · P-012 | **Closed** |
@@ -4559,7 +4559,12 @@ now has its own name and the word names neither.
 ## E-52 — A sequence cannot carry an event between its requests, and an approval is one
 
 **Raised by** [E-51](#e-51--a-vector-cannot-describe-a-sequence)'s resolution,
-which stated this boundary and said P-015 should expect to raise it. **Open.**
+which stated this boundary and said P-015 should expect to raise it.
+**Parked 2026-08-19 with [P-015](prds/P-015-escalation-lifecycle.md)** — briefed,
+recommended (**B**), and undecided. The four `escalation/` groups it blocks are
+deferred, so it blocks nothing startable. Decide it when P-015 issue 12 is picked
+up: settling an operation's shape against no vector is how E-51's own brief got
+two details wrong.
 Recorded now rather than when `escalation/` is authored, because a question
 living only in the PRD that found it is findable by someone already reading that
 PRD and by nobody else — which is the failure this register exists to prevent.

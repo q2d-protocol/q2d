@@ -4,11 +4,33 @@
 |---|---|
 | PRD | P-015 |
 | Stage | 7 — the last MVP item |
-| Status | **Ready for decomposition** |
+| Status | **Deferred 2026-08-19** — see the note below |
 | Size | M |
 | Risk | **high** — the most intricate semantics in the protocol; the timing property in §4.1 fails a stopwatch rather than a test |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-004](P-004-replay-idempotency.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-009](P-009-denial-normalization.md), [P-010](P-010-responder-pipeline.md), [P-012](P-012-requester-runtime.md), [P-013](P-013-https-binding.md) |
 | Blocks | P-016 |
+
+
+> **Deferred 2026-08-19 — not withdrawn.**
+>
+> Human approval, grants, tokens and polling are how a **deployment** handles a
+> `deny`. They are a product feature, not a protocol primitive, and nothing in
+> asking a bounded question and getting a bounded answer depends on them.
+>
+> **Two open items park here** rather than being closed:
+> **[E-52](../open-escalations.md)** — a sequence cannot carry an event between its
+> requests, and an approval is one, which blocks four of §6's eight groups — and
+> **[P-001](P-001-conformance-corpus.md) issue 18**, the minimal timing capability,
+> which exists solely to show an opaque escalation is not distinguishable by
+> latency. Neither was decided; both simply have no consumer.
+>
+> **What would bring it back:** a deployment that needs a human in the release
+> path. §4.9's residual-channel list survives the deferral, and §4.1's asynchronous
+> dispatch rule is the thing to re-read first — it is the one that fails a stopwatch
+> rather than a test.
+>
+> Full reasoning: `private-docs/scope-reduction-proposal.md`. **Everything below
+> is preserved as written**, and describes the scope that was planned.
 
 ---
 
