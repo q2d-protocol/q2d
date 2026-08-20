@@ -83,7 +83,7 @@ interface CC-11 needs.
 | `release_shape` | the effective domain's shape | answer |
 | `assurance_profile` | the profile actually used | answer |
 | `signature_suite` | the suite the response was signed under | answer, deny, escalate |
-| `disclosure_capacity_debit_millibits` | integer ([P-008](P-008-capacity-accounting.md)) | answer |
+| ~~`disclosure_capacity_debit_millibits`~~ | **Removed 2026-08-19** from `claims.md` Q2D-C-10 and [`core-model.md`](../../spec/core-model.md) §6. A field whose only available value is zero is a lie in waiting — a reader seeing `0` concludes the answer disclosed nothing. A future disclosure-magnitude field gets a **new name**, not this one restored meaning something else | ~~answer~~ |
 | `decided_at` | A timestamp — [`core-model.md`](../../spec/core-model.md) §2.2 | answer, deny, escalate |
 | `responder` | the computation executor's identity | answer, deny, escalate |
 | `decision_class` | the normalized external class, or `escalate` — see below | deny, escalate |

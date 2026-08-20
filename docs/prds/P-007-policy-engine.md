@@ -125,10 +125,19 @@ Decision {
   outcome       : allow | deny | escalate
   modifiers     : [Modifier]      // allow only
   on_exhaustion : deny | escalate // applied at step 15; policy does not run again
+                                  // UNUSED in this release -- see below
   audit         : { reason, authorities_consulted, policy_version }
   external      : ExternalClass   // what P-009 may put on the wire
 }
 ```
+
+**`on_exhaustion` is unused in this release.** Q2D-C-09 is **not attempted**
+([`claims.md`](../../spec/claims.md)), so no budget produces an exhaustion
+verdict and nothing reaches step 15's branch. The field stays in `Decision`
+rather than being removed: the ordering argument below is why it has to be
+decided *in advance*, and that argument is what a future budget would need
+rather than something to rediscover. A policy engine may emit it; nothing
+consumes it.
 
 `on_exhaustion` exists because of an ordering constraint rather than a
 preference. [`core-model.md`](../../spec/core-model.md) §4 runs policy once at

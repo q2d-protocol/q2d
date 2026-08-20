@@ -223,6 +223,24 @@ step_19_receipt_and_sign          // runs for answer, deny, and escalate alike
 // the transaction opened at 18 commits once 19 has produced the signed bytes
 ```
 
+**Steps 15 and 18 are no-ops in this release, and the steps stay.** Q2D-C-09 is
+**not attempted** ([`claims.md`](../../spec/claims.md)), so there is no budget to
+check at 15 or debit at 18. They keep their places in the orchestration and do
+nothing — the same treatment [P-017](P-017-mcp-binding.md) §4.7 gives step 7,
+delegation, under the configured-key-list profile.
+
+**Not removed, and not renumbered.** [`core-model.md`](../../spec/core-model.md)
+§4's processing order is the specification's, changing it is an escalation, and
+§4's numbers are cited across this repository. A step that does nothing under a
+profile is not a change to the order; a step that has moved is.
+
+**What still happens at 15 and 18.** Step 15 still mints
+`PrivateAccessAuthorized` — the capability token is what makes step 16
+unreachable without passing everything above it, and that property is
+independent of what step 15 checks. Step 18 still opens the transaction that
+step 19's bytes commit into, because the replay-cache entry and the quota tick
+commit together; what it no longer stages is a capacity debit.
+
 **The transaction spans steps 18 and 19, and this is easy to get wrong.**
 [P-004](P-004-replay-idempotency.md) §4.6 requires the debit and the replay-cache
 entry to commit atomically, and the cache entry stores the **verbatim response
@@ -297,7 +315,7 @@ run through the whole responder rather than against a reference function.
 | A private value in an error | `EvaluationError` has no field that could hold one |
 | A panic payload surviving the boundary | Payload inspected or logged anywhere |
 | Out-of-domain output released | `validate/` vector returns an answer |
-| Out-of-domain output debiting | Budget total changes on a validation failure |
+| Out-of-domain output **committing anything** | A validation failure leaves a quota tick or a cache entry behind. **Retargeted 2026-08-19** from *debiting*, observed as a changed budget total |
 | A step silently reordered | `ordering/` vector rejects at a different step |
 | An answer field derived from private input other than the result | Review of the answer builder; no test can catch this |
 | A predicate disagreeing with its registry entry | `evaluate/` vector produces a different result |

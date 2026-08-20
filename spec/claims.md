@@ -12,6 +12,12 @@ README, a talk, or a later draft asserts something that is not here, the
 assertion is wrong or this document is out of date — and the burden is on the
 assertion.
 
+**The property the rest of this document qualifies is
+[Q2D-C-03](#q2d-c-03--bounded-output).** A custodian returns a value that must lie
+inside a domain defined by a **third artifact** — a registry the custodian pinned
+— rather than by the party producing the answer. Every other claim here either
+establishes that bound, authenticates it, or accounts for it.
+
 Terms: [`terminology.md`](terminology.md). Boundaries: [`scope.md`](scope.md).
 Claim *language* — which words to use for each of these — is
 [`terminology.md`](terminology.md) §9.
@@ -40,6 +46,11 @@ is marked withdrawn rather than reused.
 
 These hold for a conforming responder at the `authenticated-answer` profile.
 They do not depend on requester-side containment.
+
+**Q2D-C-03 is the one to read first.** Q2D-C-02 is what makes it non-trivial —
+the domain comes from the registry rather than from the responder's own
+declaration — and Q2D-C-10 is what makes it checkable afterwards. The rest
+support those three.
 
 ### Q2D-C-01 — Pre-evaluation commitment
 
@@ -97,13 +108,33 @@ returned, and the schema bounds how long they may be — an `attribute` is
 *released in full* and permits no narrowing, so only the schema bounds it. The
 schema's own conformance to §4.1 is enforced at registry validation, before any
 request reaches it.
+**A consequence worth stating, because it is the reason this claim matters in
+2026.** An adversarial instruction sitting in the custodian's data — a poisoned
+record, a rewritten field, an injected string — **cannot be transmitted through
+this interface**. The released value must lie inside the registered answer
+domain, so where that domain is a `boolean`, a small `enum`, or a bounded
+interval, there is no field an instruction can occupy.
+
+**It can still influence the answer.** A poisoned record can flip a boolean, and
+that flip crosses the interface because it is the value the requester asked for.
+The distinction is between a **one-bit effect on a requested value** and a
+**channel into the requester's context**, and only the second is closed.
+
+**The bound is weakest where the release shape is widest.** An `object` release
+with detail fields, or an `attribute` released in full, is bounded by the entry's
+`output_schema` rather than by a small cardinality — which is why
+[E-28](../docs/open-escalations.md) required that schema to bound every
+variable-length value, and why the *Fails if* clause about an unbounded schema is
+not a technicality.
 **Fails if.** Validation is skipped for a `detail` field; an exception path
 serializes private input; a structured output escapes cardinality limits; **or an
 entry is admitted whose output schema leaves a variable-length value unbounded**,
 which moves the failure from the responder to the registry without changing what
 crosses the interface.
 **Not.** A claim that a bounded answer is harmless. One bit can reveal a
-consequential fact — capacity is not severity. See Q2D-NC-07.
+consequential fact — capacity is not severity. See Q2D-NC-07. **Nor a claim
+about prompt injection generally**: this closes the *response* channel, and the
+tool-description channel is untouched — see Q2D-NC-14.
 **Verified by.** `conformance/out-of-domain-result`, `conformance/error-path-leakage`, `conformance/over-schema-bound-result` — planned. The third is the `attribute` case: a result inside the effective domain and longer than its schema permits, which no other vector catches because every other bound is the domain's.
 
 Registry-side, [`registry/validate.py`](../registry/validate.py) refuses an entry whose output schema leaves a variable-length value unbounded — the assumption above, checked rather than assumed.
@@ -287,6 +318,19 @@ detailed audit locally ([`core-model.md`](core-model.md) §5.2, §5.3, §6).
 **The local audit is load-bearing, not incidental**: a receipt with no retained
 audit behind it satisfies half of this claim.
 **Enforced by.** Receipt construction under the response signature.
+
+**A consequence: a silently changed predicate fails a check rather than quietly
+meaning something new.** The receipt binds `entry_digest`, and
+[`core-model.md`](core-model.md) §2.4.1 makes an entry's digest change when its
+definition changes. A custodian that swapped a predicate's meaning between two
+exchanges produces a receipt naming a digest the requester did not expect.
+
+**This requires the requester to know what to expect**, which means obtaining the
+entry independently rather than from the custodian answering the question. That
+is deliberate — a discovery endpoint would hand over the entry the check exists
+to compare against — and it is a real operability cost, not a free property: two
+parties on different manifest versions fail in a way neither can diagnose from
+the wire.
 **Fails if.** A binding omits receipt fields; audit and receipt diverge; an
 outcome is returned with no receipt at all; a reduced receipt is read as
 attesting to anything an answer receipt attests to.
@@ -369,8 +413,15 @@ destinations — and only under complete mediation. See Q2D-NC-11.
 True at every version and every assurance profile. These are not caveats on the
 claims above; they are positions the project holds.
 
+**The first two are the ones most likely to be assumed**, and they are placed
+first for that reason rather than by number. Q2D-NC-14 and Q2D-NC-15 were added
+in 2026-08 when Q2D-C-03's bounded-output property was stated in terms of
+injection, because that framing invites both misreadings.
+
 | ID | Q2D does not claim |
 |---|---|
+| **Q2D-NC-15** | **That Q2D constrains a hostile custodian.** The threat model assumes a *participating* custodian and treats the requesting agent as untrusted; it is a way for an honest custodian to prove it is honest, not a way to constrain a dishonest one. A compromised or malicious server — the failure mode most reported against tool interfaces in 2026 — is outside it entirely. Q2D-C-03's bound is enforced *by* the custodian, at [`core-model.md`](core-model.md) §4 step 17, and a custodian that does not run it is not conforming and not detectable by this protocol. |
+| **Q2D-NC-14** | **That a bounded answer domain prevents prompt injection.** It closes the **response** channel: an injected payload in the custodian's data has no field to occupy in a `boolean` or a small `enum`. It does not close the **tool-description** channel — a poisoned tool description, parameter schema, or registered question reaches model context untouched — and it does not stop a payload *influencing* the answer within its domain. See Q2D-C-03. |
 | **Q2D-NC-01** | That the underlying facts are true, complete, current, or independently verified. A signature over a self-asserted attribute authenticates the assertion, not the fact. |
 | **Q2D-NC-02** | That a declared purpose is honest, or enforceable once information reaches a human. |
 | **Q2D-NC-03** | That a released answer can be retracted. Revocation governs future requests only. |
@@ -384,6 +435,9 @@ claims above; they are positions the project holds.
 | **Q2D-NC-11** | That labels alone stop leakage when any sink, log, memory path, or side channel is unmediated. |
 | **Q2D-NC-12** | Novelty for source-side predicate APIs, information-flow control, capability authorization, cumulative leakage budgets, selective disclosure, trusted execution, or tamper-evident logs. The contribution is the composition. |
 | **Q2D-NC-13** | That a query is confidential from an intermediary. The 0.1 suite signs the payload and does not encrypt it, so a party holding the envelope reads every field of the core object — `routing`'s minimality (`core-model.md` §2.1) governs what is legible *without decoding*, which is a real difference and not a confidentiality boundary. A deployment needing one uses transport confidentiality or a suite 0.1 does not register. |
+
+| **Q2D-NC-14** | *(stated first in this table — see above)* That a bounded answer domain prevents prompt injection. |
+| **Q2D-NC-15** | *(stated first in this table — see above)* That Q2D constrains a hostile custodian. |
 
 Claims of being "the first" anything require a literature and patent search that
 has not been performed.

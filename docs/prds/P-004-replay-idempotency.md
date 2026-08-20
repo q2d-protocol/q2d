@@ -308,8 +308,13 @@ released, and step 18 is where that assertion is made.
 ## 7. Acceptance
 
 - [ ] A retry returns **byte-identical** response bytes, in both implementations.
-- [ ] A retry produces no second debit — asserted against the budget total, not
-      against a call count.
+- [ ] A retry produces **no second evaluation and no second quota tick** —
+      asserted against the quota total and against the returned bytes, not
+      against a call count. **Retargeted 2026-08-19**: this said *no second
+      debit, asserted against the budget total*, and Q2D-C-09 is not attempted,
+      so there is no budget total to compare. The property Q2D-C-07 actually
+      claims is that the retry returns the **stored bytes**, which is the
+      stronger observable and was always available.
 - [ ] `query_id` reuse with a differing digest rejects.
 - [ ] Both skew boundaries behave identically in both implementations, **at
       exactly the tolerance** — [`freshness.md`](../../spec/freshness.md) §2 makes
@@ -326,7 +331,7 @@ released, and step 18 is where that assertion is made.
 
 | Must fail | Observed as |
 |---|---|
-| A second debit on retry | Budget total differs between one request and one request retried |
+| A second **evaluation** on retry | The retry reaches the predicate rather than returning stored bytes — the observable Q2D-C-07 actually claims. **Retargeted 2026-08-19** from *a second debit, observed as a differing budget total*: Q2D-C-09 is not attempted and there is no total to differ |
 | Re-signing on replay | Two retries return differing bytes |
 | Cached escalation outcome becoming an answer | The retry vector returns the normalized outcome after an approval is recorded |
 | An unauthenticated request creating a cache entry | `replay/ordering/` vector shows an entry after a bad-signature request |
@@ -334,7 +339,7 @@ released, and step 18 is where that assertion is made.
 | Expiry evaluated from `routing` rather than the signed object | Vector with disagreeing routing expiry is decided on the signed value |
 | Cache growth beyond retention | Entry survives past [`freshness.md`](../../spec/freshness.md) §1's retention instant |
 | An entry evicted while its request is still acceptable | A retry within the skew tail after `expires_at` is treated as fresh and debits again |
-| Under-charging after a partial failure | Injected fault between debit and cache leaves the budget short |
+| ~~Under-charging after a partial failure~~ | **Struck 2026-08-19** — an injected fault between debit and cache left the *budget* short, and there is no budget. The commit's remaining halves are the quota tick and the cache entry |
 
 The last row needs a fault-injection test, not an ordinary vector. It is the
 failure this PRD is most likely to actually have.
@@ -357,9 +362,12 @@ failure this PRD is most likely to actually have.
 5. **The maximum validity window bounds cache retention.** Relaxing the window
    relaxes memory bounds. Both are [`freshness.md`](../../spec/freshness.md) §1's
    now, so changing either is a specification change and not this PRD's to make.
-6. **The debit and the cache entry are committed together, and where they
-   cannot be, the debit goes first.** Over-charging is safe, under-charging is
-   not. The order is decided here and is built; the atomic commit is decided
+6. **The quota tick and the cache entry are committed together, and where they
+   cannot be, the tick goes first.** Over-counting is safe, under-counting is
+   not. **Retargeted 2026-08-19** — this said *debit*, and Q2D-C-09 is not
+   attempted. The ordering rule is unchanged and the reasoning in §4.6 stands
+   as written: it was never about what was being committed, only about which of
+   two writes survives a crash. The order is decided here and is built; the atomic commit is decided
    here and is **built elsewhere** — §4.6 and issue 5 say where. Both halves are
    escalate-if-changed, and the second is the one most likely to be quietly
    dropped, because the module that requires it is not the module that provides

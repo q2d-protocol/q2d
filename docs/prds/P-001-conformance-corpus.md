@@ -321,7 +321,7 @@ applies to the harness too.
 | `digest` | 1 | Digest a structure, for receipt binding |
 | `resolve_predicate` | 2 | Registry resolution and pinning |
 | `effective_domain` | 2 | Domain narrowing composition |
-| `capacity_debit` | 3 | Millibit debit for an effective domain |
+| `capacity_debit` | 3 | Millibit debit for an effective domain. **No vector uses it since 2026-08-19** — Q2D-C-09 is not attempted. The name stays in the settled vocabulary rather than being removed: an operation no runner implements is exit 1, which is what §7 expects of unbuilt work, and removing a settled name would reopen the question issue 17 closed |
 | `policy_decide` | 3 | Policy contract input → decision + modifiers |
 | `evaluate_predicate` | 4 | Local evaluation and output validation |
 | `process_query` | 4 | The full §4 pipeline |
@@ -762,7 +762,7 @@ issues 12, 13, and 14.
 | `replay/` | nonce reuse, expiry, clock skew, idempotent retry | new |
 | `registry/` | schema validation, evaluation, capacity debit, normalized denial | **folded in from [`registry/manifest.json`](../../registry/manifest.json)** — done, by [`tools/fold_registry.py`](../../tools/fold_registry.py). Resolution, pinning, and digest mismatch are *not* among them: the manifest's vectors exercise a predicate's evaluation and validation, not the act of resolving the entry, so those three remain to author |
 | `domain/` | narrowing, understatement, expansion attempt | new |
-| `budget/` | debit sequences, permutation equality, exhaustion | new |
+| ~~`budget/`~~ | ~~debit sequences, permutation equality, exhaustion~~ — **deferred 2026-08-19** with Q2D-C-09. A small `quota/` group belongs with the request quota when it is built | ~~new~~ |
 | `receipt/` | field binding, digest computation | new |
 | `ordering/` | one vector per rejection step, 1–15 **and the lettered steps among them, 5a, 9a and 11a** | new |
 
