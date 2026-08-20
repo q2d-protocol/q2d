@@ -10,6 +10,29 @@
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-005](P-005-registry-client.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-010](P-010-responder-pipeline.md) |
 | Blocks | P-012, P-013, P-016 |
 
+
+> **Partially shrunk 2026-08-19 — and one cut was reversed by review.**
+>
+> **Kept:** the receipt types, `build_receipt`, `response_digest`,
+> `build_deny_receipt`, `verify_receipt`, the corpus section, the claim-language
+> audit — and the **`AuditEvent` type and a local append-only audit store**.
+>
+> **The audit store was cut and restored.** The first draft of the scope
+> reduction cut all four audit issues on the grounds that a demonstration returns
+> receipts rather than storing them. Review found that
+> [`claims.md`](../../spec/claims.md) **Q2D-C-10 holds when the responder issues a
+> receipt for every outcome *and retains detailed audit locally*** — so cutting
+> the store while still claiming C-10 would have delivered less than the claim
+> states. §4.3's audit/receipt delta is the reason the store is not merely a log:
+> it is where the internal reason, the rejecting step, and the policy reasoning
+> live, none of which may reach the wire.
+>
+> **Still cut:** encryption at rest, and retention/deletion machinery. Both are
+> enterprise hardening rather than the property C-10 rests on. **§4.7's argument
+> that an audit store with no expiry is an ever-growing record of who asked what
+> about whom remains true**, and is the first thing to restore if this is ever
+> deployed rather than demonstrated.
+
 ---
 
 ## 1. Purpose

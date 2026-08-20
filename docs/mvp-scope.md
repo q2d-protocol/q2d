@@ -55,11 +55,14 @@ At the end of MVP, **five of the thirteen claims** will have no passing test:
 | Q2D-C-13 conditional flow confinement | Same |
 | Q2D-C-07 replay resistance *(partially)* | Holds for the responder's half; the requester-side entropy obligation has no responder-side check — [E-49](open-escalations.md) |
 
-**Deferred is not withdrawn.** They stay in [`claims.md`](../spec/claims.md)
-marked *not attempted in this release*, which is stronger than deleting them and
-honest about what the demonstration shows. Exactly how C-09 is worded, and
-whether Q2D-C-10's receipt field list loses its capacity-debit entry, is a
-`claims.md` change and therefore not this document's — it is tracked as **Q2D-234**.
+**[`claims.md`](../spec/claims.md) has not been edited yet, and this document
+must not describe it as though it had.** The intended treatment is *not attempted
+in this release* rather than deletion — stronger, and honest about what the
+demonstration shows — but the wording of each entry, and whether Q2D-C-10's
+receipt field list loses its capacity-debit entry, is a `claims.md` change and
+therefore not this document's to make. **Tracked as Q2D-234; until it lands,
+`claims.md` still states all thirteen as planned claims and this table is the
+plan rather than the record.**
 
 They are design intentions with no passing test, and
 [P-016](prds/P-016-demonstration-adversarial.md)'s coverage reporting shows them
@@ -109,7 +112,7 @@ hardened for adoption. Each says what would bring it back.
 | **Direct HTTPS binding** | Superseded by the MCP binding. Re-solving transport worse is not a contribution | CC-12 |
 | **Identity and the local pairing profile** | A configured key list does what the demonstration needs. MCP moved toward standard OAuth/CIMD; a bespoke pairing profile is a worse answer to a solved problem | — |
 | **Escalation lifecycle** | Human approval, grants, tokens and polling are how a deployment handles a `deny` — a product feature, not a protocol primitive | — |
-| **Local audit store** | Receipts are returned, not stored. Append-only encrypted storage with retention is enterprise infrastructure. **The cut most worth revisiting**: the auditor is one of two identified buyers | — |
+| **Encrypted-at-rest audit storage, and retention/deletion machinery** | Enterprise infrastructure. **A minimal local audit store is *not* cut** — see below | — |
 | **Denial tier taxonomy** | Shrunk to *one refusal shape, no cause-specific text* — the part that is true, testable and cheap. `terminology.md` §9 already forbade claiming more | — |
 | **Disclosure and timing measurement** | Removes the ability to make an empirical claim in a future draft, which is the clearest cost of the reduction | — |
 | **Policy-side coarsening modifiers** | Existed largely to keep capacity computable under policy narrowing. Six escalations (E-25 … E-30) were about making coarsening well-defined; they park with the budget | — |
@@ -123,6 +126,20 @@ hardened for adoption. Each says what would bring it back.
 **Compatibility mode is the MVP posture.** A deployment built to this plan may
 claim *"bounded authenticated answer from a participating custodian."* It may not
 claim *"answer-derived flow restricted to permitted sinks."*
+
+**A local audit store was cut and then restored, and the reason is worth
+recording.** The first draft of this reduction cut all four of
+[P-011](prds/P-011-receipts-audit.md)'s audit issues on the grounds that a
+demonstration returns receipts rather than storing them. Review found that
+[`claims.md`](../spec/claims.md) **Q2D-C-10's *Holds when* requires the responder
+to "issue a receipt for every outcome *and retain detailed audit locally*."**
+Cutting the store while still claiming C-10 would have been exactly the failure
+this project puts first — code delivering less than a claim states.
+
+So the **`AuditEvent` type and a plain append-only store are back in scope**;
+encryption at rest and retention/deletion stay cut. That is roughly two issues
+rather than four, and it keeps C-10 true. It also confirms what the review
+already suspected about this cut being the shakiest one.
 
 **Two things this plan does not defend against, and they belong here rather than
 only in the threat model.** Q2D constrains a **participating** custodian; it does
@@ -256,21 +273,33 @@ refused before any private access.
   become an existence oracle. **Required configuration with no default**; the
   server refuses to start without it, and a quota rejection is normalized like
   any other cause.
-- **One refusal shape**: every cause produces a byte-identical response, with no
-  cause-specific text, no retry guidance, and no size that varies with cause.
+- **One refusal shape *within a configured sensitivity class***, which is what
+  [`claims.md`](../spec/claims.md) Q2D-C-08 has always claimed: no cause-specific
+  text, no retry guidance, no size that varies with cause. **Tier A's informative
+  values stay distinct** — `malformed`, `unsupported_version` and
+  `structurally_invalid` describe the requester's own message and tell it
+  something it can act on ([`core-model.md`](../spec/core-model.md) §5.2.1).
 
 **Gate:** a property test asserts no user-authored rule can override a
-fail-closed invariant. A test asserts that every refusal cause produces a
-byte-identical response, **compared across causes rather than per cause** — the
-same cross-vector invariant `registry/validate.py` already applies to registry
-rejections. A per-case test compares a response to itself and cannot fail.
+fail-closed invariant. A test asserts that every cause **inside a normalized
+class** produces a byte-identical response, **compared across causes rather than
+per cause** — the same cross-vector invariant `registry/validate.py` already
+applies to registry rejections. A per-case test compares a response to itself and
+cannot fail.
 
-**Claims:** Q2D-C-08, in its shrunk form. **Not Q2D-C-09** — deferred.
+**Claims:** Q2D-C-08. **Not Q2D-C-09** — deferred.
 · **Size:** M · **Risk:** low
 
 **Changed 2026-08-19.** This stage was *Policy engine, budget, denial
-normalization* at size L. The budget is gone, the tier taxonomy is gone, and what
-remains is the part that is checkable.
+normalization* at size L. The budget is gone and the modifier machinery with it.
+
+**Q2D-C-08 itself is unchanged** — an earlier draft of this section said *every
+refusal cause*, which is broader than the claim and contradicts §5.2.1's
+deliberately informative Tier A values. What shrank is the **test surface and the
+machinery**: one uniformity assertion rather than one per tier, and the
+`escalation_visible` gate and timing-padding hook cut with the PRDs that consumed
+them. The claim's own wording needed no edit, which is the sign the shrink was a
+scope decision rather than a claim change.
 
 ---
 

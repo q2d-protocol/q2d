@@ -3,11 +3,11 @@
 | Field | Detail |
 |---|---|
 | PRD | P-016 |
-| Stage | 8 — closes MVP |
-| Status | **Ready for decomposition** |
+| Stage | 5 — closes the demonstration |
+| Status | **Shrunk 2026-08-19** — the body below predates the reduction; see the note |
 | Size | M |
 | Risk | low to build; **the publication surface is the project's largest overstatement risk** |
-| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md), [P-008](P-008-capacity-accounting.md), [P-009](P-009-denial-normalization.md), [P-010](P-010-responder-pipeline.md), [P-011](P-011-receipts-audit.md), [P-012](P-012-requester-runtime.md), [P-013](P-013-https-binding.md), [P-014](P-014-identity-pairing.md), [P-015](P-015-escalation-lifecycle.md) — everything |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-010](P-010-responder-pipeline.md), [P-011](P-011-receipts-audit.md), [P-017](P-017-mcp-binding.md) — **P-008, P-012, P-013, P-014 and P-015 are deferred and no longer dependencies** |
 | Blocks | nothing |
 
 
@@ -28,6 +28,13 @@
 > **The clearest cost of the whole reduction is here**: with measurement cut,
 > nothing in this project can make an empirical claim in a future paper draft.
 > Recorded rather than left to be noticed.
+>
+> **Everything below this note predates the reduction and has not been rewritten.**
+> It describes budget exhaustion, escalation, the two-machine HTTPS walkthrough,
+> a ten-attack suite, and a coverage matrix over thirteen attempted claims — all
+> of which are deferred or cut. **Decompose from the issue list, not from the
+> body**, until this PRD is rewritten. The surviving issues are 1, 2, 3, 10, 12,
+> 14 and the new 16.
 
 ---
 
