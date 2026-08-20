@@ -428,11 +428,9 @@ for that reason.
 |---|---|
 | The suite described as a security evaluation, audit, or evidence of absence | Review of every artifact; grep will not catch the paraphrases |
 | Reproduction described as independent review | Same — the gate's wording is the risk |
-| Attack 10 reported as a pass, or omitted | Suite reports nine attacks, or ten passes |
-| Timing published for the padded configuration only | The default configuration's numbers absent |
-| Any measurement reported as fewer than three numbers | A single "bytes" figure appears anywhere |
-| Model-context bytes cited as evidence of evidence segregation | Q2D-C-12 referenced in a measurement context |
-| Capacity debit presented as a severity measure | "Only one bit" framing anywhere — Q2D-NC-07 |
+| ~~Attack 10 reported as a pass, or omitted~~ · ~~Timing published for the padded configuration only~~ · ~~Any measurement reported as fewer than three numbers~~ · ~~Model-context bytes cited as evidence of evidence segregation~~ | **All struck 2026-08-19** with the measurement work and attacks 9–10. Each row forbade a way of *reporting* a measurement, and this release produces none |
+| **The injection demo's plain-MCP side rigged to fail** | The comparison uses anything other than an ordinary tool returning an ordinary record — the fastest way to lose a reader who builds MCP servers |
+| Capacity debit presented as a severity measure | "Only one bit" framing anywhere — Q2D-NC-07. **Kept**: the framing is available to anyone reading the registry's capacity values, which the manifest still carries, and Q2D-NC-07 binds regardless of whether a debit is enforced |
 | ~~The coverage matrix omitting claims with no passing test~~ | **Struck 2026-08-19** — `--matrix` is cut. `harness coverage` already lists every claim in `claims.md`, and the honesty property it protected now lives there |
 | Any artifact describing Phase 1 or MVP as complete in `claims.md`'s terms | Grep plus review |
 | A conformance class claimed whose checks do not all pass | The honesty rule |

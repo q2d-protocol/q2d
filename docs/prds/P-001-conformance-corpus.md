@@ -531,7 +531,10 @@ never claimed.
    byte-identical `wire` object, while distinct `internal_reason` values exist
    behind it. This is the check `registry/validate.py` already performs over
    registry vectors, generalized.
-2. **Budget accumulation is order-independent.** A debit sequence and its
+2. ~~**Budget accumulation is order-independent.**~~ **Inert since 2026-08-19** —
+   the assertion is built and correct, and the `budget/` section it runs over is
+   deferred with Q2D-C-09, so it reports zero groups across zero vectors. ~~A
+   debit sequence and its
    permutations reach the same total.
 3. **Ordering monotonicity.** No vector rejecting at step *n* has a sibling that
    reaches a later step on strictly less valid input.

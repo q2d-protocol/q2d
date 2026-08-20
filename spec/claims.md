@@ -77,6 +77,13 @@ responder rejects unknown predicate versions and registry digests.
 **Enforced by.** Registry pinning; signature over the manifest; fail-closed on
 unknown version or digest; narrowing composition computed responder-side.
 
+**The capacity-debit clause above is not exercised in this release.** Q2D-C-09 is
+*not attempted*, so nothing computes a debit — but the sentence stays true as a
+statement about provenance: capacity is a registry entry field
+([`terminology.md`](terminology.md) §3), the manifest still carries it, and no
+requester-asserted value is read anywhere. Same treatment as Q2D-C-08's two
+unreachable causes: kept, unexercised, and binding the moment a budget exists.
+
 `answer_contract.coarsening` (`core-model.md` §2.5) is not an exception to this.
 The requester declares a mapping; the responder **validates** it against the
 registered domain under §3.2 and computes the effective domain itself. A

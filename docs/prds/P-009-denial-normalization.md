@@ -360,7 +360,7 @@ comparison as uniformity.
 | A new `InternalReason` defaulting to a tier | Compile failure absent; a default branch exists |
 | Retry metadata appearing | `denial/no-retry/` fails |
 | A **quota** rejection distinguishable from any other cause in its class | `denial/uniformity/` fails once the rate-limit cause is in its input set |
-| **An opaque escalation's receipt carrying `decision_class: escalate`** | `denial/receipt-uniformity/` fails; the response bodies still match, which is why the receipt needs its own vector |
+| ~~**An opaque escalation's receipt carrying `decision_class: escalate`**~~ | **Struck 2026-08-19** with the escalation lifecycle. **Worth re-reading when [P-015](P-015-escalation-lifecycle.md) is picked up**: the trap it names is that the response bodies still match, so response-body uniformity passes while the exchange is fully distinguishable through the receipt. ~~`denial/receipt-uniformity/` fails; the response bodies still match, which is why the receipt needs its own vector |
 | A claim of timing normalization | Grep for the phrase in docs and comments |
 
 Row 4 is the one this module exists for, and it is enforced by a signature rather
