@@ -176,13 +176,20 @@ someone following the MCP style guide.
 [`core-model.md`](../../spec/core-model.md) §7 identifies an exchange by signed
 `query_id` and `nonce`. A transport-level idempotency key would be a **second,
 unsigned** identifier for one exchange, and two identities is how a retry becomes
-a distinct request — a second debit, and an outcome that can differ from the
-first.
+a distinct request — a second evaluation, a second quota tick, and an outcome
+that can differ from the first.
 
 **MCP makes this trap easier to fall into**, which is why it gets its own
 section: `2026-07-28`'s multi-round-trip pattern *requires* a different JSON-RPC
 request id on a retry, so the transport actively encourages treating each
 attempt as new. The binding must not.
+
+**The observable is a quota tick and a re-evaluation, not a second debit.** The
+disclosure-capacity budget is deferred, so "two debits" is not something this
+release can watch for. What it can watch is that the second request returns
+[P-004](P-004-replay-idempotency.md)'s **stored response bytes verbatim** rather
+than reaching evaluation — which is the property Q2D-C-07 actually claims, and
+which was always the stronger observable of the two.
 
 ## 5. Interfaces
 
@@ -279,7 +286,7 @@ rests on filesystem permissions.**
 | A contract supplied as a tool argument | Ignored; the request fails closed as though none was supplied |
 | A refusal carrying a cause | A `binding/errors/` vector comparing two causes finds differing bytes |
 | Retry guidance in a tool error | Same |
-| A transport idempotency key honoured | Two requests with one signed `query_id` and differing transport ids produce two debits |
+| A transport idempotency key honoured | Two requests with one signed `query_id` and differing transport ids produce **two quota ticks and two evaluations**, rather than the second returning the stored response bytes verbatim |
 | `tools/list` naming the registry or its digest | A `binding/tools/` vector finds the field |
 | An out-of-domain value reaching `structuredContent` | Step 17 did not run, or ran after serialization |
 | A tool defined for a predicate with no implementation | Startup succeeded when §4.6 row 3 says it must not |

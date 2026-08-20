@@ -321,12 +321,12 @@ error, because the caller acts on it.
 | 2 | `build_receipt` from `ExchangeFacts` | `receipt/fields/` passes; open question 2 resolved |
 | 3 | `response_digest` definition and computation | `receipt/digests/` passes; computable pre-receipt |
 | 4 | `build_deny_receipt`, serving deny and both escalation modes | Five fields; constant length; feeds P-009 uniformity. One builder, with `decision_class` supplied by the caller — an opaque escalation must not be able to reach the `escalate` value, so the caller is [P-015](P-015-escalation-lifecycle.md)'s visibility verdict, never the internal reason |
-| 4a | `receipt/escalate/` uniformity pair | Explicit carries `escalate`; opaque is byte-identical to a Tier C denial |
+| ~~4a~~ | ~~`receipt/escalate/` uniformity pair~~ | **Cut 2026-08-19** — tests the explicit/opaque split, deferred with [P-015](P-015-escalation-lifecycle.md). ~~Explicit carries `escalate`; opaque is byte-identical to a Tier C denial |
 | 5 | `AuditEvent` type and the §4.3 delta | `receipt/audit/` passes; no answer plaintext |
-| 6 | Audit store: append-only, encrypted at rest | Encryption verified; append-only enforced |
-| 7 | Retention and deletion | Deletion observable; startup fails with no retention configured |
+| 6 | **Local append-only audit store** — *plain; encryption at rest deferred* | **Append-only enforced and observable.** Cut 2026-08-19 and **restored 2026-08-20**: `claims.md` Q2D-C-10 holds when the responder *retains detailed audit locally*, so a store is what the claim rests on. **Append-only is the load-bearing half** — an audit that can be rewritten attests to nothing. Encryption at rest is deferred as hardening, and restoring it is the first thing before any real deployment. ~~Encryption verified; append-only enforced |
+| ~~7~~ | ~~Retention and deletion~~ | **Deferred 2026-08-19** — enterprise hardening rather than a property Q2D-C-10 rests on. **§4.7's argument stands and is why this is deferred rather than dropped**: an audit store with no expiry is an ever-growing record of who asked what about whom, and `claims.md` says receipts and logs may themselves be personal data. Synthetic fixtures do not have that problem; a deployment does, immediately. ~~Deletion observable; startup fails with no retention configured |
 | 8 | `verify_receipt` including the skipped-check report | `receipt/verify/` passes both with and without a response |
-| 9 | Author `receipt/` corpus section | Five groups; `harness lint` clean |
+| 9 | Author `receipt/` corpus section | **Four** groups; `harness lint` clean. `receipt/escalate/` goes with issue 4a |
 | 10 | Claim-language audit across artifacts | No text describes a receipt as proof of truth or of disclosure |
 
 Issue 1 blocks 2 and 4. Issue 3 blocks 2 — the digest definition must settle

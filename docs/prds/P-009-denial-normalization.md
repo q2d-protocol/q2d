@@ -370,13 +370,13 @@ one that should have been Tier C becomes silently distinct.
 | 2 | `classify`, total, no default branch | Adding a reason without a tier fails to compile |
 | 3 | `external_class` and the class vocabulary | Matches `registry/manifest.json`'s `denial_normalization` |
 | 4 | `build_denial` with the constrained signature | No path from `Decision` to a response |
-| 5 | Tier B uniformity | `denial/uniformity-b/` passes under the cross-vector check |
-| 6 | Tier C uniformity | `denial/uniformity-c/` passes; length constant |
-| 7 | `escalation_visible` gate | `denial/escalation/` passes; opaque by default |
-| 8 | Timing padding hook, default off | Configurable; off by default; measured in Stage 8 |
+| ~~5~~ | ~~Tier B uniformity~~ | **Cut 2026-08-19.** Folded into issue 6 — one uniformity assertion, not one per tier |
+| 6 | **Uniformity within a normalized class**, asserted **across causes** | `denial/uniformity/` passes under the cross-vector check; length constant. **Repurposed 2026-08-19** from *Tier C uniformity*: one assertion covering every cause inside a class, rather than one per tier. **This is now the only demonstration Q2D-C-08 has.** Tier A's informative values stay distinct — `core-model.md` §5.2.1 |
+| ~~7~~ | ~~`escalation_visible` gate~~ | **Cut 2026-08-19** — separates explicit from opaque escalation, and the lifecycle is deferred with [P-015](P-015-escalation-lifecycle.md) |
+| ~~8~~ | ~~Timing padding hook, default off~~ | **Cut 2026-08-19** — shipped default-off and its only consumer was the measurement work, also cut. Q2D-NC-05's concession that timing channels remain is now the whole of what is said |
 | 8a | Rate-limit rejection wired in as a Tier C `InternalReason` | Present in `classify`; `denial/uniformity-c/` includes it; no header, field, or retry value distinguishes it |
-| 8b | Receipt uniformity across Tier C, and the explicit/opaque receipt split | `denial/receipt-uniformity/` passes |
-| 9 | Author `denial/` corpus section | Seven groups; `harness lint` clean |
+| ~~8b~~ | ~~Receipt uniformity across Tier C, and the explicit/opaque receipt split~~ | **Cut 2026-08-19** — the split is the escalation lifecycle's. Receipt uniformity across refusal causes rides in issue 6. ~~`denial/receipt-uniformity/` passes |
+| 9 | Author `denial/` corpus section | **Five** groups; `harness lint` clean. `uniformity-b/`, `escalation/` and `receipt-uniformity/` go with the cut issues |
 | 10 | Documentation audit for timing claims | No artifact describes MVP as timing-normalized |
 
 Issue 1 blocks 2 and 3. Issues 5, 6, and 8b are the ones that matter — they are

@@ -33,8 +33,8 @@
 > It describes budget exhaustion, escalation, the two-machine HTTPS walkthrough,
 > a ten-attack suite, and a coverage matrix over thirteen attempted claims — all
 > of which are deferred or cut. **Decompose from the issue list, not from the
-> body**, until this PRD is rewritten. The surviving issues are 1, 2, 3, 10, 12,
-> 14 and the new 16.
+> body**, until this PRD is rewritten. The issue table below is current: cut rows
+> are struck with their reason, and **issue 16 is the injection demo**.
 
 ---
 
@@ -134,15 +134,15 @@ makes the suite a test rather than a demo.
 | # | Attack | Breaks | Defended by |
 |---|---|---|---|
 | 1 | Answer-domain understatement | Q2D-C-02 | [P-006](P-006-request-validation.md) §4.5 |
-| 2 | Capacity-debit forgery | Q2D-C-09 | [P-008](P-008-capacity-accounting.md) §5 — `capacity_for` cannot see the request |
+| ~~2~~ | ~~Capacity-debit forgery~~ | ~~Q2D-C-09~~ — **cut with the budget** | ~~[P-008](P-008-capacity-accounting.md) §5 — `capacity_for` cannot see the request |
 | 3 | Suite downgrade | Q2D-C-05, C-06 | [P-003](P-003-crypto-suites.md) §4.2 |
 | 4 | Replay | Q2D-C-07 | [P-004](P-004-replay-idempotency.md) §4.2 |
-| 5 | Duplicate debit | Q2D-C-09 | [P-004](P-004-replay-idempotency.md) §4.6 |
+| 5 | Duplicate **quota tick** | Q2D-C-07 | [P-004](P-004-replay-idempotency.md) §4.6 — retargeted 2026-08-19 from a duplicate *debit*, which needed the budget |
 | 6 | Purpose substitution | Q2D-C-05 | [P-002](P-002-message-envelope.md) §4.4 — signature coverage |
 | 7 | Sink substitution | Q2D-C-05 | Same |
 | 8 | Registry-digest substitution | Q2D-C-02 | [P-005](P-005-registry-client.md) §4.5 |
-| 9 | Adaptive probing to reconstruct a constraint set | Q2D-C-09 | [P-008](P-008-capacity-accounting.md) §4.3 keying; [`core-model.md`](../../spec/core-model.md) §2.5 |
-| 10 | Timing analysis of denial paths | Q2D-C-08 — **and Q2D-NC-05 says it succeeds** | §4.5 |
+| ~~9~~ | ~~Adaptive probing to reconstruct a constraint set~~ | ~~Q2D-C-09~~ — **cut with the budget** | ~~[P-008](P-008-capacity-accounting.md) §4.3 keying; [`core-model.md`](../../spec/core-model.md) §2.5 |
+| ~~10~~ | ~~Timing analysis of denial paths~~ | ~~Q2D-C-08~~ — **cut**; Q2D-NC-05 already concedes it succeeds | ~~§4.5 |
 
 **Attack 10 is not expected to fail, and the suite must not be built as though
 it were.** Q2D-NC-05 states plainly that timing channels remain, and
@@ -447,18 +447,19 @@ nothing is reviewed against a claim.
 | 1 | Synthetic fixtures, obviously fictional | Fixture files reviewed; no plausible real profile |
 | 2 | `demo run` and `demo run --swap` | Byte-identical in both; both directions complete |
 | 3 | Attacks 1–8 as runnable scripts | Each reports actual against expected; each cites its claim |
-| 4 | Attack 9, adaptive probing | Stopping condition defined (open question 3); reconstruction reported as a fraction |
-| 5 | Attack 10, timing analysis | Reported as *succeeds*; feeds issue 7 |
-| 6 | `measure bytes` | Three numbers; no path emits fewer |
-| 7 | `measure timing`, both configurations | Method, sample size, hardware, variance published; default configuration first |
-| 8 | `harness coverage --matrix` | Thirteen rows; three marked as having no passing test |
-| 9 | `repro` entry point | Regenerates and diffs clean; mirrors `paper/`'s discipline |
+| ~~4~~ | ~~Attack 9, adaptive probing~~ | **Cut 2026-08-19** — attacked the deferred capacity budget. Against a request quota the attack is uninteresting: the quota is the bound and it claims to measure nothing. ~~Stopping condition defined (open question 3); reconstruction reported as a fraction |
+| ~~5~~ | ~~Attack 10, timing analysis~~ | **Cut 2026-08-19** — probes a channel Q2D-NC-05 already concedes succeeds, and its consumer (issue 7) is cut |
+| ~~6~~ | ~~`measure bytes`~~ | **Cut 2026-08-19.** With this and issue 7 gone, **nothing in this project can make an empirical claim in a future paper draft** — the clearest cost of the reduction |
+| ~~7~~ | ~~`measure timing`, both configurations~~ | **Cut 2026-08-19**, with the padding hook it measured (P-009 issue 8). ~~Method, sample size, hardware, variance published; default configuration first |
+| ~~8~~ | ~~`harness coverage --matrix`~~ | **Cut 2026-08-19** — built for a thirteen-claim release. `harness coverage` already reports what eight attempted claims need |
+| ~~9~~ | ~~`repro` entry point~~ | **Cut 2026-08-19** — bundled the measurement and adversarial suite into a release gate. `demo run` and issue 16 carry reproducibility |
 | 10 | Quickstart | An outsider completes the walkthrough from it alone |
-| 11 | Deployment and operational-security document | Every §4.8 row traced to a PRD; non-protections stated |
+| ~~11~~ | ~~Deployment and operational-security document~~ | **Cut 2026-08-19** — for an operator running a daemon in production. Operational notes ride in [P-017](P-017-mcp-binding.md) issue 8. ~~Every §4.8 row traced to a PRD; non-protections stated |
 | 12 | Misconfiguration demonstration | Open question 6; an attack succeeds where a manual step was skipped |
-| 13 | New-attack template | Open question 5; a stranger adds an attack without reading this PRD |
+| ~~13~~ | ~~New-attack template~~ | **Cut 2026-08-19** — presumes a maintained suite with outside contributors; the attack set is fixed and small. ~~Open question 5; a stranger adds an attack without reading this PRD |
 | 14 | Claim-language audit across every published artifact | §9's prohibitions checked by review, not only grep |
-| 15 | Outsider runs the gate | Someone who did not write any of it reproduces the demo and the deterministic measurements |
+| **16** | **Side-by-side injection demo: plain MCP vs Q2D** | **New 2026-08-19, and now the point of this PRD.** `demo inject` shows the same data behind a plain MCP tool and behind Q2D: the injected payload reaches the caller through one and structurally cannot through the other. The plain-MCP side must be a **fair** implementation, not a straw man. It demonstrates the **response** channel only, and says so on screen. Depends on [P-001](P-001-conformance-corpus.md)'s `injection/` groups and [P-017](P-017-mcp-binding.md) |
+| ~~15~~ | ~~Outsider runs the gate~~ | **Cut 2026-08-19** — a release ritual for a claimed conformance surface. The equivalent is issue 10's quickstart working for someone who did not write it. ~~Someone who did not write any of it reproduces the demo and the deterministic measurements |
 
 Issue 15 is the stage gate and the MVP gate, and it is the only issue in this
 repository that cannot be completed by the people who wrote it. Issue 14 should
