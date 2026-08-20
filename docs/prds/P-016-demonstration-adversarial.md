@@ -369,15 +369,17 @@ vectors carry `requirement` entries naming the claim — which is what lets
 
 - [ ] `demo run` produces **byte-identical** output in both implementations, and
       `demo run --swap` completes in both directions.
-- [ ] All ten attacks run, and each reports its actual outcome against its
-      expected one; attack 10's expected outcome is *succeeds*.
-- [ ] `measure bytes` reports all three numbers separately, and no artifact
-      reports fewer than three.
-- [ ] `measure timing` publishes both padding configurations, with method,
-      sample size, hardware, and variance.
-- [ ] `harness coverage --matrix` lists all thirteen claims, marking Q2D-C-11,
-      C-12, and C-13 as having no passing test.
-- [ ] `repro` regenerates every deterministic artifact and diffs clean.
+- [ ] **`demo inject` shows the injected payload reaching the caller through a
+      plain MCP tool and structurally unable to reach it through Q2D**, over the
+      same fixture data. This is the demonstration.
+- [ ] Attacks **1–8** run, and each reports its actual outcome against its
+      expected one.
+- [ ] ~~All ten attacks run; attack 10's expected outcome is *succeeds*.~~
+      **Struck 2026-08-19** — attacks 9 and 10 are cut with the budget and the
+      timing work.
+- [ ] ~~`measure bytes`~~ · ~~`measure timing`~~ · ~~`harness coverage --matrix`~~
+      · ~~`repro`~~ — **all struck 2026-08-19**. With measurement cut, nothing in
+      this project can make an empirical claim in a future paper draft.
 - [ ] An outsider completes the [`mvp-scope.md`](../mvp-scope.md) §1 walkthrough
       and reproduces the deterministic measurements from published artifacts
       alone.
@@ -461,7 +463,11 @@ nothing is reviewed against a claim.
 | **16** | **Side-by-side injection demo: plain MCP vs Q2D** | **New 2026-08-19, and now the point of this PRD.** `demo inject` shows the same data behind a plain MCP tool and behind Q2D: the injected payload reaches the caller through one and structurally cannot through the other. The plain-MCP side must be a **fair** implementation, not a straw man. It demonstrates the **response** channel only, and says so on screen. Depends on [P-001](P-001-conformance-corpus.md)'s `injection/` groups and [P-017](P-017-mcp-binding.md) |
 | ~~15~~ | ~~Outsider runs the gate~~ | **Cut 2026-08-19** — a release ritual for a claimed conformance surface. The equivalent is issue 10's quickstart working for someone who did not write it. ~~Someone who did not write any of it reproduces the demo and the deterministic measurements |
 
-Issue 15 is the stage gate and the MVP gate, and it is the only issue in this
-repository that cannot be completed by the people who wrote it. Issue 14 should
-run immediately before it, because the artifacts an outsider reads first are the
-ones least reviewed against `spec/`.
+**Issue 15 was the stage gate and is cut** (2026-08-19), along with the
+release-ritual framing around it. **The gate is now issue 10's quickstart plus
+issue 16's injection demo**, completed by someone who did not write either —
+which keeps the part that mattered, that it cannot be self-certified, without the
+apparatus of a claimed conformance surface.
+
+Issue 14 should still run immediately before whatever the gate is, because the
+artifacts an outsider reads first are the ones least reviewed against `spec/`.

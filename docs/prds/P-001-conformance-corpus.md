@@ -330,7 +330,7 @@ applies to the harness too.
 | `build_contract` | 5 | [P-012](P-012-requester-runtime.md) `requester/contract/` |
 | `project_outcome` | 5 | [P-012](P-012-requester-runtime.md) `requester/outcome/`, `requester/projection/` |
 | `retry_bytes` | 5 | [P-012](P-012-requester-runtime.md) `requester/retry/` |
-| `http_exchange` | 6 | [P-013](P-013-https-binding.md) `binding/`, open question 5 there |
+| `http_exchange` | 5 | [P-017](P-017-mcp-binding.md) `binding/` — **repointed 2026-08-19**. P-013 is deferred and P-017 reuses the name rather than naming one of its own, which is exactly what settling the vocabulary was for: the MCP binding moves opaque bytes over HTTP, and the harness never speaks MCP any more than it spoke Q2D |
 | `fingerprint` | 6 | [P-014](P-014-identity-pairing.md) `identity/fingerprint/` |
 | `resolve_identity`, `verify_delegation` | 6 | [P-014](P-014-identity-pairing.md) `identity/` |
 | `escalate_poll`, `approve` | 7 | [P-015](P-015-escalation-lifecycle.md) `escalation/` |

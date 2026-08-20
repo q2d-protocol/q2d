@@ -297,16 +297,19 @@ comparison as uniformity.
 
 ## 7. Acceptance
 
-- [ ] Every Tier C cause produces a **byte-identical** response in both
-      implementations, differing only in `request_digest` and `decided_at`.
-- [ ] Every Tier B cause likewise.
-- [ ] Response length is constant within a tier, across all causes.
+- [ ] Every cause **inside a normalized class** produces a **byte-identical**
+      response in both implementations, differing only in `request_digest` and
+      `decided_at`.
+- [ ] ~~Every Tier B cause likewise.~~ **Struck 2026-08-19** — folded into the
+      criterion above; one assertion, not one per tier.
+- [ ] Response length is constant within a class, across all causes.
 - [ ] `classify` is total; adding an `InternalReason` without a tier fails to
       compile.
-- [ ] Escalation is opaque unless the sensitivity class permits visibility.
-- [ ] **The receipt attached to a Tier C denial is byte-identical across causes**,
-      and an opaque escalation's receipt is indistinguishable from a plain
-      denial's.
+- [ ] ~~Escalation is opaque unless the sensitivity class permits visibility.~~
+      **Struck 2026-08-19** — the escalation lifecycle is deferred with
+      [P-015](P-015-escalation-lifecycle.md).
+- [ ] **The receipt attached to a refusal is byte-identical across causes.** The
+      escalation half of this criterion is struck with the lifecycle.
 - [ ] A rate-limit rejection is one Tier C cause among the others, with no
       distinguishing field, header, or timing treatment.
 - [ ] No denial carries retry metadata.
@@ -379,6 +382,7 @@ one that should have been Tier C becomes silently distinct.
 | 9 | Author `denial/` corpus section | **Five** groups; `harness lint` clean. `uniformity-b/`, `escalation/` and `receipt-uniformity/` go with the cut issues |
 | 10 | Documentation audit for timing claims | No artifact describes MVP as timing-normalized |
 
-Issue 1 blocks 2 and 3. Issues 5, 6, and 8b are the ones that matter — they are
-the only place Q2D-C-08 is actually demonstrated rather than asserted, and 8b
-covers the half of the response that is not the response body.
+Issue 1 blocks 2 and 3. **Issue 6 is the one that matters** — since the
+2026-08-19 reduction it is the *only* place Q2D-C-08 is demonstrated rather than
+asserted, because issues 5 and 8b are cut. That concentration is the reason issue
+6 is escalate-if-changed: weakening it means the claim is not shown at all.

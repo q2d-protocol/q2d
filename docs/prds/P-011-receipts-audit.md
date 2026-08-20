@@ -201,12 +201,18 @@ established.
 
 ### 4.7 Audit storage
 
-Append-only, encrypted at rest, with a configured retention period after which
-events are deleted rather than archived.
+**Append-only** — and, before any real deployment, encrypted at rest with a
+configured retention period after which events are deleted rather than archived.
 
-Retention is a **deployment** decision this module does not choose, but the
-mechanism is mandatory: an audit store with no expiry is an ever-growing record
-of who asked what about whom. [`claims.md`](../../spec/claims.md) is explicit
+**Append-only is the part [`claims.md`](../../spec/claims.md) Q2D-C-10 rests on**,
+because an audit that can be rewritten attests to nothing. **Encryption and
+retention are deferred as hardening** by the 2026-08-19 reduction — see the note
+at the top of this PRD — and the paragraph below is why they are deferred rather
+than dropped.
+
+Retention is a **deployment** decision this module does not choose, and the
+mechanism is mandatory the moment there is a deployment: an audit store with no
+expiry is an ever-growing record of who asked what about whom. [`claims.md`](../../spec/claims.md) is explicit
 that receipts, logs, identifiers, and policy history may themselves be personal
 data.
 
@@ -264,9 +270,14 @@ less.
       length across causes.
 - [ ] An explicit `escalate` carries a receipt; **no outcome is returned without
       one**.
-- [ ] An opaque escalation's receipt is byte-identical to a plain Tier C denial's,
-      asserted across the two together rather than per case.
-- [ ] Audit events are deleted at retention expiry, observably.
+- [ ] ~~An opaque escalation's receipt is byte-identical to a plain Tier C
+      denial's~~ — **struck 2026-08-19**, deferred with
+      [P-015](P-015-escalation-lifecycle.md).
+- [ ] The audit store is **append-only**, and a test shows an event cannot be
+      amended or removed.
+- [ ] ~~Audit events are deleted at retention expiry, observably.~~ **Struck
+      2026-08-19** — retention is deferred hardening. Restore before any real
+      deployment.
 
 ## 8. Negative acceptance
 

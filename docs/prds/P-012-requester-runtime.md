@@ -512,20 +512,26 @@ channels.
 | # | Issue | Done when |
 |---|---|---|
 | 1 | ~~Escalate open question 1~~ — **done** | Resolved; `mvp-scope.md` §4 Stage 5 amended to claim Q2D-C-01 only; §4.8 cites the outcome |
-| 2 | `IssuedQuery` and the stored-bytes model | No path produces a second signature for one query |
+| ~~2~~ | ~~`IssuedQuery` and the stored-bytes model~~ — **deferred 2026-08-19** with the contained runtime. The test client holds bytes in a local variable; the no-reissue discipline the stored-bytes model enforced is issue 11's, also deferred |
 | 3 | `build_contract` over a resolved entry, with the local narrowing check | `requester/contract/` passes; comments describe it as convenience |
 | 4 | `build_query` with injected nonce and clock | Two runs of a vector are identical; no ambient call exists |
 | 5 | `issue` over [P-003](P-003-crypto-suites.md)'s `sign` | `requester/sign/` byte-matches across implementations |
 | 6 | `verify_response`, steps 1–7 of §4.3 | `requester/verify/`, `requester/receipt/`, `requester/profile/` pass; **the order matches [`core-model.md`](../../spec/core-model.md) §4.1**, asserted by an ordering vector rather than by review |
-| 7 | The §4.5 directional conformance check | Finer-than-requested rejects; coarser passes; both implementations agree |
-| 8 | `Outcome`, `Answer`, and the no-accessor property | No accessor exists in either language; recorded in `CONVENTIONS-{rust,go}.md` |
-| 9 | `project` and the caller-facing surface | `requester/outcome/` passes; nothing reaches a caller before §4.1 step 9 |
-| 10 | Receipt store with retention, response retention off by default | Startup fails with no retention configured; skipped-check report surfaces |
-| 11 | `retry_bytes` and the no-reissue rule | `requester/retry/` passes; responder budget unchanged across a retry |
-| 12 | Author `requester/` corpus section | Seven groups; `harness lint` clean |
-| 13 | Cross-implementation exchange | Rust requester ↔ Go custodian and the reverse, under `harness cross` |
-| 14 | Claim-language audit | No artifact claims containment, sink enforcement, or Q2D-C-12 |
+| ~~7~~ | ~~The §4.5 directional conformance check~~ — **deferred 2026-08-19** with the contained runtime |
+| ~~8~~ | ~~`Outcome`, `Answer`, and the no-accessor property~~ — **deferred 2026-08-19** with the contained runtime |
+| ~~9~~ | ~~`project` and the caller-facing surface~~ — **deferred 2026-08-19** with the contained runtime |
+| ~~10~~ | ~~Receipt store with retention, response retention off by default~~ — **deferred 2026-08-19** with the contained runtime |
+| ~~11~~ | ~~`retry_bytes` and the no-reissue rule~~ — **deferred 2026-08-19** with the contained runtime |
+| ~~12~~ | ~~Author `requester/` corpus section~~ — **deferred 2026-08-19** with the contained runtime |
+| ~~13~~ | ~~Cross-implementation exchange~~ — **deferred 2026-08-19** with the contained runtime |
+| ~~14~~ | ~~Claim-language audit~~ — **deferred 2026-08-19** with the contained runtime |
 
-Issue 2 blocks 5 and 11. Issue 13 is the first time
-[`mvp-scope.md`](../mvp-scope.md) §1 item 7 is testable, and it is the reason
-this stage exists.
+**Only issues 3, 4, 5 and 6 survive the 2026-08-19 reduction** (issue 1 was already done), as the test
+client Q2D-C-01 needs: build a contract, build a query, sign it, verify the
+response. Everything else is deferred with the contained runtime.
+
+Issue 13 was the first time [`mvp-scope.md`](../mvp-scope.md) §1 item 7 became
+testable, and it is deferred with the rest — **cross-implementation agreement is
+still asserted**, by `harness cross` over the corpus and by
+[P-001](P-001-conformance-corpus.md) issue 19, both of which survive and matter
+more now that further implementations are planned.
