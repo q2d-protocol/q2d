@@ -2,17 +2,19 @@
 
 ## What this project currently is
 
-Q2D is a **pre-release protocol specification**. There is no reference
-implementation, no conformance suite, and no deployed system. The published
-artifact is a technical report and a specification spine.
+Q2D is a **pre-release protocol specification**. The published artifact is a
+technical report and a specification spine. Two implementations are underway —
+Rust and Go — carrying the message layer and cryptographic suites; there is no
+complete responder, no binding, and no deployed system.
 
 That shapes what a security report means here. The most valuable findings are
-not memory-safety bugs or injection flaws — there is no code to have them. They
-are **defects in the design**: a claim that does not hold, an attack the threat
+**defects in the design**: a claim that does not hold, an attack the threat
 model misses, or a gap between what a mechanism does and what the specification
-says it achieves.
+says it achieves. A defect in what exists is in scope and welcome — but a design
+defect invalidates every implementation at once, which is why it ranks first
+while the specification is still being fixed.
 
-This policy will be revised when the reference implementation exists.
+This policy will be revised when the responder pipeline and a binding exist.
 
 ## What we consider a security issue
 

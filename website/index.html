@@ -464,8 +464,9 @@
     </div>
     <div>
       <h2>What it does not claim</h2>
-      <p>Q2D does not make a released answer retractable. It does not prove the truth of self-asserted inputs. It does not prevent all inference from repeated answers — disclosure accounting bounds the channel, not the adversary's posterior. It does not independently establish legal compliance.</p>
-      <p>Bindings for MCP and A2A are planned, as is an optional contained-runtime profile that keeps verification evidence out of model context and mediates where an answer may flow next. <strong>Neither has shipped.</strong></p>
+      <p><strong>A bounded answer domain does not prevent prompt injection.</strong> It closes the <em>response</em> channel — an injected payload in the custodian's data has no field to occupy in a boolean or a small enum — and leaves the tool-description channel untouched. And Q2D does not constrain a hostile custodian: the bound is enforced <em>by</em> the custodian, so one that declines to run the check is not conforming and is not detectable by this protocol. Q2D is a way for a participating custodian to show its working, not a way to bind a dishonest one.</p>
+      <p>Q2D does not make a released answer retractable. It does not prove the truth of self-asserted inputs. It does not prevent all inference from repeated answers. It does not independently establish legal compliance. And a bounded answer is not a harmless one — one value can carry the consequential fact.</p>
+      <p><strong>MCP is the reference binding, and it is not built yet.</strong> The contained-runtime profile — which would keep verification evidence out of model context and mediate where an answer may flow next — is deferred. Until it exists, a deployment may claim <em>bounded authenticated answer from a participating custodian</em>, and may not claim <em>answer-derived flow restricted to permitted sinks</em>.</p>
     </div>
   </section>
  
