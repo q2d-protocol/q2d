@@ -4,8 +4,10 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21777305.svg)](https://doi.org/10.5281/zenodo.21777305)
 
-> ⚠️ **Pre-release.** The technical report is published; the specification spine
-> is in progress and the reference implementation is not written. Nothing is
+> ⚠️ **Pre-release.** The technical report is published and the specification
+> spine exists. Two implementations are underway — Rust and Go — carrying the
+> message layer and cryptographic suites, with the registry client in progress.
+> The policy engine, responder pipeline and MCP binding are not built. Nothing is
 > installable or usable yet — the packages reserve the name.
 
 ## Technical report
@@ -71,5 +73,5 @@ own — this covenant is what closes that gap for the specification prose.
 See [`SECURITY.md`](SECURITY.md). At this stage the most valuable reports are
 **design** defects — a claim in [`spec/claims.md`](spec/claims.md) that does not
 hold under its own stated assumptions, an attack the threat model misses, or
-language that overstates what a mechanism delivers. There is no code to have a
-memory-safety bug; there are claims to be wrong.
+language that overstates what a mechanism delivers. A design defect invalidates
+every implementation at once; a bug in one of them invalidates one.
