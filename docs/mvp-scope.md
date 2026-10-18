@@ -125,7 +125,7 @@ hardened for adoption. Each says what would bring it back.
 | **Encrypted-at-rest audit storage, and retention/deletion machinery** | Enterprise infrastructure. **A minimal local audit store is *not* cut** — see below | — |
 | **Denial tier taxonomy** | Shrunk to *one refusal shape per normalized class, no cause-specific text within it* — Tier A's informative values stay distinct — the part that is true, testable and cheap. `terminology.md` §9 already forbade claiming more | — |
 | **Disclosure and timing measurement** | Removes the ability to make an empirical claim in a future draft, which is the clearest cost of the reduction | — |
-| **Policy-side coarsening modifiers** | Existed largely to keep capacity computable under policy narrowing. Six escalations (E-25 … E-30) were about making coarsening well-defined; they park with the budget | — |
+| **Policy-side coarsening modifiers** | Existed largely to keep capacity computable under policy narrowing. Six escalations (E-25 … E-30) made coarsening well-defined. They stay **closed** and `spec/` carries each answer — what is deferred is the machinery, not the decisions, and E-28's answer is step 17's `output_schema` check | — |
 | A2A binding | MCP is the reference binding | CC-9 |
 | Credential, verifiable-computation, attested-use profiles | Deferred by scope; each needs separate cryptographic review | CC-5/6/7 |
 | Store-and-forward relay, HPKE payload protection | Needs the relay profile, which 0.1 does not specify | — |
@@ -271,8 +271,8 @@ refused before any private access.
 ### Stage 3 — Policy engine, quota, refusal shape
 
 - Policy input/output contract; `allow` / `deny`. **No coarsening modifiers** —
-  they existed largely to keep the deferred capacity budget computable, and the
-  six escalations that defined them (E-25 … E-30) park with it.
+  they existed largely to keep the deferred capacity budget computable. E-25 …
+  E-30, which made coarsening well-defined, stay closed (§2).
 - Fail-closed invariants as **property tests**, not examples: unknown scope,
   missing mandatory authority, conflicting authorities, unresolvable context.
 - Restrictive composition across multiple authorities.
@@ -282,7 +282,7 @@ refused before any private access.
   that skipped unresolved predicates would leave unknown ones unlimited and
   become an existence oracle. **Required configuration with no default**; the
   server refuses to start without it, and a quota rejection is normalized like
-  any other cause.
+  any other cause. [P-007](prds/P-007-policy-engine.md) issue 11 builds it.
 - **One refusal shape *within a configured sensitivity class***, which is what
   [`claims.md`](../spec/claims.md) Q2D-C-08 has always claimed: no cause-specific
   text, no retry guidance, no size that varies with cause. **Tier A's informative
@@ -464,7 +464,10 @@ divergence it catches is a specification ambiguity found before an outsider find
 it.
 
 **The count is going up, and that raises the corpus from a formality to the
-load-bearing artifact.** Rust and Go exist and agree through Stage 1; a thin
+load-bearing artifact.** Rust and Go both carry Stage 1's library code, held
+together so far by shared fixtures and mirrored tests rather than by the corpus,
+which neither runner answers until [P-003](prds/P-003-crypto-suites.md) issue 14
+lands — so Stage 1's gate is not yet met. A thin
 Python wrapper is planned so the library is importable in the ecosystem that
 would use it, and full Python and TypeScript implementations after that. With
 four, every specification ambiguity costs four fixes rather than two, and nothing

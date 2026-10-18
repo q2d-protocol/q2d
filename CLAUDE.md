@@ -39,9 +39,12 @@ When two of these conflict, the earlier one wins.
 2. **Spec fidelity.** The code implements the specification. Where they disagree,
    one of them is a bug and you must say which.
 3. **Cross-implementation agreement.** Every implementation must behave
-   identically. A divergence is a finding, not a variation. Rust and Go exist and
-   agree through Stage 1; a Python wrapper and full Python and TypeScript
-   implementations are planned, and **the count going up is what makes
+   identically. A divergence is a finding, not a variation. Rust and Go both
+   carry Stage 1's library code, held together so far by shared `testdata/`
+   fixtures and mirrored tests — **not yet by the corpus**, which neither runner
+   answers until [P-003](docs/prds/P-003-crypto-suites.md) issue 14 lands. A
+   Python wrapper and full Python and TypeScript implementations are planned,
+   and **the count going up is what makes
    [`conformance/`](conformance/) load-bearing rather than a formality** — with
    four, every specification ambiguity costs four fixes.
 4. **Security.** Ordering, fail-closed behaviour, absence of oracles.
@@ -121,20 +124,21 @@ that is expected to fail. That is a rule, not a description of today.
 
 It matters here because this project has a gate that is deliberately red:
 [`P-001`](docs/prds/P-001-conformance-corpus.md) §7 wants the harness to report
-fail for every vector until an implementation exists. **When you build
-`harness run` or `harness coverage`, do not add it to CI as a failing job.** A
-permanently red check trains everyone to ignore red, and the cost lands on the
-day it starts meaning something.
+fail for every vector until an implementation exists. **Never add a check to CI
+as a failing job.** A permanently red check trains everyone to ignore red, and
+the cost lands on the day it starts meaning something.
 
-Assert the expected state instead — "the harness reports fail-all", "coverage
-reports thirteen uncovered claims". Each is green while true and turns red when
-someone changes the thing without changing the expectation, which is the signal
-you wanted.
+Assert the expected state instead. Each assertion is green while true and turns
+red when someone changes the thing without changing the expectation, which is
+the signal you wanted. Two are in place:
 
-Neither mode exists yet, so neither assertion is in CI. The one that is:
-`conformance/tests/test_harness_cli.py` holds the unbuilt modes to exiting
-non-zero, and turns red the day one of them is built — which is when to add its
-assertion.
+- **`harness run` reports fail-all against both runners.** The step in
+  `checks.yml` named *The corpus fails against both runners, as it must today*.
+  It turns red the first time a runner passes a vector — which is the day to
+  narrow it to the sections not yet answerable, not to delete it.
+- **`harness coverage` cites exactly the claims it cites today.**
+  `COVERED_TODAY` in `conformance/tests/test_coverage.py` is that set, and the
+  only place that should state it.
 
 ### Three rounds on one passage means the model is wrong
 

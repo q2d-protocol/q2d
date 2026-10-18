@@ -288,10 +288,16 @@ discover the problem on a live request.
 | `policy/rules/` | A rule set overriding an invariant fails at load |
 | ~~`policy/grant/`~~ | **Deferred 2026-08-19** with the escalation lifecycle. ~~A matching grant is an input, not an outcome: a revoked authority still denies, an expired grant does not appear, and an already-consumed one does not appear |
 
+`quota/` — a section of its own rather than a `policy/` group, authored under
+issue 11. It is where [P-001](P-001-conformance-corpus.md) §5 sends the request
+quota's vectors now that `budget/` is deferred.
+
 ## 7. Acceptance
 
-- [ ] Both implementations return identical decisions for every `policy/` vector,
-      including identical modifier sets.
+- [ ] Both implementations return identical decisions for every `policy/` vector.
+      ~~Including identical modifier sets~~ — modifiers deferred 2026-08-19.
+- [ ] Both implementations pass `quota/`, and each refuses to start with no
+      quota configured (issue 11).
 - [ ] F1–F6 hold as **property tests** over generated inputs in both
       implementations, not as example tests.
 - [ ] Composition is order-independent — permuting authorities does not change
@@ -358,6 +364,7 @@ the value it would need.
 | ~~8~~ | ~~Modifier emission constrained to coarsening, and to shapes other than `enum`~~ — **deferred 2026-08-19** with the modifiers themselves | ~~Subset attempt errors as an implementation fault; so does an `enum` narrowing, per [`core-model.md`](../../spec/core-model.md) §3.2 |
 | 9 | Author `policy/` corpus section | **Five** groups; `harness lint` clean. `policy/modifiers/` and `policy/grant/` are deferred |
 | 10 | Resolve open questions 1 and 3 | Written into §4.4 and §5 before issues 4 and 5 |
+| 11 | **Request quota** at [`core-model.md`](../../spec/core-model.md) §4 step 9a, keyed as §9.1 states — *moved from [P-008](P-008-capacity-accounting.md) issue 5a, 2026-10-18* | Startup fails when unconfigured (§9.1 requirement 1); the check runs before registry resolution, so a request naming an unknown predicate counts identically to one naming a known predicate (§4); `quota/` shows a rejection byte-identical to the one an unknown predicate produces at step 10, with no retry metadata (§9.1 requirement 2); the limiter exposes no way to undo a tick, since it counts authenticated requests and not outcomes (§4) |
 
 Issue 1 blocks everything. Issue 3 is the largest — property generators for six
 invariant classes in two languages is most of this PRD's weight.
@@ -366,3 +373,12 @@ Issue 4a is small but easy to get wrong in a way nothing catches: the grant must
 be read here and consumed at release ([P-015](P-015-escalation-lifecycle.md)
 §4.4). A module that consumes what it reads spends a human's approval on an
 exchange that may still fail.
+
+**Issue 11 is not policy, and it is here anyway.** The quota runs at step 9a,
+long before step 14 and independent of everything else in this PRD. It moved
+from [P-008](P-008-capacity-accounting.md) issue 5a because a deferred PRD
+cannot own work this release builds — the review of 2026-10-18 found it had no
+active owner — and [`mvp-scope.md`](../mvp-scope.md) Stage 3 is the stage that
+lists it. Wiring it into the order is [P-010](P-010-responder-pipeline.md)
+issue 2's; making its rejection one cause among the others in its class is
+[P-009](P-009-denial-normalization.md) issue 8a's.

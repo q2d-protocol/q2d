@@ -8,7 +8,7 @@
 | Size | M |
 | Risk | medium |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-007](P-007-policy-engine.md) |
-| Blocks | P-010, P-016 — ~~P-013, P-014, P-015~~ **deferred 2026-08-19** |
+| Blocks | P-010, P-016, P-017 — ~~P-013, P-014, P-015~~ **deferred 2026-08-19** |
 | Pairs with | [P-007](P-007-policy-engine.md) — P-007 separates the audit reason from the external class; this PRD is what stops the reason reaching the wire |
 
 

@@ -4,11 +4,11 @@
 |---|---|
 | PRD | P-005 |
 | Stage | 2 |
-| Status | **Ready for decomposition** |
+| Status | **In progress** |
 | Size | M |
 | Risk | **high** — a registry compromise defines what "bounded" means |
 | Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md) |
-| Blocks | P-006, P-007, P-010, P-011, P-016 — ~~P-008, P-012~~ **deferred 2026-08-19** |
+| Blocks | P-006, P-007, P-010, P-011, P-016, P-017 — ~~P-008, P-012~~ **deferred 2026-08-19** |
 | Pairs with | [P-006](P-006-request-validation.md) — this PRD obtains a trusted entry; P-006 validates a request against it |
 
 

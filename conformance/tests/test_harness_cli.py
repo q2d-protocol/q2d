@@ -7,12 +7,11 @@ mode that is not built must therefore say so and exit non-zero -- one that
 printed nothing and returned 0 would be indistinguishable from a mode that ran
 and found nothing wrong, which is the more expensive of the two failures.
 
-These tests turn red the day someone builds one of those modes, which is the
-moment to decide how CI asserts its expected state. `.github/workflows/checks.yml`
-carries that rule for when it applies: assert fail-all, rather than run a check
-that is red by design until Stage 1 lands. Nothing asserts fail-all yet, because
-there is no `run` mode to assert it about -- this file is the placeholder that
-makes its absence visible.
+These tests turned red each time one of those modes was built, which was the
+moment to decide how CI asserts its expected state. Every mode now exists and
+`UNBUILT` is empty: `run`'s fail-all is asserted in
+`.github/workflows/checks.yml`, and `coverage`'s expected set in
+`test_coverage.py`.
 """
 
 from __future__ import annotations
