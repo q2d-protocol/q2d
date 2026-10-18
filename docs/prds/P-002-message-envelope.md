@@ -4,7 +4,7 @@
 |---|---|
 | PRD | P-002 |
 | Stage | 1 |
-| Status | **Ready for decomposition** |
+| Status | **In progress** |
 | Size | M |
 | Risk | medium |
 | Depends on | [P-001](P-001-conformance-corpus.md) — corpus format |
@@ -419,8 +419,10 @@ answerable from what is built. `sign_query` and `verify_query` are not: signing
 and verifying are [P-003](P-003-crypto-suites.md)'s, so twenty-two of the
 section's twenty-six vectors cannot be answered by anything P-002 delivers —
 seventeen `verify_query` and five `sign_query`. That is why no
-issue here owns wiring the runner — it is Stage 1 work spanning both PRDs, and
-[`mvp-scope.md`](../mvp-scope.md) Stage 1 is where the two meet.
+issue here owns wiring the runner — it is Stage 1 work spanning both PRDs.
+**[P-003](P-003-crypto-suites.md) issue 14 owns it**, `digest` included, since
+2026-10-18; until then this paragraph said the two PRDs met in
+[`mvp-scope.md`](../mvp-scope.md) Stage 1, which has no issues, so nothing did.
 
 Ticking these off the mirrored unit tests instead would say the corpus had been
 run when it has not, which is the overstatement this repository is most careful

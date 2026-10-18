@@ -7,7 +7,7 @@
 | Status | **Ready for decomposition** |
 | Size | L |
 | Risk | medium |
-| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md), [P-009](P-009-denial-normalization.md) — ** removed 2026-08-19**, deferred with Q2D-C-09 — ~~P-008~~ **deferred 2026-08-19** |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md), [P-009](P-009-denial-normalization.md) — every prior module except ~~P-008~~, **deferred 2026-08-19** with Q2D-C-09 |
 | Blocks | P-011, P-016, [P-017](P-017-mcp-binding.md) — ~~P-013, P-015~~ **deferred 2026-08-19** |
 
 

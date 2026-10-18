@@ -30,8 +30,8 @@
 //! waves through — `NaN`/`Infinity`, and duplicate object keys — are exactly
 //! what the contract names. Reaching for a crate would make that behaviour
 //! somebody else's default rather than this runner's decision, and the decision
-//! is the point. It is also why `CONVENTIONS-rust.md` does not exist yet:
-//! dependency policy is a Stage 1 question and nothing here needs it answered.
+//! is the point, and `CONVENTIONS-rust.md` §2 now draws the same line: JSON
+//! is on its hand-write side.
 
 use std::collections::BTreeSet;
 use std::fmt;

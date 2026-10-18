@@ -20,10 +20,12 @@ escalation lifecycle.
 [P-015](P-015-escalation-lifecycle.md)** — a sequence cannot carry an event
 between its requests, and an approval is one. It blocks four of P-015's eight
 `escalation/` groups, which are themselves deferred, so it blocks nothing
-startable. **[E-01](../open-escalations.md) and E-25 … E-30** park with
-[P-008](P-008-capacity-accounting.md): the enum-coarsening and capacity chain has
-no consumer while the budget is deferred. Parked means *undecided with no
-consumer*, not *closed*.
+startable. **[E-01](../open-escalations.md) and E-25 … E-30 are closed, not
+parked.** Each was decided and `spec/` carries the answer;
+[P-008](P-008-capacity-accounting.md)'s deferral stopped the budget and modifier
+machinery that consumed some of them, not the decisions. Some still bind this
+release — E-28's answer is §4 step 17's `output_schema` check. Parked means
+*undecided with no consumer*, and E-52 is the only escalation in that state.
 
 **This paragraph used to say "No escalation is open" while E-51 had been open for
 four PRDs' worth of work**, and it had accreted two different escalations each
@@ -34,11 +36,11 @@ for what is open; this file states the shape and links.
 
 | # | Title | Stage | Status |
 |---|---|---|---|
-| [P-001](P-001-conformance-corpus.md) | Conformance corpus format and harness contract | 0 | **Ready for decomposition** |
-| [P-002](P-002-message-envelope.md) | Message envelope and canonical structures | 1 | **Ready for decomposition** |
-| [P-003](P-003-crypto-suites.md) | Cryptographic suites, key handling, downgrade policy | 1 | **Ready for decomposition** |
-| [P-004](P-004-replay-idempotency.md) | Replay, expiry, idempotency | 1 | **Ready for decomposition** |
-| [P-005](P-005-registry-client.md) | Registry client: pinning, resolution, fail-closed | 2 | **Ready for decomposition** |
+| [P-001](P-001-conformance-corpus.md) | Conformance corpus format and harness contract | 0 | **In progress** |
+| [P-002](P-002-message-envelope.md) | Message envelope and canonical structures | 1 | **In progress** |
+| [P-003](P-003-crypto-suites.md) | Cryptographic suites, key handling, downgrade policy | 1 | **In progress** |
+| [P-004](P-004-replay-idempotency.md) | Replay, expiry, idempotency | 1 | **In progress** |
+| [P-005](P-005-registry-client.md) | Registry client: pinning, resolution, fail-closed | 2 | **In progress** |
 | [P-006](P-006-request-validation.md) | Request validation and effective answer domain | 2 | **Ready for decomposition** |
 | [P-007](P-007-policy-engine.md) | Policy engine contract and fail-closed invariants | 3 | **Ready for decomposition** — shrunk |
 | [P-008](P-008-capacity-accounting.md) | Disclosure-capacity accounting | — | **Deferred** — a request quota replaces it |

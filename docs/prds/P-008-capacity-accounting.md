@@ -35,13 +35,18 @@
 > difference a requester can measure and therefore the existence oracle the quota
 > exists to close.
 > E-01 had already established that a rate limit is the mechanism bounding probing;
-> this makes it the only one. Issue 5a survives as that quota.
+> this makes it the only one. Issue 5a survives as that quota, and is now
+> [P-007](P-007-policy-engine.md) issue 11: a deferred PRD cannot own work this
+> release builds.
 >
 > **What would bring it back:** a deployment that genuinely wants a subject-level
 > cap enforced in bits — a data-protection authority asking *how much did this
 > subject disclose this quarter, and cap it*. **[E-01](../open-escalations.md) and
-> [E-25 … E-30](../open-escalations.md) park here** rather than being closed:
-> nothing was decided, the questions simply have no consumer.
+> [E-25 … E-30](../open-escalations.md) stay closed.** Each was decided and
+> `spec/` carries the answer; what this deferral stops is machinery that consumed
+> some of them, not the decisions. An earlier version of this note said they
+> parked here undecided — wrong, and dangerous: E-28's answer is §4 step 17's
+> `output_schema` check, which this release depends on.
 >
 > Full reasoning: `private-docs/scope-reduction-proposal.md`. **Everything below
 > is preserved as written**, and describes the scope that was planned.
@@ -360,7 +365,7 @@ there is nothing for a requester-asserted debit to be read from.
 | 3 | `BudgetKey` derivation from decision context | Not derivable from requester-asserted fields |
 | 4 | Rolling-window `spent` | `budget/window/` passes; no calendar boundary |
 | 5 | `check` with reservation, and the exhaustion boundary | `budget/exhaustion/` and `budget/reserve/` pass |
-| 5a | **Rate limiter**, keyed on the **relationship component only** — never the full `BudgetKey` — checked at [`core-model.md`](../../spec/core-model.md) §4 step 9a; required configuration with no default | Startup fails when unconfigured; the limiter is reachable without registry resolution, so a request naming an unknown predicate counts identically to one naming a known predicate; `budget/ratelimit/` shows a rejection byte-identical to a Tier C denial, with no retry metadata and no distinguishing header |
+| ~~5a~~ | ~~**Rate limiter**, keyed on the **relationship component only** — never the full `BudgetKey` — checked at [`core-model.md`](../../spec/core-model.md) §4 step 9a; required configuration with no default~~ — **moved to [P-007](P-007-policy-engine.md) issue 11, 2026-10-18** | ~~Startup fails when unconfigured; the limiter is reachable without registry resolution, so a request naming an unknown predicate counts identically to one naming a known predicate; `budget/ratelimit/` shows a rejection byte-identical to a Tier C denial, with no retry metadata and no distinguishing header~~ |
 | 6 | `settle` / `release` wired into P-004's `record`, **inside a transaction with the cache entry** | `budget/idempotent/` passes. The wiring is the easy half: P-004 issue 5 built `record` as settle-then-write, and review there established that it cannot enclose the cache write on its own — so this issue also carries the transaction, over the single store open question 3 resolved to, opened where [P-010](P-010-responder-pipeline.md) §5 says. Until it lands, a crash between the two over-charges |
 | 7 | Reservation expiry | Unsettled reservation held **through** `expires_at + skew` and released after it — [`freshness.md`](../../spec/freshness.md) §1's inclusive boundary |
 | 8 | Accumulation order-independence | P-001 cross-vector permutation assertion passes |

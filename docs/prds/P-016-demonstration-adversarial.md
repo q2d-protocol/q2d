@@ -7,7 +7,7 @@
 | Status | **Shrunk 2026-08-19** — the body below predates the reduction; see the note |
 | Size | M |
 | Risk | low to build; **the publication surface is the project's largest overstatement risk** |
-| Depends on | [P-001](P-001-conformance-corpus.md), [P-010](P-010-responder-pipeline.md), [P-011](P-011-receipts-audit.md), [P-017](P-017-mcp-binding.md) — ** and are deferred and no longer dependencies** — ~~P-008, P-012, P-013, P-014, P-015~~ **deferred 2026-08-19** |
+| Depends on | [P-001](P-001-conformance-corpus.md), [P-002](P-002-message-envelope.md), [P-003](P-003-crypto-suites.md), [P-004](P-004-replay-idempotency.md), [P-005](P-005-registry-client.md), [P-006](P-006-request-validation.md), [P-007](P-007-policy-engine.md), [P-009](P-009-denial-normalization.md), [P-010](P-010-responder-pipeline.md), [P-011](P-011-receipts-audit.md), [P-017](P-017-mcp-binding.md) — every active PRD — ~~P-008, P-012, P-013, P-014, P-015~~ **deferred 2026-08-19** and no longer dependencies |
 | Blocks | nothing |
 
 
